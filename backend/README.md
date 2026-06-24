@@ -46,6 +46,20 @@ curl http://localhost:8099/health      # {"status":"ok",...}
 
 Ces valeurs sont centralisées dans `ApiConfig` (Android) et `ApiConfig` (iOS).
 
+## Tests d'intégration
+Runner natif Node (aucune dépendance). La stack doit tourner :
+```bash
+docker compose up -d
+cd api && npm test                       # cible http://localhost:8099 par défaut
+API_URL=http://autre-hote:8099 npm test  # cible personnalisée
+```
+Couvre les formes de réponse (contrat partagé Android/iOS) et la validation
+des entrées (HTTP 400). Source : `api/test/*.test.mjs`.
+
+## Configuration (.env)
+Identifiants DB et ports hôte sont lus depuis `backend/.env` (non versionné).
+Au premier clone : `cp .env.example .env` puis ajuster si besoin.
+
 ## Arrêter / réinitialiser
 ```bash
 docker compose down            # stoppe
