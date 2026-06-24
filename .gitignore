@@ -1,0 +1,32 @@
+# --- Backend (Node) ---
+backend/api/node_modules/
+backend/api/dist/
+*.log
+
+# --- Android ---
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android/.kotlin/
+android/captures/
+# Captures de dev à la racine android/ (la doc visuelle vit dans docs/assets/)
+android/_*.png
+android/screenshots_*.png
+*.apk
+*.aab
+
+# --- iOS / Xcode ---
+# Projet généré par XcodeGen (recréé via `xcodegen generate`)
+ios/MonProfPerso.xcodeproj/
+ios/MonProfPerso.xcworkspace/
+ios/DerivedData/
+ios/build/
+ios/screenshots/
+.DS_Store
+xcuserdata/
+
+# --- Divers ---
+_maquette/
+*.zip

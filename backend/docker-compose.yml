@@ -1,0 +1,57 @@
+# ======================================================================
+# Mon Prof Perso — stack backend partagée (Android + iOS consomment la même API)
+#
+# Ports hôte choisis pour éviter les collisions (5432/5433/6543/6379/8000…
+# déjà occupés sur cette machine) :
+#   - API       → http://localhost:8099
+#   - Postgres  → localhost:5544
+#   - Adminer   → http://localhost:8098   (UI d'admin DB, optionnel)
+# ======================================================================
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: monprofperso-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: monprofperso
+      POSTGRES_PASSWORD: monprofperso
+      POSTGRES_DB: monprofperso
+    ports:
+      - "5544:5432"          # hôte:conteneur — 5544 libre
+    volumes:
+      - monprofperso_pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U monprofperso -d monprofperso"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./api
+    container_name: monprofperso-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 8099
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: monprofperso
+      PGPASSWORD: monprofperso
+      PGDATABASE: monprofperso
+    ports:
+      - "8099:8099"          # http://localhost:8099
+
+  adminer:
+    image: adminer:4
+    container_name: monprofperso-adminer
+    restart: unless-stopped
+    depends_on:
+      - db
+    ports:
+      - "8098:8080"          # http://localhost:8098 (Système: PostgreSQL, Serveur: db)
+
+volumes:
+  monprofperso_pgdata:

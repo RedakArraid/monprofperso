@@ -1,0 +1,27 @@
+name: MonProfPerso
+options:
+  bundleIdPrefix: ci.monprofperso
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: ""
+    SWIFT_VERSION: "5.9"
+
+targets:
+  MonProfPerso:
+    type: application
+    platform: iOS
+    sources:
+      - path: MonProfPerso
+    settings:
+      base:
+        INFOPLIST_FILE: MonProfPerso/App/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: ci.monprofperso.app
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+        TARGETED_DEVICE_FAMILY: "1"

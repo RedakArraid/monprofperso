@@ -1,0 +1,242 @@
+package ci.monprofperso.app.ui.screens
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import ci.monprofperso.app.nav.NavActions
+import ci.monprofperso.app.nav.Routes
+import ci.monprofperso.app.ui.components.*
+import ci.monprofperso.app.ui.theme.AkColors
+import ci.monprofperso.app.ui.theme.Hanken
+import ci.monprofperso.app.ui.theme.Schibsted
+
+/* ====================================================================== *
+ * ÉCRAN 20 — TABLEAU DE BORD PROF
+ * ====================================================================== */
+@Composable
+fun TeacherDashboardScreen(nav: NavActions) {
+    AkScreen(applyBottomInset = false) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            InitialsAvatar("KN", size = 44, radius = 13, fontSize = 16)
+            Spacer(Modifier.width(11.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Bonjour,", fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted)
+                Text("Koffi N'Guessan", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = AkColors.Ink)
+            }
+            IconSquare(Icons.Outlined.Notifications, bg = AkColors.White, tint = AkColors.InkSoft, size = 44, onClick = { nav.go(Routes.Notifications) })
+        }
+        Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 22.dp).padding(top = 6.dp)) {
+            // revenue hero
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(AkColors.Green).padding(18.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Revenus en juin", fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.OnGreenSoft)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.TrendingUp, null, tint = AkColors.OrangeLight, modifier = Modifier.size(13.dp))
+                        Text(" +12%", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = AkColors.OrangeLight)
+                    }
+                }
+                Text("184 000 F", fontFamily = Schibsted, fontWeight = FontWeight.Black, fontSize = 34.sp, color = AkColors.White, modifier = Modifier.padding(top = 4.dp))
+                Row(Modifier.padding(top = 12.dp).clip(RoundedCornerShape(11.dp)).background(AkColors.Orange).clickable { nav.go(Routes.Withdraw) }.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Download, null, tint = AkColors.White, modifier = Modifier.size(15.dp))
+                    Text("  Retirer mes gains", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AkColors.White)
+                }
+            }
+            Spacer(Modifier.height(14.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                MiniStat("14", "cours / semaine", Modifier.weight(1f))
+                MiniStat("4,9", "note moyenne", Modifier.weight(1f))
+                MiniStat("3", "nouveaux élèves", Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(14.dp))
+            // pending alert
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(AkColors.OrangeSoft).clickable { nav.go(Routes.CourseRequests) }.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(AkColors.Orange), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Filled.Inbox, null, tint = AkColors.White, modifier = Modifier.size(21.dp))
+                }
+                Spacer(Modifier.width(13.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("3 demandes en attente", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AkColors.Ink)
+                    Text("Répondez vite pour ne pas les perdre", fontFamily = Hanken, fontSize = 12.sp, color = Color(0xFF8A5B33))
+                }
+                Text("Voir", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = AkColors.White,
+                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(AkColors.Orange).padding(horizontal = 13.dp, vertical = 8.dp))
+            }
+            Spacer(Modifier.height(18.dp))
+            Text("Prochains cours", fontFamily = Schibsted, fontWeight = FontWeight.Bold, fontSize = 14.5.sp, color = AkColors.Ink)
+            Spacer(Modifier.height(11.dp))
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(AkColors.White).border(1.dp, AkColors.Border, RoundedCornerShape(16.dp)).clickable { nav.go(Routes.ManageCourse) }.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.size(46.dp).clip(RoundedCornerShape(13.dp)).background(AkColors.GreenSoft), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                    Text("SAM", fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 9.5.sp, color = AkColors.Green)
+                    Text("22", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = AkColors.Green)
+                }
+                Spacer(Modifier.width(13.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Kouadio · Maths 3ᵉ", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, color = AkColors.Ink)
+                    Text("16h00 · à domicile, Cocody", fontFamily = Hanken, fontSize = 11.5.sp, color = AkColors.Muted)
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+        }
+        TeacherBottomNav(TeacherTab.Tableau, nav::selectTeacherTab)
+    }
+}
+
+@Composable
+private fun MiniStat(value: String, label: String, modifier: Modifier = Modifier) {
+    Column(modifier.clip(RoundedCornerShape(16.dp)).background(AkColors.White).border(1.dp, AkColors.Border, RoundedCornerShape(16.dp)).padding(vertical = 13.dp, horizontal = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 19.sp, color = AkColors.Green)
+        Text(label, fontFamily = Hanken, fontSize = 10.5.sp, color = AkColors.Muted, modifier = Modifier.padding(top = 2.dp))
+    }
+}
+
+/* ====================================================================== *
+ * ÉCRAN 21 — DEMANDES DE COURS
+ * ====================================================================== */
+private data class Request(val initials: String, val green: Boolean, val name: String, val ago: String, val price: String, val student: String, val subject: String, val slot: String, val format: String)
+
+@Composable
+fun CourseRequestsScreen(nav: NavActions) {
+    AkScreen(applyBottomInset = false) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Demandes", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 23.sp, color = AkColors.Ink)
+            Spacer(Modifier.width(10.dp))
+            Text("3", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = AkColors.White,
+                modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(AkColors.Orange).padding(horizontal = 9.dp, vertical = 3.dp))
+        }
+        Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 22.dp).padding(top = 16.dp)) {
+            RequestCard(Request("FB", true, "Fatou Bamba", "il y a 1 h", "6 000 F", "Awa · 2nde", "Mathématiques", "Sam. 28 juin · 15h00", "À domicile · Marcory"),
+                onRefuse = { nav.go(Routes.TeacherDashboard) }, onAccept = { nav.go(Routes.Agenda) })
+            Spacer(Modifier.height(13.dp))
+            RequestCard(Request("YK", false, "Yao Kouamé", "il y a 3 h", "4 000 F", "Junior · 3ᵉ", "Physique-Chimie", "Dim. 29 juin · 10h00", "En ligne"),
+                onRefuse = { nav.go(Routes.TeacherDashboard) }, onAccept = { nav.go(Routes.Agenda) })
+            Spacer(Modifier.height(16.dp))
+        }
+        TeacherBottomNav(TeacherTab.Demandes, nav::selectTeacherTab)
+    }
+}
+
+@Composable
+private fun RequestCard(r: Request, onRefuse: () -> Unit = {}, onAccept: () -> Unit = {}) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(AkColors.White).border(1.dp, AkColors.Border, RoundedCornerShape(20.dp)).padding(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            InitialsAvatar(r.initials, size = 42, radius = 12, fontSize = 15, bg = if (r.green) AkColors.GreenSoft else AkColors.OrangeSoft, fg = if (r.green) AkColors.Green else AkColors.Orange)
+            Spacer(Modifier.width(11.dp))
+            Column(Modifier.weight(1f)) {
+                Text(r.name, fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 14.5.sp, color = AkColors.Ink)
+                Text(r.ago, fontFamily = Hanken, fontSize = 11.5.sp, color = AkColors.Faint)
+            }
+            Text(r.price, fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, color = AkColors.Green)
+        }
+        Spacer(Modifier.height(13.dp))
+        DetailLine("Élève", r.student)
+        DetailLine("Matière", r.subject)
+        DetailLine("Créneau", r.slot)
+        DetailLine("Format", r.format)
+        Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+            Box(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(AkColors.White).border(1.dp, AkColors.Border, RoundedCornerShape(12.dp)).clickable { onRefuse() }.padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
+                Text("Refuser", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, color = AkColors.Muted)
+            }
+            Box(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(AkColors.Green).clickable { onAccept() }.padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
+                Text("Accepter", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, color = AkColors.White)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetailLine(label: String, value: String) {
+    Row(Modifier.fillMaxWidth().padding(bottom = 7.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted)
+        Text(value, fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 12.5.sp, color = AkColors.Ink)
+    }
+}
+
+/* ====================================================================== *
+ * ÉCRAN 22 — REVENUS
+ * ====================================================================== */
+@Composable
+fun EarningsScreen(nav: NavActions) {
+    var period by remember { mutableIntStateOf(1) }
+    AkScreen(applyBottomInset = false) {
+        Text("Revenus", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 23.sp, color = AkColors.Ink, modifier = Modifier.padding(horizontal = 22.dp, vertical = 8.dp))
+        Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 22.dp).padding(top = 6.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("Semaine", "Mois", "Année").forEachIndexed { i, l -> PillTab(l, period == i) { period = i } }
+            }
+            Spacer(Modifier.height(16.dp))
+            Text("Total perçu en juin", fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted)
+            Row(Modifier.padding(top = 3.dp), verticalAlignment = Alignment.Bottom) {
+                Text("184 000 F", fontFamily = Schibsted, fontWeight = FontWeight.Black, fontSize = 34.sp, color = AkColors.Ink)
+                Spacer(Modifier.width(9.dp))
+                Row(Modifier.padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.TrendingUp, null, tint = AkColors.Green, modifier = Modifier.size(13.dp))
+                    Text(" +12%", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AkColors.Green)
+                }
+            }
+            // bar chart
+            Row(Modifier.fillMaxWidth().height(118.dp).padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(9.dp), verticalAlignment = Alignment.Bottom) {
+                Bar(0.48f, "S1", false, Modifier.weight(1f))
+                Bar(0.66f, "S2", false, Modifier.weight(1f))
+                Bar(0.58f, "S3", false, Modifier.weight(1f))
+                Bar(0.88f, "S4", true, Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(18.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                MiniStat("38", "cours donnés", Modifier.weight(1f))
+                MiniStat("52 h", "enseignées", Modifier.weight(1f))
+                MiniStat("3 800", "F / h moyen", Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(18.dp))
+            Text("Derniers versements", fontFamily = Schibsted, fontWeight = FontWeight.Bold, fontSize = 14.5.sp, color = AkColors.Ink)
+            Spacer(Modifier.height(11.dp))
+            PayoutRow(Color(0xFF1D9BD8), Icons.Filled.Waves, "Retrait Wave", "15 juin", "60 000 F")
+            Spacer(Modifier.height(11.dp))
+            PayoutRow(Color(0xFFF2761A), Icons.Filled.PhoneAndroid, "Retrait Orange Money", "1 juin", "80 000 F")
+            Spacer(Modifier.height(16.dp))
+        }
+        TeacherBottomNav(TeacherTab.Revenus, nav::selectTeacherTab)
+    }
+}
+
+@Composable
+private fun Bar(fraction: Float, label: String, active: Boolean, modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
+        Box(Modifier.fillMaxWidth().fillMaxHeight(fraction).clip(RoundedCornerShape(topStart = 7.dp, topEnd = 7.dp)).background(if (active) AkColors.Green else AkColors.GreenSoft))
+        Spacer(Modifier.height(7.dp))
+        Text(label, fontFamily = Hanken, fontWeight = if (active) FontWeight.Bold else FontWeight.Normal, fontSize = 10.sp, color = if (active) AkColors.Green else AkColors.Faint)
+    }
+}
+
+@Composable
+private fun PayoutRow(tint: Color, icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, date: String, amount: String) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(38.dp).clip(RoundedCornerShape(10.dp)).background(tint), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = AkColors.White, modifier = Modifier.size(18.dp))
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 13.5.sp, color = AkColors.Ink)
+            Text(date, fontFamily = Hanken, fontSize = 11.5.sp, color = AkColors.Faint)
+        }
+        Text(amount, fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AkColors.Green)
+    }
+}

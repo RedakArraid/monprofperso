@@ -1,0 +1,16 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Chapeau de diplômé (graduation cap) stylisé -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,38 L78,48 L54,58 L30,48 Z" />
+    <path
+        android:fillColor="#F2A04D"
+        android:pathData="M40,53 L40,64 C40,70 68,70 68,64 L68,53 L54,59 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M76,49 L76,63 L79,63 L79,49 Z" />
+</vector>

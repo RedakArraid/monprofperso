@@ -1,0 +1,190 @@
+import Foundation
+
+/// URL de base de l'API MonProfPerso commune (mêmes endpoints que côté Android).
+enum ApiConfig {
+    // Simulateur iOS : localhost de la machine hôte.
+    // Appareil physique : remplacer par l'IP LAN du Mac (ex. http://192.168.1.20:8099).
+    static let baseURL = URL(string: "http://localhost:8099")!
+}
+
+// MARK: - Modèles (Codable) — mêmes champs que les DTO Android
+
+struct SubjectDTO: Codable, Identifiable {
+    var id: String { slug }
+    let slug, name, icon, accent: String
+}
+
+struct ReviewDTO: Codable {
+    let author_initials, author_name: String
+    let rating: Int
+    let time_ago, text: String
+}
+
+struct TeacherDTO: Codable, Identifiable {
+    let id: Int
+    let initials, name, subjects: String
+    let rating: Double
+    let reviews_count: Int
+    let location: String
+    let price_per_hour: Int
+    let distance_km: Double?
+    let accent: String
+    let verified: Bool
+    let special_bepc: Bool
+    let formats: [String]?
+    let experience, students, bac_success, bio: String?
+    let levels: [String]?
+    let reviews: [ReviewDTO]?
+
+    var priceLabel: String { "\(price_per_hour.formattedFCFA) F" }
+    var ratingLabel: String { String(format: "%.1f", rating).replacingOccurrences(of: ".", with: ",") }
+    var isGreen: Bool { accent == "green" }
+    var distanceLabel: String {
+        if let d = distance_km { return String(format: "%.1f km", d).replacingOccurrences(of: ".", with: ",") }
+        return location
+    }
+}
+
+struct CourseDTO: Codable, Identifiable {
+    let id: Int
+    let teacher_name, subject, level, day_label, day_num, time, duration, format: String
+    let location: String?
+    let price: Int
+    let status: String
+    let badge: String?
+}
+
+struct ProgressSubjectDTO: Codable { let subject, grade: String; let fraction: Double; let warn: Bool }
+struct ProgressDTO: Codable { let student, average, trend, goal: String; let subjects: [ProgressSubjectDTO] }
+
+extension Int {
+    /// 184000 -> "184 000"
+    var formattedFCFA: String {
+        let f = NumberFormatter(); f.groupingSeparator = " "; f.numberStyle = .decimal
+        return f.string(from: NSNumber(value: self)) ?? "\(self)"
+    }
+}
+
+// MARK: - Client
+
+enum ApiError: Error { case badStatus(Int) }
+
+struct ApiClient {
+    static let shared = ApiClient()
+    private let session = URLSession.shared
+
+    private func get<T: Decodable>(_ path: String) async throws -> T {
+        let url = ApiConfig.baseURL.appendingPathComponent(path)
+        let (data, resp) = try await session.data(from: url)
+        if let http = resp as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+            throw ApiError.badStatus(http.statusCode)
+        }
+        return try JSONDecoder().decode(T.self, from: data)
+    }
+
+    func subjects() async throws -> [SubjectDTO] { try await get("api/subjects") }
+    func teachers() async throws -> [TeacherDTO] { try await get("api/teachers") }
+    func teacher(_ id: Int) async throws -> TeacherDTO { try await get("api/teachers/\(id)") }
+    func courses(status: String? = nil) async throws -> [CourseDTO] {
+        try await get("api/courses" + (status.map { "?status=\($0)" } ?? ""))
+    }
+    func progress() async throws -> ProgressDTO { try await get("api/progress") }
+}
+
+// MARK: - Données de repli (identiques à la maquette) si l'API est injoignable
+
+enum Fallback {
+    static let teachers: [TeacherDTO] = [
+        .init(id: 1, initials: "KN", name: "Koffi N'Guessan", subjects: "Maths · Physique-Chimie · 8 ans d'exp.", rating: 4.9, reviews_count: 128, location: "Cocody", price_per_hour: 4000, distance_km: 2.4, accent: "green", verified: true, special_bepc: true, formats: ["home","online"], experience: nil, students: nil, bac_success: nil, bio: nil, levels: nil, reviews: nil),
+        .init(id: 2, initials: "ID", name: "Ibrahim Diallo", subjects: "Maths · Statistiques · 5 ans d'exp.", rating: 4.7, reviews_count: 210, location: "Yopougon", price_per_hour: 3000, distance_km: 5.1, accent: "orange", verified: true, special_bepc: false, formats: ["home","online"], experience: nil, students: nil, bac_success: nil, bio: nil, levels: nil, reviews: nil),
+        .init(id: 3, initials: "AY", name: "Adjoua Yao", subjects: "Maths · SVT · 6 ans d'exp.", rating: 4.9, reviews_count: 88, location: "Cocody", price_per_hour: 4000, distance_km: 1.8, accent: "green", verified: true, special_bepc: false, formats: ["home"], experience: nil, students: nil, bac_success: nil, bio: nil, levels: nil, reviews: nil),
+    ]
+}
+
+extension Fallback {
+    static let subjects: [SubjectDTO] = [
+        .init(slug: "maths", name: "Maths", icon: "function", accent: "green"),
+        .init(slug: "physique", name: "Physique", icon: "atom", accent: "orange"),
+        .init(slug: "francais", name: "Français", icon: "book", accent: "green"),
+        .init(slug: "anglais", name: "Anglais", icon: "translate", accent: "orange"),
+        .init(slug: "svt", name: "SVT", icon: "leaf", accent: "orange"),
+        .init(slug: "philo", name: "Philo", icon: "brain", accent: "green"),
+        .init(slug: "histgeo", name: "Hist-Géo", icon: "globe", accent: "green"),
+        .init(slug: "plus", name: "Plus", icon: "more", accent: "orange"),
+    ]
+    static let courses: [CourseDTO] = [
+        .init(id: 1, teacher_name: "Koffi N'Guessan", subject: "Maths", level: "3ᵉ", day_label: "SAM", day_num: "22", time: "16h00", duration: "1h30", format: "home", location: "À domicile, Cocody", price: 6000, status: "upcoming", badge: "Dans 2 jours"),
+        .init(id: 2, teacher_name: "Mariam Touré", subject: "Anglais", level: "3ᵉ", day_label: "LUN", day_num: "24", time: "17h00", duration: "1h", format: "online", location: nil, price: 4500, status: "upcoming", badge: nil),
+        .init(id: 3, teacher_name: "Koffi N'Guessan", subject: "Maths", level: "3ᵉ", day_label: "VEN", day_num: "14", time: "15h00", duration: "1h30", format: "home", location: "À domicile, Cocody", price: 6000, status: "done", badge: nil),
+    ]
+    static let progress = ProgressDTO(
+        student: "Kouadio, 3ᵉ", average: "13,2", trend: "+1,4",
+        goal: "Objectif BEPC : 14/20 — vous y êtes presque !",
+        subjects: [
+            .init(subject: "Mathématiques", grade: "14/20", fraction: 0.70, warn: false),
+            .init(subject: "Physique-Chimie", grade: "12/20", fraction: 0.60, warn: false),
+            .init(subject: "Français", grade: "15/20", fraction: 0.75, warn: false),
+            .init(subject: "Anglais", grade: "11/20", fraction: 0.55, warn: true),
+        ])
+    static let teacherDetail = TeacherDTO(
+        id: 1, initials: "KN", name: "Koffi N'Guessan", subjects: "Maths · Physique-Chimie", rating: 4.9, reviews_count: 128,
+        location: "Cocody", price_per_hour: 4000, distance_km: 2.4, accent: "green", verified: true, special_bepc: true,
+        formats: ["home", "online"], experience: "8 ans", students: "340+", bac_success: "94%",
+        bio: "Professeur certifié, ancien du Lycée Classique d'Abidjan. J'accompagne les élèves de la 3ᵉ à la Terminale avec une méthode claire, des fiches et beaucoup d'exercices types examen. Patient et à l'écoute.",
+        levels: ["Collège", "Lycée", "Prépa BEPC", "Prépa BAC"],
+        reviews: [.init(author_initials: "FB", author_name: "Fatou B.", rating: 5, time_ago: "il y a 2 semaines", text: "Ma fille est passée de 9 à 14 en maths en un trimestre. Très pédagogue et toujours ponctuel. Je recommande vivement !")])
+}
+
+/// Store partagé : liste des professeurs.
+@MainActor
+final class TeachersStore: ObservableObject {
+    @Published var teachers: [TeacherDTO] = []
+    @Published var loading = true
+    @Published var fromApi = false
+    func load() async {
+        loading = true
+        do { teachers = try await ApiClient.shared.teachers(); fromApi = true }
+        catch { teachers = Fallback.teachers; fromApi = false }
+        loading = false
+    }
+}
+
+/// Store : accueil (matières + profs recommandés).
+@MainActor
+final class HomeStore: ObservableObject {
+    @Published var subjects: [SubjectDTO] = Fallback.subjects
+    @Published var teachers: [TeacherDTO] = []
+    func load() async {
+        async let s = try? ApiClient.shared.subjects()
+        async let t = try? ApiClient.shared.teachers()
+        if let s = await s { subjects = s }
+        if let t = await t { teachers = t }
+    }
+}
+
+/// Store : mes cours.
+@MainActor
+final class CoursesStore: ObservableObject {
+    @Published var courses: [CourseDTO] = Fallback.courses
+    func load() async {
+        if let c = try? await ApiClient.shared.courses() { courses = c }
+    }
+}
+
+/// Store : suivi des progrès.
+@MainActor
+final class ProgressStore: ObservableObject {
+    @Published var data: ProgressDTO = Fallback.progress
+    func load() async {
+        if let p = try? await ApiClient.shared.progress() { data = p }
+    }
+}
+
+/// Store : profil d'un professeur.
+@MainActor
+final class TeacherStore: ObservableObject {
+    @Published var teacher: TeacherDTO = Fallback.teacherDetail
+    func load(_ id: Int = 1) async {
+        if let t = try? await ApiClient.shared.teacher(id) { teacher = t }
+    }
+}
