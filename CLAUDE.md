@@ -29,14 +29,19 @@ docs/       Présentation .docx + assets (captures d'écran)
   `users`, `courses`, `notifications`, `transactions`, `group_courses`,
   `subscription_plans`, `progress_subjects`.
 - **Ports (custom, pour éviter les collisions)** : API **8099**, Postgres **5544**,
-  Adminer **8098**. Identifiants DB : `monprofperso` / `monprofperso` / `monprofperso`.
+  Adminer **8098**. Configurables via `backend/.env` (voir `.env.example`).
+- **Secrets / config** : identifiants DB et ports dans `backend/.env` (non versionné,
+  interpolés par `docker-compose.yml`). Copier `.env.example` → `.env` au premier clone.
+- **Validation des entrées** : `api/src/validate.ts` — helpers sans dépendance,
+  permissifs (les défauts serveur restent) mais rejettent tout champ malformé (HTTP 400).
+  Appliqués aux POST `auth/login`, `auth/signup`, `bookings`.
 - ~20 endpoints : `/health`, `/api/auth/{login,signup,verify-otp}`, `/api/me`,
   `/api/subjects`, `/api/teachers[?format=&level=]`, `/api/teachers/:id`,
   `/api/courses[?status=upcoming|done]`, `/api/bookings`, `/api/notifications`,
   `/api/wallet`, `/api/groups[/:id]`, `/api/subscription/{plans,mine}`,
   `/api/progress`, `/api/teacher/{dashboard,requests,earnings}`, `/api/referral`.
 - ⚠️ **Auth mockée** : token `demo-token`, utilisateur de démo `DEMO_USER = 1`.
-  Pas de vraie auth, pas de paiement réel, pas de validation d'entrée, pas de tests.
+  Pas de vraie auth, pas de paiement réel, pas de tests (chantiers Phase 1 — voir docs/ROADMAP.md).
 - Détail NUMERIC : l'API parse les colonnes `NUMERIC` en nombres (pas en chaînes)
   pour que le décodage strict de `JSONDecoder` (iOS) marche comme Gson (Android).
 
