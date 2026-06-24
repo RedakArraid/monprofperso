@@ -1,27 +1,36 @@
 import { Router } from "express";
 import { pool } from "./db";
+import { ValidationError, optionalString, optionalPhone, optionalEnum, optionalNumber } from "./validate";
 
 export const api = Router();
 
 // Utilisateur de démonstration (la maquette est mono-utilisateur).
 const DEMO_USER = 1;
 
+const ROLES = ["parent", "student", "teacher"] as const;
+
 const wrap = (fn: (req: any, res: any) => Promise<void>) => (req: any, res: any) =>
   fn(req, res).catch((e: any) => {
+    if (e instanceof ValidationError) {
+      res.status(400).json({ error: "validation_error", field: e.field, message: e.message });
+      return;
+    }
     console.error(e);
     res.status(500).json({ error: "internal_error", message: String(e?.message ?? e) });
   });
 
 // ---------------------------------------------------------------- Auth (mock)
 api.post("/auth/login", wrap(async (req, res) => {
-  const { phone } = req.body ?? {};
+  const phone = optionalPhone(req.body);
   const r = await pool.query("SELECT * FROM users WHERE phone = $1", [phone ?? "+2250758421903"]);
   const user = r.rows[0] ?? (await pool.query("SELECT * FROM users WHERE id=$1", [DEMO_USER])).rows[0];
   res.json({ token: "demo-token", user });
 }));
 
 api.post("/auth/signup", wrap(async (req, res) => {
-  const { fullName, phone, role } = req.body ?? {};
+  const fullName = optionalString(req.body, "fullName", { max: 120 });
+  const phone = optionalPhone(req.body);
+  const role = optionalEnum(req.body, "role", ROLES);
   const initials = (fullName ?? "Aya Koné").split(" ").map((s: string) => s[0]).join("").slice(0, 2).toUpperCase();
   const r = await pool.query(
     `INSERT INTO users (full_name, phone, role, initials) VALUES ($1,$2,$3,$4)
@@ -83,12 +92,23 @@ api.get("/courses", wrap(async (req, res) => {
 
 api.post("/bookings", wrap(async (req, res) => {
   const b = req.body ?? {};
+  const teacherId = optionalNumber(b, "teacherId", { min: 1 });
+  const price = optionalNumber(b, "price", { min: 0 });
+  const format = optionalEnum(b, "format", ["home", "online"]);
+  const teacherName = optionalString(b, "teacherName", { max: 120 });
+  const subject = optionalString(b, "subject", { max: 80 });
+  const level = optionalString(b, "level", { max: 40 });
+  const dayLabel = optionalString(b, "dayLabel", { max: 20 });
+  const dayNum = optionalString(b, "dayNum", { max: 10 });
+  const time = optionalString(b, "time", { max: 20 });
+  const duration = optionalString(b, "duration", { max: 20 });
+  const location = optionalString(b, "location", { max: 200 });
   const r = await pool.query(
     `INSERT INTO courses (user_id,teacher_id,teacher_name,subject,level,day_label,day_num,time,duration,format,location,price,status,badge)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'upcoming',$13) RETURNING *`,
-    [DEMO_USER, b.teacherId ?? 1, b.teacherName ?? "Koffi N'Guessan", b.subject ?? "Maths", b.level ?? "3ᵉ",
-     b.dayLabel ?? "SAM", b.dayNum ?? "22", b.time ?? "16h00", b.duration ?? "1h30",
-     b.format ?? "home", b.location ?? "À domicile, Cocody", b.price ?? 6000, "Nouveau"]
+    [DEMO_USER, teacherId ?? 1, teacherName ?? "Koffi N'Guessan", subject ?? "Maths", level ?? "3ᵉ",
+     dayLabel ?? "SAM", dayNum ?? "22", time ?? "16h00", duration ?? "1h30",
+     format ?? "home", location ?? "À domicile, Cocody", price ?? 6000, "Nouveau"]
   );
   res.status(201).json({ reference: "AKW-" + (2000 + r.rows[0].id), course: r.rows[0] });
 }));

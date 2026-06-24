@@ -2,6 +2,8 @@
 backend/api/node_modules/
 backend/api/dist/
 *.log
+# Secrets locaux (garder .env.example versionné)
+.env
 
 # --- Android ---
 android/.gradle/
