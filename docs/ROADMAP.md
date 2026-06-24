@@ -14,11 +14,10 @@ commune ; auth et paiement simulés ; repo en cours de premier versionnage.
 Maillon faible : auth/paiement simulés. À traiter avant toute nouvelle feature.
 - [ ] Vraie authentification : OTP SMS réel (Orange/MTN CI), JWT signé, sessions —
       remplacer `demo-token` / `DEMO_USER = 1`.
-- [ ] Secrets en variables d'environnement (`.env`), retirer les identifiants en
-      clair de `docker-compose.yml`.
-- [ ] Validation des entrées (zod ou express-validator) sur tous les `POST`.
+- [x] Secrets en variables d'environnement (`.env`), retirés du `docker-compose.yml`.
+- [x] Validation des entrées (helper maison sans dépendance) sur les POST.
 - [ ] Migrations versionnées (node-pg-migrate / Prisma) au lieu d'`init.sql` monolithique.
-- [ ] Tests d'intégration sur les ~20 endpoints (Vitest/Jest + supertest).
+- [x] Tests d'intégration (runner natif Node, `api/test/*.test.mjs`, 17 tests).
 - [ ] Codes HTTP et logs standardisés.
 
 ## Phase 2 — Fonctionnel produit

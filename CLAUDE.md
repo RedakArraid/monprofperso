@@ -41,7 +41,8 @@ docs/       Présentation .docx + assets (captures d'écran)
   `/api/wallet`, `/api/groups[/:id]`, `/api/subscription/{plans,mine}`,
   `/api/progress`, `/api/teacher/{dashboard,requests,earnings}`, `/api/referral`.
 - ⚠️ **Auth mockée** : token `demo-token`, utilisateur de démo `DEMO_USER = 1`.
-  Pas de vraie auth, pas de paiement réel, pas de tests (chantiers Phase 1 — voir docs/ROADMAP.md).
+  Pas encore de vraie auth ni de paiement réel (chantiers Phase 1 — voir docs/ROADMAP.md).
+- **Tests** : `api/test/*.test.mjs` (runner natif Node, `npm test`, stack live requise).
 - Détail NUMERIC : l'API parse les colonnes `NUMERIC` en nombres (pas en chaînes)
   pour que le décodage strict de `JSONDecoder` (iOS) marche comme Gson (Android).
 
