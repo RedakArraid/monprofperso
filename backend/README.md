@@ -56,6 +56,18 @@ API_URL=http://autre-hote:8099 npm test  # cible personnalisée
 Couvre les formes de réponse (contrat partagé Android/iOS) et la validation
 des entrées (HTTP 400). Source : `api/test/*.test.mjs`.
 
+## Migrations (base de données)
+Le schéma et le seed sont gérés par **`node-pg-migrate`** (`api/migrations/*.sql`)
+et **appliqués automatiquement au démarrage de l'API** (plus de `init.sql`). L'état
+est suivi dans la table `pgmigrations`, donc les migrations sont idempotentes.
+
+```bash
+# Créer une nouvelle migration (génère un .sql horodaté à éditer)
+cd api && npm run migrate create ma-modif
+# Repartir d'une base vierge (re-migrée au prochain up)
+docker compose down -v && docker compose up -d
+```
+
 ## Authentification (JWT)
 `login` / `signup` / `verify-otp` renvoient un **JWT signé** (HS256, secret
 `JWT_SECRET`). Pour des appels scopés sur un utilisateur précis, envoyer

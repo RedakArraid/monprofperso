@@ -25,9 +25,12 @@ docs/       Présentation .docx + assets (captures d'écran)
 - Stack : **Express 4 + pg** (~240 lignes TS), **PostgreSQL 16**, **Adminer**.
 - Source : `api/src/db.ts` (pool pg), `api/src/routes.ts` (toutes les routes),
   `api/src/server.ts` (bootstrap). Routeur monté sous `/api`.
-- DB seedée par `db/init.sql` — 10 tables : `subjects`, `teachers`, `reviews`,
-  `users`, `courses`, `notifications`, `transactions`, `group_courses`,
-  `subscription_plans`, `progress_subjects`.
+- DB gérée par **migrations versionnées** (`node-pg-migrate`, `api/migrations/*.sql`,
+  appliquées automatiquement au démarrage de l'API). `001_init-schema` crée les
+  10 tables (`subjects`, `teachers`, `reviews`, `users`, `courses`, `notifications`,
+  `transactions`, `group_courses`, `subscription_plans`, `progress_subjects`),
+  `002_seed-data` insère les données de démo. Suivi dans la table `pgmigrations`.
+  Créer une migration : `npm run migrate create <nom>` (puis éditer le `.sql`).
 - **Ports (custom, pour éviter les collisions)** : API **8099**, Postgres **5544**,
   Adminer **8098**. Configurables via `backend/.env` (voir `.env.example`).
 - **Secrets / config** : identifiants DB et ports dans `backend/.env` (non versionné,

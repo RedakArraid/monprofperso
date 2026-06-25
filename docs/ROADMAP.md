@@ -18,7 +18,8 @@ Maillon faible : auth/paiement simulés. À traiter avant toute nouvelle feature
 - [ ] Apps : envoyer l'en-tête `Authorization: Bearer` + stocker le token (Android/iOS).
 - [x] Secrets en variables d'environnement (`.env`), retirés du `docker-compose.yml`.
 - [x] Validation des entrées (helper maison sans dépendance) sur les POST.
-- [ ] Migrations versionnées (node-pg-migrate / Prisma) au lieu d'`init.sql` monolithique.
+- [x] Migrations versionnées (node-pg-migrate, `api/migrations/*.sql`) appliquées
+      automatiquement au démarrage, idempotentes. `init.sql` supprimé.
 - [x] Tests d'intégration (runner natif Node, `api/test/*.test.mjs`, 17 tests).
 - [ ] Codes HTTP et logs standardisés.
 
