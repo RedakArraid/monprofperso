@@ -12,8 +12,10 @@ commune ; auth et paiement simulés ; repo en cours de premier versionnage.
 
 ## Phase 1 — Durcir le backend (priorité haute)
 Maillon faible : auth/paiement simulés. À traiter avant toute nouvelle feature.
-- [ ] Vraie authentification : OTP SMS réel (Orange/MTN CI), JWT signé, sessions —
-      remplacer `demo-token` / `DEMO_USER = 1`.
+- [x] JWT signé (HS256, `auth.ts`) émis à la connexion + middleware `optionalAuth`
+      rétrocompatible (repli `DEMO_USER` si pas de token). Scoping par `currentUserId`.
+- [ ] OTP SMS réel (Orange/MTN CI) pour `verify-otp` (actuellement simulé).
+- [ ] Apps : envoyer l'en-tête `Authorization: Bearer` + stocker le token (Android/iOS).
 - [x] Secrets en variables d'environnement (`.env`), retirés du `docker-compose.yml`.
 - [x] Validation des entrées (helper maison sans dépendance) sur les POST.
 - [ ] Migrations versionnées (node-pg-migrate / Prisma) au lieu d'`init.sql` monolithique.

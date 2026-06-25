@@ -40,9 +40,13 @@ docs/       Présentation .docx + assets (captures d'écran)
   `/api/courses[?status=upcoming|done]`, `/api/bookings`, `/api/notifications`,
   `/api/wallet`, `/api/groups[/:id]`, `/api/subscription/{plans,mine}`,
   `/api/progress`, `/api/teacher/{dashboard,requests,earnings}`, `/api/referral`.
-- ⚠️ **Auth mockée** : token `demo-token`, utilisateur de démo `DEMO_USER = 1`.
-  Pas encore de vraie auth ni de paiement réel (chantiers Phase 1 — voir docs/ROADMAP.md).
-- **Tests** : `api/test/*.test.mjs` (runner natif Node, `npm test`, stack live requise).
+- **Auth JWT** (`api/src/auth.ts`, HS256 via `crypto` natif, secret `JWT_SECRET`).
+  login/signup/verify-otp émettent un vrai JWT (`sub` = id user). Middleware
+  `optionalAuth` : si `Authorization: Bearer <jwt>` valide → utilisateur courant = `sub`,
+  sinon **repli sur `DEMO_USER = 1`** (rétrocompat : les apps n'envoient pas encore
+  l'en-tête). Endpoints user-scoped utilisent `currentUserId(res)`.
+  ⚠️ Reste à faire : OTP SMS réel, paiement réel (Phase 1/2 — voir docs/ROADMAP.md).
+- **Tests** : `api/test/*.test.mjs` (runner natif Node, `npm test`, stack live requise) — 22 tests.
 - Détail NUMERIC : l'API parse les colonnes `NUMERIC` en nombres (pas en chaînes)
   pour que le décodage strict de `JSONDecoder` (iOS) marche comme Gson (Android).
 

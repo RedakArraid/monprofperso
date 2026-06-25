@@ -11,8 +11,8 @@ import assert from "node:assert/strict";
 
 const BASE = process.env.API_URL ?? "http://localhost:8099";
 
-async function get(path) {
-  const res = await fetch(BASE + path);
+async function get(path, token) {
+  const res = await fetch(BASE + path, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined);
   const body = res.headers.get("content-type")?.includes("json") ? await res.json() : await res.text();
   return { status: res.status, body };
 }
@@ -135,4 +135,43 @@ test("POST /api/bookings valide -> 201 + référence", async () => {
   assert.equal(status, 201);
   assert.ok(typeof body.reference === "string" && body.reference.startsWith("AKW-"));
   assert.equal(body.course.status, "upcoming");
+});
+
+// ----------------------------------------------------------- Auth (JWT)
+test("POST /api/auth/login -> JWT à 3 segments", async () => {
+  const { status, body } = await post("/api/auth/login", {});
+  assert.equal(status, 200);
+  assert.equal(body.token.split(".").length, 3, "doit être un JWT, plus 'demo-token'");
+});
+
+test("auth bout-en-bout : /me avec le token reflète l'utilisateur du token", async () => {
+  // Téléphone unique pour ne pas collisionner avec d'autres exécutions.
+  const phone = "+22507" + String(Date.now()).slice(-7);
+  const signup = await post("/api/auth/signup", { fullName: "E2E Auth", phone, role: "teacher" });
+  assert.equal(signup.status, 200);
+  const token = signup.body.token;
+  const newId = signup.body.user.id;
+
+  const me = await get("/api/me", token);
+  assert.equal(me.status, 200);
+  assert.equal(me.body.id, newId, "le token doit scoper /me sur son utilisateur");
+});
+
+test("/me sans token -> repli sur l'utilisateur de démo (id 1)", async () => {
+  const { status, body } = await get("/api/me");
+  assert.equal(status, 200);
+  assert.equal(body.id, 1);
+});
+
+test("/me avec ancien 'demo-token' -> repli (id 1, rétrocompat)", async () => {
+  const { body } = await get("/api/me", "demo-token");
+  assert.equal(body.id, 1);
+});
+
+test("/me avec JWT falsifié -> rejeté, repli (id 1)", async () => {
+  const login = await post("/api/auth/login", {});
+  const parts = login.body.token.split(".");
+  const forged = `${parts[0]}.${parts[1]}.AAAAdeadbeef`;
+  const { body } = await get("/api/me", forged);
+  assert.equal(body.id, 1, "signature invalide -> ne doit pas authentifier");
 });

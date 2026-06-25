@@ -56,9 +56,17 @@ API_URL=http://autre-hote:8099 npm test  # cible personnalisée
 Couvre les formes de réponse (contrat partagé Android/iOS) et la validation
 des entrées (HTTP 400). Source : `api/test/*.test.mjs`.
 
+## Authentification (JWT)
+`login` / `signup` / `verify-otp` renvoient un **JWT signé** (HS256, secret
+`JWT_SECRET`). Pour des appels scopés sur un utilisateur précis, envoyer
+`Authorization: Bearer <token>`. **Rétrocompat** : sans en-tête (ou token
+invalide), l'API retombe sur l'utilisateur de démo (`DEMO_USER = 1`), donc les
+clients existants continuent de fonctionner.
+
 ## Configuration (.env)
-Identifiants DB et ports hôte sont lus depuis `backend/.env` (non versionné).
-Au premier clone : `cp .env.example .env` puis ajuster si besoin.
+Identifiants DB, `JWT_SECRET` et ports hôte sont lus depuis `backend/.env`
+(non versionné). Au premier clone : `cp .env.example .env` puis ajuster.
+⚠️ En prod, `JWT_SECRET` doit être une chaîne aléatoire forte (32+ caractères).
 
 ## Arrêter / réinitialiser
 ```bash

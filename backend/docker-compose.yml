@@ -45,6 +45,7 @@ services:
       PGUSER: ${POSTGRES_USER:-monprofperso}
       PGPASSWORD: ${POSTGRES_PASSWORD:-monprofperso}
       PGDATABASE: ${POSTGRES_DB:-monprofperso}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
     ports:
       - "${API_PORT:-8099}:${API_PORT:-8099}"
 

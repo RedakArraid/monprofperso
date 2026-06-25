@@ -1,11 +1,12 @@
 import { Router } from "express";
 import { pool } from "./db";
 import { ValidationError, optionalString, optionalPhone, optionalEnum, optionalNumber } from "./validate";
+import { optionalAuth, currentUserId, signJwt, DEMO_USER } from "./auth";
 
 export const api = Router();
 
-// Utilisateur de démonstration (la maquette est mono-utilisateur).
-const DEMO_USER = 1;
+// Résout l'utilisateur courant (token JWT) ou retombe sur DEMO_USER (rétrocompat).
+api.use(optionalAuth);
 
 const ROLES = ["parent", "student", "teacher"] as const;
 
@@ -24,7 +25,7 @@ api.post("/auth/login", wrap(async (req, res) => {
   const phone = optionalPhone(req.body);
   const r = await pool.query("SELECT * FROM users WHERE phone = $1", [phone ?? "+2250758421903"]);
   const user = r.rows[0] ?? (await pool.query("SELECT * FROM users WHERE id=$1", [DEMO_USER])).rows[0];
-  res.json({ token: "demo-token", user });
+  res.json({ token: signJwt(user.id, user.role), user });
 }));
 
 api.post("/auth/signup", wrap(async (req, res) => {
@@ -37,15 +38,21 @@ api.post("/auth/signup", wrap(async (req, res) => {
      ON CONFLICT (phone) DO UPDATE SET full_name = EXCLUDED.full_name RETURNING *`,
     [fullName ?? "Aya Koné", phone ?? "+2250758421903", role ?? "parent", initials]
   );
-  res.json({ token: "demo-token", user: r.rows[0] });
+  const user = r.rows[0];
+  res.json({ token: signJwt(user.id, user.role), user });
 }));
 
-api.post("/auth/verify-otp", wrap(async (_req, res) => {
-  res.json({ token: "demo-token", verified: true });
+api.post("/auth/verify-otp", wrap(async (req, res) => {
+  const phone = optionalPhone(req.body);
+  const r = phone
+    ? await pool.query("SELECT * FROM users WHERE phone=$1", [phone])
+    : { rows: [] as any[] };
+  const user = r.rows[0] ?? (await pool.query("SELECT * FROM users WHERE id=$1", [DEMO_USER])).rows[0];
+  res.json({ token: signJwt(user.id, user.role), verified: true });
 }));
 
 api.get("/me", wrap(async (_req, res) => {
-  const r = await pool.query("SELECT * FROM users WHERE id=$1", [DEMO_USER]);
+  const r = await pool.query("SELECT * FROM users WHERE id=$1", [currentUserId(res)]);
   res.json(r.rows[0]);
 }));
 
@@ -82,7 +89,7 @@ api.get("/teachers/:id", wrap(async (req, res) => {
 // ------------------------------------------------------------------------ Cours
 api.get("/courses", wrap(async (req, res) => {
   const status = req.query.status as string | undefined;
-  const params: any[] = [DEMO_USER];
+  const params: any[] = [currentUserId(res)];
   let sql = "SELECT * FROM courses WHERE user_id=$1";
   if (status) { params.push(status); sql += ` AND status=$${params.length}`; }
   sql += " ORDER BY id";
@@ -106,7 +113,7 @@ api.post("/bookings", wrap(async (req, res) => {
   const r = await pool.query(
     `INSERT INTO courses (user_id,teacher_id,teacher_name,subject,level,day_label,day_num,time,duration,format,location,price,status,badge)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'upcoming',$13) RETURNING *`,
-    [DEMO_USER, teacherId ?? 1, teacherName ?? "Koffi N'Guessan", subject ?? "Maths", level ?? "3ᵉ",
+    [currentUserId(res), teacherId ?? 1, teacherName ?? "Koffi N'Guessan", subject ?? "Maths", level ?? "3ᵉ",
      dayLabel ?? "SAM", dayNum ?? "22", time ?? "16h00", duration ?? "1h30",
      format ?? "home", location ?? "À domicile, Cocody", price ?? 6000, "Nouveau"]
   );
@@ -117,7 +124,7 @@ api.post("/bookings", wrap(async (req, res) => {
 api.get("/notifications", wrap(async (_req, res) => {
   const r = await pool.query(
     "SELECT icon, accent, text, time_ago, unread, section FROM notifications WHERE user_id=$1 ORDER BY id",
-    [DEMO_USER]
+    [currentUserId(res)]
   );
   res.json(r.rows);
 }));
@@ -126,7 +133,7 @@ api.get("/notifications", wrap(async (_req, res) => {
 api.get("/wallet", wrap(async (_req, res) => {
   const tx = await pool.query(
     "SELECT title, subtitle, amount, credit FROM transactions WHERE user_id=$1 ORDER BY id",
-    [DEMO_USER]
+    [currentUserId(res)]
   );
   res.json({
     accounts: [
@@ -169,7 +176,7 @@ api.get("/subscription/mine", wrap(async (_req, res) => {
 api.get("/progress", wrap(async (_req, res) => {
   const subs = await pool.query(
     "SELECT subject, grade, fraction, warn FROM progress_subjects WHERE user_id=$1 ORDER BY id",
-    [DEMO_USER]
+    [currentUserId(res)]
   );
   res.json({
     student: "Kouadio, 3ᵉ", average: "13,2", trend: "+1,4",
