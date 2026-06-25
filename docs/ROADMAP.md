@@ -20,7 +20,8 @@ Maillon faible : auth/paiement simulés. À traiter avant toute nouvelle feature
 - [x] Validation des entrées (helper maison sans dépendance) sur les POST.
 - [x] Migrations versionnées (node-pg-migrate, `api/migrations/*.sql`) appliquées
       automatiquement au démarrage, idempotentes. `init.sql` supprimé.
-- [x] Tests d'intégration (runner natif Node, `api/test/*.test.mjs`, 17 tests).
+- [x] Tests d'intégration + e2e (runner natif Node, `api/test/*.test.mjs`, 30 tests ;
+      e2e = parcours complets + isolation JWT, couvre les 20 endpoints).
 - [ ] Codes HTTP et logs standardisés.
 
 ## Phase 2 — Fonctionnel produit

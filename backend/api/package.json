@@ -8,6 +8,7 @@
     "start": "node dist/server.js",
     "dev": "ts-node-dev --respawn src/server.ts",
     "test": "node --test 'test/*.test.mjs'",
+    "test:e2e": "node --test 'test/e2e.test.mjs'",
     "migrate": "node-pg-migrate --migrations-dir migrations"
   },
   "dependencies": {

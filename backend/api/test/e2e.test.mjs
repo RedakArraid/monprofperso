@@ -1,0 +1,199 @@
+// Tests end-to-end (e2e) — parcours utilisateur complets contre la stack live.
+//
+// Contrairement à api.test.mjs (qui teste chaque endpoint isolément), ces tests
+// enchaînent plusieurs appels pour valider des scénarios réels de bout en bout :
+// inscription -> token -> navigation -> réservation -> relecture, isolation entre
+// comptes via le JWT, parcours prof, et le catalogue public.
+//
+// Prérequis : la stack tourne (`docker compose up -d`).
+//   API_URL=http://localhost:8099 node --test 'test/*.test.mjs'
+
+import { test } from "node:test";
+import assert from "node:assert/strict";
+
+const BASE = process.env.API_URL ?? "http://localhost:8099";
+
+// --- Petit client HTTP avec support du Bearer token -----------------------
+async function call(method, path, { token, body } = {}) {
+  const headers = {};
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(BASE + path, {
+    method,
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  const data = res.headers.get("content-type")?.includes("json") ? await res.json() : await res.text();
+  return { status: res.status, body: data };
+}
+const get = (path, token) => call("GET", path, { token });
+const post = (path, body, token) => call("POST", path, { body, token });
+
+let seq = 0;
+/** Téléphone ivoirien unique par appel (évite les collisions entre exécutions). */
+const uniquePhone = () => "+22501" + String(Date.now()).slice(-7) + String(seq++).padStart(1, "0");
+
+/** Inscrit un nouvel utilisateur et renvoie { token, user }. */
+async function signup(role = "parent") {
+  const { status, body } = await post("/api/auth/signup", {
+    fullName: "E2E Test", phone: uniquePhone(), role,
+  });
+  assert.equal(status, 200, "signup doit réussir");
+  assert.ok(body.token && body.user?.id);
+  return body;
+}
+
+// ======================================================================
+// Parcours 1 — Parent : inscription -> navigation -> réservation -> relecture
+// ======================================================================
+test("e2e — parcours parent complet (compte neuf isolé)", async () => {
+  const { token, user } = await signup("parent");
+  assert.equal(user.role, "parent");
+
+  // /me reflète bien le compte du token
+  const me = await get("/api/me", token);
+  assert.equal(me.status, 200);
+  assert.equal(me.body.id, user.id);
+
+  // Catalogue public visible
+  const subjects = await get("/api/subjects", token);
+  assert.ok(Array.isArray(subjects.body) && subjects.body.length > 0);
+
+  const teachers = await get("/api/teachers", token);
+  assert.ok(teachers.body.length > 0);
+  const teacher = teachers.body[0];
+
+  // Détail prof + avis
+  const detail = await get(`/api/teachers/${teacher.id}`, token);
+  assert.equal(detail.status, 200);
+  assert.ok(Array.isArray(detail.body.reviews));
+
+  // Compte neuf : aucun cours pour l'instant
+  const before = await get("/api/courses", token);
+  assert.equal(before.status, 200);
+  assert.equal(before.body.length, 0, "un nouvel utilisateur n'a aucun cours");
+
+  // Réservation
+  const booking = await post("/api/bookings", {
+    teacherId: teacher.id, teacherName: teacher.name, subject: "Physique-Chimie",
+    level: "Terminale", format: "online", price: 5000,
+  }, token);
+  assert.equal(booking.status, 201);
+  assert.ok(booking.body.reference.startsWith("AKW-"));
+
+  // Le cours réservé apparaît maintenant
+  const after = await get("/api/courses", token);
+  assert.equal(after.body.length, 1);
+  assert.equal(after.body[0].subject, "Physique-Chimie");
+  assert.equal(after.body[0].status, "upcoming");
+
+  // Filtre par statut cohérent
+  const upcoming = await get("/api/courses?status=upcoming", token);
+  assert.equal(upcoming.body.length, 1);
+  const done = await get("/api/courses?status=done", token);
+  assert.equal(done.body.length, 0);
+
+  // Écrans scopés sur l'utilisateur (compte neuf -> vides)
+  const notifs = await get("/api/notifications", token);
+  assert.ok(Array.isArray(notifs.body) && notifs.body.length === 0);
+  const wallet = await get("/api/wallet", token);
+  assert.ok(Array.isArray(wallet.body.accounts) && Array.isArray(wallet.body.transactions));
+  assert.equal(wallet.body.transactions.length, 0);
+  const progress = await get("/api/progress", token);
+  assert.ok(Array.isArray(progress.body.subjects) && progress.body.subjects.length === 0);
+});
+
+// ======================================================================
+// Parcours 2 — Isolation entre comptes (scoping JWT)
+// ======================================================================
+test("e2e — les données d'un utilisateur ne fuitent pas vers un autre", async () => {
+  const a = await signup("parent");
+  const b = await signup("parent");
+
+  // A réserve un cours
+  const booking = await post("/api/bookings", { subject: "Maths", format: "home" }, a.token);
+  assert.equal(booking.status, 201);
+
+  // A voit son cours, B ne voit rien
+  const aCourses = await get("/api/courses", a.token);
+  assert.equal(aCourses.body.length, 1);
+  const bCourses = await get("/api/courses", b.token);
+  assert.equal(bCourses.body.length, 0, "B ne doit pas voir les cours de A");
+});
+
+// ======================================================================
+// Parcours 3 — Repli démo sans token (utilisateur de la maquette)
+// ======================================================================
+test("e2e — sans token, on retombe sur les données de démo seedées", async () => {
+  const me = await get("/api/me");
+  assert.equal(me.body.id, 1);
+
+  // L'utilisateur de démo a des cours seedés (cf. migration 002_seed-data)
+  const courses = await get("/api/courses");
+  assert.ok(courses.body.length >= 3, "le compte démo a des cours seedés");
+  const notifs = await get("/api/notifications");
+  assert.ok(notifs.body.length > 0);
+  const wallet = await get("/api/wallet");
+  assert.ok(wallet.body.transactions.length > 0);
+  const progress = await get("/api/progress");
+  assert.ok(progress.body.subjects.length > 0);
+});
+
+// ======================================================================
+// Parcours 4 — verify-otp -> token utilisable
+// ======================================================================
+test("e2e — verify-otp renvoie un token exploitable", async () => {
+  // Compte connu (seedé)
+  const otp = await post("/api/auth/verify-otp", { phone: "+2250758421903" });
+  assert.equal(otp.status, 200);
+  assert.equal(otp.body.verified, true);
+  assert.equal(otp.body.token.split(".").length, 3);
+
+  const me = await get("/api/me", otp.body.token);
+  assert.equal(me.status, 200);
+  assert.equal(me.body.id, 1, "le token OTP doit scoper sur l'utilisateur du téléphone");
+});
+
+// ======================================================================
+// Parcours 5 — Prof : tableau de bord / demandes / revenus
+// ======================================================================
+test("e2e — parcours prof (dashboard, requests, earnings)", async () => {
+  const { token } = await signup("teacher");
+
+  const dash = await get("/api/teacher/dashboard", token);
+  assert.equal(dash.status, 200);
+  assert.ok("revenue" in dash.body && Array.isArray(dash.body.stats));
+
+  const requests = await get("/api/teacher/requests", token);
+  assert.ok(Array.isArray(requests.body));
+
+  const earnings = await get("/api/teacher/earnings", token);
+  assert.ok("total" in earnings.body && Array.isArray(earnings.body.weeks) && Array.isArray(earnings.body.payouts));
+});
+
+// ======================================================================
+// Parcours 6 — Catalogue public (groupes, abonnement, parrainage)
+// ======================================================================
+test("e2e — cours en groupe : liste puis détail", async () => {
+  const list = await get("/api/groups");
+  assert.equal(list.status, 200);
+  assert.ok(list.body.length > 0);
+
+  const id = list.body[0].id;
+  const detail = await get(`/api/groups/${id}`);
+  assert.equal(detail.status, 200);
+  assert.ok(Array.isArray(detail.body.program) && detail.body.program.length > 0);
+});
+
+test("e2e — abonnement : plans + abonnement courant", async () => {
+  const plans = await get("/api/subscription/plans");
+  assert.ok(plans.body.length > 0 && "price" in plans.body[0]);
+  const mine = await get("/api/subscription/mine");
+  assert.ok("plan" in mine.body && "status" in mine.body);
+});
+
+test("e2e — parrainage : code + compteurs", async () => {
+  const { status, body } = await get("/api/referral");
+  assert.equal(status, 200);
+  assert.ok(typeof body.code === "string" && "referred" in body && "earned" in body);
+});

@@ -46,15 +46,19 @@ curl http://localhost:8099/health      # {"status":"ok",...}
 
 Ces valeurs sont centralisées dans `ApiConfig` (Android) et `ApiConfig` (iOS).
 
-## Tests d'intégration
+## Tests (intégration + e2e)
 Runner natif Node (aucune dépendance). La stack doit tourner :
 ```bash
 docker compose up -d
-cd api && npm test                       # cible http://localhost:8099 par défaut
+cd api && npm test                       # tout (30 tests) — défaut http://localhost:8099
+npm run test:e2e                         # parcours e2e uniquement
 API_URL=http://autre-hote:8099 npm test  # cible personnalisée
 ```
-Couvre les formes de réponse (contrat partagé Android/iOS) et la validation
-des entrées (HTTP 400). Source : `api/test/*.test.mjs`.
+- `api/test/api.test.mjs` — tests d'intégration par endpoint (formes de réponse,
+  contrat partagé Android/iOS, validation HTTP 400, auth JWT). 22 tests.
+- `api/test/e2e.test.mjs` — parcours de bout en bout : inscription → réservation →
+  relecture, **isolation entre comptes** via JWT, repli démo, parcours prof,
+  catalogue public. Couvre les 20 endpoints. 8 tests.
 
 ## Migrations (base de données)
 Le schéma et le seed sont gérés par **`node-pg-migrate`** (`api/migrations/*.sql`)

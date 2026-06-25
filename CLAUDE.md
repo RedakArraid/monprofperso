@@ -49,7 +49,10 @@ docs/       Présentation .docx + assets (captures d'écran)
   sinon **repli sur `DEMO_USER = 1`** (rétrocompat : les apps n'envoient pas encore
   l'en-tête). Endpoints user-scoped utilisent `currentUserId(res)`.
   ⚠️ Reste à faire : OTP SMS réel, paiement réel (Phase 1/2 — voir docs/ROADMAP.md).
-- **Tests** : `api/test/*.test.mjs` (runner natif Node, `npm test`, stack live requise) — 22 tests.
+- **Tests** : `api/test/*.test.mjs` (runner natif Node, `npm test`, stack live requise) — 30 tests.
+  `api.test.mjs` = intégration par endpoint ; `e2e.test.mjs` = parcours bout-en-bout
+  (inscription→réservation→relecture, isolation JWT entre comptes, repli démo, prof,
+  catalogue). Les 20 endpoints sont couverts.
 - Détail NUMERIC : l'API parse les colonnes `NUMERIC` en nombres (pas en chaînes)
   pour que le décodage strict de `JSONDecoder` (iOS) marche comme Gson (Android).
 
