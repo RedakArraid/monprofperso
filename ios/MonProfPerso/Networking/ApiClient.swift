@@ -5,6 +5,23 @@ enum ApiConfig {
     // Simulateur iOS : localhost de la machine hôte.
     // Appareil physique : remplacer par l'IP LAN du Mac (ex. http://192.168.1.20:8099).
     static let baseURL = URL(string: "http://localhost:8099")!
+    /// Numéro de démonstration (= utilisateur seed « Aya Koné »).
+    static let demoPhone = "+2250758421903"
+}
+
+/// Stockage du JWT d'authentification (persisté entre lancements via UserDefaults).
+/// Injecté en `Authorization: Bearer` par `ApiClient` ; en son absence, le backend
+/// retombe sur l'utilisateur de démonstration (rétrocompat).
+enum TokenStore {
+    private static let key = "mpp_jwt"
+    static var token: String? {
+        get { UserDefaults.standard.string(forKey: key) }
+        set {
+            if let v = newValue { UserDefaults.standard.set(v, forKey: key) }
+            else { UserDefaults.standard.removeObject(forKey: key) }
+        }
+    }
+    static func clear() { token = nil }
 }
 
 // MARK: - Modèles (Codable) — mêmes champs que les DTO Android
@@ -69,17 +86,53 @@ extension Int {
 
 enum ApiError: Error { case badStatus(Int) }
 
+struct AuthResponse: Codable { let token: String }
+struct VerifyResponse: Codable { let token: String; let verified: Bool }
+
 struct ApiClient {
     static let shared = ApiClient()
     private let session = URLSession.shared
 
-    private func get<T: Decodable>(_ path: String) async throws -> T {
+    /// Requête bas niveau : ajoute l'en-tête `Authorization: Bearer` si un token est connu.
+    private func request(_ path: String, method: String = "GET", json: [String: Any]? = nil) async throws -> Data {
         let url = ApiConfig.baseURL.appendingPathComponent(path)
-        let (data, resp) = try await session.data(from: url)
+        var req = URLRequest(url: url)
+        req.httpMethod = method
+        if let token = TokenStore.token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+        if let json = json {
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try JSONSerialization.data(withJSONObject: json)
+        }
+        let (data, resp) = try await session.data(for: req)
         if let http = resp as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
             throw ApiError.badStatus(http.statusCode)
         }
-        return try JSONDecoder().decode(T.self, from: data)
+        return data
+    }
+
+    private func get<T: Decodable>(_ path: String) async throws -> T {
+        try JSONDecoder().decode(T.self, from: try await request(path))
+    }
+
+    // MARK: Authentification — récupère le JWT et le persiste dans TokenStore.
+    // Tolérant aux pannes : en cas d'échec, l'app continue en mode démo (repli serveur).
+    private static let apiRoles = ["parent", "student", "teacher"]
+
+    func login(phone: String = ApiConfig.demoPhone) async {
+        if let data = try? await request("api/auth/login", method: "POST", json: ["phone": phone]),
+           let r = try? JSONDecoder().decode(AuthResponse.self, from: data) { TokenStore.token = r.token }
+    }
+
+    func signup(fullName: String, phone: String = ApiConfig.demoPhone, roleIndex: Int) async {
+        let role = Self.apiRoles[min(max(roleIndex, 0), 2)]
+        if let data = try? await request("api/auth/signup", method: "POST",
+                                         json: ["fullName": fullName, "phone": phone, "role": role]),
+           let r = try? JSONDecoder().decode(AuthResponse.self, from: data) { TokenStore.token = r.token }
+    }
+
+    func verifyOtp(phone: String = ApiConfig.demoPhone) async {
+        if let data = try? await request("api/auth/verify-otp", method: "POST", json: ["phone": phone]),
+           let r = try? JSONDecoder().decode(VerifyResponse.self, from: data) { TokenStore.token = r.token }
     }
 
     func subjects() async throws -> [SubjectDTO] { try await get("api/subjects") }

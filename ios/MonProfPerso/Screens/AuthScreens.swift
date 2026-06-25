@@ -122,7 +122,12 @@ struct SignupScreen: View {
                 }.padding(.horizontal, 24).padding(.top, 8)
             }
             VStack(spacing: 13) {
-                PrimaryButton(label: "Créer mon compte") { router.go(.otp) }
+                PrimaryButton(label: "Créer mon compte") {
+                    Task { @MainActor in
+                        await ApiClient.shared.signup(fullName: "Aya Koné", roleIndex: router.role)
+                        router.go(.otp)
+                    }
+                }
                 HStack(spacing: 4) {
                     Text("Déjà un compte ?").font(AkFont.regular(13)).foregroundColor(Ak.muted)
                     Text("Se connecter").font(AkFont.bold(13)).foregroundColor(Ak.green).onTapGesture { router.go(.login) }
@@ -151,7 +156,12 @@ struct LoginScreen: View {
                     Text("Mot de passe oublié ?").font(AkFont.bold(12.5)).foregroundColor(Ak.green)
                         .frame(maxWidth: .infinity, alignment: .trailing).padding(.top, 12)
                         .onTapGesture { router.go(.otp) }
-                    PrimaryButton(label: "Se connecter", color: Ak.green, trailingSystemIcon: nil) { router.enterApp() }.padding(.top, 20)
+                    PrimaryButton(label: "Se connecter", color: Ak.green, trailingSystemIcon: nil) {
+                        Task { @MainActor in
+                            await ApiClient.shared.login()
+                            router.enterApp()
+                        }
+                    }.padding(.top, 20)
                     HStack(spacing: 12) {
                         Rectangle().fill(Ak.border).frame(height: 1)
                         Text("ou continuer avec").font(AkFont.regular(12)).foregroundColor(Ak.faint).fixedSize()
@@ -202,7 +212,12 @@ struct OtpScreen: View {
                 }.frame(maxWidth: .infinity).padding(.top, 24)
             }.padding(.horizontal, 28).padding(.top, 16)
             Spacer()
-            PrimaryButton(label: "Vérifier", color: Ak.green) { router.enterApp() }
+            PrimaryButton(label: "Vérifier", color: Ak.green) {
+                Task { @MainActor in
+                    await ApiClient.shared.verifyOtp()
+                    router.enterApp()
+                }
+            }
                 .padding(.horizontal, 28).padding(.bottom, 12)
         }
     }

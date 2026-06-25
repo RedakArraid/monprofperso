@@ -15,7 +15,9 @@ Maillon faible : auth/paiement simulés. À traiter avant toute nouvelle feature
 - [x] JWT signé (HS256, `auth.ts`) émis à la connexion + middleware `optionalAuth`
       rétrocompatible (repli `DEMO_USER` si pas de token). Scoping par `currentUserId`.
 - [ ] OTP SMS réel (Orange/MTN CI) pour `verify-otp` (actuellement simulé).
-- [ ] Apps : envoyer l'en-tête `Authorization: Bearer` + stocker le token (Android/iOS).
+- [x] Apps : envoyer l'en-tête `Authorization: Bearer` + stocker le token (Android/iOS).
+      login/signup/verify-otp appellent réellement l'API, persistent le JWT
+      (SharedPreferences / UserDefaults) et l'injectent sur tous les appels.
 - [x] Secrets en variables d'environnement (`.env`), retirés du `docker-compose.yml`.
 - [x] Validation des entrées (helper maison sans dépendance) sur les POST.
 - [x] Migrations versionnées (node-pg-migrate, `api/migrations/*.sql`) appliquées

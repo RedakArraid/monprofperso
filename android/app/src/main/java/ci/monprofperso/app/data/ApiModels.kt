@@ -112,3 +112,5 @@ data class UserDto(
 )
 
 data class AuthResponse(val token: String, val user: UserDto)
+
+data class VerifyResponse(val token: String, val verified: Boolean)

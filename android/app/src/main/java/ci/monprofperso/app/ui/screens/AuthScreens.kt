@@ -16,7 +16,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import ci.monprofperso.app.data.Auth
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -145,6 +148,7 @@ private fun RoleOption(icon: ImageVector, title: String, subtitle: String, selec
 @Composable
 fun SignupScreen(nav: NavActions) {
     val role = ci.monprofperso.app.data.AppState.role
+    val scope = rememberCoroutineScope()
     AkScreen {
         TopBar("", onBack = { nav.back() })
         Column(
@@ -195,7 +199,9 @@ fun SignupScreen(nav: NavActions) {
             }
         }
         Column(Modifier.padding(horizontal = 24.dp).padding(bottom = 24.dp, top = 12.dp)) {
-            PrimaryButton("Créer mon compte", Modifier.fillMaxWidth(), onClick = { nav.go(Routes.Otp) })
+            PrimaryButton("Créer mon compte", Modifier.fillMaxWidth(), onClick = {
+                scope.launch { Auth.signup(fullName = "Aya Koné", roleIndex = role); nav.go(Routes.Otp) }
+            })
             Spacer(Modifier.height(13.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
                 Text("Déjà un compte ? ", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Muted)
@@ -258,6 +264,7 @@ fun PhoneField(value: String = "07 58 42 19 03") {
  * ====================================================================== */
 @Composable
 fun LoginScreen(nav: NavActions) {
+    val scope = rememberCoroutineScope()
     AkScreen {
         Column(
             Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 26.dp).padding(top = 30.dp),
@@ -279,7 +286,7 @@ fun LoginScreen(nav: NavActions) {
                 color = AkColors.Green, modifier = Modifier.align(Alignment.End).clickable { nav.go(Routes.Otp) }.padding(top = 12.dp))
             Spacer(Modifier.height(20.dp))
             PrimaryButton("Se connecter", Modifier.fillMaxWidth(), color = AkColors.Green, trailingIcon = null,
-                onClick = { nav.enterApp() })
+                onClick = { scope.launch { Auth.login(); nav.enterApp() } })
 
             Spacer(Modifier.height(22.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -323,6 +330,7 @@ private fun SocialButton(label: String, icon: ImageVector, modifier: Modifier = 
  * ====================================================================== */
 @Composable
 fun OtpScreen(nav: NavActions) {
+    val scope = rememberCoroutineScope()
     AkScreen {
         TopBar("", onBack = { nav.back() })
         Column(Modifier.weight(1f).padding(horizontal = 28.dp).padding(top = 16.dp)) {
@@ -349,7 +357,8 @@ fun OtpScreen(nav: NavActions) {
             }
         }
         Box(Modifier.padding(horizontal = 28.dp).padding(bottom = 26.dp)) {
-            PrimaryButton("Vérifier", Modifier.fillMaxWidth(), color = AkColors.Green, onClick = { nav.enterApp() })
+            PrimaryButton("Vérifier", Modifier.fillMaxWidth(), color = AkColors.Green,
+                onClick = { scope.launch { Auth.verifyOtp(); nav.enterApp() } })
         }
     }
 }

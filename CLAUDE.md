@@ -46,8 +46,11 @@ docs/       Présentation .docx + assets (captures d'écran)
 - **Auth JWT** (`api/src/auth.ts`, HS256 via `crypto` natif, secret `JWT_SECRET`).
   login/signup/verify-otp émettent un vrai JWT (`sub` = id user). Middleware
   `optionalAuth` : si `Authorization: Bearer <jwt>` valide → utilisateur courant = `sub`,
-  sinon **repli sur `DEMO_USER = 1`** (rétrocompat : les apps n'envoient pas encore
-  l'en-tête). Endpoints user-scoped utilisent `currentUserId(res)`.
+  sinon **repli sur `DEMO_USER = 1`**. Les **deux apps envoient désormais l'en-tête** :
+  login/signup/verify-otp appellent l'API, persistent le JWT (TokenStore →
+  SharedPreferences Android / UserDefaults iOS) et l'injectent sur tous les appels
+  (intercepteur OkHttp côté Android, `URLRequest` côté iOS). Sans token → repli démo
+  (rétrocompat). Endpoints user-scoped utilisent `currentUserId(res)`.
   ⚠️ Reste à faire : OTP SMS réel, paiement réel (Phase 1/2 — voir docs/ROADMAP.md).
 - **Tests** : `api/test/*.test.mjs` (runner natif Node, `npm test`, stack live requise) — 30 tests.
   `api.test.mjs` = intégration par endpoint ; `e2e.test.mjs` = parcours bout-en-bout

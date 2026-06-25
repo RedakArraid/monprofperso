@@ -51,12 +51,26 @@ interface MonProfPersoApi {
 
     @POST("api/auth/login")
     suspend fun login(@Body body: Map<String, String>): AuthResponse
+
+    @POST("api/auth/signup")
+    suspend fun signup(@Body body: Map<String, String>): AuthResponse
+
+    @POST("api/auth/verify-otp")
+    suspend fun verifyOtp(@Body body: Map<String, String>): VerifyResponse
 }
 
 object Api {
     val service: MonProfPersoApi by lazy {
         val logging = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC }
+        val auth = okhttp3.Interceptor { chain ->
+            val token = TokenStore.token
+            val req = if (token != null)
+                chain.request().newBuilder().addHeader("Authorization", "Bearer $token").build()
+            else chain.request()
+            chain.proceed(req)
+        }
         val client = OkHttpClient.Builder()
+            .addInterceptor(auth)
             .addInterceptor(logging)
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)
