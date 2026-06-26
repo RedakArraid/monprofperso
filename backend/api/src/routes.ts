@@ -147,11 +147,11 @@ api.post("/bookings", wrap(async (req, res) => {
   const duration = optionalString(b, "duration", { max: 20 });
   const location = optionalString(b, "location", { max: 200 });
   const r = await pool.query(
-    `INSERT INTO courses (user_id,teacher_id,teacher_name,subject,level,day_label,day_num,time,duration,format,location,price,status,badge)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'upcoming',$13) RETURNING *`,
+    `INSERT INTO courses (user_id,teacher_id,teacher_name,subject,level,day_label,day_num,time,duration,format,location,price,status,badge,accepted)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'upcoming',$13,FALSE) RETURNING *`,
     [currentUserId(res), teacherId ?? 1, teacherName ?? "Koffi N'Guessan", subject ?? "Maths", level ?? "3ᵉ",
      dayLabel ?? "SAM", dayNum ?? "22", time ?? "16h00", duration ?? "1h30",
-     format ?? "home", location ?? "À domicile, Cocody", price ?? 6000, "Nouveau"]
+     format ?? "home", location ?? "À domicile, Cocody", price ?? 6000, "En attente"]
   );
   res.status(201).json({ reference: "AKW-" + (2000 + r.rows[0].id), course: r.rows[0] });
 }));
@@ -244,7 +244,9 @@ api.get("/teacher/dashboard", wrap(async (_req, res) => {
   const t = (await pool.query("SELECT name FROM teachers WHERE id=$1", [teacherId])).rows[0];
   if (!p || !t) { res.status(404).json({ error: "not_found" }); return; }
   const pending = (await pool.query(
-    "SELECT count(*)::int AS n FROM teacher_requests WHERE teacher_id=$1", [teacherId]
+    `SELECT ((SELECT count(*) FROM teacher_requests WHERE teacher_id=$1)
+           + (SELECT count(*) FROM courses WHERE teacher_id=$1 AND accepted=FALSE))::int AS n`,
+    [teacherId]
   )).rows[0].n;
   res.json({
     name: t.name, revenue: p.revenue, trend: p.trend,
@@ -259,12 +261,37 @@ api.get("/teacher/dashboard", wrap(async (_req, res) => {
 
 api.get("/teacher/requests", wrap(async (_req, res) => {
   const teacherId = await currentTeacherId(res);
-  const r = await pool.query(
-    `SELECT initials, accent, name, ago, price, student, subject, slot, format
+  // Vraies réservations en attente de validation (parents -> ce prof).
+  const live = await pool.query(
+    `SELECT c.id AS "courseId", u.initials, 'green' AS accent, u.full_name AS name,
+            'nouveau' AS ago, c.price, c.level AS student, c.subject,
+            (c.day_label || ' ' || c.day_num || ' · ' || c.time) AS slot,
+            CASE c.format WHEN 'online' THEN 'En ligne'
+                          ELSE COALESCE(c.location, 'À domicile') END AS format
+     FROM courses c JOIN users u ON u.id = c.user_id
+     WHERE c.teacher_id = $1 AND c.accepted = FALSE
+     ORDER BY c.id DESC`,
+    [teacherId]
+  );
+  // Demandes de démonstration (sans cours réel rattaché : courseId nul).
+  const seeded = await pool.query(
+    `SELECT NULL::int AS "courseId", initials, accent, name, ago, price, student, subject, slot, format
      FROM teacher_requests WHERE teacher_id=$1 ORDER BY ord, id`,
     [teacherId]
   );
-  res.json(r.rows);
+  res.json([...live.rows, ...seeded.rows]);
+}));
+
+// Validation d'une demande réelle : le prof accepte la réservation d'un parent.
+api.post("/teacher/requests/:id/accept", wrap(async (req, res) => {
+  const teacherId = await currentTeacherId(res);
+  const r = await pool.query(
+    `UPDATE courses SET accepted = TRUE, badge = 'Confirmé'
+     WHERE id = $1 AND teacher_id = $2 AND accepted = FALSE RETURNING id`,
+    [req.params.id, teacherId]
+  );
+  if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
+  res.json({ ok: true, courseId: r.rows[0].id });
 }));
 
 api.get("/teacher/earnings", wrap(async (_req, res) => {

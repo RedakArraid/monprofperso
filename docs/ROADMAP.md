@@ -50,8 +50,15 @@ Maillon faible : auth/paiement simulés. À traiter avant toute nouvelle feature
       prof (`/teacher/*`) est scopé sur le professeur connecté (migration `1700000005000`,
       isolation testée en e2e). Reste : scoper de même `/wallet`, demandes/cours liés
       au compte, et le parcours élève/parent multi-comptes.
-- [ ] Réservation transactionnelle : conflits de créneaux, statuts, notifications.
-- [ ] Espace prof complet : validation des demandes, calendrier, revenus réels.
+- [~] Réservation transactionnelle : conflits de créneaux, statuts, notifications.
+      Fait : statut d'acceptation (`courses.accepted`) — une réservation naît en
+      attente et remonte chez le prof concerné. Reste : conflits de créneaux,
+      transaction de paiement, notifications.
+- [~] Espace prof complet : validation des demandes, calendrier, revenus réels.
+      Fait côté API : `/teacher/requests` reflète les vraies réservations + demandes
+      de démo, `POST /teacher/requests/:id/accept` valide (isolé au prof concerné).
+      Reste : refus, calendrier, et **brancher l'espace prof des apps en live**
+      (dashboard/demandes/revenus encore mockés — cf. Phase 3).
 - [ ] Notifications push (FCM Android / APNs iOS).
 
 ## Phase 3 — Qualité apps natives

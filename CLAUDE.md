@@ -44,8 +44,10 @@ docs/       Présentation .docx + assets (captures d'écran)
   `teacher_earning_weeks`, `teacher_requests`, `teacher_payouts`). Enfin
   `1700000005000_link-users-teachers` ajoute `users.teacher_id` (FK vers `teachers`)
   et un 2ᵉ compte prof, pour **scoper l'espace prof sur le professeur connecté**
-  (repli sur le prof de démo si le compte n'a pas de fiche) — **20 tables au total**.
-  Suivi dans la table `pgmigrations`.
+  (repli sur le prof de démo si le compte n'a pas de fiche). Enfin
+  `1700000006000_course-acceptance` ajoute `courses.accepted` : une réservation
+  naît « en attente » et **remonte dans les demandes du prof concerné** jusqu'à
+  validation — **20 tables au total**. Suivi dans la table `pgmigrations`.
   Créer une migration : `npm run migrate create <nom>` (puis éditer le `.sql`).
 - **Ports (custom, pour éviter les collisions)** : API **8099**, Postgres **5544**,
   Adminer **8098**. Configurables via `backend/.env` (voir `.env.example`).
@@ -58,7 +60,8 @@ docs/       Présentation .docx + assets (captures d'écran)
   `/api/subjects`, `/api/levels`, `/api/teachers[?format=&level=]`, `/api/teachers/:id`,
   `/api/courses[?status=upcoming|done]`, `/api/bookings`, `/api/notifications`,
   `/api/wallet`, `/api/groups[/:id]`, `/api/subscription/{plans,mine}`,
-  `/api/progress`, `/api/teacher/{dashboard,requests,earnings}`, `/api/referral`,
+  `/api/progress`, `/api/teacher/{dashboard,requests,earnings}`,
+  `/api/teacher/requests/:id/accept` (le prof valide une réservation), `/api/referral`,
   `/api/resources[?type=&subject=&level=]`, `/api/files/:id`.
 - **Espace admin** (réservé au rôle `admin`, garde `requireAdmin`) :
   `POST/PUT/DELETE /api/admin/subjects[/:slug]`, `POST/DELETE /api/admin/levels[/:slug]`,
@@ -88,7 +91,7 @@ docs/       Présentation .docx + assets (captures d'écran)
   porté par le JWT ; `requireAdmin` garde l'espace admin (401 sans token, 403 si non-admin).
   Utilisateur admin de démo : `+2250700000001`.
   ⚠️ Reste à faire : OTP SMS réel, paiement réel (Phase 1/2 — voir docs/ROADMAP.md).
-- **Tests** : `api/test/*.test.mjs` (runner natif Node, `npm test`, stack live requise) — 44 tests.
+- **Tests** : `api/test/*.test.mjs` (runner natif Node, `npm test`, stack live requise) — 45 tests.
   `api.test.mjs` = intégration par endpoint ; `e2e.test.mjs` = parcours bout-en-bout
   (inscription→réservation→relecture, isolation JWT entre comptes, repli démo, prof,
   catalogue). Les 20 endpoints sont couverts.

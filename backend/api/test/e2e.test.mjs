@@ -188,6 +188,40 @@ test("e2e — espace prof scopé par compte : Koffi ≠ Ibrahim", async () => {
   assert.equal(dashFresh.body.name, "Koffi N'Guessan", "repli démo si pas de fiche prof");
 });
 
+test("e2e — réservation parent -> demande chez le prof -> validation", async () => {
+  const parent = await signup("parent");
+  const ibra = await post("/api/auth/login", { phone: "+2250705001122" });
+
+  const before = (await get("/api/teacher/dashboard", ibra.body.token)).body.pendingRequests;
+
+  // Le parent réserve un cours avec Ibrahim (teachers.id=2).
+  const booking = await post("/api/bookings",
+    { teacherId: 2, teacherName: "Ibrahim Diallo", subject: "Statistiques", price: 3000, format: "online" },
+    parent.token);
+  assert.equal(booking.status, 201);
+  const courseId = booking.body.course.id;
+  assert.equal(booking.body.course.accepted, false, "une réservation naît en attente");
+
+  // Elle apparaît dans les demandes d'Ibrahim, avec le nom du parent et un courseId.
+  const reqs = (await get("/api/teacher/requests", ibra.body.token)).body;
+  const mine = reqs.find((r) => r.courseId === courseId);
+  assert.ok(mine, "la réservation apparaît comme demande du prof");
+  assert.equal(mine.name, parent.user.full_name);
+  assert.equal((await get("/api/teacher/dashboard", ibra.body.token)).body.pendingRequests, before + 1);
+
+  // Un autre prof ne peut pas valider cette demande.
+  const koffi = await post("/api/auth/login", { phone: "+2250707001234" });
+  const wrongAccept = await post(`/api/teacher/requests/${courseId}/accept`, undefined, koffi.body.token);
+  assert.equal(wrongAccept.status, 404, "validation isolée au prof concerné");
+
+  // Ibrahim valide -> la demande disparaît et le compteur redescend.
+  const accept = await post(`/api/teacher/requests/${courseId}/accept`, undefined, ibra.body.token);
+  assert.equal(accept.status, 200);
+  const after = (await get("/api/teacher/requests", ibra.body.token)).body;
+  assert.ok(!after.some((r) => r.courseId === courseId), "la demande validée quitte la liste");
+  assert.equal((await get("/api/teacher/dashboard", ibra.body.token)).body.pendingRequests, before);
+});
+
 // ======================================================================
 // Parcours 6 — Catalogue public (groupes, abonnement, parrainage)
 // ======================================================================
