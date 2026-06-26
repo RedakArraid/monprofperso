@@ -300,10 +300,15 @@ fun LoginScreen(nav: NavActions) {
                 SocialButton("Apple", Icons.Filled.PhoneIphone, Modifier.weight(1f)) { nav.enterApp() }
             }
         }
-        Row(Modifier.fillMaxWidth().padding(bottom = 26.dp), horizontalArrangement = Arrangement.Center) {
-            Text("Nouveau sur Mon Prof Perso ? ", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Muted)
-            Text("Créer un compte", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.sp,
-                color = AkColors.Green, modifier = Modifier.clickable { nav.go(Routes.Signup) })
+        Column(Modifier.fillMaxWidth().padding(bottom = 26.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Row(horizontalArrangement = Arrangement.Center) {
+                Text("Nouveau sur Mon Prof Perso ? ", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Muted)
+                Text("Créer un compte", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.sp,
+                    color = AkColors.Green, modifier = Modifier.clickable { nav.go(Routes.Signup) })
+            }
+            Spacer(Modifier.height(10.dp))
+            Text("Démo administrateur", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = AkColors.Faint,
+                modifier = Modifier.clickable { scope.launch { Auth.login(Auth.ADMIN_PHONE); nav.enterApp() } })
         }
     }
 }

@@ -124,7 +124,7 @@ struct SignupScreen: View {
             VStack(spacing: 13) {
                 PrimaryButton(label: "Créer mon compte") {
                     Task { @MainActor in
-                        await ApiClient.shared.signup(fullName: "Aya Koné", roleIndex: router.role)
+                        router.authRole = await ApiClient.shared.signup(fullName: "Aya Koné", roleIndex: router.role)
                         router.go(.otp)
                     }
                 }
@@ -158,7 +158,7 @@ struct LoginScreen: View {
                         .onTapGesture { router.go(.otp) }
                     PrimaryButton(label: "Se connecter", color: Ak.green, trailingSystemIcon: nil) {
                         Task { @MainActor in
-                            await ApiClient.shared.login()
+                            router.authRole = await ApiClient.shared.login()
                             router.enterApp()
                         }
                     }.padding(.top, 20)
@@ -173,9 +173,18 @@ struct LoginScreen: View {
                     }
                 }.padding(.horizontal, 26).padding(.top, 30)
             }
-            HStack(spacing: 4) {
-                Text("Nouveau sur Mon Prof Perso ?").font(AkFont.regular(13)).foregroundColor(Ak.muted)
-                Text("Créer un compte").font(AkFont.bold(13)).foregroundColor(Ak.green).onTapGesture { router.go(.signup) }
+            VStack(spacing: 10) {
+                HStack(spacing: 4) {
+                    Text("Nouveau sur Mon Prof Perso ?").font(AkFont.regular(13)).foregroundColor(Ak.muted)
+                    Text("Créer un compte").font(AkFont.bold(13)).foregroundColor(Ak.green).onTapGesture { router.go(.signup) }
+                }
+                Text("Démo administrateur").font(AkFont.bold(12)).foregroundColor(Ak.faint)
+                    .onTapGesture {
+                        Task { @MainActor in
+                            router.authRole = await ApiClient.shared.login(phone: ApiConfig.adminPhone)
+                            router.enterApp()
+                        }
+                    }
             }.padding(.bottom, 12)
         }
     }

@@ -214,16 +214,24 @@ fun AccountScreen(nav: NavActions) {
                     AccountRow(Icons.Filled.AccountBalanceWallet, "Moyens de paiement") { nav.go(Routes.Wallet) }
                 }
                 RowDivider()
+                AccountRow(Icons.Filled.Description, "Ressources & supports") { nav.go(Routes.Resources) }
+                RowDivider()
                 AccountRow(Icons.Filled.CardGiftcard, "Parrainage", badge = "2 000 F", badgeFg = AkColors.Orange, badgeBg = AkColors.OrangeSoft) { nav.go(Routes.Referral) }
                 RowDivider()
                 AccountRow(Icons.AutoMirrored.Filled.HelpOutline, "Aide & support") { nav.go(Routes.HelpFaq) }
                 RowDivider()
                 AccountRow(Icons.Filled.Settings, "Paramètres") { nav.go(Routes.Settings) }
+                if (ci.monprofperso.app.data.AppState.isAdmin) {
+                    RowDivider()
+                    AccountRow(Icons.Filled.Tune, "Gérer le catalogue", badge = "Admin", badgeFg = AkColors.Green, badgeBg = AkColors.GreenSoft) { nav.go(Routes.AdminCatalog) }
+                    RowDivider()
+                    AccountRow(Icons.Filled.Description, "Ressources pédagogiques", badge = "Admin", badgeFg = AkColors.Green, badgeBg = AkColors.GreenSoft) { nav.go(Routes.AdminResources) }
+                }
             }
             Spacer(Modifier.height(14.dp))
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Text("Se déconnecter", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, color = Color(0xFFE0392B),
-                    modifier = Modifier.clickable { ci.monprofperso.app.data.AppState.role = 0; nav.go(Routes.Welcome) })
+                    modifier = Modifier.clickable { ci.monprofperso.app.data.AppState.role = 0; ci.monprofperso.app.data.AppState.authRole = null; nav.go(Routes.Welcome) })
             }
             if (!isTeacher) {
                 Spacer(Modifier.height(8.dp))

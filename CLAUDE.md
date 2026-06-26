@@ -53,6 +53,15 @@ docs/       Présentation .docx + assets (captures d'écran)
   `POST/DELETE /api/admin/resources[/:id]`. Permet d'ajouter matières (musique, langues
   hors FR/EN…), niveaux (supérieur/universitaire…) et ressources pédagogiques
   (cours/devoirs/exercices) avec fichier (uploadé en base64, stocké en `BYTEA`).
+  **UI côté apps** : deux écrans admin présents sur Android (`ui/screens/AdminScreens.kt`)
+  et iOS (`Screens/AdminScreens.swift`) — « Gérer le catalogue » (matières + niveaux,
+  routé `AdminCatalog`/`.adminCatalog`) et « Ressources pédagogiques » (cours/devoirs/
+  exercices avec type, matière, niveau et description ; fichier non géré côté mobile,
+  optionnel côté API ; routé `AdminResources`/`.adminResources`). La connexion mémorise
+  le rôle réel renvoyé par le serveur (`AppState.authRole` Android / `Router.authRole`
+  iOS → `isAdmin`) ; les deux entrées n'apparaissent dans « Mon compte » que pour un
+  admin. Un raccourci « Démo administrateur » sur l'écran de connexion logue le seed
+  admin (`+2250700000001`).
 - **Auth JWT** (`api/src/auth.ts`, HS256 via `crypto` natif, secret `JWT_SECRET`).
   login/signup/verify-otp émettent un vrai JWT (`sub` = id user). Middleware
   `optionalAuth` : si `Authorization: Bearer <jwt>` valide → utilisateur courant = `sub`,
@@ -96,7 +105,8 @@ docker compose down -v   # reset complet (re-seed au prochain up)
 ## Pattern clé (les deux apps)
 Écrans branchés **en live** sur l'API (ViewModels Android / Stores iOS) avec
 **repli automatique sur les données locales de la maquette** si l'API est injoignable.
-Les écrans live : Accueil, Résultats de recherche, Profil prof, Mes cours, Suivi des progrès.
+Les écrans live : Accueil, Résultats de recherche, Profil prof, Mes cours, Suivi des progrès,
+Ressources & supports (lecture seule, `Resources`/`.resources`, repli sur exemples hors-ligne).
 Les autres écrans suivent le même patron et restent fidèles à la maquette hors-ligne.
 
 ## Design system partagé

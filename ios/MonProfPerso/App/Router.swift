@@ -23,7 +23,9 @@ enum Route: Hashable {
     // J — Gérer un cours & suivi détaillé
     case manageCourse, progressReport, receipt
     // K — Reçus, aide, réglages & parrainage
-    case helpFaq, settings, referral, emptyState
+    case helpFaq, settings, referral, emptyState, resources
+    // L — Espace administrateur
+    case adminCatalog, adminResources
 }
 
 /// Onglets de la barre inférieure (parent & professeur).
@@ -38,6 +40,10 @@ final class Router: ObservableObject {
     @Published var path = NavigationPath()
     /// Rôle choisi à l'accueil, réutilisé à l'inscription (plus de double saisie).
     @Published var role = 0
+    /// Rôle réel renvoyé par le serveur à la connexion (`parent|student|teacher|admin`).
+    @Published var authRole: String? = nil
+
+    var isAdmin: Bool { authRole == "admin" }
 
     func go(_ route: Route) { path.append(route) }
     func back() { if !path.isEmpty { path.removeLast() } }

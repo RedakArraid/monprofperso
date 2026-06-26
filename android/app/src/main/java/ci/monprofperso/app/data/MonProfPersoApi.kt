@@ -4,7 +4,9 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.Response
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
@@ -21,6 +23,35 @@ object ApiConfig {
 interface MonProfPersoApi {
     @GET("api/subjects")
     suspend fun subjects(): List<SubjectDto>
+
+    @GET("api/levels")
+    suspend fun levels(): List<LevelDto>
+
+    // --- Espace admin (rôle admin requis ; le token Bearer est ajouté par l'intercepteur) ---
+    @POST("api/admin/subjects")
+    suspend fun createSubject(@Body body: Map<String, String>): SubjectDto
+
+    @DELETE("api/admin/subjects/{slug}")
+    suspend fun deleteSubject(@Path("slug") slug: String): Response<Unit>
+
+    @POST("api/admin/levels")
+    suspend fun createLevel(@Body body: Map<String, @JvmSuppressWildcards Any?>): LevelDto
+
+    @DELETE("api/admin/levels/{slug}")
+    suspend fun deleteLevel(@Path("slug") slug: String): Response<Unit>
+
+    @GET("api/resources")
+    suspend fun resources(
+        @Query("type") type: String? = null,
+        @Query("subject") subject: String? = null,
+        @Query("level") level: String? = null,
+    ): List<ResourceDto>
+
+    @POST("api/admin/resources")
+    suspend fun createResource(@Body body: Map<String, @JvmSuppressWildcards Any?>): ResourceDto
+
+    @DELETE("api/admin/resources/{id}")
+    suspend fun deleteResource(@Path("id") id: Int): Response<Unit>
 
     @GET("api/teachers")
     suspend fun teachers(

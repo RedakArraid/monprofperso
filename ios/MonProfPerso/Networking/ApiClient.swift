@@ -7,6 +7,8 @@ enum ApiConfig {
     static let baseURL = URL(string: "http://localhost:8099")!
     /// Numéro de démonstration (= utilisateur seed « Aya Koné »).
     static let demoPhone = "+2250758421903"
+    /// Numéro de l'administrateur de démonstration (seed).
+    static let adminPhone = "+2250700000001"
 }
 
 /// Stockage du JWT d'authentification (persisté entre lancements via UserDefaults).
@@ -29,6 +31,24 @@ enum TokenStore {
 struct SubjectDTO: Codable, Identifiable {
     var id: String { slug }
     let slug, name, icon, accent: String
+}
+
+struct LevelDTO: Codable, Identifiable {
+    var id: String { slug }
+    let slug, name: String
+}
+
+struct ResourceDTO: Codable, Identifiable {
+    let id: Int
+    let type: String
+    let subject_slug: String?
+    let level: String?
+    let title: String
+    let description: String?
+    let file_name: String?
+    let mime_type: String?
+    let size_bytes: Int?
+    let created_at: String?
 }
 
 struct ReviewDTO: Codable {
@@ -86,7 +106,8 @@ extension Int {
 
 enum ApiError: Error { case badStatus(Int) }
 
-struct AuthResponse: Codable { let token: String }
+struct UserDTO: Codable { let id: Int; let role: String }
+struct AuthResponse: Codable { let token: String; let user: UserDTO }
 struct VerifyResponse: Codable { let token: String; let verified: Bool }
 
 struct ApiClient {
@@ -118,16 +139,25 @@ struct ApiClient {
     // Tolérant aux pannes : en cas d'échec, l'app continue en mode démo (repli serveur).
     private static let apiRoles = ["parent", "student", "teacher"]
 
-    func login(phone: String = ApiConfig.demoPhone) async {
+    /// Renvoie le rôle réel du compte (`parent|student|teacher|admin`) si la connexion réussit.
+    @discardableResult
+    func login(phone: String = ApiConfig.demoPhone) async -> String? {
         if let data = try? await request("api/auth/login", method: "POST", json: ["phone": phone]),
-           let r = try? JSONDecoder().decode(AuthResponse.self, from: data) { TokenStore.token = r.token }
+           let r = try? JSONDecoder().decode(AuthResponse.self, from: data) {
+            TokenStore.token = r.token; return r.user.role
+        }
+        return nil
     }
 
-    func signup(fullName: String, phone: String = ApiConfig.demoPhone, roleIndex: Int) async {
+    @discardableResult
+    func signup(fullName: String, phone: String = ApiConfig.demoPhone, roleIndex: Int) async -> String? {
         let role = Self.apiRoles[min(max(roleIndex, 0), 2)]
         if let data = try? await request("api/auth/signup", method: "POST",
                                          json: ["fullName": fullName, "phone": phone, "role": role]),
-           let r = try? JSONDecoder().decode(AuthResponse.self, from: data) { TokenStore.token = r.token }
+           let r = try? JSONDecoder().decode(AuthResponse.self, from: data) {
+            TokenStore.token = r.token; return r.user.role
+        }
+        return nil
     }
 
     func verifyOtp(phone: String = ApiConfig.demoPhone) async {
@@ -136,12 +166,45 @@ struct ApiClient {
     }
 
     func subjects() async throws -> [SubjectDTO] { try await get("api/subjects") }
+    func levels() async throws -> [LevelDTO] { try await get("api/levels") }
     func teachers() async throws -> [TeacherDTO] { try await get("api/teachers") }
     func teacher(_ id: Int) async throws -> TeacherDTO { try await get("api/teachers/\(id)") }
     func courses(status: String? = nil) async throws -> [CourseDTO] {
         try await get("api/courses" + (status.map { "?status=\($0)" } ?? ""))
     }
     func progress() async throws -> ProgressDTO { try await get("api/progress") }
+
+    // MARK: Espace admin (rôle admin requis ; le token Bearer est ajouté à chaque requête).
+    func createSubject(slug: String, name: String, accent: String, icon: String = "more") async throws -> SubjectDTO {
+        let data = try await request("api/admin/subjects", method: "POST",
+                                     json: ["slug": slug, "name": name, "accent": accent, "icon": icon])
+        return try JSONDecoder().decode(SubjectDTO.self, from: data)
+    }
+    func deleteSubject(slug: String) async throws { _ = try await request("api/admin/subjects/\(slug)", method: "DELETE") }
+
+    func createLevel(slug: String, name: String, ord: Int) async throws -> LevelDTO {
+        let data = try await request("api/admin/levels", method: "POST",
+                                     json: ["slug": slug, "name": name, "ord": ord])
+        return try JSONDecoder().decode(LevelDTO.self, from: data)
+    }
+    func deleteLevel(slug: String) async throws { _ = try await request("api/admin/levels/\(slug)", method: "DELETE") }
+
+    func resources(type: String? = nil, subject: String? = nil, level: String? = nil) async throws -> [ResourceDTO] {
+        var q: [String] = []
+        if let type { q.append("type=\(type)") }
+        if let subject { q.append("subject=\(subject)") }
+        if let level { q.append("level=\(level)") }
+        return try await get("api/resources" + (q.isEmpty ? "" : "?" + q.joined(separator: "&")))
+    }
+    func createResource(type: String, title: String, subjectSlug: String?, level: String?, description: String?) async throws -> ResourceDTO {
+        var json: [String: Any] = ["type": type, "title": title]
+        if let subjectSlug { json["subjectSlug"] = subjectSlug }
+        if let level { json["level"] = level }
+        if let description, !description.isEmpty { json["description"] = description }
+        let data = try await request("api/admin/resources", method: "POST", json: json)
+        return try JSONDecoder().decode(ResourceDTO.self, from: data)
+    }
+    func deleteResource(id: Int) async throws { _ = try await request("api/admin/resources/\(id)", method: "DELETE") }
 }
 
 // MARK: - Données de repli (identiques à la maquette) si l'API est injoignable
@@ -164,6 +227,11 @@ extension Fallback {
         .init(slug: "philo", name: "Philo", icon: "brain", accent: "green"),
         .init(slug: "histgeo", name: "Hist-Géo", icon: "globe", accent: "green"),
         .init(slug: "plus", name: "Plus", icon: "more", accent: "orange"),
+    ]
+    static let resources: [ResourceDTO] = [
+        .init(id: 1, type: "course", subject_slug: "maths", level: "3eme", title: "Fiche — Théorème de Thalès", description: "Rappels de cours et exemples corrigés.", file_name: nil, mime_type: nil, size_bytes: nil, created_at: nil),
+        .init(id: 2, type: "exercise", subject_slug: "physique", level: "2nde", title: "Série d'exercices — Optique", description: "10 exercices progressifs avec corrigés.", file_name: nil, mime_type: nil, size_bytes: nil, created_at: nil),
+        .init(id: 3, type: "homework", subject_slug: "francais", level: "1ere", title: "Devoir — Commentaire de texte", description: "Sujet type BAC à rendre.", file_name: nil, mime_type: nil, size_bytes: nil, created_at: nil),
     ]
     static let courses: [CourseDTO] = [
         .init(id: 1, teacher_name: "Koffi N'Guessan", subject: "Maths", level: "3ᵉ", day_label: "SAM", day_num: "22", time: "16h00", duration: "1h30", format: "home", location: "À domicile, Cocody", price: 6000, status: "upcoming", badge: "Dans 2 jours"),

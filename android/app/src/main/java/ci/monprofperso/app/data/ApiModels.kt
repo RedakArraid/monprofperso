@@ -13,6 +13,24 @@ data class SubjectDto(
     val accent: String,
 )
 
+data class LevelDto(
+    val slug: String,
+    val name: String,
+)
+
+data class ResourceDto(
+    val id: Int,
+    val type: String,
+    @SerializedName("subject_slug") val subjectSlug: String?,
+    val level: String?,
+    val title: String,
+    val description: String?,
+    @SerializedName("file_name") val fileName: String?,
+    @SerializedName("mime_type") val mimeType: String?,
+    @SerializedName("size_bytes") val sizeBytes: Int?,
+    @SerializedName("created_at") val createdAt: String?,
+)
+
 data class TeacherDto(
     val id: Int,
     val initials: String,

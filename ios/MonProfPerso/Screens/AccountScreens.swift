@@ -168,15 +168,23 @@ struct AccountScreen: View {
                             accountRow("creditcard.fill", "Moyens de paiement") { router.go(.wallet) }
                         }
                         rowDivider()
+                        accountRow("doc.text.fill", "Ressources & supports") { router.go(.resources) }
+                        rowDivider()
                         accountRow("gift.fill", "Parrainage", badge: "2 000 F", bf: Ak.orange, bb: Ak.orangeSoft) { router.go(.referral) }
                         rowDivider()
                         accountRow("questionmark.circle.fill", "Aide & support") { router.go(.helpFaq) }
                         rowDivider()
                         accountRow("gearshape.fill", "Paramètres") { router.go(.settings) }
+                        if router.isAdmin {
+                            rowDivider()
+                            accountRow("slider.horizontal.3", "Gérer le catalogue", badge: "Admin", bf: Ak.green, bb: Ak.greenSoft) { router.go(.adminCatalog) }
+                            rowDivider()
+                            accountRow("doc.text.fill", "Ressources pédagogiques", badge: "Admin", bf: Ak.green, bb: Ak.greenSoft) { router.go(.adminResources) }
+                        }
                     }.background(.white).clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: 18).stroke(Ak.border, lineWidth: 1)).padding(.top, 20)
 
-                    Text("Se déconnecter").font(AkFont.bold(13.5)).foregroundColor(Ak.danger).frame(maxWidth: .infinity).padding(.top, 14).onTapGesture { router.role = 0; router.popToRoot() }
+                    Text("Se déconnecter").font(AkFont.bold(13.5)).foregroundColor(Ak.danger).frame(maxWidth: .infinity).padding(.top, 14).onTapGesture { router.role = 0; router.authRole = nil; TokenStore.clear(); router.popToRoot() }
                     if !isTeacher {
                         Text("Espace professeur →").font(AkFont.bold(12.5)).foregroundColor(Ak.muted).frame(maxWidth: .infinity).padding(.top, 8).onTapGesture { router.go(.teacherDashboard) }
                     }

@@ -11,12 +11,15 @@ object Auth {
     /** Numéro de démonstration (= utilisateur seed « Aya Koné »). */
     const val DEMO_PHONE = "+2250758421903"
 
+    /** Numéro de l'administrateur de démonstration (seed). */
+    const val ADMIN_PHONE = "+2250700000001"
+
     /** Index de rôle UI (0/1/2) -> valeur attendue par l'API. */
     private val apiRole = listOf("parent", "student", "teacher")
 
     suspend fun login(phone: String = DEMO_PHONE) {
         runCatching { Api.service.login(mapOf("phone" to phone)) }
-            .onSuccess { TokenStore.save(it.token) }
+            .onSuccess { TokenStore.save(it.token); AppState.authRole = it.user.role }
     }
 
     suspend fun signup(fullName: String, phone: String = DEMO_PHONE, roleIndex: Int) {
@@ -24,7 +27,7 @@ object Auth {
             Api.service.signup(
                 mapOf("fullName" to fullName, "phone" to phone, "role" to apiRole[roleIndex.coerceIn(0, 2)])
             )
-        }.onSuccess { TokenStore.save(it.token) }
+        }.onSuccess { TokenStore.save(it.token); AppState.authRole = it.user.role }
     }
 
     suspend fun verifyOtp(phone: String = DEMO_PHONE) {
