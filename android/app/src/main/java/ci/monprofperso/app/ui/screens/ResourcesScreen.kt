@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -100,9 +101,18 @@ private fun FilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
 private fun ResourceCard(r: ResourceDto) {
     val accent = if (r.type == "homework") AkColors.Orange else AkColors.Green
     val soft = if (r.type == "homework") AkColors.OrangeSoft else AkColors.GreenSoft
+    val context = LocalContext.current
+    val hasFile = !r.fileName.isNullOrBlank()
+    val open = {
+        val url = ci.monprofperso.app.data.ApiConfig.BASE_URL + "api/files/${r.id}"
+        runCatching {
+            context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+        }
+    }
     Row(
         Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(RoundedCornerShape(16.dp)).background(AkColors.White)
-            .border(1.dp, AkColors.Border, RoundedCornerShape(16.dp)).padding(14.dp),
+            .border(1.dp, AkColors.Border, RoundedCornerShape(16.dp))
+            .then(if (hasFile) Modifier.clickable { open() } else Modifier).padding(14.dp),
         verticalAlignment = Alignment.Top,
     ) {
         Box(

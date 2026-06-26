@@ -56,8 +56,11 @@ docs/       Présentation .docx + assets (captures d'écran)
   **UI côté apps** : deux écrans admin présents sur Android (`ui/screens/AdminScreens.kt`)
   et iOS (`Screens/AdminScreens.swift`) — « Gérer le catalogue » (matières + niveaux,
   routé `AdminCatalog`/`.adminCatalog`) et « Ressources pédagogiques » (cours/devoirs/
-  exercices avec type, matière, niveau et description ; fichier non géré côté mobile,
-  optionnel côté API ; routé `AdminResources`/`.adminResources`). La connexion mémorise
+  exercices avec type, matière, niveau, description et **fichier joint optionnel** —
+  sélecteur natif Android SAF `OpenDocument` / iOS `.fileImporter`, encodé base64 et
+  envoyé en `contentBase64` ; routé `AdminResources`/`.adminResources`). Côté lecture,
+  l'écran utilisateur « Ressources & supports » ouvre le fichier via `/api/files/:id`
+  (Intent `ACTION_VIEW` Android / `openURL` iOS). La connexion mémorise
   le rôle réel renvoyé par le serveur (`AppState.authRole` Android / `Router.authRole`
   iOS → `isAdmin`) ; les deux entrées n'apparaissent dans « Mon compte » que pour un
   admin. Un raccourci « Démo administrateur » sur l'écran de connexion logue le seed

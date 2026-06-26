@@ -196,11 +196,17 @@ struct ApiClient {
         if let level { q.append("level=\(level)") }
         return try await get("api/resources" + (q.isEmpty ? "" : "?" + q.joined(separator: "&")))
     }
-    func createResource(type: String, title: String, subjectSlug: String?, level: String?, description: String?) async throws -> ResourceDTO {
+    func createResource(type: String, title: String, subjectSlug: String?, level: String?, description: String?,
+                        fileName: String? = nil, mimeType: String? = nil, contentBase64: String? = nil) async throws -> ResourceDTO {
         var json: [String: Any] = ["type": type, "title": title]
         if let subjectSlug { json["subjectSlug"] = subjectSlug }
         if let level { json["level"] = level }
         if let description, !description.isEmpty { json["description"] = description }
+        if let contentBase64 {
+            json["contentBase64"] = contentBase64
+            json["fileName"] = fileName ?? "fichier"
+            if let mimeType { json["mimeType"] = mimeType }
+        }
         let data = try await request("api/admin/resources", method: "POST", json: json)
         return try JSONDecoder().decode(ResourceDTO.self, from: data)
     }

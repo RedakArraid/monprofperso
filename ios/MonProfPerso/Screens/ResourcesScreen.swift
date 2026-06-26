@@ -17,6 +17,7 @@ private func resTypeIcon(_ type: String) -> String {
 
 struct ResourcesScreen: View {
     @EnvironmentObject var router: Router
+    @Environment(\.openURL) private var openURL
     @State private var all: [ResourceDTO]? = nil
     @State private var filter: String? = nil
 
@@ -95,5 +96,11 @@ struct ResourcesScreen: View {
         .padding(14)
         .background(.white).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(Ak.border, lineWidth: 1))
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if let f = r.file_name, !f.isEmpty {
+                openURL(ApiConfig.baseURL.appendingPathComponent("api/files/\(r.id)"))
+            }
+        }
     }
 }

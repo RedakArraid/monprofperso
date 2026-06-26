@@ -1,5 +1,8 @@
 package ci.monprofperso.app.ui.screens
 
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -10,8 +13,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -41,6 +46,18 @@ import kotlinx.coroutines.launch
 private fun slugify(input: String): String {
     val n = java.text.Normalizer.normalize(input, java.text.Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "")
     return n.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-')
+}
+
+/** Lit le fichier choisi (SAF) et le renvoie (nom, mimeType, base64) ou null si illisible. */
+private fun readPickedFile(context: android.content.Context, uri: android.net.Uri): Triple<String, String?, String>? {
+    val resolver = context.contentResolver
+    val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: return null
+    var name = "fichier"
+    resolver.query(uri, null, null, null, null)?.use { c ->
+        val idx = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+        if (idx >= 0 && c.moveToFirst()) c.getString(idx)?.let { name = it }
+    }
+    return Triple(name, resolver.getType(uri), android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP))
 }
 
 @Composable
@@ -201,6 +218,14 @@ fun AdminResourcesScreen(nav: NavActions) {
     var level by remember { mutableStateOf<String?>(null) }
     var description by remember { mutableStateOf("") }
     var message by remember { mutableStateOf<String?>(null) }
+    var fileName by remember { mutableStateOf<String?>(null) }
+    var fileMime by remember { mutableStateOf<String?>(null) }
+    var fileB64 by remember { mutableStateOf<String?>(null) }
+
+    val context = LocalContext.current
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) readPickedFile(context, uri)?.let { (n, m, b) -> fileName = n; fileMime = m; fileB64 = b }
+    }
 
     suspend fun reload() {
         runCatching { Api.service.subjects() }.onSuccess { subjects = it }
@@ -258,6 +283,12 @@ fun AdminResourcesScreen(nav: NavActions) {
                 singleLine = false)
             Spacer(Modifier.height(14.dp))
 
+            Text("Fichier (facultatif)", fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted)
+            Spacer(Modifier.height(8.dp))
+            FilePickRow(fileName, onPick = { picker.launch(arrayOf("application/pdf", "image/*")) },
+                onClear = { fileName = null; fileMime = null; fileB64 = null })
+            Spacer(Modifier.height(16.dp))
+
             AddButton(enabled = title.isNotBlank()) {
                 scope.launch {
                     runCatching {
@@ -266,9 +297,14 @@ fun AdminResourcesScreen(nav: NavActions) {
                             subjectSlug?.let { put("subjectSlug", it) }
                             level?.let { put("level", it) }
                             if (description.isNotBlank()) put("description", description.trim())
+                            fileB64?.let {
+                                put("contentBase64", it); put("fileName", fileName ?: "fichier")
+                                fileMime?.let { mm -> put("mimeType", mm) }
+                            }
                         })
                     }.onSuccess {
                         title = ""; description = ""; subjectSlug = null; level = null
+                        fileName = null; fileMime = null; fileB64 = null
                         message = "Ressource ajoutée"; reload()
                     }.onFailure { message = "Échec de l'ajout" }
                 }
@@ -289,6 +325,31 @@ fun AdminResourcesScreen(nav: NavActions) {
                 Text(it, fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 12.5.sp, color = AkColors.Green)
             }
             Spacer(Modifier.height(20.dp))
+        }
+    }
+}
+
+@Composable
+private fun FilePickRow(fileName: String?, onPick: () -> Unit, onClear: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.clip(RoundedCornerShape(12.dp)).background(AkColors.GreenSoft).clickable { onPick() }
+                .padding(horizontal = 14.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Filled.AttachFile, null, tint = AkColors.Green, modifier = Modifier.size(16.dp))
+            Text(if (fileName == null) " Joindre un fichier" else " Remplacer", fontFamily = Hanken,
+                fontWeight = FontWeight.Bold, fontSize = 12.5.sp, color = AkColors.Green)
+        }
+        if (fileName != null) {
+            Spacer(Modifier.width(10.dp))
+            Text(fileName, fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 12.sp,
+                color = AkColors.Ink, modifier = Modifier.weight(1f, fill = false))
+            Spacer(Modifier.width(8.dp))
+            Box(
+                Modifier.size(26.dp).clip(RoundedCornerShape(8.dp)).background(AkColors.OrangeSoft).clickable { onClear() },
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Filled.Close, "Retirer", tint = AkColors.Orange, modifier = Modifier.size(14.dp)) }
         }
     }
 }

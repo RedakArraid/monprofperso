@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /* ====================================================================== *
  * ÉCRAN ADMIN — GÉRER LE CATALOGUE (matières & niveaux)
@@ -194,6 +195,10 @@ struct AdminResourcesScreen: View {
     @State private var level: String? = nil
     @State private var desc = ""
     @State private var message: String? = nil
+    @State private var showImporter = false
+    @State private var fileName: String? = nil
+    @State private var fileMime: String? = nil
+    @State private var fileB64: String? = nil
 
     var body: some View {
         AkScreen {
@@ -236,6 +241,9 @@ struct AdminResourcesScreen: View {
                     fieldLabel("Description (facultatif)").padding(.top, 14)
                     descField(text: $desc, placeholder: "Quelques mots sur la ressource…").padding(.top, 8)
 
+                    fieldLabel("Fichier (facultatif)").padding(.top, 14)
+                    filePickRow.padding(.top, 8)
+
                     HStack {
                         Spacer()
                         addButton(enabled: !title.trimmed.isEmpty, action: addResource)
@@ -258,6 +266,38 @@ struct AdminResourcesScreen: View {
             }
         }
         .task { await reload() }
+        .fileImporter(isPresented: $showImporter, allowedContentTypes: [.pdf, .image, .plainText],
+                      allowsMultipleSelection: false) { result in
+            guard case .success(let urls) = result, let url = urls.first else { return }
+            let access = url.startAccessingSecurityScopedResource()
+            defer { if access { url.stopAccessingSecurityScopedResource() } }
+            if let data = try? Data(contentsOf: url) {
+                fileB64 = data.base64EncodedString()
+                fileName = url.lastPathComponent
+                fileMime = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType
+            }
+        }
+    }
+
+    @ViewBuilder private var filePickRow: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "paperclip").font(.system(size: 14, weight: .bold))
+                Text(fileName == nil ? "Joindre un fichier" : "Remplacer").font(AkFont.bold(12.5))
+            }
+            .foregroundColor(Ak.green)
+            .padding(.horizontal, 14).padding(.vertical, 11)
+            .background(Ak.greenSoft).clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .contentShape(Rectangle()).onTapGesture { showImporter = true }
+            if let fileName {
+                Text(fileName).font(AkFont.semibold(12)).foregroundColor(Ak.ink).lineLimit(1)
+                Spacer(minLength: 0)
+                Image(systemName: "xmark").font(.system(size: 12, weight: .bold)).foregroundColor(Ak.orange)
+                    .frame(width: 26, height: 26).background(Ak.orangeSoft)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .contentShape(Rectangle()).onTapGesture { self.fileName = nil; fileMime = nil; fileB64 = nil }
+            }
+        }
     }
 
     private func reload() async {
@@ -270,8 +310,10 @@ struct AdminResourcesScreen: View {
         Task { @MainActor in
             do {
                 _ = try await ApiClient.shared.createResource(type: type, title: title.trimmed,
-                                                              subjectSlug: subjectSlug, level: level, description: desc.trimmed)
+                                                              subjectSlug: subjectSlug, level: level, description: desc.trimmed,
+                                                              fileName: fileName, mimeType: fileMime, contentBase64: fileB64)
                 title = ""; desc = ""; subjectSlug = nil; level = nil
+                fileName = nil; fileMime = nil; fileB64 = nil
                 message = "Ressource ajoutée"; await reload()
             } catch { message = "Échec de l'ajout" }
         }
