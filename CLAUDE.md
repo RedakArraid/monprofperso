@@ -41,7 +41,10 @@ docs/       Présentation .docx + assets (captures d'écran)
   exercices avec fichier) et un utilisateur admin, et `1700000004000_teacher-space-wallet-program`
   sort les derniers payloads figés vers la base : `payment_accounts` (comptes Mobile
   Money), `group_programs` (programme par groupe), et l'espace prof (`teacher_profiles`,
-  `teacher_earning_weeks`, `teacher_requests`, `teacher_payouts`) — **20 tables au total**.
+  `teacher_earning_weeks`, `teacher_requests`, `teacher_payouts`). Enfin
+  `1700000005000_link-users-teachers` ajoute `users.teacher_id` (FK vers `teachers`)
+  et un 2ᵉ compte prof, pour **scoper l'espace prof sur le professeur connecté**
+  (repli sur le prof de démo si le compte n'a pas de fiche) — **20 tables au total**.
   Suivi dans la table `pgmigrations`.
   Créer une migration : `npm run migrate create <nom>` (puis éditer le `.sql`).
 - **Ports (custom, pour éviter les collisions)** : API **8099**, Postgres **5544**,
@@ -85,7 +88,7 @@ docs/       Présentation .docx + assets (captures d'écran)
   porté par le JWT ; `requireAdmin` garde l'espace admin (401 sans token, 403 si non-admin).
   Utilisateur admin de démo : `+2250700000001`.
   ⚠️ Reste à faire : OTP SMS réel, paiement réel (Phase 1/2 — voir docs/ROADMAP.md).
-- **Tests** : `api/test/*.test.mjs` (runner natif Node, `npm test`, stack live requise) — 43 tests.
+- **Tests** : `api/test/*.test.mjs` (runner natif Node, `npm test`, stack live requise) — 44 tests.
   `api.test.mjs` = intégration par endpoint ; `e2e.test.mjs` = parcours bout-en-bout
   (inscription→réservation→relecture, isolation JWT entre comptes, repli démo, prof,
   catalogue). Les 20 endpoints sont couverts.

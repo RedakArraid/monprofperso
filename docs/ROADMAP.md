@@ -45,7 +45,11 @@ Maillon faible : auth/paiement simulés. À traiter avant toute nouvelle feature
       des groupes (`group_programs`, par groupe). Migration `1700000004000`.
       Reste pour plus tard : scoper l'espace prof par compte (cf. multi-utilisateur).
 - [ ] Paiement Mobile Money réel (Orange Money / MTN MoMo / Wave) + portefeuille.
-- [ ] Multi-utilisateur réel (parents / élèves / profs ; rôles déjà dans `users`).
+- [~] Multi-utilisateur réel (parents / élèves / profs ; rôles déjà dans `users`).
+      Entamé : `users.teacher_id` relie un compte prof à sa fiche `teachers`, l'espace
+      prof (`/teacher/*`) est scopé sur le professeur connecté (migration `1700000005000`,
+      isolation testée en e2e). Reste : scoper de même `/wallet`, demandes/cours liés
+      au compte, et le parcours élève/parent multi-comptes.
 - [ ] Réservation transactionnelle : conflits de créneaux, statuts, notifications.
 - [ ] Espace prof complet : validation des demandes, calendrier, revenus réels.
 - [ ] Notifications push (FCM Android / APNs iOS).

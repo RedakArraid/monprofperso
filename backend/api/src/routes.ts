@@ -228,16 +228,23 @@ api.get("/progress", wrap(async (_req, res) => {
 }));
 
 // --------------------------------------------------------------- Espace prof
-// Professeur de démonstration (l'espace prof n'est pas encore scopé par compte ;
-// voir roadmap « multi-utilisateur réel »). Les données viennent désormais de la base.
+// Professeur par défaut si le compte courant n'est pas relié à une fiche prof
+// (repli démo : compte non-prof, ou prof fraîchement inscrit sans fiche).
 const DEMO_TEACHER = 1;
 
+/** Fiche `teachers` du compte connecté, ou le prof de démo en repli. */
+async function currentTeacherId(res: any): Promise<number> {
+  const r = await pool.query("SELECT teacher_id FROM users WHERE id=$1", [currentUserId(res)]);
+  return (r.rows[0]?.teacher_id as number | null) ?? DEMO_TEACHER;
+}
+
 api.get("/teacher/dashboard", wrap(async (_req, res) => {
-  const p = (await pool.query("SELECT * FROM teacher_profiles WHERE teacher_id=$1", [DEMO_TEACHER])).rows[0];
-  const t = (await pool.query("SELECT name FROM teachers WHERE id=$1", [DEMO_TEACHER])).rows[0];
+  const teacherId = await currentTeacherId(res);
+  const p = (await pool.query("SELECT * FROM teacher_profiles WHERE teacher_id=$1", [teacherId])).rows[0];
+  const t = (await pool.query("SELECT name FROM teachers WHERE id=$1", [teacherId])).rows[0];
   if (!p || !t) { res.status(404).json({ error: "not_found" }); return; }
   const pending = (await pool.query(
-    "SELECT count(*)::int AS n FROM teacher_requests WHERE teacher_id=$1", [DEMO_TEACHER]
+    "SELECT count(*)::int AS n FROM teacher_requests WHERE teacher_id=$1", [teacherId]
   )).rows[0].n;
   res.json({
     name: t.name, revenue: p.revenue, trend: p.trend,
@@ -251,23 +258,25 @@ api.get("/teacher/dashboard", wrap(async (_req, res) => {
 }));
 
 api.get("/teacher/requests", wrap(async (_req, res) => {
+  const teacherId = await currentTeacherId(res);
   const r = await pool.query(
     `SELECT initials, accent, name, ago, price, student, subject, slot, format
      FROM teacher_requests WHERE teacher_id=$1 ORDER BY ord, id`,
-    [DEMO_TEACHER]
+    [teacherId]
   );
   res.json(r.rows);
 }));
 
 api.get("/teacher/earnings", wrap(async (_req, res) => {
-  const p = (await pool.query("SELECT * FROM teacher_profiles WHERE teacher_id=$1", [DEMO_TEACHER])).rows[0];
+  const teacherId = await currentTeacherId(res);
+  const p = (await pool.query("SELECT * FROM teacher_profiles WHERE teacher_id=$1", [teacherId])).rows[0];
   if (!p) { res.status(404).json({ error: "not_found" }); return; }
   const weeks = (await pool.query(
-    "SELECT label, fraction AS f FROM teacher_earning_weeks WHERE teacher_id=$1 ORDER BY ord, id", [DEMO_TEACHER]
+    "SELECT label, fraction AS f FROM teacher_earning_weeks WHERE teacher_id=$1 ORDER BY ord, id", [teacherId]
   )).rows;
   const payouts = (await pool.query(
     `SELECT provider, payout_date AS date, amount, color
-     FROM teacher_payouts WHERE teacher_id=$1 ORDER BY ord, id`, [DEMO_TEACHER]
+     FROM teacher_payouts WHERE teacher_id=$1 ORDER BY ord, id`, [teacherId]
   )).rows;
   res.json({
     total: p.earnings_total, trend: p.earnings_trend,

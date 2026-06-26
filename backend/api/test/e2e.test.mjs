@@ -171,6 +171,23 @@ test("e2e — parcours prof (dashboard, requests, earnings)", async () => {
   assert.ok("total" in earnings.body && Array.isArray(earnings.body.weeks) && Array.isArray(earnings.body.payouts));
 });
 
+test("e2e — espace prof scopé par compte : Koffi ≠ Ibrahim", async () => {
+  const koffi = await post("/api/auth/login", { phone: "+2250707001234" });
+  const ibra = await post("/api/auth/login", { phone: "+2250705001122" });
+
+  const dashK = await get("/api/teacher/dashboard", koffi.body.token);
+  const dashI = await get("/api/teacher/dashboard", ibra.body.token);
+
+  assert.equal(dashK.body.name, "Koffi N'Guessan");
+  assert.equal(dashI.body.name, "Ibrahim Diallo");
+  assert.notEqual(dashK.body.revenue, dashI.body.revenue, "chaque prof voit ses propres revenus");
+
+  // Un compte non relié à une fiche prof retombe sur le prof de démo (rétrocompat).
+  const fresh = await signup("teacher");
+  const dashFresh = await get("/api/teacher/dashboard", fresh.token);
+  assert.equal(dashFresh.body.name, "Koffi N'Guessan", "repli démo si pas de fiche prof");
+});
+
 // ======================================================================
 // Parcours 6 — Catalogue public (groupes, abonnement, parrainage)
 // ======================================================================
