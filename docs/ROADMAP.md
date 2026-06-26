@@ -22,11 +22,15 @@ Maillon faible : auth/paiement simulés. À traiter avant toute nouvelle feature
 - [x] Validation des entrées (helper maison sans dépendance) sur les POST.
 - [x] Migrations versionnées (node-pg-migrate, `api/migrations/*.sql`) appliquées
       automatiquement au démarrage, idempotentes. `init.sql` supprimé.
-- [x] Tests d'intégration + e2e (runner natif Node, `api/test/*.test.mjs`, 30 tests ;
+- [x] Tests d'intégration + e2e (runner natif Node, `api/test/*.test.mjs`, 32 tests ;
       e2e = parcours complets + isolation JWT, couvre les 20 endpoints).
 - [ ] Codes HTTP et logs standardisés.
 
 ## Phase 2 — Fonctionnel produit
+- [~] Sortir les endpoints codés en dur vers la DB. Fait : `/subscription/mine`,
+      `/referral` (tables user-scoped). Restent stubés : espace prof
+      (`/teacher/{dashboard,requests,earnings}`), comptes Mobile Money de `/wallet`,
+      `program` des groupes.
 - [ ] Paiement Mobile Money réel (Orange Money / MTN MoMo / Wave) + portefeuille.
 - [ ] Multi-utilisateur réel (parents / élèves / profs ; rôles déjà dans `users`).
 - [ ] Réservation transactionnelle : conflits de créneaux, statuts, notifications.

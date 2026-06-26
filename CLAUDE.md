@@ -29,7 +29,9 @@ docs/       Présentation .docx + assets (captures d'écran)
   appliquées automatiquement au démarrage de l'API). `001_init-schema` crée les
   10 tables (`subjects`, `teachers`, `reviews`, `users`, `courses`, `notifications`,
   `transactions`, `group_courses`, `subscription_plans`, `progress_subjects`),
-  `002_seed-data` insère les données de démo. Suivi dans la table `pgmigrations`.
+  `002_seed-data` insère les données de démo, `003_subscription-referral` ajoute
+  les tables user-scoped `user_subscriptions` + `referrals` (12 tables au total).
+  Suivi dans la table `pgmigrations`.
   Créer une migration : `npm run migrate create <nom>` (puis éditer le `.sql`).
 - **Ports (custom, pour éviter les collisions)** : API **8099**, Postgres **5544**,
   Adminer **8098**. Configurables via `backend/.env` (voir `.env.example`).
@@ -52,7 +54,7 @@ docs/       Présentation .docx + assets (captures d'écran)
   (intercepteur OkHttp côté Android, `URLRequest` côté iOS). Sans token → repli démo
   (rétrocompat). Endpoints user-scoped utilisent `currentUserId(res)`.
   ⚠️ Reste à faire : OTP SMS réel, paiement réel (Phase 1/2 — voir docs/ROADMAP.md).
-- **Tests** : `api/test/*.test.mjs` (runner natif Node, `npm test`, stack live requise) — 30 tests.
+- **Tests** : `api/test/*.test.mjs` (runner natif Node, `npm test`, stack live requise) — 32 tests.
   `api.test.mjs` = intégration par endpoint ; `e2e.test.mjs` = parcours bout-en-bout
   (inscription→réservation→relecture, isolation JWT entre comptes, repli démo, prof,
   catalogue). Les 20 endpoints sont couverts.

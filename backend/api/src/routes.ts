@@ -166,7 +166,13 @@ api.get("/subscription/plans", wrap(async (_req, res) => {
 }));
 
 api.get("/subscription/mine", wrap(async (_req, res) => {
-  res.json({
+  const r = await pool.query(
+    `SELECT plan, status, detail,
+            next_charge AS "nextCharge", next_amount AS "nextAmount", used, total
+     FROM user_subscriptions WHERE user_id=$1 ORDER BY id DESC LIMIT 1`,
+    [currentUserId(res)]
+  );
+  res.json(r.rows[0] ?? {
     plan: "Régulier", status: "active", detail: "2 cours par semaine · Prof attitré Koffi",
     nextCharge: "1 juil.", nextAmount: 26000, used: 5, total: 8,
   });
@@ -215,5 +221,9 @@ api.get("/teacher/earnings", wrap(async (_req, res) => {
 
 // -------------------------------------------------------------------- Parrainage
 api.get("/referral", wrap(async (_req, res) => {
-  res.json({ code: "AYA2026", referred: 3, earned: 6000 });
+  const r = await pool.query(
+    "SELECT code, referred, earned FROM referrals WHERE user_id=$1 ORDER BY id DESC LIMIT 1",
+    [currentUserId(res)]
+  );
+  res.json(r.rows[0] ?? { code: "AYA2026", referred: 0, earned: 0 });
 }));

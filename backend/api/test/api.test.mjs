@@ -90,6 +90,24 @@ test("GET /api/groups/:id inexistant -> 404", async () => {
   assert.equal(status, 404);
 });
 
+test("GET /api/subscription/mine -> abonnement de l'utilisateur (DB)", async () => {
+  const { status, body } = await get("/api/subscription/mine");
+  assert.equal(status, 200);
+  // Valeurs seedées pour l'utilisateur de démo + forme attendue par les apps.
+  assert.equal(body.plan, "Régulier");
+  assert.equal(typeof body.nextAmount, "number");
+  assert.equal(typeof body.used, "number");
+  assert.equal(typeof body.total, "number");
+});
+
+test("GET /api/referral -> parrainage de l'utilisateur (DB)", async () => {
+  const { status, body } = await get("/api/referral");
+  assert.equal(status, 200);
+  assert.equal(body.code, "AYA2026");
+  assert.equal(typeof body.referred, "number");
+  assert.equal(typeof body.earned, "number");
+});
+
 // ----------------------------------------------------------- Validation
 test("POST /api/auth/login body vide -> 200 (repli sur défaut)", async () => {
   const { status, body } = await post("/api/auth/login", {});
