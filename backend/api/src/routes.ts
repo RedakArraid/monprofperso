@@ -16,8 +16,9 @@ const wrap = (fn: (req: any, res: any) => Promise<void>) => (req: any, res: any)
       res.status(400).json({ error: "validation_error", field: e.field, message: e.message });
       return;
     }
-    console.error(e);
-    res.status(500).json({ error: "internal_error", message: String(e?.message ?? e) });
+    // Détail consigné côté serveur, jamais renvoyé au client (pas de fuite interne).
+    console.error(`[${req.method} ${req.originalUrl}]`, e);
+    res.status(500).json({ error: "internal_error", message: "erreur interne" });
   });
 
 // ---------------------------------------------------------------- Auth (mock)

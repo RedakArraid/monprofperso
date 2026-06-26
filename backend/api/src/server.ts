@@ -4,14 +4,20 @@ import path from "path";
 import migrate from "node-pg-migrate";
 import { api } from "./routes";
 import { pool, waitForDb } from "./db";
+import { requestLogger, notFound, errorHandler } from "./http";
 
 const app = express();
 app.use(cors());
+app.use(requestLogger);
 // Limite relevée pour accepter les fichiers de ressources encodés en base64.
 app.use(express.json({ limit: "15mb" }));
 
 app.get("/health", (_req, res) => res.json({ status: "ok", service: "monprofperso-api" }));
 app.use("/api", api);
+
+// Toute autre route -> 404 JSON, puis filet de sécurité pour les erreurs non gérées.
+app.use(notFound);
+app.use(errorHandler);
 
 const PORT = Number(process.env.PORT ?? 8099);
 

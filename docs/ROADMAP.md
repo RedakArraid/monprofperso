@@ -8,7 +8,7 @@ commune ; auth et paiement simulés ; repo en cours de premier versionnage.
 - [x] Premier commit + versionnage de l'existant.
 - [x] `.gitignore` : ignorer `.kotlin/`, captures de dev racine `android/`,
       projet Xcode généré (`MonProfPerso.xcodeproj`), `_maquette/`, `*.zip`.
-- [ ] Créer un remote (GitHub) et push.
+- [x] Créer un remote (GitHub) et push (`origin`, branche `feat/admin-space-apps`).
 
 ## Phase 1 — Durcir le backend (priorité haute)
 Maillon faible : auth/paiement simulés. À traiter avant toute nouvelle feature.
@@ -22,17 +22,22 @@ Maillon faible : auth/paiement simulés. À traiter avant toute nouvelle feature
 - [x] Validation des entrées (helper maison sans dépendance) sur les POST.
 - [x] Migrations versionnées (node-pg-migrate, `api/migrations/*.sql`) appliquées
       automatiquement au démarrage, idempotentes. `init.sql` supprimé.
-- [x] Tests d'intégration + e2e (runner natif Node, `api/test/*.test.mjs`, 38 tests ;
+- [x] Tests d'intégration + e2e (runner natif Node, `api/test/*.test.mjs`, 40 tests ;
       e2e = parcours complets + isolation JWT ; admin = garde + CRUD + ressources).
-- [ ] Codes HTTP et logs standardisés.
+- [x] Codes HTTP et logs standardisés (`api/src/http.ts`) : journalisation de chaque
+      requête (`MÉTHODE chemin -> code durée`), 404 JSON cohérent pour les routes
+      inconnues, filet d'erreurs (corps JSON illisible -> 400 `bad_json`, payload trop
+      gros -> 413), et 500 sans fuite de détail interne (consigné côté serveur).
 
 ## Phase 2 — Fonctionnel produit
 - [~] Back-office d'administration. Fait côté **API** : rôle `admin` + garde
       `requireAdmin`, CRUD matières & niveaux (→ musique, langues hors FR/EN, niveaux
       supérieur/universitaire), ressources pédagogiques (cours/devoirs/exercices) avec
-      upload de fichier. Reste : **UI admin native** (Android/iOS) + auth admin dédiée,
-      stockage fichiers durable (volume/S3 au lieu de BYTEA), rôles d'auteur (prof crée
-      ses ressources).
+      upload de fichier. Fait côté **apps** : UI admin native Android + iOS (catalogue,
+      ressources avec sélecteur de fichier natif, vue utilisateur lecture seule),
+      rôle admin porté par le JWT et reflété dans « Mon compte ». Reste : auth admin
+      dédiée, stockage fichiers durable (volume/S3 au lieu de BYTEA), rôles d'auteur
+      (prof crée ses ressources).
 - [~] Sortir les endpoints codés en dur vers la DB. Fait : `/subscription/mine`,
       `/referral` (tables user-scoped). Restent stubés : espace prof
       (`/teacher/{dashboard,requests,earnings}`), comptes Mobile Money de `/wallet`,

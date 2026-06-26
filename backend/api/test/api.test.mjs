@@ -193,3 +193,21 @@ test("/me avec JWT falsifié -> rejeté, repli (id 1)", async () => {
   const { body } = await get("/api/me", forged);
   assert.equal(body.id, 1, "signature invalide -> ne doit pas authentifier");
 });
+
+// ----------------------------------------------- Standardisation HTTP (codes/logs)
+test("route inconnue -> 404 JSON cohérent", async () => {
+  const { status, body } = await get("/api/route-qui-nexiste-pas");
+  assert.equal(status, 404);
+  assert.equal(body.error, "not_found");
+});
+
+test("corps JSON malformé -> 400 bad_json", async () => {
+  const res = await fetch(BASE + "/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{ ceci n'est pas du json",
+  });
+  const body = await res.json();
+  assert.equal(res.status, 400);
+  assert.equal(body.error, "bad_json");
+});

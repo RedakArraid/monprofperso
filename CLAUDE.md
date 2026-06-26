@@ -24,7 +24,13 @@ docs/       Présentation .docx + assets (captures d'écran)
 ## Backend (`backend/`)
 - Stack : **Express 4 + pg** (~240 lignes TS), **PostgreSQL 16**, **Adminer**.
 - Source : `api/src/db.ts` (pool pg), `api/src/routes.ts` (toutes les routes),
-  `api/src/server.ts` (bootstrap). Routeur monté sous `/api`.
+  `api/src/server.ts` (bootstrap), `api/src/http.ts` (middlewares transverses).
+  Routeur monté sous `/api`.
+- **HTTP standardisé** (`api/src/http.ts`) : journalisation de chaque requête
+  (`MÉTHODE chemin -> code (durée)`), 404 JSON cohérent pour toute route inconnue,
+  filet d'erreurs final (corps JSON illisible → 400 `bad_json`, payload trop gros →
+  413 `payload_too_large`), et 500 `internal_error` sans fuite de détail (consigné
+  côté serveur). Forme d'erreur stable `{ error, message? }` partout.
 - DB gérée par **migrations versionnées** (`node-pg-migrate`, `api/migrations/*.sql`,
   appliquées automatiquement au démarrage de l'API). `001_init-schema` crée les
   10 tables (`subjects`, `teachers`, `reviews`, `users`, `courses`, `notifications`,
@@ -76,7 +82,7 @@ docs/       Présentation .docx + assets (captures d'écran)
   porté par le JWT ; `requireAdmin` garde l'espace admin (401 sans token, 403 si non-admin).
   Utilisateur admin de démo : `+2250700000001`.
   ⚠️ Reste à faire : OTP SMS réel, paiement réel (Phase 1/2 — voir docs/ROADMAP.md).
-- **Tests** : `api/test/*.test.mjs` (runner natif Node, `npm test`, stack live requise) — 38 tests.
+- **Tests** : `api/test/*.test.mjs` (runner natif Node, `npm test`, stack live requise) — 40 tests.
   `api.test.mjs` = intégration par endpoint ; `e2e.test.mjs` = parcours bout-en-bout
   (inscription→réservation→relecture, isolation JWT entre comptes, repli démo, prof,
   catalogue). Les 20 endpoints sont couverts.
