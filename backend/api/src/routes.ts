@@ -167,17 +167,16 @@ api.get("/notifications", wrap(async (_req, res) => {
 
 // ------------------------------------------------------------------ Portefeuille
 api.get("/wallet", wrap(async (_req, res) => {
+  const accounts = await pool.query(
+    `SELECT provider, number, color, is_default AS "isDefault"
+     FROM payment_accounts WHERE user_id=$1 ORDER BY ord, id`,
+    [currentUserId(res)]
+  );
   const tx = await pool.query(
     "SELECT title, subtitle, amount, credit FROM transactions WHERE user_id=$1 ORDER BY id",
     [currentUserId(res)]
   );
-  res.json({
-    accounts: [
-      { provider: "Orange Money", number: "07 ** ** ** 42", color: "orange", isDefault: true },
-      { provider: "Wave", number: "05 ** ** ** 11", color: "wave", isDefault: false },
-    ],
-    transactions: tx.rows,
-  });
+  res.json({ accounts: accounts.rows, transactions: tx.rows });
 }));
 
 // ----------------------------------------------------------------- Cours groupe
@@ -189,10 +188,11 @@ api.get("/groups", wrap(async (_req, res) => {
 api.get("/groups/:id", wrap(async (req, res) => {
   const r = await pool.query("SELECT * FROM group_courses WHERE id=$1", [req.params.id]);
   if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
-  res.json({
-    ...r.rows[0],
-    program: ["Fonctions, limites & continuité", "Probabilités & suites", "Annales & sujets type BAC"],
-  });
+  const prog = await pool.query(
+    "SELECT line FROM group_programs WHERE group_id=$1 ORDER BY ord, id",
+    [req.params.id]
+  );
+  res.json({ ...r.rows[0], program: prog.rows.map((p) => p.line) });
 }));
 
 // ------------------------------------------------------------------ Abonnement
@@ -228,30 +228,56 @@ api.get("/progress", wrap(async (_req, res) => {
 }));
 
 // --------------------------------------------------------------- Espace prof
+// Professeur de démonstration (l'espace prof n'est pas encore scopé par compte ;
+// voir roadmap « multi-utilisateur réel »). Les données viennent désormais de la base.
+const DEMO_TEACHER = 1;
+
 api.get("/teacher/dashboard", wrap(async (_req, res) => {
+  const p = (await pool.query("SELECT * FROM teacher_profiles WHERE teacher_id=$1", [DEMO_TEACHER])).rows[0];
+  const t = (await pool.query("SELECT name FROM teachers WHERE id=$1", [DEMO_TEACHER])).rows[0];
+  if (!p || !t) { res.status(404).json({ error: "not_found" }); return; }
+  const pending = (await pool.query(
+    "SELECT count(*)::int AS n FROM teacher_requests WHERE teacher_id=$1", [DEMO_TEACHER]
+  )).rows[0].n;
   res.json({
-    name: "Koffi N'Guessan", revenue: 184000, trend: "+12%",
-    stats: [{ value: "14", label: "cours / semaine" }, { value: "4,9", label: "note moyenne" }, { value: "3", label: "nouveaux élèves" }],
-    pendingRequests: 3,
+    name: t.name, revenue: p.revenue, trend: p.trend,
+    stats: [
+      { value: p.courses_per_week, label: "cours / semaine" },
+      { value: p.rating_label, label: "note moyenne" },
+      { value: p.new_students, label: "nouveaux élèves" },
+    ],
+    pendingRequests: pending,
   });
 }));
 
 api.get("/teacher/requests", wrap(async (_req, res) => {
-  res.json([
-    { initials: "FB", accent: "green", name: "Fatou Bamba", ago: "il y a 1 h", price: 6000, student: "Awa · 2nde", subject: "Mathématiques", slot: "Sam. 28 juin · 15h00", format: "À domicile · Marcory" },
-    { initials: "YK", accent: "orange", name: "Yao Kouamé", ago: "il y a 3 h", price: 4000, student: "Junior · 3ᵉ", subject: "Physique-Chimie", slot: "Dim. 29 juin · 10h00", format: "En ligne" },
-  ]);
+  const r = await pool.query(
+    `SELECT initials, accent, name, ago, price, student, subject, slot, format
+     FROM teacher_requests WHERE teacher_id=$1 ORDER BY ord, id`,
+    [DEMO_TEACHER]
+  );
+  res.json(r.rows);
 }));
 
 api.get("/teacher/earnings", wrap(async (_req, res) => {
+  const p = (await pool.query("SELECT * FROM teacher_profiles WHERE teacher_id=$1", [DEMO_TEACHER])).rows[0];
+  if (!p) { res.status(404).json({ error: "not_found" }); return; }
+  const weeks = (await pool.query(
+    "SELECT label, fraction AS f FROM teacher_earning_weeks WHERE teacher_id=$1 ORDER BY ord, id", [DEMO_TEACHER]
+  )).rows;
+  const payouts = (await pool.query(
+    `SELECT provider, payout_date AS date, amount, color
+     FROM teacher_payouts WHERE teacher_id=$1 ORDER BY ord, id`, [DEMO_TEACHER]
+  )).rows;
   res.json({
-    total: 184000, trend: "+12%",
-    weeks: [{ label: "S1", f: 0.48 }, { label: "S2", f: 0.66 }, { label: "S3", f: 0.58 }, { label: "S4", f: 0.88 }],
-    stats: [{ value: "38", label: "cours donnés" }, { value: "52 h", label: "enseignées" }, { value: "3 800", label: "F / h moyen" }],
-    payouts: [
-      { provider: "Retrait Wave", date: "15 juin", amount: 60000, color: "wave" },
-      { provider: "Retrait Orange Money", date: "1 juin", amount: 80000, color: "orange" },
+    total: p.earnings_total, trend: p.earnings_trend,
+    weeks,
+    stats: [
+      { value: p.courses_given, label: "cours donnés" },
+      { value: p.hours_taught, label: "enseignées" },
+      { value: p.avg_per_hour, label: "F / h moyen" },
     ],
+    payouts,
   });
 }));
 

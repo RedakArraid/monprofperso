@@ -85,9 +85,29 @@ test("GET /api/wallet -> comptes + transactions", async () => {
   assert.ok(Array.isArray(body.accounts) && Array.isArray(body.transactions));
 });
 
+test("GET /api/wallet -> comptes Mobile Money issus de la base (user démo)", async () => {
+  const { body } = await get("/api/wallet");
+  assert.ok(body.accounts.length >= 1, "l'utilisateur de démo a des comptes seedés");
+  assert.ok("provider" in body.accounts[0] && "isDefault" in body.accounts[0]);
+  assert.ok(body.accounts.some((a) => a.isDefault === true), "un compte par défaut");
+});
+
 test("GET /api/groups/:id inexistant -> 404", async () => {
   const { status } = await get("/api/groups/999999");
   assert.equal(status, 404);
+});
+
+test("GET /api/groups/:id -> programme propre à chaque groupe (DB)", async () => {
+  const a = (await get("/api/groups/1")).body.program;
+  const b = (await get("/api/groups/2")).body.program;
+  assert.ok(Array.isArray(a) && a.length > 0 && Array.isArray(b) && b.length > 0);
+  assert.notDeepEqual(a, b, "deux groupes distincts ont des programmes distincts");
+});
+
+test("GET /api/teacher/dashboard -> pendingRequests = nombre réel de demandes (DB)", async () => {
+  const dash = (await get("/api/teacher/dashboard")).body;
+  const requests = (await get("/api/teacher/requests")).body;
+  assert.equal(dash.pendingRequests, requests.length);
 });
 
 test("GET /api/subscription/mine -> abonnement de l'utilisateur (DB)", async () => {

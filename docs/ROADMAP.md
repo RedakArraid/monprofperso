@@ -38,10 +38,12 @@ Maillon faible : auth/paiement simulés. À traiter avant toute nouvelle feature
       rôle admin porté par le JWT et reflété dans « Mon compte ». Reste : auth admin
       dédiée, stockage fichiers durable (volume/S3 au lieu de BYTEA), rôles d'auteur
       (prof crée ses ressources).
-- [~] Sortir les endpoints codés en dur vers la DB. Fait : `/subscription/mine`,
-      `/referral` (tables user-scoped). Restent stubés : espace prof
-      (`/teacher/{dashboard,requests,earnings}`), comptes Mobile Money de `/wallet`,
-      `program` des groupes.
+- [x] Sortir les endpoints codés en dur vers la DB. `/subscription/mine`, `/referral`
+      (user-scoped), puis espace prof (`/teacher/{dashboard,requests,earnings}` →
+      `teacher_profiles`/`teacher_requests`/`teacher_earning_weeks`/`teacher_payouts`),
+      comptes Mobile Money de `/wallet` (`payment_accounts`, user-scoped) et `program`
+      des groupes (`group_programs`, par groupe). Migration `1700000004000`.
+      Reste pour plus tard : scoper l'espace prof par compte (cf. multi-utilisateur).
 - [ ] Paiement Mobile Money réel (Orange Money / MTN MoMo / Wave) + portefeuille.
 - [ ] Multi-utilisateur réel (parents / élèves / profs ; rôles déjà dans `users`).
 - [ ] Réservation transactionnelle : conflits de créneaux, statuts, notifications.
