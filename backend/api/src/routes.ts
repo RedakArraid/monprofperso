@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { pool } from "./db";
-import { ValidationError, optionalString, optionalPhone, optionalEnum, optionalNumber } from "./validate";
-import { optionalAuth, currentUserId, signJwt, DEMO_USER } from "./auth";
+import { ValidationError, optionalString, optionalPhone, optionalEnum, optionalNumber, requiredString, requiredEnum } from "./validate";
+import { optionalAuth, currentUserId, signJwt, requireAdmin, DEMO_USER } from "./auth";
 
 export const api = Router();
 
@@ -60,6 +60,41 @@ api.get("/me", wrap(async (_req, res) => {
 api.get("/subjects", wrap(async (_req, res) => {
   const r = await pool.query("SELECT slug, name, icon, accent FROM subjects ORDER BY id");
   res.json(r.rows);
+}));
+
+// -------------------------------------------------------------------- Niveaux
+api.get("/levels", wrap(async (_req, res) => {
+  const r = await pool.query("SELECT slug, name FROM levels ORDER BY ord, id");
+  res.json(r.rows);
+}));
+
+// ----------------------------------------------------- Ressources pédagogiques
+const RESOURCE_TYPES = ["course", "homework", "exercise"] as const;
+
+// Liste les ressources (métadonnées seulement, sans le contenu du fichier).
+api.get("/resources", wrap(async (req, res) => {
+  const params: any[] = [];
+  const where: string[] = [];
+  for (const f of ["type", "level"] as const) {
+    if (req.query[f]) { params.push(req.query[f]); where.push(`${f} = $${params.length}`); }
+  }
+  if (req.query.subject) { params.push(req.query.subject); where.push(`subject_slug = $${params.length}`); }
+  const sql = `SELECT id, type, subject_slug, level, title, description,
+                      file_name, mime_type, size_bytes, created_at
+               FROM resources ${where.length ? "WHERE " + where.join(" AND ") : ""}
+               ORDER BY created_at DESC, id DESC`;
+  const r = await pool.query(sql, params);
+  res.json(r.rows);
+}));
+
+// Télécharge le fichier d'une ressource (flux binaire avec son type MIME).
+api.get("/files/:id", wrap(async (req, res) => {
+  const r = await pool.query("SELECT file_name, mime_type, content FROM resources WHERE id=$1", [req.params.id]);
+  const row = r.rows[0];
+  if (!row || !row.content) { res.status(404).json({ error: "not_found" }); return; }
+  res.setHeader("Content-Type", row.mime_type ?? "application/octet-stream");
+  res.setHeader("Content-Disposition", `inline; filename="${row.file_name ?? "fichier"}"`);
+  res.send(row.content);
 }));
 
 // ------------------------------------------------------------------ Professeurs
@@ -218,6 +253,98 @@ api.get("/teacher/earnings", wrap(async (_req, res) => {
     ],
   });
 }));
+
+// ============================================================================ *
+// ESPACE ADMINISTRATION (réservé au rôle `admin`)
+// Gestion du catalogue (matières, niveaux) et des ressources pédagogiques.
+// ============================================================================ *
+const admin = Router();
+admin.use(requireAdmin);
+
+// --- Matières (permet d'ajouter musique, langues autres que FR/EN, etc.) ---
+admin.post("/subjects", wrap(async (req, res) => {
+  const slug = requiredString(req.body, "slug", { max: 40 });
+  const name = requiredString(req.body, "name", { max: 60 });
+  const icon = optionalString(req.body, "icon", { max: 40 }) ?? "more";
+  const accent = optionalEnum(req.body, "accent", ["green", "orange"]) ?? "green";
+  const r = await pool.query(
+    `INSERT INTO subjects (slug, name, icon, accent) VALUES ($1,$2,$3,$4)
+     ON CONFLICT (slug) DO NOTHING RETURNING slug, name, icon, accent`,
+    [slug, name, icon, accent]
+  );
+  if (!r.rows[0]) { res.status(409).json({ error: "conflict", message: "slug déjà utilisé" }); return; }
+  res.status(201).json(r.rows[0]);
+}));
+
+admin.put("/subjects/:slug", wrap(async (req, res) => {
+  const name = optionalString(req.body, "name", { max: 60 });
+  const icon = optionalString(req.body, "icon", { max: 40 });
+  const accent = optionalEnum(req.body, "accent", ["green", "orange"]);
+  const r = await pool.query(
+    `UPDATE subjects SET name = COALESCE($2, name), icon = COALESCE($3, icon),
+            accent = COALESCE($4, accent) WHERE slug = $1 RETURNING slug, name, icon, accent`,
+    [req.params.slug, name ?? null, icon ?? null, accent ?? null]
+  );
+  if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
+  res.json(r.rows[0]);
+}));
+
+admin.delete("/subjects/:slug", wrap(async (req, res) => {
+  const r = await pool.query("DELETE FROM subjects WHERE slug=$1 RETURNING slug", [req.params.slug]);
+  if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
+  res.status(204).end();
+}));
+
+// --- Niveaux (permet d'ajouter le supérieur / universitaire, etc.) ---
+admin.post("/levels", wrap(async (req, res) => {
+  const slug = requiredString(req.body, "slug", { max: 40 });
+  const name = requiredString(req.body, "name", { max: 60 });
+  const ord = optionalNumber(req.body, "ord", { min: 0, max: 999 }) ?? 0;
+  const r = await pool.query(
+    `INSERT INTO levels (slug, name, ord) VALUES ($1,$2,$3)
+     ON CONFLICT (slug) DO NOTHING RETURNING slug, name, ord`,
+    [slug, name, ord]
+  );
+  if (!r.rows[0]) { res.status(409).json({ error: "conflict", message: "slug déjà utilisé" }); return; }
+  res.status(201).json(r.rows[0]);
+}));
+
+admin.delete("/levels/:slug", wrap(async (req, res) => {
+  const r = await pool.query("DELETE FROM levels WHERE slug=$1 RETURNING slug", [req.params.slug]);
+  if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
+  res.status(204).end();
+}));
+
+// --- Ressources pédagogiques (cours, devoirs, exercices) + fichier ---
+admin.post("/resources", wrap(async (req, res) => {
+  const b = req.body ?? {};
+  const type = requiredEnum(b, "type", RESOURCE_TYPES);
+  const title = requiredString(b, "title", { max: 160 });
+  const subjectSlug = optionalString(b, "subjectSlug", { max: 40 });
+  const level = optionalString(b, "level", { max: 40 });
+  const description = optionalString(b, "description", { max: 2000 });
+  const fileName = optionalString(b, "fileName", { max: 200 });
+  const mimeType = optionalString(b, "mimeType", { max: 100 });
+  const contentBase64 = optionalString(b, "contentBase64", { max: 20_000_000 });
+  const content = contentBase64 ? Buffer.from(contentBase64, "base64") : null;
+  const r = await pool.query(
+    `INSERT INTO resources (type, subject_slug, level, title, description,
+                            file_name, mime_type, size_bytes, content, created_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+     RETURNING id, type, subject_slug, level, title, description, file_name, mime_type, size_bytes, created_at`,
+    [type, subjectSlug ?? null, level ?? null, title, description ?? null,
+     fileName ?? null, mimeType ?? null, content?.length ?? null, content, currentUserId(res)]
+  );
+  res.status(201).json(r.rows[0]);
+}));
+
+admin.delete("/resources/:id", wrap(async (req, res) => {
+  const r = await pool.query("DELETE FROM resources WHERE id=$1 RETURNING id", [req.params.id]);
+  if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
+  res.status(204).end();
+}));
+
+api.use("/admin", admin);
 
 // -------------------------------------------------------------------- Parrainage
 api.get("/referral", wrap(async (_req, res) => {

@@ -72,10 +72,28 @@ export function optionalAuth(req: Request, res: Response, next: NextFunction): v
   const m = header.match(/^Bearer\s+(.+)$/i);
   const claims = m ? verifyJwt(m[1]) : null;
   res.locals.userId = claims?.sub ?? DEMO_USER;
+  res.locals.userRole = claims?.role; // rôle du token (undefined en repli démo)
   next();
 }
 
 /** Identifiant de l'utilisateur courant (posé par `optionalAuth`). */
 export function currentUserId(res: Response): number {
   return (res.locals.userId as number | undefined) ?? DEMO_USER;
+}
+
+/** Rôle de l'utilisateur courant (issu du token), ou `undefined` en repli démo. */
+export function currentRole(res: Response): string | undefined {
+  return res.locals.userRole as string | undefined;
+}
+
+/**
+ * Garde admin : exige un token JWT valide avec `role === "admin"`.
+ * 401 si pas de token valide, 403 si l'utilisateur n'est pas administrateur.
+ * À monter APRÈS `optionalAuth`.
+ */
+export function requireAdmin(_req: Request, res: Response, next: NextFunction): void {
+  const role = currentRole(res);
+  if (role === undefined) { res.status(401).json({ error: "unauthorized" }); return; }
+  if (role !== "admin") { res.status(403).json({ error: "forbidden" }); return; }
+  next();
 }

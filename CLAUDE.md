@@ -29,8 +29,10 @@ docs/       Présentation .docx + assets (captures d'écran)
   appliquées automatiquement au démarrage de l'API). `001_init-schema` crée les
   10 tables (`subjects`, `teachers`, `reviews`, `users`, `courses`, `notifications`,
   `transactions`, `group_courses`, `subscription_plans`, `progress_subjects`),
-  `002_seed-data` insère les données de démo, `003_subscription-referral` ajoute
-  les tables user-scoped `user_subscriptions` + `referrals` (12 tables au total).
+  `002_seed-data` insère les données de démo, `1700000002000_subscription-referral`
+  ajoute les tables user-scoped `user_subscriptions` + `referrals`, et
+  `1700000003000_admin-catalog-resources` ajoute `levels` + `resources` (cours/devoirs/
+  exercices avec fichier) et un utilisateur admin (14 tables au total).
   Suivi dans la table `pgmigrations`.
   Créer une migration : `npm run migrate create <nom>` (puis éditer le `.sql`).
 - **Ports (custom, pour éviter les collisions)** : API **8099**, Postgres **5544**,
@@ -39,12 +41,18 @@ docs/       Présentation .docx + assets (captures d'écran)
   interpolés par `docker-compose.yml`). Copier `.env.example` → `.env` au premier clone.
 - **Validation des entrées** : `api/src/validate.ts` — helpers sans dépendance,
   permissifs (les défauts serveur restent) mais rejettent tout champ malformé (HTTP 400).
-  Appliqués aux POST `auth/login`, `auth/signup`, `bookings`.
-- ~20 endpoints : `/health`, `/api/auth/{login,signup,verify-otp}`, `/api/me`,
-  `/api/subjects`, `/api/teachers[?format=&level=]`, `/api/teachers/:id`,
+  `requiredString`/`requiredEnum` pour les écritures admin (champs obligatoires).
+- Endpoints publics/user : `/health`, `/api/auth/{login,signup,verify-otp}`, `/api/me`,
+  `/api/subjects`, `/api/levels`, `/api/teachers[?format=&level=]`, `/api/teachers/:id`,
   `/api/courses[?status=upcoming|done]`, `/api/bookings`, `/api/notifications`,
   `/api/wallet`, `/api/groups[/:id]`, `/api/subscription/{plans,mine}`,
-  `/api/progress`, `/api/teacher/{dashboard,requests,earnings}`, `/api/referral`.
+  `/api/progress`, `/api/teacher/{dashboard,requests,earnings}`, `/api/referral`,
+  `/api/resources[?type=&subject=&level=]`, `/api/files/:id`.
+- **Espace admin** (réservé au rôle `admin`, garde `requireAdmin`) :
+  `POST/PUT/DELETE /api/admin/subjects[/:slug]`, `POST/DELETE /api/admin/levels[/:slug]`,
+  `POST/DELETE /api/admin/resources[/:id]`. Permet d'ajouter matières (musique, langues
+  hors FR/EN…), niveaux (supérieur/universitaire…) et ressources pédagogiques
+  (cours/devoirs/exercices) avec fichier (uploadé en base64, stocké en `BYTEA`).
 - **Auth JWT** (`api/src/auth.ts`, HS256 via `crypto` natif, secret `JWT_SECRET`).
   login/signup/verify-otp émettent un vrai JWT (`sub` = id user). Middleware
   `optionalAuth` : si `Authorization: Bearer <jwt>` valide → utilisateur courant = `sub`,
@@ -52,9 +60,11 @@ docs/       Présentation .docx + assets (captures d'écran)
   login/signup/verify-otp appellent l'API, persistent le JWT (TokenStore →
   SharedPreferences Android / UserDefaults iOS) et l'injectent sur tous les appels
   (intercepteur OkHttp côté Android, `URLRequest` côté iOS). Sans token → repli démo
-  (rétrocompat). Endpoints user-scoped utilisent `currentUserId(res)`.
+  (rétrocompat). Endpoints user-scoped utilisent `currentUserId(res)`. Le rôle est
+  porté par le JWT ; `requireAdmin` garde l'espace admin (401 sans token, 403 si non-admin).
+  Utilisateur admin de démo : `+2250700000001`.
   ⚠️ Reste à faire : OTP SMS réel, paiement réel (Phase 1/2 — voir docs/ROADMAP.md).
-- **Tests** : `api/test/*.test.mjs` (runner natif Node, `npm test`, stack live requise) — 32 tests.
+- **Tests** : `api/test/*.test.mjs` (runner natif Node, `npm test`, stack live requise) — 38 tests.
   `api.test.mjs` = intégration par endpoint ; `e2e.test.mjs` = parcours bout-en-bout
   (inscription→réservation→relecture, isolation JWT entre comptes, repli démo, prof,
   catalogue). Les 20 endpoints sont couverts.

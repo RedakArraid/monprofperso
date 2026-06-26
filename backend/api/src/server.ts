@@ -7,7 +7,8 @@ import { pool, waitForDb } from "./db";
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+// Limite relevée pour accepter les fichiers de ressources encodés en base64.
+app.use(express.json({ limit: "15mb" }));
 
 app.get("/health", (_req, res) => res.json({ status: "ok", service: "monprofperso-api" }));
 app.use("/api", api);

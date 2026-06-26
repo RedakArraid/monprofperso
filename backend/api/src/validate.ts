@@ -44,6 +44,20 @@ export function optionalEnum(body: any, field: string, allowed: readonly string[
   return v;
 }
 
+/** Chaîne obligatoire (non vide). Pour les écritures admin où le champ est requis. */
+export function requiredString(body: any, field: string, { max = 200 }: { max?: number } = {}): string {
+  const v = optionalString(body, field, { max });
+  if (v === undefined || v.trim() === "") throw new ValidationError(field, `${field} est requis`);
+  return v.trim();
+}
+
+/** Énumération obligatoire. */
+export function requiredEnum(body: any, field: string, allowed: readonly string[]): string {
+  const v = requiredString(body, field, { max: 50 });
+  if (!allowed.includes(v)) throw new ValidationError(field, `${field} doit être parmi : ${allowed.join(", ")}`);
+  return v;
+}
+
 /** Nombre optionnel : accepte number ou chaîne numérique ; rejette le reste. */
 export function optionalNumber(
   body: any,

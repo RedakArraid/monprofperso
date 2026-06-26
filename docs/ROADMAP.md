@@ -22,11 +22,17 @@ Maillon faible : auth/paiement simulés. À traiter avant toute nouvelle feature
 - [x] Validation des entrées (helper maison sans dépendance) sur les POST.
 - [x] Migrations versionnées (node-pg-migrate, `api/migrations/*.sql`) appliquées
       automatiquement au démarrage, idempotentes. `init.sql` supprimé.
-- [x] Tests d'intégration + e2e (runner natif Node, `api/test/*.test.mjs`, 32 tests ;
-      e2e = parcours complets + isolation JWT, couvre les 20 endpoints).
+- [x] Tests d'intégration + e2e (runner natif Node, `api/test/*.test.mjs`, 38 tests ;
+      e2e = parcours complets + isolation JWT ; admin = garde + CRUD + ressources).
 - [ ] Codes HTTP et logs standardisés.
 
 ## Phase 2 — Fonctionnel produit
+- [~] Back-office d'administration. Fait côté **API** : rôle `admin` + garde
+      `requireAdmin`, CRUD matières & niveaux (→ musique, langues hors FR/EN, niveaux
+      supérieur/universitaire), ressources pédagogiques (cours/devoirs/exercices) avec
+      upload de fichier. Reste : **UI admin native** (Android/iOS) + auth admin dédiée,
+      stockage fichiers durable (volume/S3 au lieu de BYTEA), rôles d'auteur (prof crée
+      ses ressources).
 - [~] Sortir les endpoints codés en dur vers la DB. Fait : `/subscription/mine`,
       `/referral` (tables user-scoped). Restent stubés : espace prof
       (`/teacher/{dashboard,requests,earnings}`), comptes Mobile Money de `/wallet`,
