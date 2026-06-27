@@ -94,7 +94,9 @@ docs/       Présentation .docx + assets, ROADMAP.md, COMPLIANCE.md (légal CI :
   sélecteur natif Android SAF `OpenDocument` / iOS `.fileImporter`, encodé base64 et
   envoyé en `contentBase64` ; routé `AdminResources`/`.adminResources`). Côté lecture,
   l'écran utilisateur « Ressources & supports » ouvre le fichier via `/api/files/:id`
-  (Intent `ACTION_VIEW` Android / `openURL` iOS). La connexion mémorise
+  — les **PDF** dans le **visualiseur in-app** (Android `PdfRenderer` / iOS `PDFKit`,
+  écran `PdfViewer`/`.pdfViewer`), les autres types en externe (Intent `ACTION_VIEW` /
+  `openURL`). Idem pour les documents légaux. La connexion mémorise
   le rôle réel renvoyé par le serveur (`AppState.authRole` Android / `Router.authRole`
   iOS → `isAdmin`) ; les deux entrées n'apparaissent dans « Mon compte » que pour un
   admin. Un raccourci « Démo administrateur » sur l'écran de connexion logue le seed

@@ -12,7 +12,7 @@ struct PdfViewerScreen: View {
 
     var body: some View {
         AkScreen(ignoresBottom: true) {
-            TopBar(title: title, subtitle: "Document légal", onBack: { router.back() })
+            TopBar(title: title, subtitle: "Aperçu du document", onBack: { router.back() })
             if let url = URL(string: urlString) {
                 PdfKitView(url: url).background(Ak.cream)
             } else {

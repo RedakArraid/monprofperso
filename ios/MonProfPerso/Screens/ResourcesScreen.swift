@@ -98,9 +98,12 @@ struct ResourcesScreen: View {
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(Ak.border, lineWidth: 1))
         .contentShape(Rectangle())
         .onTapGesture {
-            if let f = r.file_name, !f.isEmpty {
-                openURL(ApiConfig.baseURL.appendingPathComponent("api/files/\(r.id)"))
-            }
+            guard let f = r.file_name, !f.isEmpty else { return }
+            let url = ApiConfig.baseURL.appendingPathComponent("api/files/\(r.id)")
+            // Les PDF s'ouvrent dans le visualiseur in-app ; les autres types en externe.
+            let isPdf = r.mime_type == "application/pdf" || f.lowercased().hasSuffix(".pdf")
+            if isPdf { router.go(.pdfViewer(url: url.absoluteString, title: r.title)) }
+            else { openURL(url) }
         }
     }
 }

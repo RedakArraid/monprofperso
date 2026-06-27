@@ -79,7 +79,7 @@ fun ResourcesScreen(nav: NavActions) {
             } else if (items.isEmpty()) {
                 Text("Aucune ressource disponible pour ce filtre.", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Faint)
             }
-            items.forEach { r -> ResourceCard(r) }
+            items.forEach { r -> ResourceCard(r, nav) }
             Spacer(Modifier.height(20.dp))
         }
     }
@@ -98,14 +98,17 @@ private fun FilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun ResourceCard(r: ResourceDto) {
+private fun ResourceCard(r: ResourceDto, nav: NavActions) {
     val accent = if (r.type == "homework") AkColors.Orange else AkColors.Green
     val soft = if (r.type == "homework") AkColors.OrangeSoft else AkColors.GreenSoft
     val context = LocalContext.current
     val hasFile = !r.fileName.isNullOrBlank()
+    val isPdf = r.mimeType == "application/pdf" || r.fileName?.endsWith(".pdf", ignoreCase = true) == true
     val open = {
         val url = ci.monprofperso.app.data.ApiConfig.BASE_URL + "api/files/${r.id}"
-        runCatching {
+        // Les PDF s'ouvrent dans le visualiseur in-app ; les autres types en externe.
+        if (isPdf) nav.openPdf(url, r.title)
+        else runCatching {
             context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
         }
     }

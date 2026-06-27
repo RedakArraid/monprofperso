@@ -52,7 +52,7 @@ fun PdfViewerScreen(nav: NavActions) {
     }
 
     AkScreen(applyBottomInset = false) {
-        TopBar(title, subtitle = "Document légal", onBack = { nav.back() })
+        TopBar(title, subtitle = "Aperçu du document", onBack = { nav.back() })
         when {
             failed -> Column(Modifier.weight(1f).fillMaxWidth().padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Spacer(Modifier.height(40.dp))
