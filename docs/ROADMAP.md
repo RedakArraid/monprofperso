@@ -89,7 +89,12 @@ Maillon faible : auth/paiement simulés. À traiter avant toute nouvelle feature
             (CEDEAO)** → pas de transfert hors CEDEAO (décision projet).
       - [x] Socle de consentement (CGU + confidentialité) + **consentement parental**
             pour les élèves mineurs, tracé en base (migration `1700000008000`, apps).
-      - [ ] Rédiger les CGU + politique de confidentialité réelles (texte juridique).
+      - [~] Rédiger les CGU + politique de confidentialité réelles : **brouillons**
+            dans `docs/legal/` (CGU.md, POLITIQUE-CONFIDENTIALITE.md,
+            MENTIONS-LEGALES.md) — à faire valider par un juriste. Gérables en PDF
+            via l'**espace admin** (table `legal_documents`, écran « Documents légaux »
+            Android + iOS ; consultation utilisateur depuis « Mon compte »).
+      - [ ] Faire valider les textes par un conseil juridique, puis publier les PDF.
       - [ ] Déclaration/autorisation de traitement auprès de l'ARTCI (registre).
       - [ ] Droits des personnes : accès / rectification / suppression du compte.
       - [ ] Chiffrement au repos (DB + bucket) et en transit, politique de conservation.

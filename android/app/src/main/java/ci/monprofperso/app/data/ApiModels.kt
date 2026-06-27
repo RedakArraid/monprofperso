@@ -82,6 +82,16 @@ data class CourseDto(
 
 data class UnreadDto(val count: Int)
 
+data class LegalDocDto(
+    val slug: String,
+    val title: String,
+    val version: String?,
+    @SerializedName("file_name") val fileName: String?,
+    @SerializedName("size_bytes") val sizeBytes: Int?,
+    @SerializedName("updated_at") val updatedAt: String?,
+    val hasFile: Boolean,
+)
+
 data class NotificationDto(
     val icon: String,
     val accent: String,

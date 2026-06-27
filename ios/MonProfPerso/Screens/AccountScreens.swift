@@ -211,6 +211,8 @@ struct AccountScreen: View {
                         rowDivider()
                         accountRow("doc.text.fill", "Ressources & supports") { router.go(.resources) }
                         rowDivider()
+                        accountRow("checkmark.shield.fill", "Documents légaux") { router.go(.legal) }
+                        rowDivider()
                         accountRow("gift.fill", "Parrainage", badge: "2 000 F", bf: Ak.orange, bb: Ak.orangeSoft) { router.go(.referral) }
                         rowDivider()
                         accountRow("questionmark.circle.fill", "Aide & support") { router.go(.helpFaq) }
@@ -221,6 +223,8 @@ struct AccountScreen: View {
                             accountRow("slider.horizontal.3", "Gérer le catalogue", badge: "Admin", bf: Ak.green, bb: Ak.greenSoft) { router.go(.adminCatalog) }
                             rowDivider()
                             accountRow("doc.text.fill", "Ressources pédagogiques", badge: "Admin", bf: Ak.green, bb: Ak.greenSoft) { router.go(.adminResources) }
+                            rowDivider()
+                            accountRow("checkmark.shield.fill", "Gérer les documents légaux", badge: "Admin", bf: Ak.green, bb: Ak.greenSoft) { router.go(.adminLegal) }
                         }
                     }.background(.white).clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: 18).stroke(Ak.border, lineWidth: 1)).padding(.top, 20)

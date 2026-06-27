@@ -56,8 +56,9 @@ docs/       Présentation .docx + assets, ROADMAP.md, COMPLIANCE.md (légal CI :
   naît « en attente » et **remonte dans les demandes du prof concerné** jusqu'à
   validation. Enfin `1700000008000_user-consent` ajoute le **consentement** sur
   `users` (`consent_version`, `consent_at`, `parental_consent`) — conformité
-  Loi CI N°2013-450 (cf. `docs/COMPLIANCE.md`) — **20 tables au total**. Suivi
-  dans la table `pgmigrations`.
+  Loi CI N°2013-450 (cf. `docs/COMPLIANCE.md`). Enfin `1700000009000_legal-documents`
+  ajoute `legal_documents` (CGU, confidentialité, mentions légales — PDF géré par
+  l'admin) — **21 tables au total**. Suivi dans la table `pgmigrations`.
   Créer une migration : `npm run migrate create <nom>` (puis éditer le `.sql`).
 - **Ports (custom, pour éviter les collisions)** : API **8099**, Postgres **5544**,
   Adminer **8098**, MinIO API **9000** / console **8097**. Configurables via
@@ -76,13 +77,16 @@ docs/       Présentation .docx + assets, ROADMAP.md, COMPLIANCE.md (légal CI :
   `/api/progress`, `/api/teacher/{dashboard,requests,earnings}`,
   `/api/teacher/requests/:id/{accept,refuse}` (le prof valide/refuse une réservation),
   `/api/referral`,
-  `/api/resources[?type=&subject=&level=]`, `/api/files/:id`.
+  `/api/resources[?type=&subject=&level=]`, `/api/files/:id`,
+  `/api/legal`, `/api/legal/:slug/file` (documents légaux publics).
 - **Espace admin** (réservé au rôle `admin`, garde `requireAdmin`) :
   `POST/PUT/DELETE /api/admin/subjects[/:slug]`, `POST/DELETE /api/admin/levels[/:slug]`,
-  `POST/DELETE /api/admin/resources[/:id]`. Permet d'ajouter matières (musique, langues
-  hors FR/EN…), niveaux (supérieur/universitaire…) et ressources pédagogiques
+  `POST/DELETE /api/admin/resources[/:id]`, `PUT /api/admin/legal/:slug` (téléverse
+  le PDF d'un document légal). Permet d'ajouter matières (musique, langues
+  hors FR/EN…), niveaux (supérieur/universitaire…), ressources pédagogiques
   (cours/devoirs/exercices) avec fichier (uploadé en base64, stocké sur MinIO/S3 ;
-  repli `BYTEA` — voir « Stockage fichiers »).
+  repli `BYTEA` — voir « Stockage fichiers »), et de gérer les **documents légaux**
+  (CGU, confidentialité, mentions légales ; textes sources dans `docs/legal/*.md`).
   **UI côté apps** : deux écrans admin présents sur Android (`ui/screens/AdminScreens.kt`)
   et iOS (`Screens/AdminScreens.swift`) — « Gérer le catalogue » (matières + niveaux,
   routé `AdminCatalog`/`.adminCatalog`) et « Ressources pédagogiques » (cours/devoirs/
@@ -106,7 +110,7 @@ docs/       Présentation .docx + assets, ROADMAP.md, COMPLIANCE.md (légal CI :
   porté par le JWT ; `requireAdmin` garde l'espace admin (401 sans token, 403 si non-admin).
   Utilisateur admin de démo : `+2250700000001`.
   ⚠️ Reste à faire : OTP SMS réel, paiement réel (Phase 1/2 — voir docs/ROADMAP.md).
-- **Tests** : `api/test/*.test.mjs` (runner natif Node, `npm test`, stack live requise) — 49 tests.
+- **Tests** : `api/test/*.test.mjs` (runner natif Node, `npm test`, stack live requise) — 52 tests.
   `api.test.mjs` = intégration par endpoint ; `e2e.test.mjs` = parcours bout-en-bout
   (inscription→réservation→relecture, isolation JWT entre comptes, repli démo, prof,
   catalogue). Les 20 endpoints sont couverts.

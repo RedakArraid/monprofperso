@@ -57,9 +57,11 @@ object Routes {
     const val Referral = "referral"
     const val EmptyState = "empty_state"
     const val Resources = "resources"
+    const val Legal = "legal"
     // L — Espace administrateur
     const val AdminCatalog = "admin_catalog"
     const val AdminResources = "admin_resources"
+    const val AdminLegal = "admin_legal"
 }
 
 @Composable
@@ -117,8 +119,10 @@ fun MonProfPersoNavGraph() {
         composable(Routes.EmptyState) { EmptyStateScreen(actions) }
 
         composable(Routes.Resources) { ResourcesScreen(actions) }
+        composable(Routes.Legal) { LegalScreen(actions) }
 
         composable(Routes.AdminCatalog) { AdminCatalogScreen(actions) }
         composable(Routes.AdminResources) { AdminResourcesScreen(actions) }
+        composable(Routes.AdminLegal) { AdminLegalScreen(actions) }
     }
 }

@@ -116,3 +116,34 @@ test("admin : type de ressource invalide -> 400", async () => {
   assert.equal(status, 400);
   assert.equal(body.field, "type");
 });
+
+// --------------------------------------------------------- Documents légaux
+test("legal : liste publique des documents (CGU, confidentialité, mentions)", async () => {
+  const { status, body } = await api("/api/legal");
+  assert.equal(status, 200);
+  const slugs = body.map((d) => d.slug);
+  for (const s of ["cgu", "confidentialite", "mentions-legales"]) assert.ok(slugs.includes(s), `doc ${s} présent`);
+});
+
+test("legal : l'admin téléverse un PDF, public le télécharge", async () => {
+  const token = await adminToken();
+  const contentBase64 = Buffer.from("%PDF-1.4 CGU test").toString("base64");
+  const put = await api("/api/admin/legal/cgu", {
+    method: "PUT", token,
+    json: { version: "2026-06", fileName: "cgu.pdf", mimeType: "application/pdf", contentBase64 },
+  });
+  assert.equal(put.status, 200);
+  assert.equal(put.body.slug, "cgu");
+
+  const file = await api("/api/legal/cgu/file");
+  assert.equal(file.status, 200);
+  assert.equal(file.body, "%PDF-1.4 CGU test");
+});
+
+test("legal : upload réservé à l'admin (403) et slug inconnu (404)", async () => {
+  const admin = await adminToken();
+  const forbidden = await api("/api/admin/legal/cgu", { method: "PUT", json: { version: "x" } });
+  assert.equal(forbidden.status, 401); // pas de token -> 401
+  const unknown = await api("/api/admin/legal/inexistant", { method: "PUT", token: admin, json: { version: "x" } });
+  assert.equal(unknown.status, 404);
+});

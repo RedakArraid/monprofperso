@@ -270,6 +270,8 @@ fun AccountScreen(nav: NavActions) {
                 RowDivider()
                 AccountRow(Icons.Filled.Description, "Ressources & supports") { nav.go(Routes.Resources) }
                 RowDivider()
+                AccountRow(Icons.Filled.Gavel, "Documents légaux") { nav.go(Routes.Legal) }
+                RowDivider()
                 AccountRow(Icons.Filled.CardGiftcard, "Parrainage", badge = "2 000 F", badgeFg = AkColors.Orange, badgeBg = AkColors.OrangeSoft) { nav.go(Routes.Referral) }
                 RowDivider()
                 AccountRow(Icons.AutoMirrored.Filled.HelpOutline, "Aide & support") { nav.go(Routes.HelpFaq) }
@@ -280,6 +282,8 @@ fun AccountScreen(nav: NavActions) {
                     AccountRow(Icons.Filled.Tune, "Gérer le catalogue", badge = "Admin", badgeFg = AkColors.Green, badgeBg = AkColors.GreenSoft) { nav.go(Routes.AdminCatalog) }
                     RowDivider()
                     AccountRow(Icons.Filled.Description, "Ressources pédagogiques", badge = "Admin", badgeFg = AkColors.Green, badgeBg = AkColors.GreenSoft) { nav.go(Routes.AdminResources) }
+                    RowDivider()
+                    AccountRow(Icons.Filled.Gavel, "Gérer les documents légaux", badge = "Admin", badgeFg = AkColors.Green, badgeBg = AkColors.GreenSoft) { nav.go(Routes.AdminLegal) }
                 }
             }
             Spacer(Modifier.height(14.dp))

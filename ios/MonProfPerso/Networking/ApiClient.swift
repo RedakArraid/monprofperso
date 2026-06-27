@@ -93,6 +93,15 @@ struct CourseDTO: Codable, Identifiable {
 
 struct UnreadDTO: Codable { let count: Int }
 
+struct LegalDocDTO: Codable, Identifiable {
+    let slug, title: String
+    let version, file_name: String?
+    let size_bytes: Int?
+    let updated_at: String?
+    let hasFile: Bool
+    var id: String { slug }
+}
+
 struct NotificationDTO: Codable, Identifiable {
     let icon, accent, text, time_ago: String
     let unread: Bool
@@ -250,6 +259,14 @@ struct ApiClient {
         return try JSONDecoder().decode(ResourceDTO.self, from: data)
     }
     func deleteResource(id: Int) async throws { _ = try await request("api/admin/resources/\(id)", method: "DELETE") }
+
+    // MARK: Documents légaux
+    func legalDocs() async throws -> [LegalDocDTO] { try await get("api/legal") }
+    func uploadLegalDoc(slug: String, fileName: String, mimeType: String, contentBase64: String) async throws -> LegalDocDTO {
+        let data = try await request("api/admin/legal/\(slug)", method: "PUT",
+                                     json: ["fileName": fileName, "mimeType": mimeType, "contentBase64": contentBase64])
+        return try JSONDecoder().decode(LegalDocDTO.self, from: data)
+    }
 }
 
 // MARK: - Données de repli (identiques à la maquette) si l'API est injoignable

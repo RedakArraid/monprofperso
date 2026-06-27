@@ -23,9 +23,9 @@ enum Route: Hashable {
     // J — Gérer un cours & suivi détaillé
     case manageCourse, progressReport, receipt
     // K — Reçus, aide, réglages & parrainage
-    case helpFaq, settings, referral, emptyState, resources
+    case helpFaq, settings, referral, emptyState, resources, legal
     // L — Espace administrateur
-    case adminCatalog, adminResources
+    case adminCatalog, adminResources, adminLegal
 }
 
 /// Onglets de la barre inférieure (parent & professeur).

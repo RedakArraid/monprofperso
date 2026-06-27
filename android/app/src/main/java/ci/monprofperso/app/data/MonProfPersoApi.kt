@@ -53,6 +53,13 @@ interface MonProfPersoApi {
     @DELETE("api/admin/resources/{id}")
     suspend fun deleteResource(@Path("id") id: Int): Response<Unit>
 
+    // --- Documents légaux ---
+    @GET("api/legal")
+    suspend fun legalDocs(): List<LegalDocDto>
+
+    @retrofit2.http.PUT("api/admin/legal/{slug}")
+    suspend fun uploadLegalDoc(@Path("slug") slug: String, @Body body: Map<String, @JvmSuppressWildcards Any?>): LegalDocDto
+
     @GET("api/teachers")
     suspend fun teachers(
         @Query("format") format: String? = null,

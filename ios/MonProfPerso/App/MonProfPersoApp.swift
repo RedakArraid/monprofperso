@@ -68,8 +68,10 @@ struct RootView: View {
         case .referral:               ReferralScreen()
         case .emptyState:             EmptyStateScreen()
         case .resources:              ResourcesScreen()
+        case .legal:                  LegalScreen()
         case .adminCatalog:           AdminCatalogScreen()
         case .adminResources:         AdminResourcesScreen()
+        case .adminLegal:             AdminLegalScreen()
         }
     }
 }

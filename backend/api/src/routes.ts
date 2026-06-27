@@ -103,6 +103,20 @@ api.get("/resources", wrap(async (req, res) => {
 }));
 
 // Télécharge le fichier d'une ressource (flux binaire avec son type MIME).
+// Sert un fichier stocké (objet MinIO/S3, sinon repli BYTEA). `row` doit porter
+// file_name, mime_type, content, storage_key.
+async function serveFile(res: any, row: any): Promise<void> {
+  res.setHeader("Content-Type", row.mime_type ?? "application/octet-stream");
+  res.setHeader("Content-Disposition", `inline; filename="${row.file_name ?? "fichier"}"`);
+  if (row.storage_key) {
+    const stream = await getFileStream(row.storage_key);
+    stream.on("error", () => { if (!res.headersSent) res.status(502).json({ error: "storage_error" }); });
+    stream.pipe(res);
+    return;
+  }
+  res.send(row.content); // repli BYTEA
+}
+
 api.get("/files/:id", wrap(async (req, res) => {
   const r = await pool.query(
     "SELECT file_name, mime_type, content, storage_key FROM resources WHERE id=$1",
@@ -110,16 +124,29 @@ api.get("/files/:id", wrap(async (req, res) => {
   );
   const row = r.rows[0];
   if (!row || (!row.content && !row.storage_key)) { res.status(404).json({ error: "not_found" }); return; }
-  res.setHeader("Content-Type", row.mime_type ?? "application/octet-stream");
-  res.setHeader("Content-Disposition", `inline; filename="${row.file_name ?? "fichier"}"`);
-  if (row.storage_key) {
-    // Fichier sur le stockage objet : on streame vers le client.
-    const stream = await getFileStream(row.storage_key);
-    stream.on("error", () => { if (!res.headersSent) res.status(502).json({ error: "storage_error" }); });
-    stream.pipe(res);
-    return;
-  }
-  res.send(row.content); // repli BYTEA (ressources historiques)
+  await serveFile(res, row);
+}));
+
+// ------------------------------------------------------------ Documents légaux
+// Liste publique des documents légaux (CGU, confidentialité, mentions légales).
+api.get("/legal", wrap(async (_req, res) => {
+  const r = await pool.query(
+    `SELECT slug, title, version, file_name, size_bytes, updated_at,
+            (storage_key IS NOT NULL OR content IS NOT NULL) AS "hasFile"
+     FROM legal_documents ORDER BY slug`
+  );
+  res.json(r.rows);
+}));
+
+// Téléchargement public du PDF d'un document légal.
+api.get("/legal/:slug/file", wrap(async (req, res) => {
+  const r = await pool.query(
+    "SELECT file_name, mime_type, content, storage_key FROM legal_documents WHERE slug=$1",
+    [req.params.slug]
+  );
+  const row = r.rows[0];
+  if (!row || (!row.content && !row.storage_key)) { res.status(404).json({ error: "not_found" }); return; }
+  await serveFile(res, row);
 }));
 
 // ------------------------------------------------------------------ Professeurs
@@ -483,6 +510,40 @@ admin.delete("/resources/:id", wrap(async (req, res) => {
   const r = await pool.query("DELETE FROM resources WHERE id=$1 RETURNING id", [req.params.id]);
   if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
   res.status(204).end();
+}));
+
+// --- Documents légaux : l'admin téléverse/remplace le PDF d'un document existant ---
+admin.put("/legal/:slug", wrap(async (req, res) => {
+  const b = req.body ?? {};
+  const title = optionalString(b, "title", { max: 160 });
+  const version = optionalString(b, "version", { max: 40 });
+  const fileName = optionalString(b, "fileName", { max: 200 });
+  const mimeType = optionalString(b, "mimeType", { max: 100 });
+  const contentBase64 = optionalString(b, "contentBase64", { max: 20_000_000 });
+
+  // Le document doit exister (slug connu : cgu | confidentialite | mentions-legales).
+  const existing = (await pool.query("SELECT slug FROM legal_documents WHERE slug=$1", [req.params.slug])).rows[0];
+  if (!existing) { res.status(404).json({ error: "not_found" }); return; }
+
+  // Si un fichier est fourni, on le téléverse (MinIO, repli BYTEA).
+  let setFile = "";
+  const params: any[] = [req.params.slug, title ?? null, version ?? null];
+  if (contentBase64) {
+    const buffer = Buffer.from(contentBase64, "base64");
+    const storageKey = await putFile(buffer, mimeType ?? null, fileName ?? null);
+    const content = storageKey ? null : buffer;
+    params.push(fileName ?? null, mimeType ?? null, buffer.length, content, storageKey);
+    setFile = `, file_name=$4, mime_type=$5, size_bytes=$6, content=$7, storage_key=$8`;
+  }
+  const r = await pool.query(
+    `UPDATE legal_documents
+        SET title = COALESCE($2, title), version = COALESCE($3, version),
+            updated_at = now(), updated_by = ${currentUserId(res)}${setFile}
+      WHERE slug = $1
+      RETURNING slug, title, version, file_name, size_bytes, updated_at`,
+    params
+  );
+  res.json(r.rows[0]);
 }));
 
 api.use("/admin", admin);

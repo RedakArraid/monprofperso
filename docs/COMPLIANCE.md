@@ -50,9 +50,14 @@ La loi encadre le **transfert de données hors de l'espace CEDEAO**.
   `users.consent_at`, `users.parental_consent` (migration `1700000008000`).
   Côté apps, l'écran d'inscription bloque la création tant que le consentement
   requis n'est pas donné (Android + iOS).
-- **Reste** : rédiger les **CGU + politique de confidentialité** réelles (texte
-  juridique) et les afficher/lier depuis l'écran ; versionner via `CONSENT_VERSION`
-  (`api/src/routes.ts`) pour re-solliciter à chaque révision.
+- **Textes** : brouillons rédigés dans `docs/legal/` — `CGU.md`,
+  `POLITIQUE-CONFIDENTIALITE.md`, `MENTIONS-LEGALES.md` (à faire valider par un
+  juriste). Gérables en **PDF via l'espace admin** : table `legal_documents`,
+  endpoint `PUT /api/admin/legal/:slug`, écrans « Documents légaux » (Android + iOS),
+  consultation utilisateur publique (`GET /api/legal`, `/api/legal/:slug/file`).
+- **Reste** : versionner via `CONSENT_VERSION` (`api/src/routes.ts`) pour
+  re-solliciter à chaque révision, et lier les documents publiés à l'écran de
+  consentement.
 
 ### 3. Déclaration / autorisation des traitements auprès de l'ARTCI
 - Recenser les **traitements** (authentification, réservation, paiement, suivi
