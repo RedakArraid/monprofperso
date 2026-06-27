@@ -57,7 +57,10 @@ La loi encadre le **transfert de données hors de l'espace CEDEAO**.
   consultation utilisateur publique (`GET /api/legal`, `/api/legal/:slug/file`).
 - **Lien depuis l'inscription** : sur l'écran d'inscription (Android + iOS), les
   mentions « Conditions d'utilisation » et « politique de confidentialité » sont
-  **cliquables** et ouvrent le PDF publié (`/api/legal/{cgu,confidentialite}/file`).
+  **cliquables** et ouvrent le PDF publié (`/api/legal/{cgu,confidentialite}/file`)
+  dans un **visualiseur PDF in-app** (Android `PdfRenderer`, iOS `PDFKit` — sans
+  dépendance externe ; repli navigateur si le rendu échoue). Idem depuis l'écran
+  utilisateur « Documents légaux ».
   *(Tant qu'aucun PDF n'est téléversé via l'espace admin, le lien renvoie un 404.)*
 - **Reste** : versionner via `CONSENT_VERSION` (`api/src/routes.ts`) pour
   re-solliciter à chaque révision.

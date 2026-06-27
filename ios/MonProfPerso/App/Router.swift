@@ -26,6 +26,8 @@ enum Route: Hashable {
     case helpFaq, settings, referral, emptyState, resources, legal
     // L — Espace administrateur
     case adminCatalog, adminResources, adminLegal
+    // M — Visualiseur PDF in-app (URL + titre)
+    case pdfViewer(url: String, title: String)
 }
 
 /// Onglets de la barre inférieure (parent & professeur).

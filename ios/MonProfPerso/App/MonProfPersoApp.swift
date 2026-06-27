@@ -72,6 +72,7 @@ struct RootView: View {
         case .adminCatalog:           AdminCatalogScreen()
         case .adminResources:         AdminResourcesScreen()
         case .adminLegal:             AdminLegalScreen()
+        case let .pdfViewer(url, title): PdfViewerScreen(urlString: url, title: title)
         }
     }
 }

@@ -17,6 +17,13 @@ class NavActions(private val nav: NavHostController) {
         nav.navigate(route) { launchSingleTop = true }
     }
 
+    /** Ouvre un PDF dans le visualiseur in-app (mémorise la cible puis navigue). */
+    fun openPdf(url: String, title: String) {
+        AppState.pdfUrl = url
+        AppState.pdfTitle = title
+        go(Routes.PdfViewer)
+    }
+
     /**
      * Entrée dans l'app après authentification : un professeur arrive sur
      * l'espace prof, un parent/élève sur l'accueil. Vide la pile d'auth.

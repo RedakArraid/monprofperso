@@ -58,6 +58,7 @@ object Routes {
     const val EmptyState = "empty_state"
     const val Resources = "resources"
     const val Legal = "legal"
+    const val PdfViewer = "pdf_viewer"
     // L — Espace administrateur
     const val AdminCatalog = "admin_catalog"
     const val AdminResources = "admin_resources"
@@ -120,6 +121,7 @@ fun MonProfPersoNavGraph() {
 
         composable(Routes.Resources) { ResourcesScreen(actions) }
         composable(Routes.Legal) { LegalScreen(actions) }
+        composable(Routes.PdfViewer) { PdfViewerScreen(actions) }
 
         composable(Routes.AdminCatalog) { AdminCatalogScreen(actions) }
         composable(Routes.AdminResources) { AdminResourcesScreen(actions) }

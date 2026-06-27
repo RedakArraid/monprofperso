@@ -17,6 +17,10 @@ object AppState {
     var authRole by mutableStateOf<String?>(null)
 
     val isAdmin: Boolean get() = authRole == "admin"
+
+    /** Cible du visualiseur PDF in-app (URL + titre), posée avant la navigation. */
+    var pdfUrl by mutableStateOf("")
+    var pdfTitle by mutableStateOf("Document")
 }
 
 val roleLabels = listOf("Parent", "Élève", "Professeur")

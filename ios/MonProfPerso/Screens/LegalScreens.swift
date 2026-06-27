@@ -10,7 +10,6 @@ import UniformTypeIdentifiers
 
 struct LegalScreen: View {
     @EnvironmentObject var router: Router
-    @Environment(\.openURL) private var openURL
     @State private var docs: [LegalDocDTO] = []
     @State private var loading = true
 
@@ -43,7 +42,9 @@ struct LegalScreen: View {
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(Ak.border, lineWidth: 1))
         .contentShape(Rectangle())
         .onTapGesture {
-            if d.hasFile { openURL(ApiConfig.baseURL.appendingPathComponent("api/legal/\(d.slug)/file")) }
+            if d.hasFile {
+                router.go(.pdfViewer(url: ApiConfig.baseURL.appendingPathComponent("api/legal/\(d.slug)/file").absoluteString, title: d.title))
+            }
         }
     }
 }

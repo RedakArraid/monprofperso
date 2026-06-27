@@ -27,7 +27,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.text.ClickableText
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -160,12 +159,8 @@ fun SignupScreen(nav: NavActions) {
     var parentalConsent by remember { mutableStateOf(false) }
     val isStudent = role == 1
     val canSubmit = consent && (!isStudent || parentalConsent)
-    val context = LocalContext.current
-    fun openLegal(slug: String) {
-        val url = ci.monprofperso.app.data.ApiConfig.BASE_URL + "api/legal/$slug/file"
-        runCatching {
-            context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
-        }
+    fun openLegal(slug: String, title: String) {
+        nav.openPdf(ci.monprofperso.app.data.ApiConfig.BASE_URL + "api/legal/$slug/file", title)
     }
     AkScreen {
         TopBar("", onBack = { nav.back() })
@@ -208,7 +203,8 @@ fun SignupScreen(nav: NavActions) {
             Spacer(Modifier.height(16.dp))
             ConsentCheckboxLinked(
                 checked = consent, onToggle = { consent = !consent },
-                onOpenCgu = { openLegal("cgu") }, onOpenPrivacy = { openLegal("confidentialite") },
+                onOpenCgu = { openLegal("cgu", "Conditions d'utilisation") },
+                onOpenPrivacy = { openLegal("confidentialite", "Politique de confidentialité") },
             )
             if (isStudent) {
                 Spacer(Modifier.height(12.dp))

@@ -138,6 +138,15 @@ struct SignupScreen: View {
                 }
             }.padding(.horizontal, 24).padding(.top, 12).padding(.bottom, 12)
         }
+        // Les liens CGU/confidentialité ouvrent le PDF dans le visualiseur in-app.
+        .environment(\.openURL, OpenURLAction { url in
+            if url.path.contains("/api/legal/") {
+                let title = url.path.contains("/cgu/") ? "Conditions d'utilisation" : "Politique de confidentialité"
+                router.go(.pdfViewer(url: url.absoluteString, title: title))
+                return .handled
+            }
+            return .systemAction
+        })
     }
 
     /// Case CGU avec liens « Conditions d'utilisation » / « politique de confidentialité »

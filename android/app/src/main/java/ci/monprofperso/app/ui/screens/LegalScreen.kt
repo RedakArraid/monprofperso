@@ -14,7 +14,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,7 +32,6 @@ import ci.monprofperso.app.ui.theme.Schibsted
  * ====================================================================== */
 @Composable
 fun LegalScreen(nav: NavActions) {
-    val context = LocalContext.current
     var docs by remember { mutableStateOf<List<LegalDocDto>?>(null) }
     LaunchedEffect(Unit) { docs = runCatching { Api.service.legalDocs() }.getOrNull() }
 
@@ -43,12 +41,7 @@ fun LegalScreen(nav: NavActions) {
             if (docs == null) LoadingRow()
             (docs ?: emptyList()).forEach { d ->
                 LegalLinkRow(d) {
-                    if (d.hasFile) {
-                        val url = ApiConfig.BASE_URL + "api/legal/${d.slug}/file"
-                        runCatching {
-                            context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
-                        }
-                    }
+                    if (d.hasFile) nav.openPdf(ApiConfig.BASE_URL + "api/legal/${d.slug}/file", d.title)
                 }
             }
             Spacer(Modifier.height(20.dp))
