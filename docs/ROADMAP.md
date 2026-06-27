@@ -69,7 +69,11 @@ Maillon faible : auth/paiement simulés. À traiter avant toute nouvelle feature
 - [~] Brancher en live les écrans encore en repli local (Android + iOS).
       Fait : espace prof (tableau de bord, demandes + validation, revenus). Reste les
       écrans encore mockés (agenda, gestion de cours, réglages, etc.).
-- [ ] États réseau uniformes (loading / erreur / offline) des deux côtés.
+- [~] États réseau uniformes (loading / erreur / offline) des deux côtés.
+      Fait : composants réutilisables `OfflineBanner` (bandeau « hors-ligne » +
+      Réessayer, respectant le repli mock) et `LoadingRow`, appliqués aux écrans
+      Notifications et Demandes prof (Android + iOS). Reste : généraliser aux autres
+      écrans live.
 - [ ] Tests UI de base + tests ViewModels (Android) / Stores (iOS).
 - [ ] CI : lint + build des 3 cibles à chaque PR.
 

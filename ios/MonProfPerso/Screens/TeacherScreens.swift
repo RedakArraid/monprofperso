@@ -74,6 +74,8 @@ struct TeacherDashboardScreen: View {
 struct CourseRequestsScreen: View {
     @EnvironmentObject var router: Router
     @State private var reqs: [TeacherRequestDTO] = Fallback.teacherRequests
+    @State private var isLive = false
+    @State private var attempted = false
 
     var body: some View {
         AkScreen(ignoresBottom: true) {
@@ -83,6 +85,9 @@ struct CourseRequestsScreen: View {
                 Spacer()
             }.padding(.horizontal, 22).padding(.vertical, 8)
             ScrollView {
+                if attempted && !isLive {
+                    OfflineBanner { Task { await reload() } }.padding(.horizontal, 22).padding(.top, 16)
+                }
                 if reqs.isEmpty {
                     Text("Aucune demande en attente.").font(AkFont.regular(13)).foregroundColor(Ak.faint)
                         .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 22).padding(.top, 16)
@@ -95,7 +100,8 @@ struct CourseRequestsScreen: View {
     }
 
     private func reload() async {
-        if let live = try? await ApiClient.shared.teacherRequests() { reqs = live }
+        if let live = try? await ApiClient.shared.teacherRequests() { reqs = live; isLive = true } else { isLive = false }
+        attempted = true
     }
 
     private func accept(_ r: TeacherRequestDTO) {

@@ -133,6 +133,10 @@ câblés sur `/teacher/requests/:id/{accept,refuse}`, revenus) — branché sur 
 avec repli mock, et les **Notifications** (`/notifications`, groupées aujourd'hui/semaine ;
 le parent est notifié quand sa réservation est acceptée/refusée).
 Les autres écrans suivent le même patron et restent fidèles à la maquette hors-ligne.
+**États réseau** : composants partagés `OfflineBanner` (bandeau « hors-ligne » + Réessayer,
+sans bloquer le repli mock) et `LoadingRow` (Android `ui/components/NetworkStates.kt`,
+iOS `Components.swift`), appliqués aux écrans Notifications et Demandes prof — patron à
+généraliser aux autres écrans live.
 
 ## Design system partagé
 Vert `#0E5A43`, orange `#E8722A`, crème `#ECE7DE`. Polices **Schibsted Grotesk** +

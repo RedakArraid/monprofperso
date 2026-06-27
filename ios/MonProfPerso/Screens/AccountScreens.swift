@@ -87,12 +87,15 @@ struct NotificationsScreen: View {
     @EnvironmentObject var router: Router
     @State private var notifs: [NotificationDTO] = fallbackNotifs
     @State private var isLive = false
+    @State private var attempted = false
 
     private func route(_ key: String) -> Route {
         switch key { case "chat": return .messaging; case "wallet": return .wallet; case "gift": return .referral; default: return .myCourses }
     }
     private func reload() async {
         if let live = try? await ApiClient.shared.notifications(), !live.isEmpty { notifs = live; isLive = true }
+        else { isLive = false }
+        attempted = true
     }
     private func markAllRead() {
         if isLive {
@@ -111,6 +114,7 @@ struct NotificationsScreen: View {
             }.padding(.horizontal, 22).padding(.vertical, 8)
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
+                    if attempted && !isLive { OfflineBanner { Task { await reload() } } }
                     ForEach(Array([("today", "Aujourd'hui"), ("week", "Cette semaine")].enumerated()), id: \.offset) { idx, sec in
                         let group = notifs.filter { $0.section == sec.0 }
                         if !group.isEmpty {

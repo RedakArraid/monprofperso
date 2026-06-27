@@ -138,9 +138,12 @@ private val fallbackRequests = listOf(
 fun CourseRequestsScreen(nav: NavActions) {
     val scope = rememberCoroutineScope()
     var requests by remember { mutableStateOf<List<ci.monprofperso.app.data.TeacherRequestDto>?>(null) }
+    var live by remember { mutableStateOf(false) }
 
     suspend fun reload() {
-        requests = runCatching { ci.monprofperso.app.data.Api.service.teacherRequests() }.getOrNull() ?: fallbackRequests
+        val fetched = runCatching { ci.monprofperso.app.data.Api.service.teacherRequests() }.getOrNull()
+        live = fetched != null
+        requests = fetched ?: fallbackRequests
     }
     LaunchedEffect(Unit) { reload() }
 
@@ -154,9 +157,10 @@ fun CourseRequestsScreen(nav: NavActions) {
         }
         Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 22.dp).padding(top = 16.dp)) {
             if (requests == null) {
-                Text("Chargement…", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Faint)
-            } else if (items.isEmpty()) {
-                Text("Aucune demande en attente.", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Faint)
+                LoadingRow()
+            } else {
+                if (!live) OfflineBanner(onRetry = { scope.launch { reload() } })
+                if (items.isEmpty()) Text("Aucune demande en attente.", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Faint)
             }
             items.forEach { r ->
                 RequestCard(

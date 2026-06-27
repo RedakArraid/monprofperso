@@ -61,6 +61,34 @@ struct NotificationBell: View {
     }
 }
 
+/// États réseau réutilisables et cohérents sur les écrans branchés en live.
+/// Le design privilégie le repli sur données de démo : on signale le mode
+/// hors-ligne par un bandeau discret avec « Réessayer » plutôt qu'un écran bloquant.
+struct OfflineBanner: View {
+    var onRetry: () -> Void
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "wifi.slash").font(.system(size: 13, weight: .semibold)).foregroundColor(Ak.orange)
+            Text("Hors-ligne — données de démonstration").font(AkFont.semibold(12)).foregroundColor(Color(hex: 0x8A5B33))
+            Spacer()
+            Text("Réessayer").font(AkFont.bold(12)).foregroundColor(Ak.orange)
+                .contentShape(Rectangle()).onTapGesture { onRetry() }
+        }
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .background(Ak.orangeSoft).clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .padding(.bottom, 10)
+    }
+}
+
+struct LoadingRow: View {
+    var body: some View {
+        HStack(spacing: 10) {
+            ProgressView().tint(Ak.green)
+            Text("Chargement…").font(AkFont.regular(13)).foregroundColor(Ak.faint)
+        }.frame(maxWidth: .infinity).padding(.vertical, 22)
+    }
+}
+
 /// Petit carré arrondi contenant une icône (retour, fermer…).
 struct IconSquare: View {
     let system: String

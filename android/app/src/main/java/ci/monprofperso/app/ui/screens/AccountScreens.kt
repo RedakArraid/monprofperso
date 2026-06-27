@@ -164,9 +164,10 @@ fun NotificationsScreen(nav: NavActions) {
         }
         Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 22.dp).padding(top = 16.dp)) {
             if (notifs == null) {
-                Text("Chargement…", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Faint)
-            } else if (items.isEmpty()) {
-                Text("Aucune notification.", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Faint)
+                LoadingRow()
+            } else {
+                if (!live) OfflineBanner(onRetry = { scope.launch { reload() } })
+                if (items.isEmpty()) Text("Aucune notification.", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Faint)
             }
             listOf("today" to "Aujourd'hui", "week" to "Cette semaine").forEach { (section, title) ->
                 val group = items.filter { it.section == section }
