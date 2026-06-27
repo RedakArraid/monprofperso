@@ -265,6 +265,19 @@ test("e2e — le parent est notifié de la décision (accept/refuse)", async () 
   assert.ok(notif2.some((n) => n.accent === "orange" && n.unread), "notif de refus reçue");
 });
 
+test("e2e — « Tout lire » marque les notifications comme lues", async () => {
+  const ibra = await post("/api/auth/login", { phone: "+2250705001122" });
+  const parent = await signup("parent");
+  const b = await post("/api/bookings", { teacherId: 2, subject: "Maths", price: 3000, format: "online" }, parent.token);
+  await post(`/api/teacher/requests/${b.body.course.id}/accept`, undefined, ibra.body.token);
+
+  assert.ok((await get("/api/notifications", parent.token)).body.some((n) => n.unread), "notif non lue présente");
+  const read = await post("/api/notifications/read", undefined, parent.token);
+  assert.equal(read.status, 200);
+  assert.ok(read.body.updated >= 1);
+  assert.ok((await get("/api/notifications", parent.token)).body.every((n) => !n.unread), "tout est lu");
+});
+
 // ======================================================================
 // Parcours 6 — Catalogue public (groupes, abonnement, parrainage)
 // ======================================================================

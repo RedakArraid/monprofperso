@@ -58,7 +58,8 @@ docs/       Présentation .docx + assets (captures d'écran)
   `requiredString`/`requiredEnum` pour les écritures admin (champs obligatoires).
 - Endpoints publics/user : `/health`, `/api/auth/{login,signup,verify-otp}`, `/api/me`,
   `/api/subjects`, `/api/levels`, `/api/teachers[?format=&level=]`, `/api/teachers/:id`,
-  `/api/courses[?status=upcoming|done]`, `/api/bookings`, `/api/notifications`,
+  `/api/courses[?status=upcoming|done]`, `/api/bookings`,
+  `/api/notifications`, `/api/notifications/read` (POST, « tout lire »),
   `/api/wallet`, `/api/groups[/:id]`, `/api/subscription/{plans,mine}`,
   `/api/progress`, `/api/teacher/{dashboard,requests,earnings}`,
   `/api/teacher/requests/:id/{accept,refuse}` (le prof valide/refuse une réservation),
@@ -92,7 +93,7 @@ docs/       Présentation .docx + assets (captures d'écran)
   porté par le JWT ; `requireAdmin` garde l'espace admin (401 sans token, 403 si non-admin).
   Utilisateur admin de démo : `+2250700000001`.
   ⚠️ Reste à faire : OTP SMS réel, paiement réel (Phase 1/2 — voir docs/ROADMAP.md).
-- **Tests** : `api/test/*.test.mjs` (runner natif Node, `npm test`, stack live requise) — 47 tests.
+- **Tests** : `api/test/*.test.mjs` (runner natif Node, `npm test`, stack live requise) — 48 tests.
   `api.test.mjs` = intégration par endpoint ; `e2e.test.mjs` = parcours bout-en-bout
   (inscription→réservation→relecture, isolation JWT entre comptes, repli démo, prof,
   catalogue). Les 20 endpoints sont couverts.

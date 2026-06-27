@@ -165,6 +165,15 @@ api.get("/notifications", wrap(async (_req, res) => {
   res.json(r.rows);
 }));
 
+// « Tout lire » : marque toutes les notifications de l'utilisateur comme lues.
+api.post("/notifications/read", wrap(async (_req, res) => {
+  const r = await pool.query(
+    "UPDATE notifications SET unread=FALSE WHERE user_id=$1 AND unread=TRUE",
+    [currentUserId(res)]
+  );
+  res.json({ ok: true, updated: r.rowCount });
+}));
+
 // ------------------------------------------------------------------ Portefeuille
 api.get("/wallet", wrap(async (_req, res) => {
   const accounts = await pool.query(

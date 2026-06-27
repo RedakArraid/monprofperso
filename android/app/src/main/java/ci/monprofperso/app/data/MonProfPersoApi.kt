@@ -71,6 +71,9 @@ interface MonProfPersoApi {
     @GET("api/notifications")
     suspend fun notifications(): List<NotificationDto>
 
+    @POST("api/notifications/read")
+    suspend fun markNotificationsRead(): Response<Unit>
+
     @GET("api/progress")
     suspend fun progress(): ProgressDto
 

@@ -199,6 +199,7 @@ struct ApiClient {
     }
     func progress() async throws -> ProgressDTO { try await get("api/progress") }
     func notifications() async throws -> [NotificationDTO] { try await get("api/notifications") }
+    func markNotificationsRead() async throws { _ = try await request("api/notifications/read", method: "POST") }
 
     // MARK: Espace professeur
     func teacherDashboard() async throws -> TeacherDashboardDTO { try await get("api/teacher/dashboard") }

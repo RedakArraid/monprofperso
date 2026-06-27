@@ -86,9 +86,20 @@ private let fallbackNotifs: [NotificationDTO] = [
 struct NotificationsScreen: View {
     @EnvironmentObject var router: Router
     @State private var notifs: [NotificationDTO] = fallbackNotifs
+    @State private var isLive = false
 
     private func route(_ key: String) -> Route {
         switch key { case "chat": return .messaging; case "wallet": return .wallet; case "gift": return .referral; default: return .myCourses }
+    }
+    private func reload() async {
+        if let live = try? await ApiClient.shared.notifications(), !live.isEmpty { notifs = live; isLive = true }
+    }
+    private func markAllRead() {
+        if isLive {
+            Task { @MainActor in try? await ApiClient.shared.markNotificationsRead(); await reload() }
+        } else {
+            notifs = notifs.map { NotificationDTO(icon: $0.icon, accent: $0.accent, text: $0.text, time_ago: $0.time_ago, unread: false, section: $0.section) }
+        }
     }
     var body: some View {
         AkScreen(ignoresBottom: true) {
@@ -96,6 +107,7 @@ struct NotificationsScreen: View {
                 Text("Notifications").font(AkFont.schibstedExtra(23)).foregroundColor(Ak.ink)
                 Spacer()
                 Text("Tout lire").font(AkFont.bold(12.5)).foregroundColor(Ak.green)
+                    .contentShape(Rectangle()).onTapGesture { markAllRead() }
             }.padding(.horizontal, 22).padding(.vertical, 8)
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -112,9 +124,7 @@ struct NotificationsScreen: View {
             }
             BottomNav(current: .accueil)
         }
-        .task {
-            if let live = try? await ApiClient.shared.notifications(), !live.isEmpty { notifs = live }
-        }
+        .task { await reload() }
     }
     func header(_ t: String) -> some View { Text(t.uppercased()).font(AkFont.bold(12)).foregroundColor(Ak.faint).frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 11) }
     private func item(_ n: NotifItem, route: Route) -> some View {

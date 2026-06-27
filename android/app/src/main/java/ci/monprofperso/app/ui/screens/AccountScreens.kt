@@ -18,10 +18,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ci.monprofperso.app.data.Api
 import ci.monprofperso.app.data.NotificationDto
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -140,16 +142,25 @@ private val fallbackNotifs = listOf(
 
 @Composable
 fun NotificationsScreen(nav: NavActions) {
+    val scope = rememberCoroutineScope()
     var notifs by remember { mutableStateOf<List<NotificationDto>?>(null) }
-    LaunchedEffect(Unit) {
-        notifs = runCatching { Api.service.notifications() }.getOrNull()?.ifEmpty { fallbackNotifs } ?: fallbackNotifs
+    var live by remember { mutableStateOf(false) }
+    suspend fun reload() {
+        val fetched = runCatching { Api.service.notifications() }.getOrNull()
+        live = fetched != null
+        notifs = fetched?.ifEmpty { fallbackNotifs } ?: fallbackNotifs
     }
+    LaunchedEffect(Unit) { reload() }
     val items = notifs ?: emptyList()
 
     AkScreen(applyBottomInset = false) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Notifications", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 23.sp, color = AkColors.Ink, modifier = Modifier.weight(1f))
-            Text("Tout lire", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.5.sp, color = AkColors.Green)
+            Text("Tout lire", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.5.sp, color = AkColors.Green,
+                modifier = Modifier.clickable {
+                    if (live) scope.launch { runCatching { Api.service.markNotificationsRead() }.onSuccess { reload() } }
+                    else notifs = items.map { it.copy(unread = false) }
+                })
         }
         Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 22.dp).padding(top = 16.dp)) {
             if (notifs == null) {
