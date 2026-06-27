@@ -66,8 +66,30 @@ struct ProgressScreen: View {
 // MARK: - Écran 17 — Notifications
 private struct NotifItem: Identifiable { let id = UUID(); let icon: String; let green: Bool; let text: String; let time: String; let unread: Bool }
 
+private func notifSymbol(_ key: String) -> String {
+    switch key {
+    case "chat": return "bubble.left.and.bubble.right.fill"
+    case "wallet": return "creditcard.fill"
+    case "seal": return "checkmark.seal.fill"
+    case "gift": return "gift.fill"
+    default: return "calendar"
+    }
+}
+private let fallbackNotifs: [NotificationDTO] = [
+    .init(icon: "calendar", accent: "green", text: "Rappel : cours de Maths demain à 16h", time_ago: "il y a 2 h", unread: true, section: "today"),
+    .init(icon: "chat", accent: "orange", text: "Koffi vous a envoyé un message", time_ago: "il y a 5 h", unread: true, section: "today"),
+    .init(icon: "wallet", accent: "green", text: "Paiement de 6 000 F confirmé", time_ago: "il y a 6 h", unread: false, section: "today"),
+    .init(icon: "seal", accent: "green", text: "Koffi a accepté votre demande de cours", time_ago: "lun.", unread: false, section: "week"),
+    .init(icon: "gift", accent: "orange", text: "Parrainez un ami, gagnez 2 000 F", time_ago: "dim.", unread: false, section: "week"),
+]
+
 struct NotificationsScreen: View {
     @EnvironmentObject var router: Router
+    @State private var notifs: [NotificationDTO] = fallbackNotifs
+
+    private func route(_ key: String) -> Route {
+        switch key { case "chat": return .messaging; case "wallet": return .wallet; case "gift": return .referral; default: return .myCourses }
+    }
     var body: some View {
         AkScreen(ignoresBottom: true) {
             HStack {
@@ -77,20 +99,25 @@ struct NotificationsScreen: View {
             }.padding(.horizontal, 22).padding(.vertical, 8)
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    header("Aujourd'hui")
-                    item(NotifItem(icon: "calendar", green: true, text: "Rappel : cours de Maths demain à 16h", time: "il y a 2 h", unread: true))
-                    item(NotifItem(icon: "bubble.left.and.bubble.right.fill", green: false, text: "Koffi vous a envoyé un message", time: "il y a 5 h", unread: true))
-                    item(NotifItem(icon: "creditcard.fill", green: true, text: "Paiement de 6 000 F confirmé", time: "il y a 6 h", unread: false))
-                    header("Cette semaine").padding(.top, 18)
-                    item(NotifItem(icon: "checkmark.seal.fill", green: true, text: "Koffi a accepté votre demande de cours", time: "lun.", unread: false))
-                    item(NotifItem(icon: "gift.fill", green: false, text: "Parrainez un ami, gagnez 2 000 F", time: "dim.", unread: false))
+                    ForEach(Array([("today", "Aujourd'hui"), ("week", "Cette semaine")].enumerated()), id: \.offset) { idx, sec in
+                        let group = notifs.filter { $0.section == sec.0 }
+                        if !group.isEmpty {
+                            header(sec.1).padding(.top, idx == 0 ? 0 : 18)
+                            ForEach(group) { n in
+                                item(NotifItem(icon: notifSymbol(n.icon), green: n.accent == "green", text: n.text, time: n.time_ago, unread: n.unread), route: route(n.icon))
+                            }
+                        }
+                    }
                 }.padding(.horizontal, 22).padding(.top, 16)
             }
             BottomNav(current: .accueil)
         }
+        .task {
+            if let live = try? await ApiClient.shared.notifications(), !live.isEmpty { notifs = live }
+        }
     }
     func header(_ t: String) -> some View { Text(t.uppercased()).font(AkFont.bold(12)).foregroundColor(Ak.faint).frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 11) }
-    private func item(_ n: NotifItem) -> some View {
+    private func item(_ n: NotifItem, route: Route) -> some View {
         HStack(spacing: 12) {
             Image(systemName: n.icon).font(.system(size: 20)).foregroundColor(n.green ? Ak.green : Ak.orange)
                 .frame(width: 42, height: 42).background(n.green ? Ak.greenSoft : Ak.orangeSoft).clipShape(RoundedRectangle(cornerRadius: 12))
@@ -101,7 +128,7 @@ struct NotificationsScreen: View {
             Spacer()
             if n.unread { Circle().fill(Ak.orange).frame(width: 8, height: 8) }
         }.akCard(radius: 16).padding(.bottom, 10)
-        .contentShape(Rectangle()).onTapGesture { router.go(.messaging) }
+        .contentShape(Rectangle()).onTapGesture { router.go(route) }
     }
 }
 

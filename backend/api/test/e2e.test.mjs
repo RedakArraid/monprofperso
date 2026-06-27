@@ -247,6 +247,24 @@ test("e2e — le prof refuse une demande : retirée et invisible côté parent",
   assert.equal((await post(`/api/teacher/requests/${courseId}/refuse`, undefined, ibra.body.token)).status, 404);
 });
 
+test("e2e — le parent est notifié de la décision (accept/refuse)", async () => {
+  const ibra = await post("/api/auth/login", { phone: "+2250705001122" });
+
+  // Acceptation -> notification verte « acceptée ».
+  const p1 = await signup("parent");
+  const b1 = await post("/api/bookings", { teacherId: 2, subject: "Maths", price: 3000, format: "online" }, p1.token);
+  await post(`/api/teacher/requests/${b1.body.course.id}/accept`, undefined, ibra.body.token);
+  const notif1 = (await get("/api/notifications", p1.token)).body;
+  assert.ok(notif1.some((n) => n.unread && /accept/i.test(n.text)), "notif d'acceptation reçue");
+
+  // Refus -> notification orange.
+  const p2 = await signup("parent");
+  const b2 = await post("/api/bookings", { teacherId: 2, subject: "Maths", price: 3000, format: "online" }, p2.token);
+  await post(`/api/teacher/requests/${b2.body.course.id}/refuse`, undefined, ibra.body.token);
+  const notif2 = (await get("/api/notifications", p2.token)).body;
+  assert.ok(notif2.some((n) => n.accent === "orange" && n.unread), "notif de refus reçue");
+});
+
 // ======================================================================
 // Parcours 6 — Catalogue public (groupes, abonnement, parrainage)
 // ======================================================================

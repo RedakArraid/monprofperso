@@ -91,6 +91,13 @@ struct CourseDTO: Codable, Identifiable {
     let badge: String?
 }
 
+struct NotificationDTO: Codable, Identifiable {
+    let icon, accent, text, time_ago: String
+    let unread: Bool
+    let section: String
+    var id: String { "\(text)-\(time_ago)" }
+}
+
 struct ProgressSubjectDTO: Codable { let subject, grade: String; let fraction: Double; let warn: Bool }
 struct ProgressDTO: Codable { let student, average, trend, goal: String; let subjects: [ProgressSubjectDTO] }
 
@@ -191,6 +198,7 @@ struct ApiClient {
         try await get("api/courses" + (status.map { "?status=\($0)" } ?? ""))
     }
     func progress() async throws -> ProgressDTO { try await get("api/progress") }
+    func notifications() async throws -> [NotificationDTO] { try await get("api/notifications") }
 
     // MARK: Espace professeur
     func teacherDashboard() async throws -> TeacherDashboardDTO { try await get("api/teacher/dashboard") }

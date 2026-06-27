@@ -14,8 +14,14 @@ import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import ci.monprofperso.app.data.Api
+import ci.monprofperso.app.data.NotificationDto
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -109,22 +115,58 @@ private fun SubjectProgress(subject: String, grade: String, fraction: Float, war
  * ====================================================================== */
 private data class Notif(val icon: ImageVector, val green: Boolean, val text: String, val time: String, val unread: Boolean)
 
+private fun notifIcon(key: String): ImageVector = when (key) {
+    "chat" -> Icons.Filled.ChatBubble
+    "wallet" -> Icons.Filled.AccountBalanceWallet
+    "seal" -> Icons.Filled.Verified
+    "gift" -> Icons.Filled.CardGiftcard
+    else -> Icons.Filled.EventAvailable
+}
+
+private fun notifRoute(key: String): String = when (key) {
+    "chat" -> Routes.Messaging
+    "wallet" -> Routes.Wallet
+    "gift" -> Routes.Referral
+    else -> Routes.MyCourses
+}
+
+private val fallbackNotifs = listOf(
+    NotificationDto("calendar", "green", "Rappel : cours de Maths demain à 16h", "il y a 2 h", true, "today"),
+    NotificationDto("chat", "orange", "Koffi vous a envoyé un message", "il y a 5 h", true, "today"),
+    NotificationDto("wallet", "green", "Paiement de 6 000 F confirmé", "il y a 6 h", false, "today"),
+    NotificationDto("seal", "green", "Koffi a accepté votre demande de cours", "lun.", false, "week"),
+    NotificationDto("gift", "orange", "Parrainez un ami, gagnez 2 000 F", "dim.", false, "week"),
+)
+
 @Composable
 fun NotificationsScreen(nav: NavActions) {
+    var notifs by remember { mutableStateOf<List<NotificationDto>?>(null) }
+    LaunchedEffect(Unit) {
+        notifs = runCatching { Api.service.notifications() }.getOrNull()?.ifEmpty { fallbackNotifs } ?: fallbackNotifs
+    }
+    val items = notifs ?: emptyList()
+
     AkScreen(applyBottomInset = false) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Notifications", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 23.sp, color = AkColors.Ink, modifier = Modifier.weight(1f))
             Text("Tout lire", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.5.sp, color = AkColors.Green)
         }
         Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 22.dp).padding(top = 16.dp)) {
-            NotifHeader("Aujourd'hui")
-            NotifItem(Notif(Icons.Filled.EventAvailable, true, "Rappel : cours de Maths demain à 16h", "il y a 2 h", true)) { nav.go(Routes.MyCourses) }
-            NotifItem(Notif(Icons.Filled.ChatBubble, false, "Koffi vous a envoyé un message", "il y a 5 h", true)) { nav.go(Routes.Messaging) }
-            NotifItem(Notif(Icons.Filled.AccountBalanceWallet, true, "Paiement de 6 000 F confirmé", "il y a 6 h", false)) { nav.go(Routes.Wallet) }
-            Spacer(Modifier.height(18.dp))
-            NotifHeader("Cette semaine")
-            NotifItem(Notif(Icons.Filled.Verified, true, "Koffi a accepté votre demande de cours", "lun.", false)) { nav.go(Routes.MyCourses) }
-            NotifItem(Notif(Icons.Filled.CardGiftcard, false, "Parrainez un ami, gagnez 2 000 F", "dim.", false)) { nav.go(Routes.Referral) }
+            if (notifs == null) {
+                Text("Chargement…", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Faint)
+            } else if (items.isEmpty()) {
+                Text("Aucune notification.", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Faint)
+            }
+            listOf("today" to "Aujourd'hui", "week" to "Cette semaine").forEach { (section, title) ->
+                val group = items.filter { it.section == section }
+                if (group.isNotEmpty()) {
+                    NotifHeader(title)
+                    group.forEach { n ->
+                        NotifItem(Notif(notifIcon(n.icon), n.accent == "green", n.text, n.timeAgo, n.unread)) { nav.go(notifRoute(n.icon)) }
+                    }
+                    Spacer(Modifier.height(18.dp))
+                }
+            }
             Spacer(Modifier.height(16.dp))
         }
         BottomNav(NavTab.Accueil, nav::selectTab)

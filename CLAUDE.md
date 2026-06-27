@@ -92,7 +92,7 @@ docs/       Présentation .docx + assets (captures d'écran)
   porté par le JWT ; `requireAdmin` garde l'espace admin (401 sans token, 403 si non-admin).
   Utilisateur admin de démo : `+2250700000001`.
   ⚠️ Reste à faire : OTP SMS réel, paiement réel (Phase 1/2 — voir docs/ROADMAP.md).
-- **Tests** : `api/test/*.test.mjs` (runner natif Node, `npm test`, stack live requise) — 46 tests.
+- **Tests** : `api/test/*.test.mjs` (runner natif Node, `npm test`, stack live requise) — 47 tests.
   `api.test.mjs` = intégration par endpoint ; `e2e.test.mjs` = parcours bout-en-bout
   (inscription→réservation→relecture, isolation JWT entre comptes, repli démo, prof,
   catalogue). Les 20 endpoints sont couverts.
@@ -126,8 +126,10 @@ docker compose down -v   # reset complet (re-seed au prochain up)
 **repli automatique sur les données locales de la maquette** si l'API est injoignable.
 Les écrans live : Accueil, Résultats de recherche, Profil prof, Mes cours, Suivi des progrès,
 Ressources & supports (lecture seule, `Resources`/`.resources`, repli sur exemples hors-ligne),
-et l'**espace professeur** (tableau de bord, demandes avec bouton « Accepter » câblé sur
-`/teacher/requests/:id/accept`, revenus) — branché sur `/teacher/*` avec repli mock.
+l'**espace professeur** (tableau de bord, demandes avec boutons « Accepter »/« Refuser »
+câblés sur `/teacher/requests/:id/{accept,refuse}`, revenus) — branché sur `/teacher/*`
+avec repli mock, et les **Notifications** (`/notifications`, groupées aujourd'hui/semaine ;
+le parent est notifié quand sa réservation est acceptée/refusée).
 Les autres écrans suivent le même patron et restent fidèles à la maquette hors-ligne.
 
 ## Design system partagé

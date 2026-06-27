@@ -60,7 +60,10 @@ Maillon faible : auth/paiement simulés. À traiter avant toute nouvelle feature
       Fait côté apps : espace prof (dashboard, demandes, revenus) **branché en live**
       sur Android + iOS, avec boutons « Accepter » / « Refuser » câblés
       (`/teacher/requests/:id/{accept,refuse}`) et repli mock. Reste : calendrier.
-- [ ] Notifications push (FCM Android / APNs iOS).
+- [~] Notifications push (FCM Android / APNs iOS).
+      Fait : notifications **in-app** persistées en base — le parent est notifié quand
+      sa réservation est acceptée/refusée ; l'écran Notifications est branché en live
+      (Android + iOS). Reste : le push réel (FCM/APNs).
 
 ## Phase 3 — Qualité apps natives
 - [~] Brancher en live les écrans encore en repli local (Android + iOS).

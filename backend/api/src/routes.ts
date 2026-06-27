@@ -282,16 +282,28 @@ api.get("/teacher/requests", wrap(async (_req, res) => {
   res.json([...live.rows, ...seeded.rows]);
 }));
 
+// Notifie le parent (auteur de la réservation) qu'une décision a été prise.
+async function notifyParent(userId: number, icon: string, accent: string, text: string): Promise<void> {
+  await pool.query(
+    `INSERT INTO notifications (user_id, icon, accent, text, time_ago, unread, section)
+     VALUES ($1,$2,$3,$4,'à l''instant',TRUE,'today')`,
+    [userId, icon, accent, text]
+  );
+}
+
 // Validation d'une demande réelle : le prof accepte la réservation d'un parent.
 api.post("/teacher/requests/:id/accept", wrap(async (req, res) => {
   const teacherId = await currentTeacherId(res);
   const r = await pool.query(
     `UPDATE courses SET accepted = TRUE, badge = 'Confirmé'
-     WHERE id = $1 AND teacher_id = $2 AND accepted = FALSE RETURNING id`,
+     WHERE id = $1 AND teacher_id = $2 AND accepted = FALSE RETURNING id, user_id, subject`,
     [req.params.id, teacherId]
   );
-  if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
-  res.json({ ok: true, courseId: r.rows[0].id });
+  const c = r.rows[0];
+  if (!c) { res.status(404).json({ error: "not_found" }); return; }
+  await notifyParent(c.user_id, "seal", "green",
+    `Votre demande de cours${c.subject ? ` de ${c.subject}` : ""} a été acceptée`);
+  res.json({ ok: true, courseId: c.id });
 }));
 
 // Refus d'une demande réelle : le prof décline la réservation (status='refused').
@@ -299,11 +311,14 @@ api.post("/teacher/requests/:id/refuse", wrap(async (req, res) => {
   const teacherId = await currentTeacherId(res);
   const r = await pool.query(
     `UPDATE courses SET status = 'refused', badge = 'Refusé'
-     WHERE id = $1 AND teacher_id = $2 AND accepted = FALSE AND status = 'upcoming' RETURNING id`,
+     WHERE id = $1 AND teacher_id = $2 AND accepted = FALSE AND status = 'upcoming' RETURNING id, user_id, subject`,
     [req.params.id, teacherId]
   );
-  if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
-  res.json({ ok: true, courseId: r.rows[0].id });
+  const c = r.rows[0];
+  if (!c) { res.status(404).json({ error: "not_found" }); return; }
+  await notifyParent(c.user_id, "calendar", "orange",
+    `Votre demande de cours${c.subject ? ` de ${c.subject}` : ""} n'a pas été retenue`);
+  res.json({ ok: true, courseId: c.id });
 }));
 
 api.get("/teacher/earnings", wrap(async (_req, res) => {
