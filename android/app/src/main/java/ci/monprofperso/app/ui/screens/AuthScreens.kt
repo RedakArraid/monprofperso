@@ -26,8 +26,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.text.ClickableText
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ci.monprofperso.app.nav.NavActions
@@ -154,6 +160,13 @@ fun SignupScreen(nav: NavActions) {
     var parentalConsent by remember { mutableStateOf(false) }
     val isStudent = role == 1
     val canSubmit = consent && (!isStudent || parentalConsent)
+    val context = LocalContext.current
+    fun openLegal(slug: String) {
+        val url = ci.monprofperso.app.data.ApiConfig.BASE_URL + "api/legal/$slug/file"
+        runCatching {
+            context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+        }
+    }
     AkScreen {
         TopBar("", onBack = { nav.back() })
         Column(
@@ -193,9 +206,9 @@ fun SignupScreen(nav: NavActions) {
                 Text(ci.monprofperso.app.data.roleLabels[role], fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AkColors.Ink)
             }
             Spacer(Modifier.height(16.dp))
-            ConsentCheckbox(
+            ConsentCheckboxLinked(
                 checked = consent, onToggle = { consent = !consent },
-                "J'accepte les Conditions d'utilisation et la politique de confidentialité.",
+                onOpenCgu = { openLegal("cgu") }, onOpenPrivacy = { openLegal("confidentialite") },
             )
             if (isStudent) {
                 Spacer(Modifier.height(12.dp))
@@ -357,6 +370,41 @@ private fun ConsentCheckbox(checked: Boolean, onToggle: () -> Unit, label: Strin
         }
         Spacer(Modifier.width(9.dp))
         Text(label, fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted, lineHeight = 18.sp)
+    }
+}
+
+/** Case CGU avec « Conditions d'utilisation » et « politique de confidentialité » cliquables (ouvrent le PDF). */
+@Composable
+private fun ConsentCheckboxLinked(checked: Boolean, onToggle: () -> Unit, onOpenCgu: () -> Unit, onOpenPrivacy: () -> Unit) {
+    val link = SpanStyle(color = AkColors.Green, fontWeight = FontWeight.Bold)
+    val annotated = buildAnnotatedString {
+        append("J'accepte les ")
+        pushStringAnnotation("cgu", "cgu"); withStyle(link) { append("Conditions d'utilisation") }; pop()
+        append(" et la ")
+        pushStringAnnotation("privacy", "privacy"); withStyle(link) { append("politique de confidentialité") }; pop()
+        append(".")
+    }
+    Row(verticalAlignment = Alignment.Top) {
+        Box(
+            Modifier.size(20.dp).clip(RoundedCornerShape(6.dp))
+                .background(if (checked) AkColors.Green else AkColors.White)
+                .border(1.5.dp, if (checked) AkColors.Green else AkColors.Border, RoundedCornerShape(6.dp))
+                .clickable { onToggle() },
+            contentAlignment = Alignment.Center,
+        ) {
+            if (checked) Icon(Icons.Filled.Check, null, tint = AkColors.White, modifier = Modifier.size(13.dp))
+        }
+        Spacer(Modifier.width(9.dp))
+        ClickableText(
+            text = annotated,
+            style = TextStyle(fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted, lineHeight = 18.sp),
+        ) { offset ->
+            when {
+                annotated.getStringAnnotations("cgu", offset, offset).isNotEmpty() -> onOpenCgu()
+                annotated.getStringAnnotations("privacy", offset, offset).isNotEmpty() -> onOpenPrivacy()
+                else -> onToggle()
+            }
+        }
     }
 }
 

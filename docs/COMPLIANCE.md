@@ -55,9 +55,12 @@ La loi encadre le **transfert de données hors de l'espace CEDEAO**.
   juriste). Gérables en **PDF via l'espace admin** : table `legal_documents`,
   endpoint `PUT /api/admin/legal/:slug`, écrans « Documents légaux » (Android + iOS),
   consultation utilisateur publique (`GET /api/legal`, `/api/legal/:slug/file`).
+- **Lien depuis l'inscription** : sur l'écran d'inscription (Android + iOS), les
+  mentions « Conditions d'utilisation » et « politique de confidentialité » sont
+  **cliquables** et ouvrent le PDF publié (`/api/legal/{cgu,confidentialite}/file`).
+  *(Tant qu'aucun PDF n'est téléversé via l'espace admin, le lien renvoie un 404.)*
 - **Reste** : versionner via `CONSENT_VERSION` (`api/src/routes.ts`) pour
-  re-solliciter à chaque révision, et lier les documents publiés à l'écran de
-  consentement.
+  re-solliciter à chaque révision.
 
 ### 3. Déclaration / autorisation des traitements auprès de l'ARTCI
 - Recenser les **traitements** (authentification, réservation, paiement, suivi

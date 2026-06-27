@@ -117,7 +117,7 @@ struct SignupScreen: View {
                         }.padding(.horizontal, 14).padding(.vertical, 12)
                         .background(Ak.greenSoft).clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
-                    consentCheckbox(checked: consent, label: "J'accepte les Conditions d'utilisation et la politique de confidentialité.") { consent.toggle() }
+                    consentCheckboxLinked(checked: consent) { consent.toggle() }
                     if isStudent {
                         consentCheckbox(checked: parentalConsent, label: "Je confirme avoir le consentement d'un parent ou tuteur légal (élève mineur).") { parentalConsent.toggle() }
                     }
@@ -137,6 +137,27 @@ struct SignupScreen: View {
                     Text("Se connecter").font(AkFont.bold(13)).foregroundColor(Ak.green).onTapGesture { router.go(.login) }
                 }
             }.padding(.horizontal, 24).padding(.top, 12).padding(.bottom, 12)
+        }
+    }
+
+    /// Case CGU avec liens « Conditions d'utilisation » / « politique de confidentialité »
+    /// cliquables (ouvrent le PDF publié via /legal/:slug/file).
+    private func consentCheckboxLinked(checked: Bool, toggle: @escaping () -> Void) -> some View {
+        let cgu = ApiConfig.baseURL.appendingPathComponent("api/legal/cgu/file").absoluteString
+        let priv = ApiConfig.baseURL.appendingPathComponent("api/legal/confidentialite/file").absoluteString
+        let md = "J'accepte les [Conditions d'utilisation](\(cgu)) et la [politique de confidentialité](\(priv))."
+        var attributed = (try? AttributedString(markdown: md)) ?? AttributedString("J'accepte les Conditions d'utilisation et la politique de confidentialité.")
+        attributed.foregroundColor = Ak.muted
+        return HStack(alignment: .top, spacing: 9) {
+            Image(systemName: checked ? "checkmark" : "")
+                .font(.system(size: 12, weight: .bold)).foregroundColor(.white)
+                .frame(width: 20, height: 20)
+                .background(checked ? Ak.green : .white)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(checked ? Ak.green : Ak.border, lineWidth: 1.5))
+                .contentShape(Rectangle()).onTapGesture(perform: toggle)
+            Text(attributed).font(AkFont.regular(12.5)).tint(Ak.green)
+            Spacer(minLength: 0)
         }
     }
 
