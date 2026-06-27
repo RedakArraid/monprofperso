@@ -32,6 +32,28 @@ services:
       timeout: 5s
       retries: 10
 
+  # Stockage objet S3-compatible pour les fichiers de ressources (durable,
+  # hors-Postgres). API S3 sur ${MINIO_API_PORT:-9000}, console web sur
+  # ${MINIO_CONSOLE_PORT:-8097}.
+  minio:
+    image: minio/minio:latest
+    container_name: monprofperso-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-monprofperso}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-monprofperso-secret}
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-8097}:9001"
+    volumes:
+      - monprofperso_miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   api:
     build: ./api
     container_name: monprofperso-api
@@ -39,6 +61,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      minio:
+        condition: service_started
     environment:
       PORT: ${API_PORT:-8099}
       PGHOST: db
@@ -47,6 +71,12 @@ services:
       PGPASSWORD: ${POSTGRES_PASSWORD:-monprofperso}
       PGDATABASE: ${POSTGRES_DB:-monprofperso}
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+      S3_ENDPOINT: minio
+      S3_PORT: 9000
+      S3_USE_SSL: "false"
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-monprofperso}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-monprofperso-secret}
+      S3_BUCKET: ${S3_BUCKET:-monprofperso}
     ports:
       - "${API_PORT:-8099}:${API_PORT:-8099}"
 
@@ -61,3 +91,4 @@ services:
 
 volumes:
   monprofperso_pgdata:
+  monprofperso_miniodata:

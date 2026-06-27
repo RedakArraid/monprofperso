@@ -2,6 +2,7 @@ import { Router } from "express";
 import { pool } from "./db";
 import { ValidationError, optionalString, optionalPhone, optionalEnum, optionalNumber, requiredString, requiredEnum } from "./validate";
 import { optionalAuth, currentUserId, signJwt, requireAdmin, DEMO_USER } from "./auth";
+import { putFile, getFileStream } from "./storage";
 
 export const api = Router();
 
@@ -90,12 +91,22 @@ api.get("/resources", wrap(async (req, res) => {
 
 // Télécharge le fichier d'une ressource (flux binaire avec son type MIME).
 api.get("/files/:id", wrap(async (req, res) => {
-  const r = await pool.query("SELECT file_name, mime_type, content FROM resources WHERE id=$1", [req.params.id]);
+  const r = await pool.query(
+    "SELECT file_name, mime_type, content, storage_key FROM resources WHERE id=$1",
+    [req.params.id]
+  );
   const row = r.rows[0];
-  if (!row || !row.content) { res.status(404).json({ error: "not_found" }); return; }
+  if (!row || (!row.content && !row.storage_key)) { res.status(404).json({ error: "not_found" }); return; }
   res.setHeader("Content-Type", row.mime_type ?? "application/octet-stream");
   res.setHeader("Content-Disposition", `inline; filename="${row.file_name ?? "fichier"}"`);
-  res.send(row.content);
+  if (row.storage_key) {
+    // Fichier sur le stockage objet : on streame vers le client.
+    const stream = await getFileStream(row.storage_key);
+    stream.on("error", () => { if (!res.headersSent) res.status(502).json({ error: "storage_error" }); });
+    stream.pipe(res);
+    return;
+  }
+  res.send(row.content); // repli BYTEA (ressources historiques)
 }));
 
 // ------------------------------------------------------------------ Professeurs
@@ -434,14 +445,23 @@ admin.post("/resources", wrap(async (req, res) => {
   const fileName = optionalString(b, "fileName", { max: 200 });
   const mimeType = optionalString(b, "mimeType", { max: 100 });
   const contentBase64 = optionalString(b, "contentBase64", { max: 20_000_000 });
-  const content = contentBase64 ? Buffer.from(contentBase64, "base64") : null;
+  const buffer = contentBase64 ? Buffer.from(contentBase64, "base64") : null;
+
+  // Téléverse sur le stockage objet si possible ; sinon, repli sur BYTEA en base.
+  let storageKey: string | null = null;
+  let content: Buffer | null = buffer;
+  if (buffer) {
+    storageKey = await putFile(buffer, mimeType ?? null, fileName ?? null);
+    if (storageKey) content = null; // stocké hors-base : pas de duplication en BYTEA
+  }
+
   const r = await pool.query(
     `INSERT INTO resources (type, subject_slug, level, title, description,
-                            file_name, mime_type, size_bytes, content, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+                            file_name, mime_type, size_bytes, content, storage_key, created_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
      RETURNING id, type, subject_slug, level, title, description, file_name, mime_type, size_bytes, created_at`,
     [type, subjectSlug ?? null, level ?? null, title, description ?? null,
-     fileName ?? null, mimeType ?? null, content?.length ?? null, content, currentUserId(res)]
+     fileName ?? null, mimeType ?? null, buffer?.length ?? null, content, storageKey, currentUserId(res)]
   );
   res.status(201).json(r.rows[0]);
 }));

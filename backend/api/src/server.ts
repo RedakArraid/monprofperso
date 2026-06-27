@@ -5,6 +5,7 @@ import migrate from "node-pg-migrate";
 import { api } from "./routes";
 import { pool, waitForDb } from "./db";
 import { requestLogger, notFound, errorHandler } from "./http";
+import { ensureBucket } from "./storage";
 
 const app = express();
 app.use(cors());
@@ -40,6 +41,7 @@ async function runMigrations(): Promise<void> {
 
 waitForDb()
   .then(runMigrations)
+  .then(() => ensureBucket())
   .then(() => {
     app.listen(PORT, () => console.log(`Mon Prof Perso API à l'écoute sur le port ${PORT}`));
   })

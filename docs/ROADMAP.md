@@ -35,9 +35,10 @@ Maillon faible : auth/paiement simulés. À traiter avant toute nouvelle feature
       supérieur/universitaire), ressources pédagogiques (cours/devoirs/exercices) avec
       upload de fichier. Fait côté **apps** : UI admin native Android + iOS (catalogue,
       ressources avec sélecteur de fichier natif, vue utilisateur lecture seule),
-      rôle admin porté par le JWT et reflété dans « Mon compte ». Reste : auth admin
-      dédiée, stockage fichiers durable (volume/S3 au lieu de BYTEA), rôles d'auteur
-      (prof crée ses ressources).
+      rôle admin porté par le JWT et reflété dans « Mon compte ». Fait côté **infra** :
+      stockage fichiers durable sur **MinIO** (S3-compatible, `api/src/storage.ts`,
+      colonne `resources.storage_key`) avec repli `BYTEA`. Reste : auth admin dédiée,
+      rôles d'auteur (prof crée ses ressources), bucket/credentials managés en prod.
 - [x] Sortir les endpoints codés en dur vers la DB. `/subscription/mine`, `/referral`
       (user-scoped), puis espace prof (`/teacher/{dashboard,requests,earnings}` →
       `teacher_profiles`/`teacher_requests`/`teacher_earning_weeks`/`teacher_payouts`),

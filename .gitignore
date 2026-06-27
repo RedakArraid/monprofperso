@@ -1,6 +1,7 @@
 # --- Backend (Node) ---
 backend/api/node_modules/
 backend/api/dist/
+backend/api/package-lock.json
 *.log
 # Secrets locaux (garder .env.example versionné)
 .env

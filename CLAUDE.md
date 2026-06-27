@@ -24,8 +24,14 @@ docs/       Présentation .docx + assets (captures d'écran)
 ## Backend (`backend/`)
 - Stack : **Express 4 + pg** (~240 lignes TS), **PostgreSQL 16**, **Adminer**.
 - Source : `api/src/db.ts` (pool pg), `api/src/routes.ts` (toutes les routes),
-  `api/src/server.ts` (bootstrap), `api/src/http.ts` (middlewares transverses).
-  Routeur monté sous `/api`.
+  `api/src/server.ts` (bootstrap), `api/src/http.ts` (middlewares transverses),
+  `api/src/storage.ts` (stockage objet MinIO/S3). Routeur monté sous `/api`.
+- **Stockage fichiers** (`api/src/storage.ts`) : les fichiers de ressources sont
+  téléversés sur **MinIO** (S3-compatible, service `minio` du compose) ; la table
+  `resources` garde la clé d'objet (`storage_key`) et `content` (BYTEA) reste nul.
+  Activé via `S3_ENDPOINT`. Repli automatique sur `BYTEA` si le stockage objet
+  échoue ou est désactivé (rétrocompat avec les ressources historiques).
+  `/api/files/:id` streame depuis MinIO (sinon sert le `BYTEA`).
 - **HTTP standardisé** (`api/src/http.ts`) : journalisation de chaque requête
   (`MÉTHODE chemin -> code (durée)`), 404 JSON cohérent pour toute route inconnue,
   filet d'erreurs final (corps JSON illisible → 400 `bad_json`, payload trop gros →
@@ -50,7 +56,8 @@ docs/       Présentation .docx + assets (captures d'écran)
   validation — **20 tables au total**. Suivi dans la table `pgmigrations`.
   Créer une migration : `npm run migrate create <nom>` (puis éditer le `.sql`).
 - **Ports (custom, pour éviter les collisions)** : API **8099**, Postgres **5544**,
-  Adminer **8098**. Configurables via `backend/.env` (voir `.env.example`).
+  Adminer **8098**, MinIO API **9000** / console **8097**. Configurables via
+  `backend/.env` (voir `.env.example`).
 - **Secrets / config** : identifiants DB et ports dans `backend/.env` (non versionné,
   interpolés par `docker-compose.yml`). Copier `.env.example` → `.env` au premier clone.
 - **Validation des entrées** : `api/src/validate.ts` — helpers sans dépendance,
@@ -70,7 +77,8 @@ docs/       Présentation .docx + assets (captures d'écran)
   `POST/PUT/DELETE /api/admin/subjects[/:slug]`, `POST/DELETE /api/admin/levels[/:slug]`,
   `POST/DELETE /api/admin/resources[/:id]`. Permet d'ajouter matières (musique, langues
   hors FR/EN…), niveaux (supérieur/universitaire…) et ressources pédagogiques
-  (cours/devoirs/exercices) avec fichier (uploadé en base64, stocké en `BYTEA`).
+  (cours/devoirs/exercices) avec fichier (uploadé en base64, stocké sur MinIO/S3 ;
+  repli `BYTEA` — voir « Stockage fichiers »).
   **UI côté apps** : deux écrans admin présents sur Android (`ui/screens/AdminScreens.kt`)
   et iOS (`Screens/AdminScreens.swift`) — « Gérer le catalogue » (matières + niveaux,
   routé `AdminCatalog`/`.adminCatalog`) et « Ressources pédagogiques » (cours/devoirs/
