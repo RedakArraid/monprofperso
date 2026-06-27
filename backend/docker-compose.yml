@@ -89,6 +89,16 @@ services:
     ports:
       - "${ADMINER_PORT:-8098}:8080"     # Système: PostgreSQL, Serveur: db
 
+  # Page vitrine statique (dossier ../web), servie par nginx. Aucun build.
+  web:
+    image: nginx:alpine
+    container_name: monprofperso-web
+    restart: unless-stopped
+    volumes:
+      - ../web:/usr/share/nginx/html:ro
+    ports:
+      - "${WEB_PORT:-8095}:80"           # http://localhost:8095
+
 volumes:
   monprofperso_pgdata:
   monprofperso_miniodata:

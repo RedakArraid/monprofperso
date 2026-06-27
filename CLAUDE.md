@@ -63,8 +63,9 @@ docs/       Présentation .docx + assets, ROADMAP.md, COMPLIANCE.md (légal CI :
   l'admin) — **21 tables au total**. Suivi dans la table `pgmigrations`.
   Créer une migration : `npm run migrate create <nom>` (puis éditer le `.sql`).
 - **Ports (custom, pour éviter les collisions)** : API **8099**, Postgres **5544**,
-  Adminer **8098**, MinIO API **9000** / console **8097**. Configurables via
-  `backend/.env` (voir `.env.example`).
+  Adminer **8098**, MinIO API **9000** / console **8097**, page vitrine web **8095**
+  (service `web`, nginx servant `../web`). Configurables via `backend/.env`
+  (voir `.env.example`).
 - **Secrets / config** : identifiants DB et ports dans `backend/.env` (non versionné,
   interpolés par `docker-compose.yml`). Copier `.env.example` → `.env` au premier clone.
 - **Validation des entrées** : `api/src/validate.ts` — helpers sans dépendance,

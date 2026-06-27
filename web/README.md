@@ -14,11 +14,17 @@ web/
 ```
 
 ## Lancer en local
-Aucun build. Servez le dossier avec n'importe quel serveur statique :
+Aucun build. Deux options :
 
+**Via docker compose** (recommandé — service `web`, nginx) :
 ```bash
-cd web && python3 -m http.server 5050
-# puis ouvrir http://localhost:5050
+cd backend && docker compose up -d web   # → http://localhost:8095
+```
+Le port est configurable via `WEB_PORT` dans `backend/.env`.
+
+**Sans Docker** (n'importe quel serveur statique) :
+```bash
+cd web && python3 -m http.server 5050    # → http://localhost:5050
 ```
 
 ## Déployer
