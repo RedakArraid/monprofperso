@@ -80,6 +80,8 @@ data class CourseDto(
     val badge: String?,
 )
 
+data class UnreadDto(val count: Int)
+
 data class NotificationDto(
     val icon: String,
     val accent: String,

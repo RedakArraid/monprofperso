@@ -16,7 +16,7 @@ struct TeacherDashboardScreen: View {
                     Text(dash.name).font(AkFont.bold(16)).foregroundColor(Ak.ink)
                 }
                 Spacer()
-                IconSquare(system: "bell", bg: .white, tint: Ak.inkSoft, size: 44) { router.go(.notifications) }
+                NotificationBell()
             }.padding(.horizontal, 22).padding(.vertical, 8)
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {

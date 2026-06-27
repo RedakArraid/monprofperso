@@ -165,6 +165,15 @@ api.get("/notifications", wrap(async (_req, res) => {
   res.json(r.rows);
 }));
 
+// Compteur de notifications non lues (pour la pastille de l'icône cloche).
+api.get("/notifications/unread", wrap(async (_req, res) => {
+  const r = await pool.query(
+    "SELECT count(*)::int AS count FROM notifications WHERE user_id=$1 AND unread=TRUE",
+    [currentUserId(res)]
+  );
+  res.json({ count: r.rows[0].count });
+}));
+
 // « Tout lire » : marque toutes les notifications de l'utilisateur comme lues.
 api.post("/notifications/read", wrap(async (_req, res) => {
   const r = await pool.query(

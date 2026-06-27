@@ -29,11 +29,7 @@ struct HomeScreen: View {
                             Text("Aya Koné").font(AkFont.bold(16)).foregroundColor(Ak.ink)
                         }
                         Spacer()
-                        IconSquare(system: "bell", bg: .white, tint: Ak.inkSoft, size: 44) { router.go(.notifications) }
-                            .overlay(alignment: .topTrailing) {
-                                Circle().fill(Ak.orange).frame(width: 8, height: 8)
-                                    .overlay(Circle().stroke(.white, lineWidth: 2)).offset(x: -10, y: 11)
-                            }
+                        NotificationBell()
                     }
                     Button { router.go(.searchResults) } label: {
                         HStack(spacing: 10) {

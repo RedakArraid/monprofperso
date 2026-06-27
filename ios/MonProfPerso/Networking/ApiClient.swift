@@ -91,6 +91,8 @@ struct CourseDTO: Codable, Identifiable {
     let badge: String?
 }
 
+struct UnreadDTO: Codable { let count: Int }
+
 struct NotificationDTO: Codable, Identifiable {
     let icon, accent, text, time_ago: String
     let unread: Bool
@@ -200,6 +202,7 @@ struct ApiClient {
     func progress() async throws -> ProgressDTO { try await get("api/progress") }
     func notifications() async throws -> [NotificationDTO] { try await get("api/notifications") }
     func markNotificationsRead() async throws { _ = try await request("api/notifications/read", method: "POST") }
+    func unreadCount() async throws -> Int { (try await get("api/notifications/unread") as UnreadDTO).count }
 
     // MARK: Espace professeur
     func teacherDashboard() async throws -> TeacherDashboardDTO { try await get("api/teacher/dashboard") }

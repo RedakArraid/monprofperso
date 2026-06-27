@@ -73,12 +73,7 @@ fun HomeScreen(nav: NavActions, vm: ci.monprofperso.app.data.HomeViewModel = and
                     Text("Bonjour,", fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted)
                     Text("Aya Koné", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = AkColors.Ink)
                 }
-                Box {
-                    IconSquare(Icons.Outlined.Notifications, bg = AkColors.White, tint = AkColors.InkSoft, size = 44,
-                        onClick = { nav.go(Routes.Notifications) })
-                    Box(Modifier.align(Alignment.TopEnd).offset(x = (-12).dp, y = 11.dp).size(8.dp)
-                        .clip(CircleShape).background(AkColors.Orange).border(2.dp, AkColors.White, CircleShape))
-                }
+                NotificationBell(nav)
             }
             // search
             Spacer(Modifier.height(16.dp))

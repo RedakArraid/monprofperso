@@ -39,6 +39,28 @@ struct PrimaryButton: View {
     }
 }
 
+/// Icône cloche avec pastille du nombre de notifications non lues
+/// (compté en live via /notifications/unread ; pas de pastille si 0 ou API absente).
+struct NotificationBell: View {
+    @EnvironmentObject var router: Router
+    @State private var count = 0
+    var size: CGFloat = 44
+
+    var body: some View {
+        IconSquare(system: "bell", bg: .white, tint: Ak.inkSoft, size: size) { router.go(.notifications) }
+            .overlay(alignment: .topTrailing) {
+                if count > 0 {
+                    Text(count > 9 ? "9+" : "\(count)")
+                        .font(AkFont.bold(10)).foregroundColor(.white)
+                        .padding(.horizontal, 4).frame(minWidth: 18, minHeight: 18)
+                        .background(Ak.orange).clipShape(Capsule())
+                        .offset(x: 5, y: -5)
+                }
+            }
+            .task { if let c = try? await ApiClient.shared.unreadCount() { count = c } }
+    }
+}
+
 /// Petit carré arrondi contenant une icône (retour, fermer…).
 struct IconSquare: View {
     let system: String

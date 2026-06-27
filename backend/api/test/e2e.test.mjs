@@ -272,10 +272,12 @@ test("e2e — « Tout lire » marque les notifications comme lues", async () => 
   await post(`/api/teacher/requests/${b.body.course.id}/accept`, undefined, ibra.body.token);
 
   assert.ok((await get("/api/notifications", parent.token)).body.some((n) => n.unread), "notif non lue présente");
+  assert.ok((await get("/api/notifications/unread", parent.token)).body.count >= 1, "compteur non lu > 0");
   const read = await post("/api/notifications/read", undefined, parent.token);
   assert.equal(read.status, 200);
   assert.ok(read.body.updated >= 1);
   assert.ok((await get("/api/notifications", parent.token)).body.every((n) => !n.unread), "tout est lu");
+  assert.equal((await get("/api/notifications/unread", parent.token)).body.count, 0, "compteur remis à zéro");
 });
 
 // ======================================================================

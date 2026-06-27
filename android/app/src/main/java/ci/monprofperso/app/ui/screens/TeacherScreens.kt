@@ -62,7 +62,7 @@ fun TeacherDashboardScreen(nav: NavActions) {
                 Text("Bonjour,", fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted)
                 Text(name, fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = AkColors.Ink)
             }
-            IconSquare(Icons.Outlined.Notifications, bg = AkColors.White, tint = AkColors.InkSoft, size = 44, onClick = { nav.go(Routes.Notifications) })
+            NotificationBell(nav)
         }
         Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 22.dp).padding(top = 6.dp)) {
             // revenue hero
