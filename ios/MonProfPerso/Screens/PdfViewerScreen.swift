@@ -2,44 +2,71 @@ import SwiftUI
 import PDFKit
 
 /* ====================================================================== *
- * VISUALISEUR PDF IN-APP (PDFKit natif)
- * Affiche un PDF depuis une URL (endpoint public /legal/:slug/file).
+ * VISUALISEUR PDF IN-APP (PDFKit natif) + partage
+ * Affiche un PDF depuis une URL (endpoint public) et permet de le partager
+ * via la feuille de partage système (UIActivityViewController).
  * ====================================================================== */
 struct PdfViewerScreen: View {
     @EnvironmentObject var router: Router
     let urlString: String
     let title: String
+    @State private var document: PDFDocument? = nil
+    @State private var localFile: URL? = nil
+    @State private var showShare = false
 
     var body: some View {
         AkScreen(ignoresBottom: true) {
-            TopBar(title: title, subtitle: "Aperçu du document", onBack: { router.back() })
-            if let url = URL(string: urlString) {
-                PdfKitView(url: url).background(Ak.cream)
+            TopBar(title: title, subtitle: "Aperçu du document", onBack: { router.back() },
+                   trailing: localFile != nil ? AnyView(
+                    Image(systemName: "square.and.arrow.up").font(.system(size: 18)).foregroundColor(Ak.inkSoft)
+                        .padding(8).contentShape(Rectangle()).onTapGesture { showShare = true }
+                   ) : nil)
+            if let document {
+                PdfKitView(document: document).background(Ak.cream)
             } else {
                 Spacer()
-                Text("Document indisponible.").font(AkFont.regular(14)).foregroundColor(Ak.muted)
+                LoadingRow()
                 Spacer()
             }
         }
+        .task { await load() }
+        .sheet(isPresented: $showShare) {
+            if let localFile { ShareSheet(items: [localFile]) }
+        }
+    }
+
+    private func load() async {
+        guard let url = URL(string: urlString) else { return }
+        // Télécharge les octets, écrit un fichier temporaire nommé (pour le partage).
+        guard let (data, _) = try? await URLSession.shared.data(from: url), let doc = PDFDocument(data: data) else { return }
+        let safe = title.components(separatedBy: CharacterSet(charactersIn: "/\\:")).joined().trimmingCharacters(in: .whitespaces)
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("\(safe.isEmpty ? "document" : safe).pdf")
+        try? data.write(to: tmp)
+        document = doc
+        localFile = tmp
     }
 }
 
-/// Pont SwiftUI ⇄ PDFKit. Charge le document hors du thread principal.
+/// Pont SwiftUI ⇄ PDFKit.
 private struct PdfKitView: UIViewRepresentable {
-    let url: URL
-
+    let document: PDFDocument
     func makeUIView(context: Context) -> PDFView {
         let view = PDFView()
         view.autoScales = true
         view.displayMode = .singlePageContinuous
         view.displayDirection = .vertical
         view.backgroundColor = .clear
-        DispatchQueue.global(qos: .userInitiated).async {
-            let doc = PDFDocument(url: url)
-            DispatchQueue.main.async { view.document = doc }
-        }
+        view.document = document
         return view
     }
+    func updateUIView(_ uiView: PDFView, context: Context) { uiView.document = document }
+}
 
-    func updateUIView(_ uiView: PDFView, context: Context) {}
+/// Feuille de partage système.
+private struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }

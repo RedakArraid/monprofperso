@@ -11,6 +11,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -42,17 +45,34 @@ fun PdfViewerScreen(nav: NavActions) {
     val url = AppState.pdfUrl
     val title = AppState.pdfTitle
     val context = LocalContext.current
-    var pages by remember { mutableStateOf<List<Bitmap>?>(null) }
+    var result by remember { mutableStateOf<PdfResult?>(null) }
     var failed by remember { mutableStateOf(false) }
+    val pages = result?.pages
 
     LaunchedEffect(url) {
-        runCatching { withContext(Dispatchers.IO) { renderPdf(context.cacheDir, url) } }
-            .onSuccess { pages = it }
+        runCatching { withContext(Dispatchers.IO) { renderPdf(context.cacheDir, url, title) } }
+            .onSuccess { result = it }
             .onFailure { failed = true }
     }
 
+    fun share() {
+        val file = result?.file ?: return
+        runCatching {
+            val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                type = "application/pdf"
+                putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(android.content.Intent.createChooser(intent, "Partager le document"))
+        }
+    }
+
     AkScreen(applyBottomInset = false) {
-        TopBar(title, subtitle = "Aperçu du document", onBack = { nav.back() })
+        TopBar(title, subtitle = "Aperçu du document", onBack = { nav.back() }, trailing = if (pages != null) {
+            { Icon(Icons.Filled.Share, "Partager", tint = AkColors.InkSoft,
+                modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { share() }.padding(8.dp).size(20.dp)) }
+        } else null)
         when {
             failed -> Column(Modifier.weight(1f).fillMaxWidth().padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Spacer(Modifier.height(40.dp))
@@ -84,10 +104,14 @@ fun PdfViewerScreen(nav: NavActions) {
     }
 }
 
-/** Télécharge et rend chaque page du PDF en Bitmap (sur un thread IO). */
-private fun renderPdf(cacheDir: File, url: String): List<Bitmap> {
+private data class PdfResult(val file: File, val pages: List<Bitmap>)
+
+/** Télécharge et rend chaque page du PDF en Bitmap (sur un thread IO). Conserve
+ *  le fichier dans le cache pour permettre le partage. */
+private fun renderPdf(cacheDir: File, url: String, title: String): PdfResult {
     val bytes = URL(url).openStream().use { it.readBytes() }
-    val file = File(cacheDir, "view_${System.currentTimeMillis()}.pdf").apply { writeBytes(bytes) }
+    val safe = title.replace(Regex("[^A-Za-z0-9 _-]"), "").trim().ifBlank { "document" }
+    val file = File(cacheDir, "$safe.pdf").apply { writeBytes(bytes) }
     val pfd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
     val renderer = PdfRenderer(pfd)
     val out = ArrayList<Bitmap>(renderer.pageCount)
@@ -100,6 +124,6 @@ private fun renderPdf(cacheDir: File, url: String): List<Bitmap> {
         page.close()
         out.add(bmp)
     }
-    renderer.close(); pfd.close(); file.delete()
-    return out
+    renderer.close(); pfd.close()
+    return PdfResult(file, out)
 }

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Le visualiseur PDF télécharge les fichiers dans le cache de l'app ;
+         ce chemin les expose en lecture seule pour le partage (FileProvider). -->
+    <cache-path name="pdf_cache" path="." />
+</paths>
