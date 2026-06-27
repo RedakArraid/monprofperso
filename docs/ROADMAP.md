@@ -58,8 +58,8 @@ Maillon faible : auth/paiement simulés. À traiter avant toute nouvelle feature
       Fait côté API : `/teacher/requests` reflète les vraies réservations + demandes
       de démo, `POST /teacher/requests/:id/accept` valide (isolé au prof concerné).
       Fait côté apps : espace prof (dashboard, demandes, revenus) **branché en live**
-      sur Android + iOS, avec bouton « Accepter » câblé sur l'endpoint de validation
-      et repli mock. Reste : refus, calendrier.
+      sur Android + iOS, avec boutons « Accepter » / « Refuser » câblés
+      (`/teacher/requests/:id/{accept,refuse}`) et repli mock. Reste : calendrier.
 - [ ] Notifications push (FCM Android / APNs iOS).
 
 ## Phase 3 — Qualité apps natives

@@ -197,6 +197,7 @@ struct ApiClient {
     func teacherRequests() async throws -> [TeacherRequestDTO] { try await get("api/teacher/requests") }
     func teacherEarnings() async throws -> TeacherEarningsDTO { try await get("api/teacher/earnings") }
     func acceptRequest(courseId: Int) async throws { _ = try await request("api/teacher/requests/\(courseId)/accept", method: "POST") }
+    func refuseRequest(courseId: Int) async throws { _ = try await request("api/teacher/requests/\(courseId)/refuse", method: "POST") }
 
     // MARK: Espace admin (rôle admin requis ; le token Bearer est ajouté à chaque requête).
     func createSubject(slug: String, name: String, accent: String, icon: String = "more") async throws -> SubjectDTO {

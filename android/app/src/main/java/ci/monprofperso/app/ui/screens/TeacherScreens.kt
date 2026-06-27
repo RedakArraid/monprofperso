@@ -161,7 +161,11 @@ fun CourseRequestsScreen(nav: NavActions) {
             items.forEach { r ->
                 RequestCard(
                     r,
-                    onRefuse = { nav.go(Routes.TeacherDashboard) },
+                    onRefuse = {
+                        val id = r.courseId
+                        if (id != null) scope.launch { runCatching { Api.service.refuseRequest(id) }.onSuccess { reload() } }
+                        else nav.go(Routes.TeacherDashboard)
+                    },
                     onAccept = {
                         val id = r.courseId
                         if (id != null) scope.launch { runCatching { Api.service.acceptRequest(id) }.onSuccess { reload() } }

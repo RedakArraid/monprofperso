@@ -222,6 +222,31 @@ test("e2e — réservation parent -> demande chez le prof -> validation", async 
   assert.equal((await get("/api/teacher/dashboard", ibra.body.token)).body.pendingRequests, before);
 });
 
+test("e2e — le prof refuse une demande : retirée et invisible côté parent", async () => {
+  const parent = await signup("parent");
+  const ibra = await post("/api/auth/login", { phone: "+2250705001122" });
+  const before = (await get("/api/teacher/dashboard", ibra.body.token)).body.pendingRequests;
+
+  const booking = await post("/api/bookings",
+    { teacherId: 2, teacherName: "Ibrahim Diallo", subject: "Statistiques", price: 3000, format: "online" },
+    parent.token);
+  const courseId = booking.body.course.id;
+  assert.equal((await get("/api/teacher/dashboard", ibra.body.token)).body.pendingRequests, before + 1);
+
+  const refuse = await post(`/api/teacher/requests/${courseId}/refuse`, undefined, ibra.body.token);
+  assert.equal(refuse.status, 200);
+
+  const reqs = (await get("/api/teacher/requests", ibra.body.token)).body;
+  assert.ok(!reqs.some((r) => r.courseId === courseId), "la demande refusée quitte la liste");
+  assert.equal((await get("/api/teacher/dashboard", ibra.body.token)).body.pendingRequests, before);
+
+  const upcoming = (await get("/api/courses?status=upcoming", parent.token)).body;
+  assert.ok(!upcoming.some((c) => c.id === courseId), "le cours refusé n'est plus dans l'agenda du parent");
+
+  // Refuser à nouveau échoue (déjà traité).
+  assert.equal((await post(`/api/teacher/requests/${courseId}/refuse`, undefined, ibra.body.token)).status, 404);
+});
+
 // ======================================================================
 // Parcours 6 — Catalogue public (groupes, abonnement, parrainage)
 // ======================================================================

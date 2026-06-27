@@ -245,7 +245,7 @@ api.get("/teacher/dashboard", wrap(async (_req, res) => {
   if (!p || !t) { res.status(404).json({ error: "not_found" }); return; }
   const pending = (await pool.query(
     `SELECT ((SELECT count(*) FROM teacher_requests WHERE teacher_id=$1)
-           + (SELECT count(*) FROM courses WHERE teacher_id=$1 AND accepted=FALSE))::int AS n`,
+           + (SELECT count(*) FROM courses WHERE teacher_id=$1 AND accepted=FALSE AND status='upcoming'))::int AS n`,
     [teacherId]
   )).rows[0].n;
   res.json({
@@ -269,7 +269,7 @@ api.get("/teacher/requests", wrap(async (_req, res) => {
             CASE c.format WHEN 'online' THEN 'En ligne'
                           ELSE COALESCE(c.location, 'À domicile') END AS format
      FROM courses c JOIN users u ON u.id = c.user_id
-     WHERE c.teacher_id = $1 AND c.accepted = FALSE
+     WHERE c.teacher_id = $1 AND c.accepted = FALSE AND c.status = 'upcoming'
      ORDER BY c.id DESC`,
     [teacherId]
   );
@@ -288,6 +288,18 @@ api.post("/teacher/requests/:id/accept", wrap(async (req, res) => {
   const r = await pool.query(
     `UPDATE courses SET accepted = TRUE, badge = 'Confirmé'
      WHERE id = $1 AND teacher_id = $2 AND accepted = FALSE RETURNING id`,
+    [req.params.id, teacherId]
+  );
+  if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
+  res.json({ ok: true, courseId: r.rows[0].id });
+}));
+
+// Refus d'une demande réelle : le prof décline la réservation (status='refused').
+api.post("/teacher/requests/:id/refuse", wrap(async (req, res) => {
+  const teacherId = await currentTeacherId(res);
+  const r = await pool.query(
+    `UPDATE courses SET status = 'refused', badge = 'Refusé'
+     WHERE id = $1 AND teacher_id = $2 AND accepted = FALSE AND status = 'upcoming' RETURNING id`,
     [req.params.id, teacherId]
   );
   if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }

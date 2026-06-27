@@ -106,6 +106,14 @@ struct CourseRequestsScreen: View {
         }
     }
 
+    private func refuse(_ r: TeacherRequestDTO) {
+        guard let id = r.courseId else { router.go(.teacherDashboard); return }
+        Task { @MainActor in
+            try? await ApiClient.shared.refuseRequest(courseId: id)
+            await reload()
+        }
+    }
+
     private func card(_ r: TeacherRequestDTO) -> some View {
         let green = r.accent != "orange"
         return VStack(alignment: .leading, spacing: 0) {
@@ -125,7 +133,7 @@ struct CourseRequestsScreen: View {
             HStack(spacing: 9) {
                 Text("Refuser").font(AkFont.bold(13.5)).foregroundColor(Ak.muted).frame(maxWidth: .infinity).padding(.vertical, 12)
                     .background(.white).clipShape(RoundedRectangle(cornerRadius: 12)).overlay(RoundedRectangle(cornerRadius: 12).stroke(Ak.border, lineWidth: 1))
-                    .contentShape(Rectangle()).onTapGesture { router.go(.teacherDashboard) }
+                    .contentShape(Rectangle()).onTapGesture { refuse(r) }
                 Text("Accepter").font(AkFont.bold(13.5)).foregroundColor(.white).frame(maxWidth: .infinity).padding(.vertical, 12).background(Ak.green).clipShape(RoundedRectangle(cornerRadius: 12))
                     .contentShape(Rectangle()).onTapGesture { accept(r) }
             }.padding(.top, 14)

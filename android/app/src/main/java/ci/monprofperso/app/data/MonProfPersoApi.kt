@@ -93,6 +93,9 @@ interface MonProfPersoApi {
     @POST("api/teacher/requests/{id}/accept")
     suspend fun acceptRequest(@Path("id") id: Int): Response<Unit>
 
+    @POST("api/teacher/requests/{id}/refuse")
+    suspend fun refuseRequest(@Path("id") id: Int): Response<Unit>
+
     @POST("api/auth/login")
     suspend fun login(@Body body: Map<String, String>): AuthResponse
 
