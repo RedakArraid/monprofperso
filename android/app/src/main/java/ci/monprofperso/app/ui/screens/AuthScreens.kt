@@ -15,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -149,6 +150,10 @@ private fun RoleOption(icon: ImageVector, title: String, subtitle: String, selec
 fun SignupScreen(nav: NavActions) {
     val role = ci.monprofperso.app.data.AppState.role
     val scope = rememberCoroutineScope()
+    var consent by remember { mutableStateOf(false) }
+    var parentalConsent by remember { mutableStateOf(false) }
+    val isStudent = role == 1
+    val canSubmit = consent && (!isStudent || parentalConsent)
     AkScreen {
         TopBar("", onBack = { nav.back() })
         Column(
@@ -188,20 +193,28 @@ fun SignupScreen(nav: NavActions) {
                 Text(ci.monprofperso.app.data.roleLabels[role], fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AkColors.Ink)
             }
             Spacer(Modifier.height(16.dp))
-            Row(verticalAlignment = Alignment.Top) {
-                Box(Modifier.size(20.dp).clip(RoundedCornerShape(6.dp)).background(AkColors.Green),
-                    contentAlignment = Alignment.Center) {
-                    Icon(Icons.Filled.Check, null, tint = AkColors.White, modifier = Modifier.size(13.dp))
-                }
-                Spacer(Modifier.width(9.dp))
-                Text(buildString { append("J'accepte les Conditions d'utilisation et la politique de confidentialité.") },
-                    fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted, lineHeight = 18.sp)
+            ConsentCheckbox(
+                checked = consent, onToggle = { consent = !consent },
+                "J'accepte les Conditions d'utilisation et la politique de confidentialité.",
+            )
+            if (isStudent) {
+                Spacer(Modifier.height(12.dp))
+                ConsentCheckbox(
+                    checked = parentalConsent, onToggle = { parentalConsent = !parentalConsent },
+                    "Je confirme avoir le consentement d'un parent ou tuteur légal (élève mineur).",
+                )
             }
         }
         Column(Modifier.padding(horizontal = 24.dp).padding(bottom = 24.dp, top = 12.dp)) {
-            PrimaryButton("Créer mon compte", Modifier.fillMaxWidth(), onClick = {
-                scope.launch { Auth.signup(fullName = "Aya Koné", roleIndex = role); nav.go(Routes.Otp) }
-            })
+            PrimaryButton("Créer mon compte", Modifier.fillMaxWidth(),
+                color = if (canSubmit) AkColors.Green else AkColors.Border,
+                onClick = {
+                    if (!canSubmit) return@PrimaryButton
+                    scope.launch {
+                        Auth.signup(fullName = "Aya Koné", roleIndex = role, consent = consent, parentalConsent = parentalConsent)
+                        nav.go(Routes.Otp)
+                    }
+                })
             Spacer(Modifier.height(13.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
                 Text("Déjà un compte ? ", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Muted)
@@ -327,6 +340,23 @@ private fun SocialButton(label: String, icon: ImageVector, modifier: Modifier = 
         Icon(icon, null, tint = AkColors.InkSoft, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
         Text(label, fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, color = AkColors.InkSoft)
+    }
+}
+
+/** Case à cocher de consentement (CGU / parental), conforme au design Akwaba. */
+@Composable
+private fun ConsentCheckbox(checked: Boolean, onToggle: () -> Unit, label: String) {
+    Row(Modifier.clickable { onToggle() }, verticalAlignment = Alignment.Top) {
+        Box(
+            Modifier.size(20.dp).clip(RoundedCornerShape(6.dp))
+                .background(if (checked) AkColors.Green else AkColors.White)
+                .border(1.5.dp, if (checked) AkColors.Green else AkColors.Border, RoundedCornerShape(6.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (checked) Icon(Icons.Filled.Check, null, tint = AkColors.White, modifier = Modifier.size(13.dp))
+        }
+        Spacer(Modifier.width(9.dp))
+        Text(label, fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted, lineHeight = 18.sp)
     }
 }
 

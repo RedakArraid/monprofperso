@@ -83,6 +83,10 @@ struct WelcomeScreen: View {
 // MARK: - Écran 2 — Inscription
 struct SignupScreen: View {
     @EnvironmentObject var router: Router
+    @State private var consent = false
+    @State private var parentalConsent = false
+    private var isStudent: Bool { router.role == 1 }
+    private var canSubmit: Bool { consent && (!isStudent || parentalConsent) }
 
     var body: some View {
         AkScreen {
@@ -113,18 +117,18 @@ struct SignupScreen: View {
                         }.padding(.horizontal, 14).padding(.vertical, 12)
                         .background(Ak.greenSoft).clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
-                    HStack(alignment: .top, spacing: 9) {
-                        Image(systemName: "checkmark").font(.system(size: 12, weight: .bold)).foregroundColor(.white)
-                            .frame(width: 20, height: 20).background(Ak.green).clipShape(RoundedRectangle(cornerRadius: 6))
-                        Text("J'accepte les Conditions d'utilisation et la politique de confidentialité.")
-                            .font(AkFont.regular(12.5)).foregroundColor(Ak.muted)
+                    consentCheckbox(checked: consent, label: "J'accepte les Conditions d'utilisation et la politique de confidentialité.") { consent.toggle() }
+                    if isStudent {
+                        consentCheckbox(checked: parentalConsent, label: "Je confirme avoir le consentement d'un parent ou tuteur légal (élève mineur).") { parentalConsent.toggle() }
                     }
                 }.padding(.horizontal, 24).padding(.top, 8)
             }
             VStack(spacing: 13) {
-                PrimaryButton(label: "Créer mon compte") {
+                PrimaryButton(label: "Créer mon compte", color: canSubmit ? Ak.green : Ak.border) {
+                    guard canSubmit else { return }
                     Task { @MainActor in
-                        router.authRole = await ApiClient.shared.signup(fullName: "Aya Koné", roleIndex: router.role)
+                        router.authRole = await ApiClient.shared.signup(fullName: "Aya Koné", roleIndex: router.role,
+                                                                        consent: consent, parentalConsent: parentalConsent)
                         router.go(.otp)
                     }
                 }
@@ -134,6 +138,20 @@ struct SignupScreen: View {
                 }
             }.padding(.horizontal, 24).padding(.top, 12).padding(.bottom, 12)
         }
+    }
+
+    /// Case à cocher de consentement (CGU / parental), conforme au design Akwaba.
+    private func consentCheckbox(checked: Bool, label: String, toggle: @escaping () -> Void) -> some View {
+        HStack(alignment: .top, spacing: 9) {
+            Image(systemName: checked ? "checkmark" : "")
+                .font(.system(size: 12, weight: .bold)).foregroundColor(.white)
+                .frame(width: 20, height: 20)
+                .background(checked ? Ak.green : .white)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(checked ? Ak.green : Ak.border, lineWidth: 1.5))
+            Text(label).font(AkFont.regular(12.5)).foregroundColor(Ak.muted)
+            Spacer(minLength: 0)
+        }.contentShape(Rectangle()).onTapGesture(perform: toggle)
     }
 }
 

@@ -54,7 +54,10 @@ docs/       Présentation .docx + assets, ROADMAP.md, COMPLIANCE.md (légal CI :
   (repli sur le prof de démo si le compte n'a pas de fiche). Enfin
   `1700000006000_course-acceptance` ajoute `courses.accepted` : une réservation
   naît « en attente » et **remonte dans les demandes du prof concerné** jusqu'à
-  validation — **20 tables au total**. Suivi dans la table `pgmigrations`.
+  validation. Enfin `1700000008000_user-consent` ajoute le **consentement** sur
+  `users` (`consent_version`, `consent_at`, `parental_consent`) — conformité
+  Loi CI N°2013-450 (cf. `docs/COMPLIANCE.md`) — **20 tables au total**. Suivi
+  dans la table `pgmigrations`.
   Créer une migration : `npm run migrate create <nom>` (puis éditer le `.sql`).
 - **Ports (custom, pour éviter les collisions)** : API **8099**, Postgres **5544**,
   Adminer **8098**, MinIO API **9000** / console **8097**. Configurables via
@@ -103,7 +106,7 @@ docs/       Présentation .docx + assets, ROADMAP.md, COMPLIANCE.md (légal CI :
   porté par le JWT ; `requireAdmin` garde l'espace admin (401 sans token, 403 si non-admin).
   Utilisateur admin de démo : `+2250700000001`.
   ⚠️ Reste à faire : OTP SMS réel, paiement réel (Phase 1/2 — voir docs/ROADMAP.md).
-- **Tests** : `api/test/*.test.mjs` (runner natif Node, `npm test`, stack live requise) — 48 tests.
+- **Tests** : `api/test/*.test.mjs` (runner natif Node, `npm test`, stack live requise) — 49 tests.
   `api.test.mjs` = intégration par endpoint ; `e2e.test.mjs` = parcours bout-en-bout
   (inscription→réservation→relecture, isolation JWT entre comptes, repli démo, prof,
   catalogue). Les 20 endpoints sont couverts.

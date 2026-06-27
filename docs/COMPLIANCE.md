@@ -30,24 +30,29 @@ l'ARTCI est l'autorité de contrôle.
 
 ## Obligations à anticiper (et leur traduction technique)
 
-### 1. Localisation des données / transfert hors CEDEAO  ⚠️ priorité
-La loi encadre le **transfert de données hors de l'espace CEDEAO**. Or
-l'hébergement managé (API, Postgres, **bucket S3/MinIO**) est souvent hors
-CEDEAO par défaut (UE/US).
-- **Technique** : héberger Postgres **et** le stockage objet dans une région
-  CEDEAO, ou chez un fournisseur présent dans la zone ; sinon déposer une
-  **demande d'autorisation de transfert** à l'ARTCI (le formulaire `docs/legal/`)
-  et documenter les garanties (chiffrement en transit/au repos, clauses
-  contractuelles, durée de conservation).
-- **Impact direct** : le service `minio` (cf. `CLAUDE.md` § Stockage fichiers) et
-  le Postgres managé de la **Phase 4** doivent choisir leur région en conséquence.
+### 1. Localisation des données / transfert hors CEDEAO  ✅ décidé
+La loi encadre le **transfert de données hors de l'espace CEDEAO**.
+- **Décision projet** : l'API, Postgres **et** le stockage objet (MinIO/S3) sont
+  hébergés **en Côte d'Ivoire** → **dans l'espace CEDEAO**. L'hébergement ne
+  constitue donc **pas** un transfert hors CEDEAO ; aucune autorisation de
+  transfert n'est requise pour l'hébergement lui-même.
+- **Reste à surveiller** : tout **sous-traitant hors CEDEAO** introduit plus tard
+  (notifications push Google FCM / Apple APNs, passerelle de paiement étrangère,
+  e-mailing) **déclencherait** le formulaire ARTCI. Voir le formulaire pré-rempli
+  `docs/legal/ARTCI-transfert-donnees-REMPLI.md`.
+- **À la place** : prévoir une **déclaration/autorisation de traitement** ordinaire
+  auprès de l'ARTCI (registre des traitements, section 3 ci-dessous).
 
-### 2. Consentement (dont parental pour les mineurs)
-- **Technique** : écran de **consentement** à l'inscription (CGU + politique de
-  confidentialité), avec **consentement parental** quand le compte concerne un
-  élève mineur. Tracer le consentement (date, version des CGU) côté `users`.
-- Le formulaire ARTCI référence explicitement « Formulaire de recueil du
-  consentement » / « Conditions générales d'utilisation » comme bases possibles.
+### 2. Consentement (dont parental pour les mineurs)  ✅ socle en place
+- **Implémenté** : à l'inscription, l'utilisateur accepte les CGU + politique de
+  confidentialité (case obligatoire) ; un **consentement parental** est requis
+  pour les comptes élèves. Tracé en base : `users.consent_version`,
+  `users.consent_at`, `users.parental_consent` (migration `1700000008000`).
+  Côté apps, l'écran d'inscription bloque la création tant que le consentement
+  requis n'est pas donné (Android + iOS).
+- **Reste** : rédiger les **CGU + politique de confidentialité** réelles (texte
+  juridique) et les afficher/lier depuis l'écran ; versionner via `CONSENT_VERSION`
+  (`api/src/routes.ts`) pour re-solliciter à chaque révision.
 
 ### 3. Déclaration / autorisation des traitements auprès de l'ARTCI
 - Recenser les **traitements** (authentification, réservation, paiement, suivi
@@ -64,13 +69,16 @@ CEDEAO par défaut (UE/US).
 
 ## Checklist prod (résumé)
 - [ ] Société immatriculée (CEPICI) → responsable de traitement identifié.
-- [ ] Hébergement Postgres + stockage objet **en zone CEDEAO**, sinon
-      autorisation de transfert ARTCI obtenue.
-- [ ] Écran de consentement (CGU + confidentialité) + **consentement parental**
-      pour les mineurs, traçé en base.
-- [ ] Registre des traitements (finalités, durées, destinataires).
+- [x] Hébergement Postgres + stockage objet **en Côte d'Ivoire (CEDEAO)** →
+      pas de transfert hors CEDEAO (décision projet).
+- [x] Socle de consentement (CGU + confidentialité) + **consentement parental**
+      pour les mineurs, tracé en base (migration `1700000008000`, apps câblées).
+- [ ] Rédiger les CGU + politique de confidentialité réelles (texte juridique).
+- [ ] Déclaration/autorisation de traitement auprès de l'ARTCI (registre).
 - [ ] Process droits des personnes (accès / rectification / suppression).
-- [ ] Politique de conservation + chiffrement au repos et en transit.
+- [ ] Politique de conservation + chiffrement au repos et en transit (prod).
+- [ ] Si sous-traitant hors CEDEAO un jour : formulaire ARTCI
+      (`ARTCI-transfert-donnees-REMPLI.md`).
 
 ## Marque
 Le logo officiel (`docs/logo/mp2-logo.png`) — **« MP² » / « Un succès inévitable »**

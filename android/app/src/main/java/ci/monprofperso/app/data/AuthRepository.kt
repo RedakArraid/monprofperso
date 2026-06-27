@@ -22,10 +22,19 @@ object Auth {
             .onSuccess { TokenStore.save(it.token); AppState.authRole = it.user.role }
     }
 
-    suspend fun signup(fullName: String, phone: String = DEMO_PHONE, roleIndex: Int) {
+    suspend fun signup(
+        fullName: String,
+        phone: String = DEMO_PHONE,
+        roleIndex: Int,
+        consent: Boolean = true,
+        parentalConsent: Boolean = false,
+    ) {
         runCatching {
             Api.service.signup(
-                mapOf("fullName" to fullName, "phone" to phone, "role" to apiRole[roleIndex.coerceIn(0, 2)])
+                mapOf(
+                    "fullName" to fullName, "phone" to phone, "role" to apiRole[roleIndex.coerceIn(0, 2)],
+                    "consent" to consent.toString(), "parentalConsent" to parentalConsent.toString(),
+                )
             )
         }.onSuccess { TokenStore.save(it.token); AppState.authRole = it.user.role }
     }

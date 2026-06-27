@@ -11,6 +11,10 @@ api.use(optionalAuth);
 
 const ROLES = ["parent", "student", "teacher"] as const;
 
+// Version courante des CGU / politique de confidentialité (cf. docs/COMPLIANCE.md).
+// À incrémenter à chaque révision pour re-solliciter le consentement.
+const CONSENT_VERSION = "2026-06";
+
 const wrap = (fn: (req: any, res: any) => Promise<void>) => (req: any, res: any) =>
   fn(req, res).catch((e: any) => {
     if (e instanceof ValidationError) {
@@ -34,11 +38,20 @@ api.post("/auth/signup", wrap(async (req, res) => {
   const fullName = optionalString(req.body, "fullName", { max: 120 });
   const phone = optionalPhone(req.body);
   const role = optionalEnum(req.body, "role", ROLES);
+  // Consentement (CGU + confidentialité) ; consentement parental pour les élèves.
+  const consent = req.body?.consent === true || req.body?.consent === "true";
+  const parentalConsent = req.body?.parentalConsent === true || req.body?.parentalConsent === "true";
   const initials = (fullName ?? "Aya Koné").split(" ").map((s: string) => s[0]).join("").slice(0, 2).toUpperCase();
   const r = await pool.query(
-    `INSERT INTO users (full_name, phone, role, initials) VALUES ($1,$2,$3,$4)
-     ON CONFLICT (phone) DO UPDATE SET full_name = EXCLUDED.full_name RETURNING *`,
-    [fullName ?? "Aya Koné", phone ?? "+2250758421903", role ?? "parent", initials]
+    `INSERT INTO users (full_name, phone, role, initials, consent_version, consent_at, parental_consent)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)
+     ON CONFLICT (phone) DO UPDATE SET full_name = EXCLUDED.full_name,
+       consent_version = COALESCE(EXCLUDED.consent_version, users.consent_version),
+       consent_at = COALESCE(EXCLUDED.consent_at, users.consent_at),
+       parental_consent = users.parental_consent OR EXCLUDED.parental_consent
+     RETURNING *`,
+    [fullName ?? "Aya Koné", phone ?? "+2250758421903", role ?? "parent", initials,
+     consent ? CONSENT_VERSION : null, consent ? new Date() : null, parentalConsent]
   );
   const user = r.rows[0];
   res.json({ token: signJwt(user.id, user.role), user });

@@ -83,13 +83,14 @@ Maillon faible : auth/paiement simulés. À traiter avant toute nouvelle feature
 - [ ] `ApiConfig` par environnement (dev / staging / prod) côté Android et iOS.
 - [ ] Préparer les stores : icônes (logo MP², `docs/logo/`), signatures, fiches
       Play Store / App Store.
-- [ ] **Conformité données personnelles (Loi CI N°2013-450, ARTCI)** — voir
+- [~] **Conformité données personnelles (Loi CI N°2013-450, ARTCI)** — voir
       `docs/COMPLIANCE.md` (analyse des pièces `docs/legal/`) :
-      - [ ] Hébergement Postgres **et** stockage objet (MinIO/S3) **en zone CEDEAO**,
-            sinon autorisation de transfert ARTCI (formulaire `docs/legal/`).
-      - [ ] Écran de consentement (CGU + politique de confidentialité) +
-            **consentement parental** pour les élèves mineurs, tracé en base.
-      - [ ] Registre des traitements (finalités, durées de conservation, destinataires).
+      - [x] Hébergement Postgres **et** stockage objet (MinIO/S3) **en Côte d'Ivoire
+            (CEDEAO)** → pas de transfert hors CEDEAO (décision projet).
+      - [x] Socle de consentement (CGU + confidentialité) + **consentement parental**
+            pour les élèves mineurs, tracé en base (migration `1700000008000`, apps).
+      - [ ] Rédiger les CGU + politique de confidentialité réelles (texte juridique).
+      - [ ] Déclaration/autorisation de traitement auprès de l'ARTCI (registre).
       - [ ] Droits des personnes : accès / rectification / suppression du compte.
       - [ ] Chiffrement au repos (DB + bucket) et en transit, politique de conservation.
 - [ ] Constitution de la société (CEPICI, cf. `docs/legal/`) → exploitant =

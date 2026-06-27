@@ -43,6 +43,21 @@ async function signup(role = "parent") {
   return body;
 }
 
+test("e2e — le consentement (CGU + parental) est enregistré à l'inscription", async () => {
+  const phone = uniquePhone();
+  const withConsent = await post("/api/auth/signup", {
+    fullName: "Consent E2E", phone, role: "student", consent: true, parentalConsent: true,
+  });
+  assert.equal(withConsent.status, 200);
+  assert.ok(withConsent.body.user.consent_version, "version de CGU enregistrée");
+  assert.equal(withConsent.body.user.parental_consent, true, "consentement parental enregistré");
+
+  const noConsent = await post("/api/auth/signup", {
+    fullName: "Sans Consent", phone: uniquePhone(), role: "parent",
+  });
+  assert.equal(noConsent.body.user.consent_version, null, "pas de consentement -> non daté");
+});
+
 // ======================================================================
 // Parcours 1 — Parent : inscription -> navigation -> réservation -> relecture
 // ======================================================================

@@ -177,10 +177,12 @@ struct ApiClient {
     }
 
     @discardableResult
-    func signup(fullName: String, phone: String = ApiConfig.demoPhone, roleIndex: Int) async -> String? {
+    func signup(fullName: String, phone: String = ApiConfig.demoPhone, roleIndex: Int,
+                consent: Bool = true, parentalConsent: Bool = false) async -> String? {
         let role = Self.apiRoles[min(max(roleIndex, 0), 2)]
         if let data = try? await request("api/auth/signup", method: "POST",
-                                         json: ["fullName": fullName, "phone": phone, "role": role]),
+                                         json: ["fullName": fullName, "phone": phone, "role": role,
+                                                "consent": consent, "parentalConsent": parentalConsent]),
            let r = try? JSONDecoder().decode(AuthResponse.self, from: data) {
             TokenStore.token = r.token; return r.user.role
         }
