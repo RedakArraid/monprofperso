@@ -80,6 +80,19 @@ interface MonProfPersoApi {
     @GET("api/subscription/plans")
     suspend fun plans(): List<PlanDto>
 
+    // --- Espace professeur ---
+    @GET("api/teacher/dashboard")
+    suspend fun teacherDashboard(): TeacherDashboardDto
+
+    @GET("api/teacher/requests")
+    suspend fun teacherRequests(): List<TeacherRequestDto>
+
+    @GET("api/teacher/earnings")
+    suspend fun teacherEarnings(): TeacherEarningsDto
+
+    @POST("api/teacher/requests/{id}/accept")
+    suspend fun acceptRequest(@Path("id") id: Int): Response<Unit>
+
     @POST("api/auth/login")
     suspend fun login(@Body body: Map<String, String>): AuthResponse
 

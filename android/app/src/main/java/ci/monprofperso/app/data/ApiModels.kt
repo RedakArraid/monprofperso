@@ -121,6 +121,42 @@ data class GroupDto(
 
 data class PlanDto(val name: String, val detail: String, val price: Int, val popular: Boolean, val suffix: String?)
 
+// --- Espace professeur (live) ---
+data class StatDto(val value: String, val label: String)
+
+data class TeacherDashboardDto(
+    val name: String,
+    val revenue: Int,
+    val trend: String,
+    val stats: List<StatDto>,
+    val pendingRequests: Int,
+)
+
+data class TeacherRequestDto(
+    @SerializedName("courseId") val courseId: Int?,
+    val initials: String,
+    val accent: String,
+    val name: String,
+    val ago: String,
+    val price: Int,
+    val student: String?,
+    val subject: String?,
+    val slot: String?,
+    val format: String?,
+)
+
+data class EarningWeekDto(val label: String, val f: Double)
+
+data class PayoutDto(val provider: String, val date: String, val amount: Int, val color: String)
+
+data class TeacherEarningsDto(
+    val total: Int,
+    val trend: String,
+    val weeks: List<EarningWeekDto>,
+    val stats: List<StatDto>,
+    val payouts: List<PayoutDto>,
+)
+
 data class UserDto(
     val id: Int,
     @SerializedName("full_name") val fullName: String,

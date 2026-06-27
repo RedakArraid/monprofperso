@@ -124,7 +124,9 @@ docker compose down -v   # reset complet (re-seed au prochain up)
 Écrans branchés **en live** sur l'API (ViewModels Android / Stores iOS) avec
 **repli automatique sur les données locales de la maquette** si l'API est injoignable.
 Les écrans live : Accueil, Résultats de recherche, Profil prof, Mes cours, Suivi des progrès,
-Ressources & supports (lecture seule, `Resources`/`.resources`, repli sur exemples hors-ligne).
+Ressources & supports (lecture seule, `Resources`/`.resources`, repli sur exemples hors-ligne),
+et l'**espace professeur** (tableau de bord, demandes avec bouton « Accepter » câblé sur
+`/teacher/requests/:id/accept`, revenus) — branché sur `/teacher/*` avec repli mock.
 Les autres écrans suivent le même patron et restent fidèles à la maquette hors-ligne.
 
 ## Design system partagé

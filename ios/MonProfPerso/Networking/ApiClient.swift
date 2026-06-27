@@ -94,6 +94,24 @@ struct CourseDTO: Codable, Identifiable {
 struct ProgressSubjectDTO: Codable { let subject, grade: String; let fraction: Double; let warn: Bool }
 struct ProgressDTO: Codable { let student, average, trend, goal: String; let subjects: [ProgressSubjectDTO] }
 
+// --- Espace professeur (live) ---
+struct StatDTO: Codable, Identifiable { let value, label: String; var id: String { label } }
+struct TeacherDashboardDTO: Codable {
+    let name: String; let revenue: Int; let trend: String; let stats: [StatDTO]; let pendingRequests: Int
+}
+struct TeacherRequestDTO: Codable, Identifiable {
+    let courseId: Int?
+    let initials, accent, name, ago: String
+    let price: Int
+    let student, subject, slot, format: String?
+    var id: String { courseId.map(String.init) ?? "\(name)-\(slot ?? "")" }
+}
+struct EarningWeekDTO: Codable, Identifiable { let label: String; let f: Double; var id: String { label } }
+struct PayoutDTO: Codable, Identifiable { let provider, date: String; let amount: Int; let color: String; var id: String { provider + date } }
+struct TeacherEarningsDTO: Codable {
+    let total: Int; let trend: String; let weeks: [EarningWeekDTO]; let stats: [StatDTO]; let payouts: [PayoutDTO]
+}
+
 extension Int {
     /// 184000 -> "184 000"
     var formattedFCFA: String {
@@ -174,6 +192,12 @@ struct ApiClient {
     }
     func progress() async throws -> ProgressDTO { try await get("api/progress") }
 
+    // MARK: Espace professeur
+    func teacherDashboard() async throws -> TeacherDashboardDTO { try await get("api/teacher/dashboard") }
+    func teacherRequests() async throws -> [TeacherRequestDTO] { try await get("api/teacher/requests") }
+    func teacherEarnings() async throws -> TeacherEarningsDTO { try await get("api/teacher/earnings") }
+    func acceptRequest(courseId: Int) async throws { _ = try await request("api/teacher/requests/\(courseId)/accept", method: "POST") }
+
     // MARK: Espace admin (rôle admin requis ; le token Bearer est ajouté à chaque requête).
     func createSubject(slug: String, name: String, accent: String, icon: String = "more") async throws -> SubjectDTO {
         let data = try await request("api/admin/subjects", method: "POST",
@@ -234,6 +258,20 @@ extension Fallback {
         .init(slug: "histgeo", name: "Hist-Géo", icon: "globe", accent: "green"),
         .init(slug: "plus", name: "Plus", icon: "more", accent: "orange"),
     ]
+    static let teacherDashboard = TeacherDashboardDTO(
+        name: "Koffi N'Guessan", revenue: 184000, trend: "+12%",
+        stats: [.init(value: "14", label: "cours / semaine"), .init(value: "4,9", label: "note moyenne"), .init(value: "3", label: "nouveaux élèves")],
+        pendingRequests: 3)
+    static let teacherRequests: [TeacherRequestDTO] = [
+        .init(courseId: nil, initials: "FB", accent: "green", name: "Fatou Bamba", ago: "il y a 1 h", price: 6000, student: "Awa · 2nde", subject: "Mathématiques", slot: "Sam. 28 juin · 15h00", format: "À domicile · Marcory"),
+        .init(courseId: nil, initials: "YK", accent: "orange", name: "Yao Kouamé", ago: "il y a 3 h", price: 4000, student: "Junior · 3ᵉ", subject: "Physique-Chimie", slot: "Dim. 29 juin · 10h00", format: "En ligne"),
+    ]
+    static let teacherEarnings = TeacherEarningsDTO(
+        total: 184000, trend: "+12%",
+        weeks: [.init(label: "S1", f: 0.48), .init(label: "S2", f: 0.66), .init(label: "S3", f: 0.58), .init(label: "S4", f: 0.88)],
+        stats: [.init(value: "38", label: "cours donnés"), .init(value: "52 h", label: "enseignées"), .init(value: "3 800", label: "F / h moyen")],
+        payouts: [.init(provider: "Retrait Wave", date: "15 juin", amount: 60000, color: "wave"),
+                  .init(provider: "Retrait Orange Money", date: "1 juin", amount: 80000, color: "orange")])
     static let resources: [ResourceDTO] = [
         .init(id: 1, type: "course", subject_slug: "maths", level: "3eme", title: "Fiche — Théorème de Thalès", description: "Rappels de cours et exemples corrigés.", file_name: nil, mime_type: nil, size_bytes: nil, created_at: nil),
         .init(id: 2, type: "exercise", subject_slug: "physique", level: "2nde", title: "Série d'exercices — Optique", description: "10 exercices progressifs avec corrigés.", file_name: nil, mime_type: nil, size_bytes: nil, created_at: nil),

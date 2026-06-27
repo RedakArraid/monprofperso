@@ -57,12 +57,15 @@ Maillon faible : auth/paiement simulés. À traiter avant toute nouvelle feature
 - [~] Espace prof complet : validation des demandes, calendrier, revenus réels.
       Fait côté API : `/teacher/requests` reflète les vraies réservations + demandes
       de démo, `POST /teacher/requests/:id/accept` valide (isolé au prof concerné).
-      Reste : refus, calendrier, et **brancher l'espace prof des apps en live**
-      (dashboard/demandes/revenus encore mockés — cf. Phase 3).
+      Fait côté apps : espace prof (dashboard, demandes, revenus) **branché en live**
+      sur Android + iOS, avec bouton « Accepter » câblé sur l'endpoint de validation
+      et repli mock. Reste : refus, calendrier.
 - [ ] Notifications push (FCM Android / APNs iOS).
 
 ## Phase 3 — Qualité apps natives
-- [ ] Brancher en live les écrans encore en repli local (Android + iOS).
+- [~] Brancher en live les écrans encore en repli local (Android + iOS).
+      Fait : espace prof (tableau de bord, demandes + validation, revenus). Reste les
+      écrans encore mockés (agenda, gestion de cours, réglages, etc.).
 - [ ] États réseau uniformes (loading / erreur / offline) des deux côtés.
 - [ ] Tests UI de base + tests ViewModels (Android) / Stores (iOS).
 - [ ] CI : lint + build des 3 cibles à chaque PR.
