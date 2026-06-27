@@ -81,8 +81,19 @@ Maillon faible : auth/paiement simulés. À traiter avant toute nouvelle feature
 ## Phase 4 — Mise en production
 - [ ] Héberger l'API (conteneur managé) + Postgres managé, HTTPS.
 - [ ] `ApiConfig` par environnement (dev / staging / prod) côté Android et iOS.
-- [ ] Préparer les stores : icônes, signatures, fiches Play Store / App Store.
-- [ ] Conformité données personnelles (mineurs → consentement parental).
+- [ ] Préparer les stores : icônes (logo MP², `docs/logo/`), signatures, fiches
+      Play Store / App Store.
+- [ ] **Conformité données personnelles (Loi CI N°2013-450, ARTCI)** — voir
+      `docs/COMPLIANCE.md` (analyse des pièces `docs/legal/`) :
+      - [ ] Hébergement Postgres **et** stockage objet (MinIO/S3) **en zone CEDEAO**,
+            sinon autorisation de transfert ARTCI (formulaire `docs/legal/`).
+      - [ ] Écran de consentement (CGU + politique de confidentialité) +
+            **consentement parental** pour les élèves mineurs, tracé en base.
+      - [ ] Registre des traitements (finalités, durées de conservation, destinataires).
+      - [ ] Droits des personnes : accès / rectification / suppression du compte.
+      - [ ] Chiffrement au repos (DB + bucket) et en transit, politique de conservation.
+- [ ] Constitution de la société (CEPICI, cf. `docs/legal/`) → exploitant =
+      responsable de traitement identifié.
 
 ## Séquencement conseillé
 Phase 0 → Phase 1 **avant** d'ajouter des fonctionnalités (ne pas bâtir la Phase 2

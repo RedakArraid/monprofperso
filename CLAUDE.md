@@ -18,7 +18,8 @@ android/    App Android — Kotlin + Jetpack Compose (~4400 lignes)
 ios/        App iOS     — Swift + SwiftUI (~3080 lignes, 37 vues)
 backend/    API REST commune — Node/TS + Express + PostgreSQL (docker compose)
 _maquette/  Maquette HTML d'origine (référence, gitignorée)
-docs/       Présentation .docx + assets (captures d'écran)
+docs/       Présentation .docx + assets, ROADMAP.md, COMPLIANCE.md (légal CI :
+            Loi 2013-450/ARTCI, CEPICI — voir docs/legal/), logo MP² (docs/logo/)
 ```
 
 ## Backend (`backend/`)
