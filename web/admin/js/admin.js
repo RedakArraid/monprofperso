@@ -10,7 +10,7 @@ const API_BASE = (location.hostname === "localhost" || location.hostname === "12
   : location.origin;
 
 function normalizePhone(raw) {
-  let p = String(raw ?? "").trim().replace(/\s/g, "");
+  let p = String(raw ?? "").trim().replace(/[\s.-]/g, "");
   if (/^0\d{9}$/.test(p)) p = "+225" + p.slice(1);
   else if (/^225\d{8,12}$/.test(p)) p = "+" + p;
   return p;
@@ -113,6 +113,7 @@ $("#loginForm").addEventListener("submit", async (e) => {
   btn.disabled = true;
   btn.textContent = "Connexion…";
   try {
+    if (!phone) throw new Error("Indiquez votre numéro administrateur.");
     const r = await api("/api/auth/login", { method: "POST", body: { phone } });
     if (!r || !r.token) throw new Error("Réponse invalide");
     if (!r.user || r.user.role !== "admin") {

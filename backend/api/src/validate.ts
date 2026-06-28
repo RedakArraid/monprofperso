@@ -32,8 +32,10 @@ export function optionalString(
 export function optionalPhone(body: any, field = "phone"): string | undefined {
   const v = optionalString(body, field, { max: 20 });
   if (v === undefined) return undefined;
-  if (!PHONE_RE.test(v.trim())) throw new ValidationError(field, `${field} invalide`);
-  return v.trim();
+  const trimmed = v.trim();
+  if (trimmed === "") return undefined;
+  if (!PHONE_RE.test(trimmed)) throw new ValidationError(field, `${field} invalide`);
+  return trimmed;
 }
 
 /** Énumération optionnelle : si présent, doit faire partie des valeurs autorisées. */
