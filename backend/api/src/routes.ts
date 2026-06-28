@@ -27,6 +27,11 @@ const wrap = (fn: (req: any, res: any) => Promise<void>) => (req: any, res: any)
   });
 
 // ---------------------------------------------------------------- Auth (mock)
+// GET /api/auth/login : souvent ouvert par erreur dans le navigateur (la connexion est un POST).
+api.get("/auth/login", (_req, res) => {
+  res.redirect(302, "https://monprofperso.com/admin/");
+});
+
 api.post("/auth/login", wrap(async (req, res) => {
   const phone = optionalPhone(req.body);
   const r = await pool.query("SELECT * FROM users WHERE phone = $1", [phone ?? "+2250758421903"]);

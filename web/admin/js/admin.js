@@ -48,6 +48,9 @@ async function api(path, { method = "GET", body, headers = {} } = {}) {
     try { data = JSON.parse(text); } catch (_) { /* corps non JSON */ }
   }
   if (!res.ok) {
+    if (res.status === 404) {
+      throw new Error("Page API introuvable. Ouvrez https://monprofperso.com/admin/ pour vous connecter.");
+    }
     const err = new Error((data && (data.message || data.error)) || ("Erreur " + res.status));
     err.status = res.status;
     err.data = data;

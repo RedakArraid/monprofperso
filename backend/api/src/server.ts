@@ -14,6 +14,20 @@ app.use(requestLogger);
 app.use(express.json({ limit: "15mb" }));
 
 app.get("/health", (_req, res) => res.json({ status: "ok", service: "monprofperso-api" }));
+
+// api.monprofperso.com sert uniquement l'API : redirige vers le site / admin si ouvert dans le navigateur.
+const SITE = "https://monprofperso.com";
+app.get("/", (req, res, next) => {
+  if (String(req.get("host") || "").includes("api.")) {
+    res.redirect(302, `${SITE}/admin/`);
+    return;
+  }
+  next();
+});
+app.get(/^\/admin(?:\/.*)?$/, (_req, res) => {
+  res.redirect(302, `${SITE}/admin/`);
+});
+
 app.use("/api", api);
 
 // Toute autre route -> 404 JSON, puis filet de sécurité pour les erreurs non gérées.
