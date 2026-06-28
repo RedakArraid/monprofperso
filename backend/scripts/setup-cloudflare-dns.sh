@@ -36,8 +36,12 @@ upsert_a() {
 upsert_a "monprofperso.com" "monprofperso.com"
 upsert_a "www" "www.monprofperso.com"
 upsert_a "api" "api.monprofperso.com"
+upsert_a "staging" "staging.monprofperso.com"
+upsert_a "staging-api" "staging-api.monprofperso.com"
 
 echo "DNS OK → ${ORIGIN_IP}"
 echo "  monprofperso.com"
 echo "  www.monprofperso.com"
 echo "  api.monprofperso.com"
+echo "  staging.monprofperso.com"
+echo "  staging-api.monprofperso.com"

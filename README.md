@@ -52,3 +52,16 @@ même patron et restent fidèles à la maquette hors-ligne.
 Mêmes couleurs (vert `#0E5A43`, orange `#E8722A`, crème `#ECE7DE`), mêmes polices
 **Schibsted Grotesk** + **Hanken Grotesk** (bundlées dans les deux apps), icônes
 Material (Android) / SF Symbols (iOS).
+
+## Workflow dev → staging → prod
+Développement local sur **`dev`**, tests sur **staging** (VPS), production sur **`prod`**.
+
+```bash
+# 1. Après push sur dev :
+./scripts/release-staging.sh
+
+# 2. Après validation staging :
+./scripts/release-prod.sh --yes
+```
+
+Guide complet : [`docs/WORKFLOW.md`](docs/WORKFLOW.md).

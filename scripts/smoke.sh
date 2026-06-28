@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Smoke test HTTP — usage : ./scripts/smoke.sh [web_base_url]
+# Ex. prod  : ./scripts/smoke.sh https://monprofperso.com
+# Ex. staging : ./scripts/smoke.sh https://staging.monprofperso.com
+set -euo pipefail
+
+WEB="${1:-https://monprofperso.com}"
+WEB="${WEB%/}"
+
+echo "==> Smoke ${WEB}"
+
+code=$(curl -sS -o /dev/null -w "%{http_code}" "${WEB}/")
+echo "  GET /           → HTTP ${code}"
+[ "$code" = "200" ]
+
+code=$(curl -sS -o /dev/null -w "%{http_code}" "${WEB}/admin/")
+echo "  GET /admin/     → HTTP ${code}"
+[ "$code" = "200" ]
+
+body=$(curl -sS -X POST "${WEB}/api/auth/login" \
+  -H "content-type: application/json" \
+  -d '{"phone":"+2250700000001"}')
+echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['user']['role']=='admin', d; print('  POST login      → admin OK')"
+
+code=$(curl -sS -o /dev/null -w "%{http_code}" "${WEB}/api/subjects")
+echo "  GET /api/subjects → HTTP ${code}"
+[ "$code" = "200" ]
+
+echo "==> Smoke OK"

@@ -197,9 +197,16 @@ Vert `#0E5A43`, orange `#E8722A`, crème `#ECE7DE`. Polices **Schibsted Grotesk*
 
 ## État Git & workflow de branches
 Remote : `github.com/RedakArraid/monprofperso`. **Trois branches au long cours** :
-- **`dev`** — intégration : c'est là qu'on développe et qu'on pousse en premier.
-- **`staging`** — pré-production : merge depuis `dev` quand une itération est prête à tester.
-- **`prod`** — production : merge depuis `staging` ; **c'est cette branche qui est déployée sur le VPS**.
+- **`dev`** — intégration : développement **local** (`docker compose up` dans `backend/`).
+- **`staging`** — pré-production : merge depuis `dev`, déployée sur le VPS
+  (`staging.monprofperso.com`, dossier `/root/monprofperso-staging`).
+- **`prod`** — production : merge depuis `staging` ; déployée sur le VPS
+  (`monprofperso.com`, dossier `/root/monprofperso`).
 
-Flux : `dev` → (merge) → `staging` → (merge) → `prod` → déploiement (`./deploy-monprofperso.sh`).
-`main` reste l'historique de référence. Ne jamais déployer depuis `dev`/`staging`.
+**Rituel** (détail : `docs/WORKFLOW.md`) :
+1. Coder en local sur `dev`, push `origin dev`.
+2. `./scripts/release-staging.sh` → merge dev→staging, deploy VPS staging, tester.
+3. `./scripts/release-prod.sh --yes` → merge staging→prod, deploy VPS prod.
+
+Scripts : `scripts/release-staging.sh`, `scripts/release-prod.sh`, `scripts/smoke.sh`.
+`main` reste l'historique de référence. Ne jamais déployer prod depuis `dev`.
