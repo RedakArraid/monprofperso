@@ -4,7 +4,7 @@
 # Ex. staging : ./scripts/smoke.sh https://staging.monprofperso.com
 set -euo pipefail
 
-WEB="${1:-https://monprofperso.com}"
+WEB="${1:-https://www.monprofperso.com}"
 WEB="${WEB%/}"
 
 echo "==> Smoke ${WEB}"
@@ -34,3 +34,13 @@ body=$(curl -sS "${WEB}/api/teacher-applications/status?phone=%2B2250700000099")
 echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); assert 'status' in d, d; print('  GET teacher-applications/status → OK')"
 
 echo "==> Smoke OK"
+
+# Prod : l'apex doit rediriger vers www (canonique Traefik).
+if [[ "$WEB" == "https://www.monprofperso.com" ]]; then
+  loc=$(curl -sS -o /dev/null -w "%{http_code} %{redirect_url}" -L --max-redirs 0 "https://monprofperso.com/" || true)
+  code="${loc%% *}"
+  target="${loc#* }"
+  echo "  GET apex → ${code} ${target}"
+  [ "$code" = "301" ] || [ "$code" = "308" ] || { echo "WARN: apex sans redirect 301"; }
+  [[ "$target" == https://www.monprofperso.com/* ]] || [[ "$target" == https://www.monprofperso.com ]] || { echo "WARN: redirect apex inattendu"; }
+fi

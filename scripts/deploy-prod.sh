@@ -33,7 +33,7 @@ for i in $(seq 1 30); do
 done
 
 if [ -f scripts/smoke.sh ]; then
-  bash scripts/smoke.sh https://monprofperso.com || echo "WARN: smoke prod échoué"
+  bash scripts/smoke.sh https://www.monprofperso.com || echo "WARN: smoke prod échoué"
 fi
 
-echo "Done. Web: https://monprofperso.com | API: https://api.monprofperso.com"
+echo "Done. Web: https://www.monprofperso.com | API: https://api.monprofperso.com"
