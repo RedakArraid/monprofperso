@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - Écran 9 — Réservation du cours
+// MARK: - Écran 9, Réservation du cours
 struct BookingScreen: View {
     @EnvironmentObject var router: Router
     @State private var format = 0
@@ -143,7 +143,7 @@ struct BookingScreen: View {
     }
 }
 
-// MARK: - Écran 10 — Paiement Mobile Money
+// MARK: - Écran 10, Paiement Mobile Money
 struct PaymentScreen: View {
     @EnvironmentObject var router: Router
     @State private var method = 0
@@ -235,7 +235,7 @@ struct PaymentScreen: View {
     }
 }
 
-// MARK: - Écran 11 — Cours confirmé
+// MARK: - Écran 11, Cours confirmé
 struct ConfirmedScreen: View {
     @EnvironmentObject var router: Router
     var body: some View {

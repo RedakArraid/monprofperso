@@ -65,7 +65,7 @@ object FallbackData {
 
     val progress = ProgressDto(
         student = "Kouadio, 3ᵉ", average = "13,2", trend = "+1,4",
-        goal = "Objectif BEPC : 14/20 — vous y êtes presque !",
+        goal = "Objectif BEPC : 14/20, vous y êtes presque !",
         subjects = listOf(
             ProgressSubjectDto("Mathématiques", "14/20", 0.70, false),
             ProgressSubjectDto("Physique-Chimie", "12/20", 0.60, false),

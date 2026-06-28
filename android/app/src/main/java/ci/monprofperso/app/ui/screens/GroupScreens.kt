@@ -31,7 +31,7 @@ import ci.monprofperso.app.ui.theme.Hanken
 import ci.monprofperso.app.ui.theme.Schibsted
 
 /* ====================================================================== *
- * ÉCRAN 26 — COURS EN GROUPE (LISTE)
+ * ÉCRAN 26, COURS EN GROUPE (LISTE)
  * ====================================================================== */
 private data class Group(
     val tag: String, val tagGreen: Boolean, val price: String, val title: String, val detail: String,
@@ -92,7 +92,7 @@ private fun GroupCard(g: Group, onClick: () -> Unit) {
 }
 
 /* ====================================================================== *
- * ÉCRAN 27 — DÉTAIL DU GROUPE
+ * ÉCRAN 27, DÉTAIL DU GROUPE
  * ====================================================================== */
 @Composable
 fun GroupDetailScreen(nav: NavActions) {
@@ -171,7 +171,7 @@ private fun ProgramRow(num: String, text: String) {
 }
 
 /* ====================================================================== *
- * ÉCRAN 28 — AGENDA & DISPONIBILITÉS
+ * ÉCRAN 28, AGENDA & DISPONIBILITÉS
  * ====================================================================== */
 @Composable
 fun AgendaScreen(nav: NavActions) {

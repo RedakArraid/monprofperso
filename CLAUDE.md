@@ -1,4 +1,4 @@
-# CLAUDE.md — Mon Prof Perso
+# CLAUDE.md, Mon Prof Perso
 
 Mémoire projet pour agents IA (Claude Code, Cursor, etc.). Lis ce fichier avant
 toute intervention. Garde-le à jour quand l'architecture change.
@@ -6,7 +6,7 @@ toute intervention. Garde-le à jour quand l'architecture change.
 ## Vue d'ensemble
 Plateforme de **soutien scolaire à domicile en Côte d'Ivoire** (profs vérifiés,
 cours à domicile ou en ligne, paiement Mobile Money, prépa BEPC & BAC).
-Implémentation native de la maquette **« Akwaba — Cours particuliers »** :
+Implémentation native de la maquette **« Akwaba, Cours particuliers »** :
 **37 écrans** reproduits fidèlement sur **deux apps natives** qui consomment
 **une seule API REST commune**.
 
@@ -14,17 +14,17 @@ Statut : **prototype démo fonctionnel** (auth et paiement simulés, mono-utilis
 
 ## Structure du monorepo
 ```
-android/    App Android — Kotlin + Jetpack Compose (~4400 lignes)
-ios/        App iOS     — Swift + SwiftUI (~3080 lignes, 37 vues)
-backend/    API REST commune — Node/TS + Express + PostgreSQL (docker compose)
-web/        Page vitrine (HTML/CSS/JS statique, sans build) — présentation,
+android/    App Android, Kotlin + Jetpack Compose (~4400 lignes)
+ios/        App iOS    , Swift + SwiftUI (~3080 lignes, 37 vues)
+backend/    API REST commune, Node/TS + Express + PostgreSQL (docker compose)
+web/        Page vitrine (HTML/CSS/JS statique, sans build), présentation,
             téléchargement des apps, réseaux sociaux (chargés depuis `/api/settings`).
             `web/admin/` = console d'administration web (connexion par numéro admin ;
             gère profs, cours de groupe, catalogue, ressources, CGU, réseaux sociaux),
             servie sur `/admin/`. Servir `web/` tel quel.
 _maquette/  Maquette HTML d'origine (référence, gitignorée)
 docs/       Présentation .docx + assets, ROADMAP.md, COMPLIANCE.md (légal CI :
-            Loi 2013-450/ARTCI, CEPICI — voir docs/legal/), logo MP² (docs/logo/)
+            Loi 2013-450/ARTCI, CEPICI, voir docs/legal/), logo MP² (docs/logo/)
 ```
 
 ## Backend (`backend/`)
@@ -60,16 +60,16 @@ docs/       Présentation .docx + assets, ROADMAP.md, COMPLIANCE.md (légal CI :
   `1700000006000_course-acceptance` ajoute `courses.accepted` : une réservation
   naît « en attente » et **remonte dans les demandes du prof concerné** jusqu'à
   validation. Enfin `1700000008000_user-consent` ajoute le **consentement** sur
-  `users` (`consent_version`, `consent_at`, `parental_consent`) — conformité
+  `users` (`consent_version`, `consent_at`, `parental_consent`), conformité
   Loi CI N°2013-450 (cf. `docs/COMPLIANCE.md`). Enfin `1700000009000_legal-documents`
-  ajoute `legal_documents` (CGU, confidentialité, mentions légales — PDF géré par
+  ajoute `legal_documents` (CGU, confidentialité, mentions légales, PDF géré par
   l'admin), et `1700000010000_app-settings` ajoute `app_settings` (clé/valeur :
   liens **réseaux sociaux** + coordonnées de contact, gérés par l'admin, lus
   publiquement). Enfin `1700000011000_programs-negotiation` ajoute les **programmes
   scolaires** (`programs` : standard/français jusqu'en Terminale, géré par l'admin),
   `teachers.programs`/`teachers.negotiable`, et les colonnes de **négociation** sur
   `courses` (`negotiable`, `proposed_price`, `proposed_frequency`, `counter_price`,
-  `counter_frequency`, `negotiation_status`) — **23 tables au total**. Suivi dans la table `pgmigrations`.
+  `counter_frequency`, `negotiation_status`), **23 tables au total**. Suivi dans la table `pgmigrations`.
   Créer une migration : `npm run migrate create <nom>` (puis éditer le `.sql`).
 - **Ports (custom, pour éviter les collisions)** : API **8099**, Postgres **5544**,
   Adminer **8098**, MinIO API **9000** / console **8097**, page vitrine web **8095**
@@ -77,7 +77,7 @@ docs/       Présentation .docx + assets, ROADMAP.md, COMPLIANCE.md (légal CI :
   (voir `.env.example`).
 - **Secrets / config** : identifiants DB et ports dans `backend/.env` (non versionné,
   interpolés par `docker-compose.yml`). Copier `.env.example` → `.env` au premier clone.
-- **Validation des entrées** : `api/src/validate.ts` — helpers sans dépendance,
+- **Validation des entrées** : `api/src/validate.ts`, helpers sans dépendance,
   permissifs (les défauts serveur restent) mais rejettent tout champ malformé (HTTP 400).
   `requiredString`/`requiredEnum` pour les écritures admin (champs obligatoires).
 - Endpoints publics/user : `/health`, `/api/auth/{login,signup,verify-otp}`, `/api/me`,
@@ -105,16 +105,15 @@ docs/       Présentation .docx + assets, ROADMAP.md, COMPLIANCE.md (légal CI :
   `PUT /api/admin/settings` (réseaux sociaux + contact). Permet d'ajouter matières (musique, langues
   hors FR/EN…), niveaux (supérieur/universitaire…), ressources pédagogiques
   (cours/devoirs/exercices) avec fichier (uploadé en base64, stocké sur MinIO/S3 ;
-  repli `BYTEA` — voir « Stockage fichiers »), et de gérer les **documents légaux**
+  repli `BYTEA`, voir « Stockage fichiers »), et de gérer les **documents légaux**
   (CGU, confidentialité, mentions légales ; textes sources dans `docs/legal/*.md`).
   **UI côté apps** : deux écrans admin présents sur Android (`ui/screens/AdminScreens.kt`)
-  et iOS (`Screens/AdminScreens.swift`) — « Gérer le catalogue » (matières + niveaux,
+  et iOS (`Screens/AdminScreens.swift`), « Gérer le catalogue » (matières + niveaux,
   routé `AdminCatalog`/`.adminCatalog`) et « Ressources pédagogiques » (cours/devoirs/
-  exercices avec type, matière, niveau, description et **fichier joint optionnel** —
-  sélecteur natif Android SAF `OpenDocument` / iOS `.fileImporter`, encodé base64 et
+  exercices avec type, matière, niveau, description et **fichier joint optionnel**,   sélecteur natif Android SAF `OpenDocument` / iOS `.fileImporter`, encodé base64 et
   envoyé en `contentBase64` ; routé `AdminResources`/`.adminResources`). Côté lecture,
   l'écran utilisateur « Ressources & supports » ouvre le fichier via `/api/files/:id`
-  — les **PDF** dans le **visualiseur in-app** (Android `PdfRenderer` / iOS `PDFKit`,
+ , les **PDF** dans le **visualiseur in-app** (Android `PdfRenderer` / iOS `PDFKit`,
   écran `PdfViewer`/`.pdfViewer`, avec **bouton de partage** : `FileProvider`+`ACTION_SEND`
   Android / `UIActivityViewController` iOS), les autres types en externe (Intent
   `ACTION_VIEW` / `openURL`). Idem pour les documents légaux. Un 3ᵉ écran admin
@@ -124,7 +123,7 @@ docs/       Présentation .docx + assets, ROADMAP.md, COMPLIANCE.md (légal CI :
   iOS → `isAdmin`) ; les entrées admin n'apparaissent dans « Mon compte » que pour un
   admin. Le rôle est désormais **persisté** (Android `TokenStore.role` →
   SharedPreferences, restauré dans `MainActivity` ; iOS `TokenStore.role` →
-  UserDefaults, restauré dans `RootView` init) — l'espace admin survit au redémarrage.
+  UserDefaults, restauré dans `RootView` init), l'espace admin survit au redémarrage.
   La **déconnexion efface le JWT + le rôle** des deux côtés (`Auth.logout()` Android /
   `TokenStore.clear()` iOS). Un raccourci « Démo administrateur » sur l'écran de
   connexion logue le seed admin (`+2250700000001`). La gestion complète des **profs**
@@ -139,8 +138,8 @@ docs/       Présentation .docx + assets, ROADMAP.md, COMPLIANCE.md (légal CI :
   (rétrocompat). Endpoints user-scoped utilisent `currentUserId(res)`. Le rôle est
   porté par le JWT ; `requireAdmin` garde l'espace admin (401 sans token, 403 si non-admin).
   Utilisateur admin de démo : `+2250700000001`.
-  ⚠️ Reste à faire : OTP SMS réel, paiement réel (Phase 1/2 — voir docs/ROADMAP.md).
-- **Tests** : `api/test/*.test.mjs` (runner natif Node, `npm test`, stack live requise) — 52 tests.
+  ⚠️ Reste à faire : OTP SMS réel, paiement réel (Phase 1/2, voir docs/ROADMAP.md).
+- **Tests** : `api/test/*.test.mjs` (runner natif Node, `npm test`, stack live requise), 52 tests.
   `api.test.mjs` = intégration par endpoint ; `e2e.test.mjs` = parcours bout-en-bout
   (inscription→réservation→relecture, isolation JWT entre comptes, repli démo, prof,
   catalogue). Les 20 endpoints sont couverts.
@@ -175,13 +174,13 @@ docker compose down -v   # reset complet (re-seed au prochain up)
 Les écrans live : Accueil, Résultats de recherche, Profil prof, Mes cours, Suivi des progrès,
 Ressources & supports (lecture seule, `Resources`/`.resources`, repli sur exemples hors-ligne),
 l'**espace professeur** (tableau de bord, demandes avec boutons « Accepter »/« Refuser »
-câblés sur `/teacher/requests/:id/{accept,refuse}`, revenus) — branché sur `/teacher/*`
+câblés sur `/teacher/requests/:id/{accept,refuse}`, revenus), branché sur `/teacher/*`
 avec repli mock, et les **Notifications** (`/notifications`, groupées aujourd'hui/semaine ;
 le parent est notifié quand sa réservation est acceptée/refusée).
 Les autres écrans suivent le même patron et restent fidèles à la maquette hors-ligne.
 **États réseau** : composants partagés `OfflineBanner` (bandeau « hors-ligne » + Réessayer,
 sans bloquer le repli mock) et `LoadingRow` (Android `ui/components/NetworkStates.kt`,
-iOS `Components.swift`), appliqués aux écrans Notifications et Demandes prof — patron à
+iOS `Components.swift`), appliqués aux écrans Notifications et Demandes prof, patron à
 généraliser aux autres écrans live.
 
 ## Design system partagé
@@ -192,15 +191,15 @@ Vert `#0E5A43`, orange `#E8722A`, crème `#ECE7DE`. Polices **Schibsted Grotesk*
 - Toute modification d'API doit rester **identique** pour Android et iOS (mêmes modèles).
 - Modifier un modèle → mettre à jour `ApiModels.kt` (Android) ET les types décodés iOS.
 - Garder les valeurs en français (UI destinée à un public ivoirien).
-- Les secrets DB sont en clair dans `docker-compose.yml` — OK en démo, à externaliser
+- Les secrets DB sont en clair dans `docker-compose.yml`, OK en démo, à externaliser
   avant prod.
 
 ## État Git & workflow de branches
 Remote : `github.com/RedakArraid/monprofperso`. **Trois branches au long cours** :
-- **`dev`** — intégration : développement **local** (`docker compose up` dans `backend/`).
-- **`staging`** — pré-production : merge depuis `dev`, déployée sur le VPS
+- **`dev`**, intégration : développement **local** (`docker compose up` dans `backend/`).
+- **`staging`**, pré-production : merge depuis `dev`, déployée sur le VPS
   (`staging.monprofperso.com`, dossier `/root/monprofperso-staging`).
-- **`prod`** — production : merge depuis `staging` ; déployée sur le VPS
+- **`prod`**, production : merge depuis `staging` ; déployée sur le VPS
   (`monprofperso.com`, dossier `/root/monprofperso`).
 
 **Rituel** (détail : `docs/WORKFLOW.md`) :

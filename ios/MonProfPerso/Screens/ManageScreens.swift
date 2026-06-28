@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - Écran 31 — Gérer le cours (annuler / reprogrammer)
+// MARK: - Écran 31, Gérer le cours (annuler / reprogrammer)
 struct ManageCourseScreen: View {
     @EnvironmentObject var router: Router
     @State private var slot = 1
@@ -37,7 +37,7 @@ struct ManageCourseScreen: View {
                         }
                     }.padding(14).background(Color(hex: 0xFBF1E6)).clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous)).padding(.top, 14)
 
-                    Text("Reprogrammer — nouveaux créneaux").font(AkFont.schibstedBold(14)).foregroundColor(Ak.ink).padding(.top, 14)
+                    Text("Reprogrammer, nouveaux créneaux").font(AkFont.schibstedBold(14)).foregroundColor(Ak.ink).padding(.top, 14)
                     HStack(spacing: 8) { rChip("Dim 23 · 14h", 0); rChip("Lun 24 · 17h", 1); rChip("Mar 25 · 16h", 2); Spacer() }.padding(.top, 11)
                 }.padding(.horizontal, 22).padding(.top, 16)
             }
@@ -62,7 +62,7 @@ struct ManageCourseScreen: View {
     }
 }
 
-// MARK: - Écran 32 — Bilan de progression détaillé
+// MARK: - Écran 32, Bilan de progression détaillé
 struct ProgressReportScreen: View {
     @EnvironmentObject var router: Router
     var body: some View {
@@ -125,7 +125,7 @@ struct ProgressReportScreen: View {
     }
 }
 
-// MARK: - Écran 33 — Reçu / facture
+// MARK: - Écran 33, Reçu / facture
 struct ReceiptScreen: View {
     @EnvironmentObject var router: Router
     var body: some View {
@@ -169,7 +169,7 @@ struct ReceiptScreen: View {
                 }.padding(.horizontal, 22).padding(.top, 16)
             }
             HStack(spacing: 10) {
-                ShareLink(item: "Reçu Mon Prof Perso N° AKW-2058 — Cours de Maths · 3ᵉ avec Koffi N'Guessan — Total payé 6 000 F (Orange Money).") {
+                ShareLink(item: "Reçu Mon Prof Perso N° AKW-2058, Cours de Maths · 3ᵉ avec Koffi N'Guessan, Total payé 6 000 F (Orange Money).") {
                     HStack(spacing: 0) { Image(systemName: "square.and.arrow.up").font(.system(size: 15)).foregroundColor(Ak.inkSoft); Text("  Partager").font(AkFont.bold(14)).foregroundColor(Ak.inkSoft) }
                         .frame(maxWidth: .infinity).padding(.vertical, 15).background(.white).clipShape(RoundedRectangle(cornerRadius: 14)).overlay(RoundedRectangle(cornerRadius: 14).stroke(Ak.border, lineWidth: 1))
                 }

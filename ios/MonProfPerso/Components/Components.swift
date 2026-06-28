@@ -69,7 +69,7 @@ struct OfflineBanner: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "wifi.slash").font(.system(size: 13, weight: .semibold)).foregroundColor(Ak.orange)
-            Text("Hors-ligne — données de démonstration").font(AkFont.semibold(12)).foregroundColor(Color(hex: 0x8A5B33))
+            Text("Hors-ligne, données de démonstration").font(AkFont.semibold(12)).foregroundColor(Color(hex: 0x8A5B33))
             Spacer()
             Text("Réessayer").font(AkFont.bold(12)).foregroundColor(Ak.orange)
                 .contentShape(Rectangle()).onTapGesture { onRetry() }

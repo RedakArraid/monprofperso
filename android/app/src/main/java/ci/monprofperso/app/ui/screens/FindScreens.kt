@@ -55,7 +55,7 @@ private val subjects = listOf(
 )
 
 /* ====================================================================== *
- * ÉCRAN 5 — ACCUEIL
+ * ÉCRAN 5, ACCUEIL
  * ====================================================================== */
 @Composable
 fun HomeScreen(nav: NavActions, vm: ci.monprofperso.app.data.HomeViewModel = androidx.lifecycle.viewmodel.compose.viewModel()) {
@@ -174,7 +174,7 @@ private fun RecoTeacher(
 }
 
 /* ====================================================================== *
- * ÉCRAN 6 — RÉSULTATS DE RECHERCHE
+ * ÉCRAN 6, RÉSULTATS DE RECHERCHE
  * ====================================================================== */
 /** Mappe une matière API vers le modèle d'affichage (avec icône Material). */
 private fun ci.monprofperso.app.data.SubjectDto.toSubject(): Subject =
@@ -302,7 +302,7 @@ private fun SearchTeacherCard(t: Teacher, onClick: () -> Unit) {
 }
 
 /* ====================================================================== *
- * ÉCRAN 7 — FILTRES
+ * ÉCRAN 7, FILTRES
  * ====================================================================== */
 @Composable
 fun FiltersScreen(nav: NavActions) {
@@ -366,7 +366,7 @@ private fun SingleChips(options: List<String>, selected: Int, onSelect: (Int) ->
 }
 
 /* ====================================================================== *
- * ÉCRAN 8 — PROFIL DU PROFESSEUR
+ * ÉCRAN 8, PROFIL DU PROFESSEUR
  * ====================================================================== */
 @Composable
 fun TeacherProfileScreen(nav: NavActions, vm: ci.monprofperso.app.data.TeacherProfileViewModel = androidx.lifecycle.viewmodel.compose.viewModel()) {

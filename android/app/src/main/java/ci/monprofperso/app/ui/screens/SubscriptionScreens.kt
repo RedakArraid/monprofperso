@@ -33,7 +33,7 @@ import ci.monprofperso.app.ui.theme.Hanken
 import ci.monprofperso.app.ui.theme.Schibsted
 
 /* ====================================================================== *
- * ÉCRAN 23 — FORMULES D'ABONNEMENT
+ * ÉCRAN 23, FORMULES D'ABONNEMENT
  * ====================================================================== */
 @Composable
 fun SubscriptionPlansScreen(nav: NavActions) {
@@ -132,7 +132,7 @@ private fun IncludedRow(text: String, last: Boolean = false) {
 }
 
 /* ====================================================================== *
- * ÉCRAN 24 — ACTIVATION & PAIEMENT
+ * ÉCRAN 24, ACTIVATION & PAIEMENT
  * ====================================================================== */
 @Composable
 fun SubscriptionActivationScreen(nav: NavActions) {
@@ -211,7 +211,7 @@ private fun ActivationPayment(tint: Color, icon: ImageVector, title: String, sub
 }
 
 /* ====================================================================== *
- * ÉCRAN 25 — MON ABONNEMENT
+ * ÉCRAN 25, MON ABONNEMENT
  * ====================================================================== */
 @Composable
 fun MySubscriptionScreen(nav: NavActions) {

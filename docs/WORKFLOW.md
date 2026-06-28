@@ -1,4 +1,4 @@
-# Rituel de développement — Mon Prof Perso
+# Rituel de développement, Mon Prof Perso
 
 Trois branches longues sur GitHub : **`dev`** → **`staging`** → **`prod`**.
 

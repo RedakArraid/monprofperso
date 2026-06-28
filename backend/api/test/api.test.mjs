@@ -1,4 +1,4 @@
-// Tests d'intégration de l'API — runner natif Node (`node --test`), zéro dépendance.
+// Tests d'intégration de l'API, runner natif Node (`node --test`), zéro dépendance.
 //
 // Prérequis : la stack tourne (`docker compose up -d`). Cible configurable :
 //   API_URL=http://localhost:8099 node --test

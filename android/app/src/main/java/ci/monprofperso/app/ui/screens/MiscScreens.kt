@@ -35,7 +35,7 @@ import ci.monprofperso.app.ui.theme.Hanken
 import ci.monprofperso.app.ui.theme.Schibsted
 
 /* ====================================================================== *
- * ÉCRAN 34 — CENTRE D'AIDE & FAQ
+ * ÉCRAN 34, CENTRE D'AIDE & FAQ
  * ====================================================================== */
 @Composable
 fun HelpFaqScreen(nav: NavActions) {
@@ -105,7 +105,7 @@ private fun FaqQuestion(q: String) {
 private fun FaqDivider() = Box(Modifier.fillMaxWidth().padding(horizontal = 15.dp).height(1.dp).background(AkColors.CardField))
 
 /* ====================================================================== *
- * ÉCRAN 35 — PARAMÈTRES
+ * ÉCRAN 35, PARAMÈTRES
  * ====================================================================== */
 @Composable
 fun SettingsScreen(nav: NavActions) {
@@ -194,7 +194,7 @@ private fun NavRow(icon: ImageVector, label: String) {
 }
 
 /* ====================================================================== *
- * ÉCRAN 36 — PARRAINAGE
+ * ÉCRAN 36, PARRAINAGE
  * ====================================================================== */
 @Composable
 fun ReferralScreen(nav: NavActions) {
@@ -246,7 +246,7 @@ fun ReferralScreen(nav: NavActions) {
 }
 
 /* ====================================================================== *
- * ÉCRAN 37 — ÉTAT VIDE & HORS-LIGNE
+ * ÉCRAN 37, ÉTAT VIDE & HORS-LIGNE
  * ====================================================================== */
 @Composable
 fun EmptyStateScreen(nav: NavActions) {

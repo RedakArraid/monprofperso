@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex, nofollow" />
-  <title>Administration — Mon Prof Perso</title>
+  <title>Administration, Mon Prof Perso</title>
   <link rel="icon" href="../assets/mp2-logo.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -62,7 +62,7 @@
   <div class="toast" id="toast" hidden></div>
 
   <script>
-    // Toujours same-origin en prod (proxy nginx /api) — même si un ancien admin.js est en cache.
+    // Toujours same-origin en prod (proxy nginx /api), même si un ancien admin.js est en cache.
     window.MPP_API_BASE = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
       ? "http://localhost:8099"
       : location.origin;

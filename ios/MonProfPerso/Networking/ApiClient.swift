@@ -35,7 +35,7 @@ enum TokenStore {
     static func clear() { token = nil; role = nil }
 }
 
-// MARK: - Modèles (Codable) — mêmes champs que les DTO Android
+// MARK: - Modèles (Codable), mêmes champs que les DTO Android
 
 struct SubjectDTO: Codable, Identifiable {
     var id: String { slug }
@@ -200,7 +200,7 @@ struct ApiClient {
         try JSONDecoder().decode(T.self, from: try await request(path))
     }
 
-    // MARK: Authentification — récupère le JWT et le persiste dans TokenStore.
+    // MARK: Authentification, récupère le JWT et le persiste dans TokenStore.
     // Tolérant aux pannes : en cas d'échec, l'app continue en mode démo (repli serveur).
     private static let apiRoles = ["parent", "student", "teacher"]
 
@@ -373,9 +373,9 @@ extension Fallback {
         payouts: [.init(provider: "Retrait Wave", date: "15 juin", amount: 60000, color: "wave"),
                   .init(provider: "Retrait Orange Money", date: "1 juin", amount: 80000, color: "orange")])
     static let resources: [ResourceDTO] = [
-        .init(id: 1, type: "course", subject_slug: "maths", level: "3eme", title: "Fiche — Théorème de Thalès", description: "Rappels de cours et exemples corrigés.", file_name: nil, mime_type: nil, size_bytes: nil, created_at: nil),
-        .init(id: 2, type: "exercise", subject_slug: "physique", level: "2nde", title: "Série d'exercices — Optique", description: "10 exercices progressifs avec corrigés.", file_name: nil, mime_type: nil, size_bytes: nil, created_at: nil),
-        .init(id: 3, type: "homework", subject_slug: "francais", level: "1ere", title: "Devoir — Commentaire de texte", description: "Sujet type BAC à rendre.", file_name: nil, mime_type: nil, size_bytes: nil, created_at: nil),
+        .init(id: 1, type: "course", subject_slug: "maths", level: "3eme", title: "Fiche, Théorème de Thalès", description: "Rappels de cours et exemples corrigés.", file_name: nil, mime_type: nil, size_bytes: nil, created_at: nil),
+        .init(id: 2, type: "exercise", subject_slug: "physique", level: "2nde", title: "Série d'exercices, Optique", description: "10 exercices progressifs avec corrigés.", file_name: nil, mime_type: nil, size_bytes: nil, created_at: nil),
+        .init(id: 3, type: "homework", subject_slug: "francais", level: "1ere", title: "Devoir, Commentaire de texte", description: "Sujet type BAC à rendre.", file_name: nil, mime_type: nil, size_bytes: nil, created_at: nil),
     ]
     static let courses: [CourseDTO] = [
         .init(id: 1, teacher_name: "Koffi N'Guessan", subject: "Maths", level: "3ᵉ", day_label: "SAM", day_num: "22", time: "16h00", duration: "1h30", format: "home", location: "À domicile, Cocody", price: 6000, status: "upcoming", badge: "Dans 2 jours"),
@@ -384,7 +384,7 @@ extension Fallback {
     ]
     static let progress = ProgressDTO(
         student: "Kouadio, 3ᵉ", average: "13,2", trend: "+1,4",
-        goal: "Objectif BEPC : 14/20 — vous y êtes presque !",
+        goal: "Objectif BEPC : 14/20, vous y êtes presque !",
         subjects: [
             .init(subject: "Mathématiques", grade: "14/20", fraction: 0.70, warn: false),
             .init(subject: "Physique-Chimie", grade: "12/20", fraction: 0.60, warn: false),

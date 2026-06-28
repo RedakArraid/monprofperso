@@ -1,5 +1,5 @@
 # =============================================================================
-# Mon Prof Perso — STAGING (VPS Contabo + Traefik)
+# Mon Prof Perso, STAGING (VPS Contabo + Traefik)
 # =============================================================================
 #   docker compose -f docker-compose.staging.yml --env-file .env.staging up -d --build
 #   Web : https://staging.monprofperso.com  |  API : https://staging-api.monprofperso.com

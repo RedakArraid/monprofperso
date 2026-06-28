@@ -1,4 +1,4 @@
-// Authentification JWT (HS256) — implémentée avec le module `crypto` natif,
+// Authentification JWT (HS256), implémentée avec le module `crypto` natif,
 // sans dépendance externe.
 //
 // Stratégie de migration *rétrocompatible* :

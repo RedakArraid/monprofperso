@@ -42,7 +42,7 @@ fun OfflineBanner(onRetry: () -> Unit, modifier: Modifier = Modifier) {
         Icon(Icons.Filled.CloudOff, null, tint = AkColors.Orange, modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(8.dp))
         Text(
-            "Hors-ligne — données de démonstration", fontFamily = Hanken, fontWeight = FontWeight.SemiBold,
+            "Hors-ligne, données de démonstration", fontFamily = Hanken, fontWeight = FontWeight.SemiBold,
             fontSize = 12.sp, color = Color(0xFF8A5B33), modifier = Modifier.weight(1f),
         )
         Text(

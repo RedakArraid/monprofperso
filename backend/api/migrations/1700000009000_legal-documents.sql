@@ -1,6 +1,6 @@
 -- Up Migration
 -- Documents légaux gérables par l'admin (CGU, politique de confidentialité,
--- mentions légales) — conformité Loi CI N°2013-450 (cf. docs/COMPLIANCE.md).
+-- mentions légales), conformité Loi CI N°2013-450 (cf. docs/COMPLIANCE.md).
 -- Chaque document est un singleton identifié par son slug ; l'admin téléverse un
 -- PDF (stocké sur MinIO/S3 via storage_key, repli BYTEA) et versionne le texte.
 -- Les textes sources rédigés vivent dans docs/legal/*.md.

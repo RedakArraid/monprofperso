@@ -1,4 +1,4 @@
-# Page vitrine — Mon Prof Perso (web)
+# Page vitrine, Mon Prof Perso (web)
 
 Site statique (HTML/CSS/JS, **sans build ni dépendance**) présentant le projet,
 permettant de télécharger les applications et renvoyant vers les réseaux sociaux.
@@ -16,7 +16,7 @@ web/
 ## Lancer en local
 Aucun build. Deux options :
 
-**Via docker compose** (recommandé — service `web`, nginx) :
+**Via docker compose** (recommandé, service `web`, nginx) :
 ```bash
 cd backend && docker compose up -d web   # → http://localhost:8095
 ```
@@ -36,5 +36,5 @@ Nginx, un bucket…). Pointer la racine du site sur `web/`.
   des `.store-badge` par les URL Google Play / App Store réelles.
 - **Réseaux sociaux** : dans le `<footer>`, remplacer les `href="#"` des `.social`
   (Facebook, Instagram, TikTok, WhatsApp, LinkedIn, X) par les vraies URL.
-- **Liens légaux** : footer « Légal » — pointer vers les pages CGU / confidentialité /
+- **Liens légaux** : footer « Légal », pointer vers les pages CGU / confidentialité /
   mentions publiées (textes sources dans `docs/legal/`).

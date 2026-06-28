@@ -1,4 +1,4 @@
-# Politique de confidentialité — Mon Prof Perso (MP²)
+# Politique de confidentialité, Mon Prof Perso (MP²)
 
 **Version : 2026-06**
 
@@ -75,4 +75,4 @@ La présente politique peut évoluer ; la version applicable est identifiée par
 numéro (ci-dessus).
 
 ## 12. Contact
-⟨adresse e-mail / postale⟩ — ARTCI : 18 BP 2203 Abidjan 18, www.artci.ci.
+⟨adresse e-mail / postale⟩, ARTCI : 18 BP 2203 Abidjan 18, www.artci.ci.

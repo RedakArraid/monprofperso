@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - Écran 34 — Centre d'aide & FAQ
+// MARK: - Écran 34, Centre d'aide & FAQ
 struct HelpFaqScreen: View {
     @EnvironmentObject var router: Router
     var body: some View {
@@ -54,7 +54,7 @@ struct HelpFaqScreen: View {
     func faqDivider() -> some View { Rectangle().fill(Ak.cardField).frame(height: 1).padding(.horizontal, 15) }
 }
 
-// MARK: - Écran 35 — Paramètres
+// MARK: - Écran 35, Paramètres
 struct SettingsScreen: View {
     @EnvironmentObject var router: Router
     @State private var rappels = true
@@ -121,7 +121,7 @@ struct SettingsScreen: View {
     }
 }
 
-// MARK: - Écran 36 — Parrainage
+// MARK: - Écran 36, Parrainage
 struct ReferralScreen: View {
     @EnvironmentObject var router: Router
     @State private var copied = false
@@ -164,7 +164,7 @@ struct ReferralScreen: View {
     }
 }
 
-// MARK: - Écran 37 — État vide & hors-ligne
+// MARK: - Écran 37, État vide & hors-ligne
 struct EmptyStateScreen: View {
     @EnvironmentObject var router: Router
     var body: some View {

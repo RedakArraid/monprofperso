@@ -43,7 +43,7 @@ import ci.monprofperso.app.ui.theme.Hanken
 import ci.monprofperso.app.ui.theme.Schibsted
 
 /* ====================================================================== *
- * ÉCRAN 1 — BIENVENUE & CHOIX DU RÔLE
+ * ÉCRAN 1, BIENVENUE & CHOIX DU RÔLE
  * ====================================================================== */
 @Composable
 fun WelcomeScreen(nav: NavActions) {
@@ -149,7 +149,7 @@ private fun RoleOption(icon: ImageVector, title: String, subtitle: String, selec
 }
 
 /* ====================================================================== *
- * ÉCRAN 2 — INSCRIPTION
+ * ÉCRAN 2, INSCRIPTION
  * ====================================================================== */
 @Composable
 fun SignupScreen(nav: NavActions) {
@@ -190,7 +190,7 @@ fun SignupScreen(nav: NavActions) {
                     modifier = Modifier.clickable { nav.back() })
             }
             Spacer(Modifier.height(8.dp))
-            // Rôle choisi à l'accueil — affiché, pas redemandé.
+            // Rôle choisi à l'accueil, affiché, pas redemandé.
             Row(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(AkColors.GreenSoft)
                     .padding(horizontal = 14.dp, vertical = 12.dp),
@@ -282,7 +282,7 @@ fun PhoneField(value: String = "07 58 42 19 03") {
 }
 
 /* ====================================================================== *
- * ÉCRAN 3 — CONNEXION
+ * ÉCRAN 3, CONNEXION
  * ====================================================================== */
 @Composable
 fun LoginScreen(nav: NavActions) {
@@ -405,7 +405,7 @@ private fun ConsentCheckboxLinked(checked: Boolean, onToggle: () -> Unit, onOpen
 }
 
 /* ====================================================================== *
- * ÉCRAN 4 — VÉRIFICATION (OTP)
+ * ÉCRAN 4, VÉRIFICATION (OTP)
  * ====================================================================== */
 @Composable
 fun OtpScreen(nav: NavActions) {

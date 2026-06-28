@@ -1,5 +1,5 @@
 # ======================================================================
-# Mon Prof Perso — stack backend partagée (Android + iOS consomment la même API)
+# Mon Prof Perso, stack backend partagée (Android + iOS consomment la même API)
 #
 # Les identifiants et ports sont lus depuis `.env` (non versionné ; voir
 # .env.example). Les valeurs ${VAR:-defaut} permettent un démarrage immédiat
@@ -25,7 +25,7 @@ services:
     volumes:
       - monprofperso_pgdata:/var/lib/postgresql/data
       # Le schéma et le seed sont gérés par les migrations (node-pg-migrate),
-      # appliquées au démarrage de l'API — plus de init.sql ici.
+      # appliquées au démarrage de l'API, plus de init.sql ici.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-monprofperso} -d ${POSTGRES_DB:-monprofperso}"]
       interval: 5s
@@ -35,7 +35,7 @@ services:
   # Stockage objet S3-compatible pour les fichiers de ressources (durable,
   # hors-Postgres). API S3 sur ${MINIO_API_PORT:-9000}, console web sur
   # ${MINIO_CONSOLE_PORT:-8097}.
-  # MinIO local — optionnel si S3_ENDPOINT pointe vers Cloudflare R2 (voir .env).
+  # MinIO local, optionnel si S3_ENDPOINT pointe vers Cloudflare R2 (voir .env).
   # Démarrer avec : docker compose --profile local-minio up -d
   minio:
     profiles: ["local-minio"]

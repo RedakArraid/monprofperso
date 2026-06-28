@@ -27,7 +27,7 @@ import ci.monprofperso.app.ui.theme.Hanken
 import ci.monprofperso.app.ui.theme.Schibsted
 
 /* ====================================================================== *
- * ÉCRAN UTILISATEUR — DOCUMENTS LÉGAUX (lecture)
+ * ÉCRAN UTILISATEUR, DOCUMENTS LÉGAUX (lecture)
  * Liste les CGU / confidentialité / mentions ; ouvre le PDF via /legal/:slug/file.
  * ====================================================================== */
 @Composable

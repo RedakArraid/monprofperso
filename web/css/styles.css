@@ -1,5 +1,5 @@
 /* ====================================================================== *
- * Mon Prof Perso — page vitrine. Charte : vert #0E5A43, orange #E8722A,
+ * Mon Prof Perso, page vitrine. Charte : vert #0E5A43, orange #E8722A,
  * crème #ECE7DE. Polices Schibsted Grotesk (titres) + Hanken Grotesk (texte).
  * ====================================================================== */
 :root {
@@ -110,6 +110,7 @@ img { max-width: 100%; display: block; }
   position: absolute; background: #fff; border: 1px solid var(--border);
   box-shadow: var(--shadow-sm); border-radius: 14px; padding: 10px 14px;
   font-weight: 600; font-size: 13px; color: var(--ink);
+  display: flex; align-items: center; gap: 6px;
 }
 .floaty-1 { top: 56px; left: -22px; }
 .floaty-2 { bottom: 70px; right: -30px; }
@@ -143,11 +144,14 @@ img { max-width: 100%; display: block; }
 .card:hover { transform: translateY(-4px); box-shadow: var(--shadow); }
 .card-icon {
   width: 52px; height: 52px; border-radius: 15px; background: var(--green-soft);
-  display: grid; place-items: center; font-size: 24px; margin-bottom: 16px;
+  display: grid; place-items: center; margin-bottom: 16px;
 }
-.card h3 { font-size: 19px; font-weight: 700; margin-bottom: 8px; }
-.card p { color: var(--muted); font-size: 15px; }
+.card-icon .ui-icon { width: 28px; height: 28px; color: var(--green); }
 .card.audience .card-icon { background: var(--orange-soft); }
+.card.audience .card-icon .ui-icon { color: var(--orange); }
+.ui-icon { display: block; fill: currentColor; }
+.ui-icon-sm { width: 18px; height: 18px; flex-shrink: 0; }
+.ui-icon-stat { width: 32px; height: 32px; margin: 0 auto 10px; color: var(--green); }
 
 /* Steps */
 .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }

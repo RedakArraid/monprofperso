@@ -35,7 +35,7 @@ import ci.monprofperso.app.ui.theme.Hanken
 import ci.monprofperso.app.ui.theme.Schibsted
 
 /* ====================================================================== *
- * ÉCRAN 20 — TABLEAU DE BORD PROF
+ * ÉCRAN 20, TABLEAU DE BORD PROF
  * ====================================================================== */
 @Composable
 fun TeacherDashboardScreen(nav: NavActions) {
@@ -146,7 +146,7 @@ private fun MiniStat(value: String, label: String, modifier: Modifier = Modifier
 }
 
 /* ====================================================================== *
- * ÉCRAN 21 — DEMANDES DE COURS
+ * ÉCRAN 21, DEMANDES DE COURS
  * ====================================================================== */
 private val fallbackRequests = listOf(
     ci.monprofperso.app.data.TeacherRequestDto(null, "FB", "green", "Fatou Bamba", "il y a 1 h", 6000, "Awa · 2nde", "Mathématiques", "Sam. 28 juin · 15h00", "À domicile · Marcory"),
@@ -239,10 +239,10 @@ private fun RequestCard(r: ci.monprofperso.app.data.TeacherRequestDto, onRefuse:
             Text(priceLabel, fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, color = AkColors.Green)
         }
         Spacer(Modifier.height(13.dp))
-        DetailLine("Élève", r.student ?: "—")
-        DetailLine("Matière", r.subject ?: "—")
-        DetailLine("Créneau", r.slot ?: "—")
-        DetailLine("Format", r.format ?: "—")
+        DetailLine("Élève", r.student ?: "-")
+        DetailLine("Matière", r.subject ?: "-")
+        DetailLine("Créneau", r.slot ?: "-")
+        DetailLine("Format", r.format ?: "-")
         if (hasProposal) {
             Column(Modifier.fillMaxWidth().padding(top = 4.dp).clip(RoundedCornerShape(12.dp)).background(AkColors.OrangeSoft).padding(11.dp)) {
                 Text("Proposition du client", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 11.5.sp, color = AkColors.Orange)
@@ -251,7 +251,7 @@ private fun RequestCard(r: ci.monprofperso.app.data.TeacherRequestDto, onRefuse:
             }
         }
         if (r.negotiationStatus == "countered") {
-            Text("Contre-proposition envoyée — en attente du client", fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 11.5.sp, color = AkColors.Orange, modifier = Modifier.padding(top = 8.dp))
+            Text("Contre-proposition envoyée, en attente du client", fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 11.5.sp, color = AkColors.Orange, modifier = Modifier.padding(top = 8.dp))
         }
         Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
             Box(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(AkColors.White).border(1.dp, AkColors.Border, RoundedCornerShape(12.dp)).clickable { onRefuse() }.padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
@@ -309,7 +309,7 @@ private fun DetailLine(label: String, value: String) {
 }
 
 /* ====================================================================== *
- * ÉCRAN 22 — REVENUS
+ * ÉCRAN 22, REVENUS
  * ====================================================================== */
 @Composable
 fun EarningsScreen(nav: NavActions) {

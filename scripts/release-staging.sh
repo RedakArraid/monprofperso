@@ -7,20 +7,20 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 SSH_HOST="${MP2_SSH:-vps-contabo}"
 
-echo "==> 1/4 — Vérifier dev"
+echo "==> 1/4, Vérifier dev"
 git fetch origin
 git checkout dev
 git pull --ff-only origin dev
 
-echo "==> 2/4 — Merger dev → staging"
+echo "==> 2/4, Merger dev → staging"
 git checkout staging
 git pull --ff-only origin staging
 git merge dev --no-edit
 
-echo "==> 3/4 — Pousser staging"
+echo "==> 3/4, Pousser staging"
 git push origin staging
 
-echo "==> 4/4 — Déployer sur le VPS (branche staging)"
+echo "==> 4/4, Déployer sur le VPS (branche staging)"
 ssh "$SSH_HOST" "bash -s" < "$ROOT/scripts/deploy-staging.sh"
 
 echo ""

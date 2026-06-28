@@ -1,6 +1,6 @@
 -- Up Migration
 -- Socle de conformité (Loi CI N°2013-450, cf. docs/COMPLIANCE.md) : trace le
--- consentement de l'utilisateur à l'inscription — acceptation des CGU + politique
+-- consentement de l'utilisateur à l'inscription, acceptation des CGU + politique
 -- de confidentialité, avec la version acceptée et l'horodatage. Le consentement
 -- parental est requis quand le compte concerne un élève (souvent mineur).
 

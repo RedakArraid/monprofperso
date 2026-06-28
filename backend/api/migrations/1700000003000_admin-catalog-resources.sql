@@ -3,7 +3,7 @@
 -- pédagogiques (cours, devoirs, exercices) avec fichiers. Ajoute un utilisateur
 -- administrateur de démo et illustre le catalogue dynamique (musique + langues).
 
--- Niveaux scolaires gérables — incluent désormais le supérieur / universitaire.
+-- Niveaux scolaires gérables, incluent désormais le supérieur / universitaire.
 CREATE TABLE levels (
   id   SERIAL PRIMARY KEY,
   slug TEXT UNIQUE NOT NULL,
@@ -19,7 +19,7 @@ INSERT INTO levels (slug, name, ord) VALUES
   ('universite', 'Université', 5);
 
 -- Ressources pédagogiques : cours, devoirs, exercices. Le fichier est stocké en
--- base (BYTEA) — suffisant et sans dépendance pour le prototype démo.
+-- base (BYTEA), suffisant et sans dépendance pour le prototype démo.
 CREATE TABLE resources (
   id           SERIAL PRIMARY KEY,
   type         TEXT NOT NULL,            -- course | homework | exercise

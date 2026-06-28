@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - Écran 23 — Formules d'abonnement
+// MARK: - Écran 23, Formules d'abonnement
 struct SubscriptionPlansScreen: View {
     @EnvironmentObject var router: Router
     @State private var plan = 1
@@ -77,7 +77,7 @@ struct SubscriptionPlansScreen: View {
     }
 }
 
-// MARK: - Écran 24 — Activation & paiement
+// MARK: - Écran 24, Activation & paiement
 struct SubscriptionActivationScreen: View {
     @EnvironmentObject var router: Router
     @State private var method = 0
@@ -143,7 +143,7 @@ struct SubscriptionActivationScreen: View {
     }
 }
 
-// MARK: - Écran 25 — Mon abonnement
+// MARK: - Écran 25, Mon abonnement
 struct MySubscriptionScreen: View {
     @EnvironmentObject var router: Router
     var body: some View {

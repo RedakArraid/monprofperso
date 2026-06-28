@@ -1,16 +1,16 @@
-# Roadmap — Mon Prof Perso
+# Roadmap, Mon Prof Perso
 
 Feuille de route depuis le **prototype démo** vers une **mise en production**.
 État au 2026-06-24 : 3 cibles synchronisées (Android, iOS, backend) sur une API
 commune ; auth et paiement simulés ; repo en cours de premier versionnage.
 
-## Phase 0 — Hygiène repo ✅ (en cours)
+## Phase 0, Hygiène repo ✅ (en cours)
 - [x] Premier commit + versionnage de l'existant.
 - [x] `.gitignore` : ignorer `.kotlin/`, captures de dev racine `android/`,
       projet Xcode généré (`MonProfPerso.xcodeproj`), `_maquette/`, `*.zip`.
 - [x] Créer un remote (GitHub) et push (`origin`, branche `feat/admin-space-apps`).
 
-## Phase 1 — Durcir le backend (priorité haute)
+## Phase 1, Durcir le backend (priorité haute)
 Maillon faible : auth/paiement simulés. À traiter avant toute nouvelle feature.
 - [x] JWT signé (HS256, `auth.ts`) émis à la connexion + middleware `optionalAuth`
       rétrocompatible (repli `DEMO_USER` si pas de token). Scoping par `currentUserId`.
@@ -29,7 +29,7 @@ Maillon faible : auth/paiement simulés. À traiter avant toute nouvelle feature
       inconnues, filet d'erreurs (corps JSON illisible -> 400 `bad_json`, payload trop
       gros -> 413), et 500 sans fuite de détail interne (consigné côté serveur).
 
-## Phase 2 — Fonctionnel produit
+## Phase 2, Fonctionnel produit
 - [~] Back-office d'administration. Fait côté **API** : rôle `admin` + garde
       `requireAdmin`, CRUD matières & niveaux (→ musique, langues hors FR/EN, niveaux
       supérieur/universitaire), ressources pédagogiques (cours/devoirs/exercices) avec
@@ -52,7 +52,7 @@ Maillon faible : auth/paiement simulés. À traiter avant toute nouvelle feature
       isolation testée en e2e). Reste : scoper de même `/wallet`, demandes/cours liés
       au compte, et le parcours élève/parent multi-comptes.
 - [~] Réservation transactionnelle : conflits de créneaux, statuts, notifications.
-      Fait : statut d'acceptation (`courses.accepted`) — une réservation naît en
+      Fait : statut d'acceptation (`courses.accepted`), une réservation naît en
       attente et remonte chez le prof concerné. Reste : conflits de créneaux,
       transaction de paiement, notifications.
 - [~] Espace prof complet : validation des demandes, calendrier, revenus réels.
@@ -62,11 +62,11 @@ Maillon faible : auth/paiement simulés. À traiter avant toute nouvelle feature
       sur Android + iOS, avec boutons « Accepter » / « Refuser » câblés
       (`/teacher/requests/:id/{accept,refuse}`) et repli mock. Reste : calendrier.
 - [~] Notifications push (FCM Android / APNs iOS).
-      Fait : notifications **in-app** persistées en base — le parent est notifié quand
+      Fait : notifications **in-app** persistées en base, le parent est notifié quand
       sa réservation est acceptée/refusée ; l'écran Notifications est branché en live
       (Android + iOS). Reste : le push réel (FCM/APNs).
 
-## Phase 3 — Qualité apps natives
+## Phase 3, Qualité apps natives
 - [~] Brancher en live les écrans encore en repli local (Android + iOS).
       Fait : espace prof (tableau de bord, demandes + validation, revenus). Reste les
       écrans encore mockés (agenda, gestion de cours, réglages, etc.).
@@ -78,12 +78,12 @@ Maillon faible : auth/paiement simulés. À traiter avant toute nouvelle feature
 - [ ] Tests UI de base + tests ViewModels (Android) / Stores (iOS).
 - [ ] CI : lint + build des 3 cibles à chaque PR.
 
-## Phase 4 — Mise en production
+## Phase 4, Mise en production
 - [ ] Héberger l'API (conteneur managé) + Postgres managé, HTTPS.
 - [ ] `ApiConfig` par environnement (dev / staging / prod) côté Android et iOS.
 - [ ] Préparer les stores : icônes (logo MP², `docs/logo/`), signatures, fiches
       Play Store / App Store.
-- [~] **Conformité données personnelles (Loi CI N°2013-450, ARTCI)** — voir
+- [~] **Conformité données personnelles (Loi CI N°2013-450, ARTCI)**, voir
       `docs/COMPLIANCE.md` (analyse des pièces `docs/legal/`) :
       - [x] Hébergement Postgres **et** stockage objet (MinIO/S3) **en Côte d'Ivoire
             (CEDEAO)** → pas de transfert hors CEDEAO (décision projet).
@@ -91,7 +91,7 @@ Maillon faible : auth/paiement simulés. À traiter avant toute nouvelle feature
             pour les élèves mineurs, tracé en base (migration `1700000008000`, apps).
       - [~] Rédiger les CGU + politique de confidentialité réelles : **brouillons**
             dans `docs/legal/` (CGU.md, POLITIQUE-CONFIDENTIALITE.md,
-            MENTIONS-LEGALES.md) — à faire valider par un juriste. Gérables en PDF
+            MENTIONS-LEGALES.md), à faire valider par un juriste. Gérables en PDF
             via l'**espace admin** (table `legal_documents`, écran « Documents légaux »
             Android + iOS ; consultation utilisateur depuis « Mon compte »).
       - [ ] Faire valider les textes par un conseil juridique, puis publier les PDF.

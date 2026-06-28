@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - Écran 16 — Suivi des progrès (données live via l'API commune)
+// MARK: - Écran 16, Suivi des progrès (données live via l'API commune)
 struct ProgressScreen: View {
     @EnvironmentObject var router: Router
     @StateObject private var store = ProgressStore()
@@ -63,7 +63,7 @@ struct ProgressScreen: View {
     }
 }
 
-// MARK: - Écran 17 — Notifications
+// MARK: - Écran 17, Notifications
 private struct NotifItem: Identifiable { let id = UUID(); let icon: String; let green: Bool; let text: String; let time: String; let unread: Bool }
 
 private func notifSymbol(_ key: String) -> String {
@@ -146,7 +146,7 @@ struct NotificationsScreen: View {
     }
 }
 
-// MARK: - Écran 18 — Mon compte
+// MARK: - Écran 18, Mon compte
 struct AccountScreen: View {
     @EnvironmentObject var router: Router
     var body: some View {
@@ -252,7 +252,7 @@ struct AccountScreen: View {
     func rowDivider() -> some View { Rectangle().fill(Ak.cardField).frame(height: 1).padding(.horizontal, 15) }
 }
 
-// MARK: - Écran 19 — Portefeuille & paiements
+// MARK: - Écran 19, Portefeuille & paiements
 private struct Tx: Identifiable { let id = UUID(); let title: String; let sub: String; let amount: String; let credit: Bool }
 
 struct WalletScreen: View {

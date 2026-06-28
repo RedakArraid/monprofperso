@@ -32,7 +32,7 @@ import ci.monprofperso.app.ui.theme.Hanken
 import ci.monprofperso.app.ui.theme.Schibsted
 
 /* ====================================================================== *
- * ÉCRAN UTILISATEUR — RESSOURCES & SUPPORTS (lecture seule)
+ * ÉCRAN UTILISATEUR, RESSOURCES & SUPPORTS (lecture seule)
  * Consomme /api/resources en live ; repli sur quelques exemples hors-ligne.
  * Les ressources sont publiées par l'admin (cours / devoirs / exercices).
  * ====================================================================== */
@@ -49,9 +49,9 @@ private fun resTypeIcon(type: String): ImageVector = when (type) {
 }
 
 private val fallbackResources = listOf(
-    ResourceDto(1, "course", "maths", "3eme", "Fiche — Théorème de Thalès", "Rappels de cours et exemples corrigés.", null, null, null, null),
-    ResourceDto(2, "exercise", "physique", "2nde", "Série d'exercices — Optique", "10 exercices progressifs avec corrigés.", null, null, null, null),
-    ResourceDto(3, "homework", "francais", "1ere", "Devoir — Commentaire de texte", "Sujet type BAC à rendre.", null, null, null, null),
+    ResourceDto(1, "course", "maths", "3eme", "Fiche, Théorème de Thalès", "Rappels de cours et exemples corrigés.", null, null, null, null),
+    ResourceDto(2, "exercise", "physique", "2nde", "Série d'exercices, Optique", "10 exercices progressifs avec corrigés.", null, null, null, null),
+    ResourceDto(3, "homework", "francais", "1ere", "Devoir, Commentaire de texte", "Sujet type BAC à rendre.", null, null, null, null),
 )
 
 @Composable

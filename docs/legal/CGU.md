@@ -1,4 +1,4 @@
-# Conditions Générales d'Utilisation — Mon Prof Perso (MP²)
+# Conditions Générales d'Utilisation, Mon Prof Perso (MP²)
 
 **Version : 2026-06**
 

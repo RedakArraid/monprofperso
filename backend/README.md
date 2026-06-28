@@ -1,4 +1,4 @@
-# Akwaba — Backend partagé (API + base de données)
+# Akwaba, Backend partagé (API + base de données)
 
 API REST **commune** consommée par les deux apps natives (Android & iOS) et
 base PostgreSQL, le tout en `docker compose`.
@@ -50,13 +50,13 @@ Ces valeurs sont centralisées dans `ApiConfig` (Android) et `ApiConfig` (iOS).
 Runner natif Node (aucune dépendance). La stack doit tourner :
 ```bash
 docker compose up -d
-cd api && npm test                       # tout (30 tests) — défaut http://localhost:8099
+cd api && npm test                       # tout (30 tests), défaut http://localhost:8099
 npm run test:e2e                         # parcours e2e uniquement
 API_URL=http://autre-hote:8099 npm test  # cible personnalisée
 ```
-- `api/test/api.test.mjs` — tests d'intégration par endpoint (formes de réponse,
+- `api/test/api.test.mjs`, tests d'intégration par endpoint (formes de réponse,
   contrat partagé Android/iOS, validation HTTP 400, auth JWT). 22 tests.
-- `api/test/e2e.test.mjs` — parcours de bout en bout : inscription → réservation →
+- `api/test/e2e.test.mjs`, parcours de bout en bout : inscription → réservation →
   relecture, **isolation entre comptes** via JWT, repli démo, parcours prof,
   catalogue public. Couvre les 20 endpoints. 8 tests.
 

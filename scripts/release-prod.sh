@@ -13,20 +13,20 @@ if [ "${1:-}" != "--yes" ]; then
   exit 1
 fi
 
-echo "==> 1/4 — Vérifier staging"
+echo "==> 1/4, Vérifier staging"
 git fetch origin
 git checkout staging
 git pull --ff-only origin staging
 
-echo "==> 2/4 — Merger staging → prod"
+echo "==> 2/4, Merger staging → prod"
 git checkout prod
 git pull --ff-only origin prod
 git merge staging --no-edit
 
-echo "==> 3/4 — Pousser prod"
+echo "==> 3/4, Pousser prod"
 git push origin prod
 
-echo "==> 4/4 — Déployer sur le VPS (branche prod)"
+echo "==> 4/4, Déployer sur le VPS (branche prod)"
 ssh "$SSH_HOST" "bash -s" < "$ROOT/scripts/deploy-prod.sh"
 
 echo ""

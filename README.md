@@ -1,15 +1,15 @@
-# Mon Prof Perso — Soutien scolaire à domicile (Côte d'Ivoire)
+# Mon Prof Perso, Soutien scolaire à domicile (Côte d'Ivoire)
 
-Implémentation native de la maquette **« Akwaba — Cours particuliers »** :
+Implémentation native de la maquette **« Akwaba, Cours particuliers »** :
 profs vérifiés, cours à domicile ou en ligne, paiement Mobile Money, prépa
 BEPC & BAC. **37 écrans** reproduits fidèlement sur **deux apps natives
 séparées** + une **API REST commune** et sa base de données.
 
 ```
 monprofperso/
-├── android/    App native Android — Kotlin + Jetpack Compose (37 écrans)
-├── ios/        App native iOS     — Swift + SwiftUI (37 écrans)
-├── backend/    API REST commune (Node/TS/Express) + PostgreSQL — docker compose
+├── android/    App native Android, Kotlin + Jetpack Compose (37 écrans)
+├── ios/        App native iOS    , Swift + SwiftUI (37 écrans)
+├── backend/    API REST commune (Node/TS/Express) + PostgreSQL, docker compose
 └── _maquette/  Maquette HTML d'origine (référence)
 ```
 

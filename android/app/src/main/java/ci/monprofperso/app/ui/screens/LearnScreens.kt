@@ -41,7 +41,7 @@ import ci.monprofperso.app.ui.theme.Hanken
 import ci.monprofperso.app.ui.theme.Schibsted
 
 /* ====================================================================== *
- * ÉCRAN 12 — MES COURS
+ * ÉCRAN 12, MES COURS
  * ====================================================================== */
 @Composable
 fun MyCoursesScreen(nav: NavActions, vm: ci.monprofperso.app.data.CoursesViewModel = androidx.lifecycle.viewmodel.compose.viewModel()) {
@@ -148,7 +148,7 @@ private fun DateTile(day: String, num: String, green: Boolean) {
 }
 
 /* ====================================================================== *
- * ÉCRAN 13 — COURS EN LIGNE (VISIO)
+ * ÉCRAN 13, COURS EN LIGNE (VISIO)
  * ====================================================================== */
 @Composable
 fun OnlineCourseScreen(nav: NavActions) {
@@ -206,7 +206,7 @@ private fun CallButton(icon: ImageVector, bg: Color = AkColors.White.copy(alpha 
 }
 
 /* ====================================================================== *
- * ÉCRAN 14 — MESSAGERIE
+ * ÉCRAN 14, MESSAGERIE
  * ====================================================================== */
 @Composable
 fun MessagingScreen(nav: NavActions) {
@@ -279,7 +279,7 @@ private fun Bubble(text: String, sent: Boolean) {
 }
 
 /* ====================================================================== *
- * ÉCRAN 15 — LAISSER UN AVIS
+ * ÉCRAN 15, LAISSER UN AVIS
  * ====================================================================== */
 @Composable
 fun ReviewScreen(nav: NavActions) {

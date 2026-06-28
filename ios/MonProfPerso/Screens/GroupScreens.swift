@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - Écran 26 — Cours en groupe (liste)
+// MARK: - Écran 26, Cours en groupe (liste)
 private struct Grp: Identifiable {
     let id = UUID(); let tag: String; let tagGreen: Bool; let price: String; let title: String; let detail: String
     let ini: String; let teacherGreen: Bool; let teacher: String; let enrolled: String?; let left: String?; let leftWarn: Bool; let fraction: CGFloat
@@ -48,7 +48,7 @@ struct GroupCoursesScreen: View {
     }
 }
 
-// MARK: - Écran 27 — Détail du groupe
+// MARK: - Écran 27, Détail du groupe
 struct GroupDetailScreen: View {
     @EnvironmentObject var router: Router
     var body: some View {
@@ -111,7 +111,7 @@ struct GroupDetailScreen: View {
     }
 }
 
-// MARK: - Écran 28 — Agenda & disponibilités
+// MARK: - Écran 28, Agenda & disponibilités
 struct AgendaScreen: View {
     @EnvironmentObject var router: Router
     @State private var day = 4

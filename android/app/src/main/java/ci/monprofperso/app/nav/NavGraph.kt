@@ -8,50 +8,50 @@ import ci.monprofperso.app.ui.screens.*
 
 /** Toutes les destinations de l'app (37 écrans de la maquette). */
 object Routes {
-    // A — Démarrage & compte
+    // A, Démarrage & compte
     const val Welcome = "welcome"
     const val Signup = "signup"
     const val Login = "login"
     const val Otp = "otp"
-    // B — Trouver un prof
+    // B, Trouver un prof
     const val Home = "home"
     const val SearchResults = "search_results"
     const val Filters = "filters"
     const val TeacherProfile = "teacher_profile"
-    // C — Réserver & payer
+    // C, Réserver & payer
     const val Booking = "booking"
     const val Payment = "payment"
     const val Confirmed = "confirmed"
-    // D — Apprendre & échanger
+    // D, Apprendre & échanger
     const val MyCourses = "my_courses"
     const val OnlineCourse = "online_course"
     const val Messaging = "messaging"
     const val Review = "review"
-    // E — Suivi & compte
+    // E, Suivi & compte
     const val Progress = "progress"
     const val Notifications = "notifications"
     const val Account = "account"
     const val Wallet = "wallet"
-    // F — Espace professeur
+    // F, Espace professeur
     const val TeacherDashboard = "teacher_dashboard"
     const val CourseRequests = "course_requests"
     const val Earnings = "earnings"
-    // G — Abonnement
+    // G, Abonnement
     const val SubscriptionPlans = "subscription_plans"
     const val SubscriptionActivation = "subscription_activation"
     const val MySubscription = "my_subscription"
-    // H — Cours en groupe
+    // H, Cours en groupe
     const val GroupCourses = "group_courses"
     const val GroupDetail = "group_detail"
     const val Agenda = "agenda"
-    // I — Côté professeur (gestion)
+    // I, Côté professeur (gestion)
     const val BecomeTeacher = "become_teacher"
     const val Withdraw = "withdraw"
-    // J — Gérer un cours & suivi détaillé
+    // J, Gérer un cours & suivi détaillé
     const val ManageCourse = "manage_course"
     const val ProgressReport = "progress_report"
     const val Receipt = "receipt"
-    // K — Reçus, aide, réglages & parrainage
+    // K, Reçus, aide, réglages & parrainage
     const val HelpFaq = "help_faq"
     const val Settings = "settings"
     const val Referral = "referral"
@@ -59,7 +59,7 @@ object Routes {
     const val Resources = "resources"
     const val Legal = "legal"
     const val PdfViewer = "pdf_viewer"
-    // L — Espace administrateur
+    // L, Espace administrateur
     const val AdminCatalog = "admin_catalog"
     const val AdminResources = "admin_resources"
     const val AdminLegal = "admin_legal"

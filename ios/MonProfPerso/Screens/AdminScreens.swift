@@ -2,7 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /* ====================================================================== *
- * ÉCRAN ADMIN — GÉRER LE CATALOGUE (matières & niveaux)
+ * ÉCRAN ADMIN, GÉRER LE CATALOGUE (matières & niveaux)
  * Réservé au rôle admin ; les écritures appellent les routes /api/admin/… en live.
  * Pendant iOS du AdminCatalogScreen Android (mêmes endpoints, même UI).
  * ====================================================================== */
@@ -208,7 +208,7 @@ struct AdminCatalogScreen: View {
 }
 
 /* ====================================================================== *
- * ÉCRAN ADMIN — RESSOURCES PÉDAGOGIQUES (cours / devoirs / exercices)
+ * ÉCRAN ADMIN, RESSOURCES PÉDAGOGIQUES (cours / devoirs / exercices)
  * Création de métadonnées (titre, matière, niveau, description) ; le fichier
  * reste optionnel côté API. Écritures en live sur les routes /api/admin/resources.
  * ====================================================================== */
@@ -251,7 +251,7 @@ struct AdminResourcesScreen: View {
                     }.padding(.top, 8)
 
                     fieldLabel("Titre").padding(.top, 14)
-                    adminField(text: $title, placeholder: "Ex. Fiche de révision — Théorème de Thalès").padding(.top, 8)
+                    adminField(text: $title, placeholder: "Ex. Fiche de révision, Théorème de Thalès").padding(.top, 8)
 
                     fieldLabel("Matière (facultatif)").padding(.top, 14)
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -443,7 +443,7 @@ struct AdminResourcesScreen: View {
 }
 
 /* ====================================================================== *
- * ÉCRAN ADMIN — RÉSEAUX SOCIAUX & CONTACT
+ * ÉCRAN ADMIN, RÉSEAUX SOCIAUX & CONTACT
  * Liens affichés sur la vitrine web et dans les apps. Écritures en live sur
  * /api/admin/settings ; lecture publique sur /api/settings.
  * ====================================================================== */

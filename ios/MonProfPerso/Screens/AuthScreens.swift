@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - Écran 1 — Bienvenue & choix du rôle
+// MARK: - Écran 1, Bienvenue & choix du rôle
 struct WelcomeScreen: View {
     @EnvironmentObject var router: Router
 
@@ -80,7 +80,7 @@ struct WelcomeScreen: View {
     }
 }
 
-// MARK: - Écran 2 — Inscription
+// MARK: - Écran 2, Inscription
 struct SignupScreen: View {
     @EnvironmentObject var router: Router
     @State private var consent = false
@@ -109,7 +109,7 @@ struct SignupScreen: View {
                             Spacer()
                             Text("Modifier").font(AkFont.bold(12)).foregroundColor(Ak.green).onTapGesture { router.back() }
                         }
-                        // Rôle choisi à l'accueil — affiché, pas redemandé.
+                        // Rôle choisi à l'accueil, affiché, pas redemandé.
                         HStack(spacing: 9) {
                             Image(systemName: "checkmark.circle.fill").font(.system(size: 18)).foregroundColor(Ak.green)
                             Text(roleLabels[router.role]).font(AkFont.bold(14)).foregroundColor(Ak.ink)
@@ -185,7 +185,7 @@ struct SignupScreen: View {
     }
 }
 
-// MARK: - Écran 3 — Connexion
+// MARK: - Écran 3, Connexion
 struct LoginScreen: View {
     @EnvironmentObject var router: Router
     var body: some View {
@@ -247,7 +247,7 @@ struct LoginScreen: View {
     }
 }
 
-// MARK: - Écran 4 — Vérification (OTP)
+// MARK: - Écran 4, Vérification (OTP)
 struct OtpScreen: View {
     @EnvironmentObject var router: Router
     var body: some View {

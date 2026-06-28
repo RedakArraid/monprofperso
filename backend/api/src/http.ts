@@ -24,7 +24,7 @@ export function notFound(_req: Request, res: Response): void {
 
 /**
  * Filet de sécurité final (middleware Express à 4 arguments). Capture les erreurs
- * non gérées — y compris un corps JSON illisible ou trop volumineux — et renvoie
+ * non gérées, y compris un corps JSON illisible ou trop volumineux, et renvoie
  * toujours du JSON, sans fuiter le détail interne (consigné côté serveur).
  */
 export function errorHandler(err: any, req: Request, res: Response, _next: NextFunction): void {

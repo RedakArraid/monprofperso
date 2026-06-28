@@ -1,4 +1,4 @@
-/* Mon Prof Perso — interactions de la page vitrine (vanilla JS, sans dépendance). */
+/* Mon Prof Perso, interactions de la page vitrine (vanilla JS, sans dépendance). */
 (function () {
   "use strict";
 

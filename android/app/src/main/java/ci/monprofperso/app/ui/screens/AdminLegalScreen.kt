@@ -32,7 +32,7 @@ import ci.monprofperso.app.ui.theme.Schibsted
 import kotlinx.coroutines.launch
 
 /* ====================================================================== *
- * ÉCRAN ADMIN — DOCUMENTS LÉGAUX (CGU, confidentialité, mentions légales)
+ * ÉCRAN ADMIN, DOCUMENTS LÉGAUX (CGU, confidentialité, mentions légales)
  * L'admin téléverse/remplace le PDF de chaque document (PUT /admin/legal/:slug).
  * Réutilise le sélecteur de fichier SAF. Conformité Loi CI N°2013-450.
  * ====================================================================== */

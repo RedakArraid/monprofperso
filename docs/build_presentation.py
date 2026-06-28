@@ -94,9 +94,9 @@ doc.add_paragraph().paragraph_format.space_before = Pt(60)
 p = doc.add_paragraph(); p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 r = p.add_run("Mon Prof Perso"); r.bold = True; r.font.size = Pt(40); r.font.color.rgb = GREEN
 r2 = p.add_run("."); r2.bold = True; r2.font.size = Pt(40); r2.font.color.rgb = ORANGE
-para("Soutien scolaire à domicile & en ligne — Côte d'Ivoire", size=15, color=MUTED,
+para("Soutien scolaire à domicile & en ligne, Côte d'Ivoire", size=15, color=MUTED,
      align=WD_ALIGN_PARAGRAPH.CENTER, space_after=4)
-para("Document de présentation — État d'avancement du projet", size=13, color=INK,
+para("Document de présentation, État d'avancement du projet", size=13, color=INK,
      align=WD_ALIGN_PARAGRAPH.CENTER, space_after=4)
 para("23 juin 2026", size=11, color=MUTED, align=WD_ALIGN_PARAGRAPH.CENTER)
 doc.add_paragraph().paragraph_format.space_before = Pt(20)
@@ -117,15 +117,15 @@ para("Le périmètre fonctionnel couvre trois rôles : parent, élève et profes
 
 h("Objectif de la mission", 14)
 para("À partir de la maquette (37 écrans), produire deux applications 100 % natives "
-     "— Android et iOS — fidèles au design, partageant la même API et la même base de données.")
+     "- Android et iOS, fidèles au design, partageant la même API et la même base de données.")
 
 # ====================================================================== 2. LA MAQUETTE
 h("2. La maquette d'origine", 18)
 para("La maquette décrit un parcours complet en 37 écrans, organisé en 11 étapes "
      "(démarrage & compte, recherche, réservation & paiement, apprentissage, suivi, "
      "espace professeur, abonnement, cours en groupe, gestion, reçus & réglages).")
-landscape(A("maquette_A.png"), cap="Maquette — En-tête de marque & Étape A : Démarrage & compte")
-landscape(A("maquette_B.png"), cap="Maquette — étapes suivantes (recherche, réservation…)")
+landscape(A("maquette_A.png"), cap="Maquette, En-tête de marque & Étape A : Démarrage & compte")
+landscape(A("maquette_B.png"), cap="Maquette, étapes suivantes (recherche, réservation…)")
 
 doc.add_page_break()
 
@@ -134,8 +134,8 @@ h("3. Ce qui a été réalisé", 18)
 para("Deux applications natives séparées + un backend commun, le tout fonctionnel, "
      "compilé et testé sur émulateur/simulateur.")
 table_two([
-    ("Application Android", "Kotlin + Jetpack Compose — 37 écrans — build OK, lancée sur émulateur"),
-    ("Application iOS", "Swift + SwiftUI — 37 écrans — build OK, lancée sur simulateur"),
+    ("Application Android", "Kotlin + Jetpack Compose, 37 écrans, build OK, lancée sur émulateur"),
+    ("Application iOS", "Swift + SwiftUI, 37 écrans, build OK, lancée sur simulateur"),
     ("Backend commun", "Node.js / TypeScript + Express + PostgreSQL (Docker Compose)"),
     ("API partagée", "Mêmes endpoints & modèles consommés par les 2 apps"),
     ("Identité", "Marque « Mon Prof Perso », identifiant ci.monprofperso.app"),
@@ -149,31 +149,31 @@ para("Mêmes couleurs (vert #0E5A43, orange #E8722A, crème), mêmes polices Sch
 # ====================================================================== 4. CAPTURES DE L'APP
 h("4. L'application en images", 18)
 
-h("4.1 — Démarrage & choix du rôle (Android & iOS)", 13, color=INK)
+h("4.1, Démarrage & choix du rôle (Android & iOS)", 13, color=INK)
 phone_row([
-    (A("app_welcome.png"), "Android — Bienvenue"),
-    (A("app_ios_welcome.png"), "iOS — Bienvenue"),
+    (A("app_welcome.png"), "Android, Bienvenue"),
+    (A("app_ios_welcome.png"), "iOS, Bienvenue"),
     (A("app_signup.png"), "Inscription (rôle confirmé)"),
 ])
 para("Le rôle est choisi une seule fois à l'accueil puis confirmé à l'inscription "
      "(plus de double saisie). Rendu identique sur les deux plateformes.", size=10, color=MUTED)
 
-h("4.2 — Recherche & données en direct (API)", 13, color=INK)
+h("4.2, Recherche & données en direct (API)", 13, color=INK)
 phone_row([
     (A("app_home.png"), "Accueil"),
-    (A("app_search.png"), "Résultats — API en direct"),
+    (A("app_search.png"), "Résultats, API en direct"),
 ])
 para("L'écran de résultats charge les professeurs depuis l'API commune (bandeau « Données "
      "en direct »), avec repli automatique sur les données locales si l'API est indisponible.",
      size=10, color=MUTED)
 
-h("4.3 — Suivi de l'élève", 13, color=INK)
+h("4.3, Suivi de l'élève", 13, color=INK)
 phone_row([
     (A("app_courses.png"), "Mes cours"),
     (A("app_progress.png"), "Suivi des progrès"),
 ])
 
-h("4.4 — Espace professeur (parcours adapté au rôle)", 13, color=INK)
+h("4.4, Espace professeur (parcours adapté au rôle)", 13, color=INK)
 phone_row([
     (A("app_teacher_dashboard.png"), "Tableau de bord prof"),
     (A("app_teacher_account.png"), "Mon compte (prof)"),
@@ -213,7 +213,7 @@ bullet("Fonctions avancées : génération PDF des reçus & bilans, carte des pr
 bullet("Tests automatisés et préparation de la mise en production (CI/CD, stores).")
 
 doc.add_paragraph().paragraph_format.space_before = Pt(16)
-para("Document généré automatiquement — Mon Prof Perso.", size=9, color=MUTED,
+para("Document généré automatiquement, Mon Prof Perso.", size=9, color=MUTED,
      align=WD_ALIGN_PARAGRAPH.CENTER)
 
 out = os.path.join(HERE, "Mon_Prof_Perso_Presentation.docx")

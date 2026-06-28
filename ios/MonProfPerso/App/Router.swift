@@ -2,31 +2,31 @@ import SwiftUI
 
 /// Les 37 destinations de l'app (parcours complet de la maquette).
 enum Route: Hashable {
-    // A — Démarrage & compte
+    // A, Démarrage & compte
     case signup, login, otp
-    // B — Trouver un prof
+    // B, Trouver un prof
     case home, searchResults, filters, teacherProfile
-    // C — Réserver & payer
+    // C, Réserver & payer
     case booking, payment, confirmed
-    // D — Apprendre & échanger
+    // D, Apprendre & échanger
     case myCourses, onlineCourse, messaging, review
-    // E — Suivi & compte
+    // E, Suivi & compte
     case progress, notifications, account, wallet
-    // F — Espace professeur
+    // F, Espace professeur
     case teacherDashboard, courseRequests, earnings
-    // G — Abonnement
+    // G, Abonnement
     case subscriptionPlans, subscriptionActivation, mySubscription
-    // H — Cours en groupe
+    // H, Cours en groupe
     case groupCourses, groupDetail, agenda
-    // I — Côté professeur (gestion)
+    // I, Côté professeur (gestion)
     case becomeTeacher, withdraw
-    // J — Gérer un cours & suivi détaillé
+    // J, Gérer un cours & suivi détaillé
     case manageCourse, progressReport, receipt
-    // K — Reçus, aide, réglages & parrainage
+    // K, Reçus, aide, réglages & parrainage
     case helpFaq, settings, referral, emptyState, resources, legal
-    // L — Espace administrateur
+    // L, Espace administrateur
     case adminCatalog, adminResources, adminLegal, adminSocial
-    // M — Visualiseur PDF in-app (URL + titre)
+    // M, Visualiseur PDF in-app (URL + titre)
     case pdfViewer(url: String, title: String)
 }
 

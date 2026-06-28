@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke test HTTP — usage : ./scripts/smoke.sh [web_base_url]
+# Smoke test HTTP, usage : ./scripts/smoke.sh [web_base_url]
 # Ex. prod  : ./scripts/smoke.sh https://monprofperso.com
 # Ex. staging : ./scripts/smoke.sh https://staging.monprofperso.com
 set -euo pipefail

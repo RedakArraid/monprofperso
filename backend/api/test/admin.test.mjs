@@ -1,4 +1,4 @@
-// Tests de l'espace administration — runner natif Node (`node --test`).
+// Tests de l'espace administration, runner natif Node (`node --test`).
 //
 // Prérequis : la stack tourne (`docker compose up -d`).
 // Couvre : garde admin (401/403), CRUD matières & niveaux, ressources + fichiers.

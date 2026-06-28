@@ -30,7 +30,7 @@ import ci.monprofperso.app.ui.theme.Hanken
 import ci.monprofperso.app.ui.theme.Schibsted
 
 /* ====================================================================== *
- * ÉCRAN 29 — DEVENIR PROFESSEUR
+ * ÉCRAN 29, DEVENIR PROFESSEUR
  * ====================================================================== */
 @Composable
 fun BecomeTeacherScreen(nav: NavActions) {
@@ -89,7 +89,7 @@ private fun DocRow(icon: ImageVector, title: String, status: String, done: Boole
 }
 
 /* ====================================================================== *
- * ÉCRAN 30 — RETRAIT DES GAINS
+ * ÉCRAN 30, RETRAIT DES GAINS
  * ====================================================================== */
 @Composable
 fun WithdrawScreen(nav: NavActions) {

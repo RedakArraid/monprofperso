@@ -1,6 +1,6 @@
-# Mon Prof Perso — Android (Kotlin + Jetpack Compose)
+# Mon Prof Perso, Android (Kotlin + Jetpack Compose)
 
-Application native Android reproduisant fidèlement la maquette « Akwaba — Cours
+Application native Android reproduisant fidèlement la maquette « Akwaba, Cours
 particuliers » (soutien scolaire à domicile / en ligne en Côte d'Ivoire).
 
 ## Stack

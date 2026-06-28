@@ -7,7 +7,7 @@ import type { Readable } from "stream";
  * Remplace le stockage en base (BYTEA) par un stockage durable et hors-Postgres.
  *
  * Activé dès que `S3_ENDPOINT` est défini. Sinon (ou en cas d'échec d'upload),
- * l'appelant retombe sur le stockage `BYTEA` — rétrocompatible avec l'existant.
+ * l'appelant retombe sur le stockage `BYTEA`, rétrocompatible avec l'existant.
  */
 const endPoint = process.env.S3_ENDPOINT;
 const port = Number(process.env.S3_PORT ?? 9000);
@@ -34,7 +34,7 @@ export async function ensureBucket(retries = 20): Promise<void> {
       await new Promise((r) => setTimeout(r, 1500));
     }
   }
-  console.warn("Stockage objet indisponible — repli sur le stockage en base (BYTEA).");
+  console.warn("Stockage objet indisponible, repli sur le stockage en base (BYTEA).");
 }
 
 /** Téléverse un fichier et renvoie sa clé d'objet, ou null si le stockage a échoué. */

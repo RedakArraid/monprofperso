@@ -1,5 +1,5 @@
 /* =====================================================================
- * Console d'administration — Mon Prof Perso
+ * Console d'administration, Mon Prof Perso
  * Vanilla JS (sans build), consomme l'API REST commune (mêmes endpoints
  * que les apps). Authentification : JWT admin stocké dans localStorage.
  * ===================================================================== */
@@ -40,7 +40,7 @@ async function api(path, { method = "GET", body, headers = {} } = {}) {
   }
   if (res.status === 204) return null;
   if (res.status === 304) {
-    throw new Error("Réponse cache invalide — rechargez la page.");
+    throw new Error("Réponse cache invalide, rechargez la page.");
   }
   const text = await res.text();
   let data = null;
@@ -282,7 +282,7 @@ function teacherForm(t) {
       <div class="field full"><label>Niveaux (séparés par des virgules)</label><input id="f_levels" value="${esc((t.levels || []).join(", "))}" placeholder="Collège, Lycée, Prépa BAC"></div>
       <div class="field"><label>Programmes (slugs séparés par des virgules)</label><input id="f_programs" value="${esc((t.programs || ["standard"]).join(", "))}" placeholder="standard, francais"></div>
       <div class="field"><label>Offres à négocier</label>
-        <select id="f_negotiable"><option value="no"${t.negotiable ? "" : " selected"}>Non</option><option value="yes"${t.negotiable ? " selected" : ""}>Oui — tarif &amp; fréquence négociables</option></select></div>
+        <select id="f_negotiable"><option value="no"${t.negotiable ? "" : " selected"}>Non</option><option value="yes"${t.negotiable ? " selected" : ""}>Oui, tarif &amp; fréquence négociables</option></select></div>
       <div class="field"><label>Formats</label>
         <select id="f_formats"><option value="home,online"${fmt.length === 2 ? " selected" : ""}>Domicile + En ligne</option><option value="home"${fmt.length === 1 && fmt[0] === "home" ? " selected" : ""}>Domicile</option><option value="online"${fmt.length === 1 && fmt[0] === "online" ? " selected" : ""}>En ligne</option></select></div>
       <div class="field"><label>Options</label>
@@ -512,9 +512,9 @@ async function renderResources(root) {
       <div class="form-grid">
         <div class="field"><label>Type</label><select id="r_type">${Object.entries(R_TYPES).map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select></div>
         <div class="field"><label>Fichier (optionnel)</label><input id="r_file" type="file" accept="application/pdf,image/*"></div>
-        <div class="field full"><label>Titre *</label><input id="r_title" placeholder="Fiche — Théorème de Thalès"></div>
-        <div class="field"><label>Matière</label><select id="r_subject"><option value="">— Aucune —</option>${subjects.map((s) => `<option value="${esc(s.slug)}">${esc(s.name)}</option>`).join("")}</select></div>
-        <div class="field"><label>Niveau</label><select id="r_level"><option value="">— Aucun —</option>${levels.map((l) => `<option value="${esc(l.slug)}">${esc(l.name)}</option>`).join("")}</select></div>
+        <div class="field full"><label>Titre *</label><input id="r_title" placeholder="Fiche, Théorème de Thalès"></div>
+        <div class="field"><label>Matière</label><select id="r_subject"><option value="">- Aucune -</option>${subjects.map((s) => `<option value="${esc(s.slug)}">${esc(s.name)}</option>`).join("")}</select></div>
+        <div class="field"><label>Niveau</label><select id="r_level"><option value="">- Aucun -</option>${levels.map((l) => `<option value="${esc(l.slug)}">${esc(l.name)}</option>`).join("")}</select></div>
         <div class="field full"><label>Description</label><textarea id="r_desc" placeholder="Quelques mots sur la ressource…"></textarea></div>
       </div>
       <div class="form-actions"><button class="btn btn-primary" id="addR">+ Ajouter la ressource</button></div>
@@ -557,7 +557,7 @@ function resourceRow(r) {
   return `<div class="row">
     <div class="row-main">
       <div class="row-title"><span class="pill ${accent}">${esc(R_TYPES[r.type] || r.type)}</span> ${esc(r.title)}</div>
-      <div class="row-meta">${tags ? esc(tags) : "—"}${r.file_name ? ` · 📎 <a data-file="${r.id}" target="_blank" rel="noopener">${esc(r.file_name)}</a>` : ""}</div>
+      <div class="row-meta">${tags ? esc(tags) : "-"}${r.file_name ? ` · 📎 <a data-file="${r.id}" target="_blank" rel="noopener">${esc(r.file_name)}</a>` : ""}</div>
     </div>
     <div class="row-actions"><button class="btn btn-danger btn-sm" data-del="${r.id}">Suppr.</button></div>
   </div>`;

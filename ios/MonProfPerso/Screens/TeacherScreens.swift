@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - Écran 20 — Tableau de bord prof
+// MARK: - Écran 20, Tableau de bord prof
 struct TeacherDashboardScreen: View {
     @EnvironmentObject var router: Router
     @State private var dash: TeacherDashboardDTO = Fallback.teacherDashboard
@@ -84,7 +84,7 @@ struct TeacherDashboardScreen: View {
     }
 }
 
-// MARK: - Écran 21 — Demandes de cours (live + validation)
+// MARK: - Écran 21, Demandes de cours (live + validation)
 struct CourseRequestsScreen: View {
     @EnvironmentObject var router: Router
     @State private var reqs: [TeacherRequestDTO] = Fallback.teacherRequests
@@ -181,8 +181,8 @@ struct CourseRequestsScreen: View {
                 Text("\(r.price.formattedFCFA) F").font(AkFont.schibstedExtra(15)).foregroundColor(Ak.green)
             }
             VStack(spacing: 7) {
-                detail("Élève", r.student ?? "—"); detail("Matière", r.subject ?? "—")
-                detail("Créneau", r.slot ?? "—"); detail("Format", r.format ?? "—")
+                detail("Élève", r.student ?? "-"); detail("Matière", r.subject ?? "-")
+                detail("Créneau", r.slot ?? "-"); detail("Format", r.format ?? "-")
             }.padding(.top, 13)
             if r.proposedPrice != nil || (r.proposedFrequency?.isEmpty == false) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -192,7 +192,7 @@ struct CourseRequestsScreen: View {
                 }.frame(maxWidth: .infinity, alignment: .leading).padding(11).background(Ak.orangeSoft).clipShape(RoundedRectangle(cornerRadius: 12)).padding(.top, 4)
             }
             if r.negotiationStatus == "countered" {
-                Text("Contre-proposition envoyée — en attente du client").font(AkFont.semibold(11.5)).foregroundColor(Ak.orange).padding(.top, 8)
+                Text("Contre-proposition envoyée, en attente du client").font(AkFont.semibold(11.5)).foregroundColor(Ak.orange).padding(.top, 8)
             }
             HStack(spacing: 9) {
                 Text("Refuser").font(AkFont.bold(13.5)).foregroundColor(Ak.muted).frame(maxWidth: .infinity).padding(.vertical, 12)
@@ -214,7 +214,7 @@ struct CourseRequestsScreen: View {
     }
 }
 
-// MARK: - Écran 22 — Revenus
+// MARK: - Écran 22, Revenus
 struct EarningsScreen: View {
     @EnvironmentObject var router: Router
     @State private var data: TeacherEarningsDTO = Fallback.teacherEarnings

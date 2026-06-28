@@ -14,7 +14,7 @@ func sfSubjectIcon(_ name: String) -> String {
     }
 }
 
-// MARK: - Écran 5 — Accueil
+// MARK: - Écran 5, Accueil
 struct HomeScreen: View {
     @EnvironmentObject var router: Router
     @StateObject private var store = HomeStore()
@@ -103,7 +103,7 @@ struct HomeScreen: View {
     }
 }
 
-// MARK: - Écran 6 — Résultats de recherche (données live via l'API commune)
+// MARK: - Écran 6, Résultats de recherche (données live via l'API commune)
 struct SearchResultsScreen: View {
     @EnvironmentObject var router: Router
     @StateObject private var store = TeachersStore()
@@ -182,7 +182,7 @@ struct SearchResultsScreen: View {
     }
 }
 
-// MARK: - Écran 7 — Filtres
+// MARK: - Écran 7, Filtres
 struct FiltersScreen: View {
     @EnvironmentObject var router: Router
     @State private var format: Set<Int> = [0, 1]
@@ -239,7 +239,7 @@ struct FiltersScreen: View {
     }
 }
 
-// MARK: - Écran 8 — Profil du professeur (données live via l'API commune)
+// MARK: - Écran 8, Profil du professeur (données live via l'API commune)
 struct TeacherProfileScreen: View {
     @EnvironmentObject var router: Router
     @StateObject private var store = TeacherStore()

@@ -40,7 +40,7 @@ import ci.monprofperso.app.ui.theme.Schibsted
 import kotlinx.coroutines.launch
 
 /* ====================================================================== *
- * ÉCRAN ADMIN — GÉRER LE CATALOGUE (matières & niveaux)
+ * ÉCRAN ADMIN, GÉRER LE CATALOGUE (matières & niveaux)
  * Réservé au rôle admin ; les écritures appellent les routes /api/admin/… en live.
  * ====================================================================== */
 private fun slugify(input: String): String {
@@ -230,7 +230,7 @@ private fun AddButton(enabled: Boolean, onClick: () -> Unit) {
 }
 
 /* ====================================================================== *
- * ÉCRAN ADMIN — RESSOURCES PÉDAGOGIQUES (cours / devoirs / exercices)
+ * ÉCRAN ADMIN, RESSOURCES PÉDAGOGIQUES (cours / devoirs / exercices)
  * Création de métadonnées (titre, matière, niveau, description) ; le fichier
  * reste optionnel côté API. Écritures en live sur /api/admin/resources.
  * ====================================================================== */
@@ -282,7 +282,7 @@ fun AdminResourcesScreen(nav: NavActions) {
 
             Text("Titre", fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted)
             Spacer(Modifier.height(8.dp))
-            AdminField(value = title, onValueChange = { title = it }, placeholder = "Ex. Fiche de révision — Théorème de Thalès")
+            AdminField(value = title, onValueChange = { title = it }, placeholder = "Ex. Fiche de révision, Théorème de Thalès")
             Spacer(Modifier.height(14.dp))
 
             Text("Matière (facultatif)", fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted)
@@ -432,7 +432,7 @@ private fun ResourceRow(r: ResourceDto, onDelete: () -> Unit) {
 }
 
 /* ====================================================================== *
- * ÉCRAN ADMIN — RÉSEAUX SOCIAUX & CONTACT
+ * ÉCRAN ADMIN, RÉSEAUX SOCIAUX & CONTACT
  * Liens affichés sur la vitrine web et dans les apps. Écritures en live sur
  * /api/admin/settings ; lecture publique sur /api/settings.
  * ====================================================================== */

@@ -1,6 +1,6 @@
-# Mon Prof Perso — iOS (Swift + SwiftUI)
+# Mon Prof Perso, iOS (Swift + SwiftUI)
 
-Application native iOS reproduisant fidèlement la maquette « Akwaba — Cours
+Application native iOS reproduisant fidèlement la maquette « Akwaba, Cours
 particuliers » (soutien scolaire à domicile / en ligne en Côte d'Ivoire).
 
 ## Stack

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Palette MonProfPerso — identique à la maquette et à l'app Android.
+/// Palette MonProfPerso, identique à la maquette et à l'app Android.
 enum Ak {
     // Verts (marque)
     static let green       = Color(hex: 0x0E5A43)

@@ -1,4 +1,4 @@
-// Tests end-to-end (e2e) — parcours utilisateur complets contre la stack live.
+// Tests end-to-end (e2e), parcours utilisateur complets contre la stack live.
 //
 // Contrairement à api.test.mjs (qui teste chaque endpoint isolément), ces tests
 // enchaînent plusieurs appels pour valider des scénarios réels de bout en bout :
@@ -43,7 +43,7 @@ async function signup(role = "parent") {
   return body;
 }
 
-test("e2e — le consentement (CGU + parental) est enregistré à l'inscription", async () => {
+test("e2e, le consentement (CGU + parental) est enregistré à l'inscription", async () => {
   const phone = uniquePhone();
   const withConsent = await post("/api/auth/signup", {
     fullName: "Consent E2E", phone, role: "student", consent: true, parentalConsent: true,
@@ -59,9 +59,9 @@ test("e2e — le consentement (CGU + parental) est enregistré à l'inscription"
 });
 
 // ======================================================================
-// Parcours 1 — Parent : inscription -> navigation -> réservation -> relecture
+// Parcours 1, Parent : inscription -> navigation -> réservation -> relecture
 // ======================================================================
-test("e2e — parcours parent complet (compte neuf isolé)", async () => {
+test("e2e, parcours parent complet (compte neuf isolé)", async () => {
   const { token, user } = await signup("parent");
   assert.equal(user.role, "parent");
 
@@ -119,9 +119,9 @@ test("e2e — parcours parent complet (compte neuf isolé)", async () => {
 });
 
 // ======================================================================
-// Parcours 2 — Isolation entre comptes (scoping JWT)
+// Parcours 2, Isolation entre comptes (scoping JWT)
 // ======================================================================
-test("e2e — les données d'un utilisateur ne fuitent pas vers un autre", async () => {
+test("e2e, les données d'un utilisateur ne fuitent pas vers un autre", async () => {
   const a = await signup("parent");
   const b = await signup("parent");
 
@@ -137,9 +137,9 @@ test("e2e — les données d'un utilisateur ne fuitent pas vers un autre", async
 });
 
 // ======================================================================
-// Parcours 3 — Repli démo sans token (utilisateur de la maquette)
+// Parcours 3, Repli démo sans token (utilisateur de la maquette)
 // ======================================================================
-test("e2e — sans token, on retombe sur les données de démo seedées", async () => {
+test("e2e, sans token, on retombe sur les données de démo seedées", async () => {
   const me = await get("/api/me");
   assert.equal(me.body.id, 1);
 
@@ -155,9 +155,9 @@ test("e2e — sans token, on retombe sur les données de démo seedées", async 
 });
 
 // ======================================================================
-// Parcours 4 — verify-otp -> token utilisable
+// Parcours 4, verify-otp -> token utilisable
 // ======================================================================
-test("e2e — verify-otp renvoie un token exploitable", async () => {
+test("e2e, verify-otp renvoie un token exploitable", async () => {
   // Compte connu (seedé)
   const otp = await post("/api/auth/verify-otp", { phone: "+2250758421903" });
   assert.equal(otp.status, 200);
@@ -170,9 +170,9 @@ test("e2e — verify-otp renvoie un token exploitable", async () => {
 });
 
 // ======================================================================
-// Parcours 5 — Prof : tableau de bord / demandes / revenus
+// Parcours 5, Prof : tableau de bord / demandes / revenus
 // ======================================================================
-test("e2e — parcours prof (dashboard, requests, earnings)", async () => {
+test("e2e, parcours prof (dashboard, requests, earnings)", async () => {
   const { token } = await signup("teacher");
 
   const dash = await get("/api/teacher/dashboard", token);
@@ -186,7 +186,7 @@ test("e2e — parcours prof (dashboard, requests, earnings)", async () => {
   assert.ok("total" in earnings.body && Array.isArray(earnings.body.weeks) && Array.isArray(earnings.body.payouts));
 });
 
-test("e2e — espace prof scopé par compte : Koffi ≠ Ibrahim", async () => {
+test("e2e, espace prof scopé par compte : Koffi ≠ Ibrahim", async () => {
   const koffi = await post("/api/auth/login", { phone: "+2250707001234" });
   const ibra = await post("/api/auth/login", { phone: "+2250705001122" });
 
@@ -203,7 +203,7 @@ test("e2e — espace prof scopé par compte : Koffi ≠ Ibrahim", async () => {
   assert.equal(dashFresh.body.name, "Koffi N'Guessan", "repli démo si pas de fiche prof");
 });
 
-test("e2e — réservation parent -> demande chez le prof -> validation", async () => {
+test("e2e, réservation parent -> demande chez le prof -> validation", async () => {
   const parent = await signup("parent");
   const ibra = await post("/api/auth/login", { phone: "+2250705001122" });
 
@@ -237,7 +237,7 @@ test("e2e — réservation parent -> demande chez le prof -> validation", async 
   assert.equal((await get("/api/teacher/dashboard", ibra.body.token)).body.pendingRequests, before);
 });
 
-test("e2e — le prof refuse une demande : retirée et invisible côté parent", async () => {
+test("e2e, le prof refuse une demande : retirée et invisible côté parent", async () => {
   const parent = await signup("parent");
   const ibra = await post("/api/auth/login", { phone: "+2250705001122" });
   const before = (await get("/api/teacher/dashboard", ibra.body.token)).body.pendingRequests;
@@ -262,7 +262,7 @@ test("e2e — le prof refuse une demande : retirée et invisible côté parent",
   assert.equal((await post(`/api/teacher/requests/${courseId}/refuse`, undefined, ibra.body.token)).status, 404);
 });
 
-test("e2e — le parent est notifié de la décision (accept/refuse)", async () => {
+test("e2e, le parent est notifié de la décision (accept/refuse)", async () => {
   const ibra = await post("/api/auth/login", { phone: "+2250705001122" });
 
   // Acceptation -> notification verte « acceptée ».
@@ -280,7 +280,7 @@ test("e2e — le parent est notifié de la décision (accept/refuse)", async () 
   assert.ok(notif2.some((n) => n.accent === "orange" && n.unread), "notif de refus reçue");
 });
 
-test("e2e — « Tout lire » marque les notifications comme lues", async () => {
+test("e2e, « Tout lire » marque les notifications comme lues", async () => {
   const ibra = await post("/api/auth/login", { phone: "+2250705001122" });
   const parent = await signup("parent");
   const b = await post("/api/bookings", { teacherId: 2, subject: "Maths", price: 3000, format: "online" }, parent.token);
@@ -296,9 +296,9 @@ test("e2e — « Tout lire » marque les notifications comme lues", async () => 
 });
 
 // ======================================================================
-// Parcours 6 — Catalogue public (groupes, abonnement, parrainage)
+// Parcours 6, Catalogue public (groupes, abonnement, parrainage)
 // ======================================================================
-test("e2e — cours en groupe : liste puis détail", async () => {
+test("e2e, cours en groupe : liste puis détail", async () => {
   const list = await get("/api/groups");
   assert.equal(list.status, 200);
   assert.ok(list.body.length > 0);
@@ -309,14 +309,14 @@ test("e2e — cours en groupe : liste puis détail", async () => {
   assert.ok(Array.isArray(detail.body.program) && detail.body.program.length > 0);
 });
 
-test("e2e — abonnement : plans + abonnement courant", async () => {
+test("e2e, abonnement : plans + abonnement courant", async () => {
   const plans = await get("/api/subscription/plans");
   assert.ok(plans.body.length > 0 && "price" in plans.body[0]);
   const mine = await get("/api/subscription/mine");
   assert.ok("plan" in mine.body && "status" in mine.body);
 });
 
-test("e2e — parrainage : code + compteurs", async () => {
+test("e2e, parrainage : code + compteurs", async () => {
   const { status, body } = await get("/api/referral");
   assert.equal(status, 200);
   assert.ok(typeof body.code === "string" && "referred" in body && "earned" in body);

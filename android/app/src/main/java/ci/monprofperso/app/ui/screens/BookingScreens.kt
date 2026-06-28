@@ -37,7 +37,7 @@ import ci.monprofperso.app.ui.theme.Hanken
 import ci.monprofperso.app.ui.theme.Schibsted
 
 /* ====================================================================== *
- * ÉCRAN 9 — RÉSERVATION DU COURS
+ * ÉCRAN 9, RÉSERVATION DU COURS
  * ====================================================================== */
 @Composable
 fun BookingScreen(nav: NavActions) {
@@ -217,7 +217,7 @@ private fun DurationChip(label: String, selected: Boolean, modifier: Modifier = 
 }
 
 /* ====================================================================== *
- * ÉCRAN 10 — PAIEMENT MOBILE MONEY
+ * ÉCRAN 10, PAIEMENT MOBILE MONEY
  * ====================================================================== */
 @Composable
 fun PaymentScreen(nav: NavActions) {
@@ -338,7 +338,7 @@ private fun PaymentMethod(badge: Color, icon: ImageVector, title: String, subtit
 }
 
 /* ====================================================================== *
- * ÉCRAN 11 — COURS CONFIRMÉ
+ * ÉCRAN 11, COURS CONFIRMÉ
  * ====================================================================== */
 @Composable
 fun ConfirmedScreen(nav: NavActions) {

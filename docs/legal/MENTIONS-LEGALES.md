@@ -1,4 +1,4 @@
-# Mentions légales — Mon Prof Perso (MP²)
+# Mentions légales, Mon Prof Perso (MP²)
 
 **Version : 2026-06**
 
@@ -7,14 +7,14 @@
 
 ## Éditeur
 - Dénomination sociale : ⟨raison sociale⟩
-- Forme juridique : ⟨SAS / autre⟩ — Capital social : ⟨montant⟩ FCFA
+- Forme juridique : ⟨SAS / autre⟩, Capital social : ⟨montant⟩ FCFA
 - Siège social : ⟨adresse, commune, Abidjan, Côte d'Ivoire⟩
-- RCCM : ⟨N°⟩ — Identifiant Unique : ⟨N°⟩
+- RCCM : ⟨N°⟩, Identifiant Unique : ⟨N°⟩
 - Représentant légal / Directeur de la publication : ⟨nom, qualité⟩
-- Contact : ⟨e-mail⟩ — ⟨téléphone⟩
+- Contact : ⟨e-mail⟩, ⟨téléphone⟩
 
 ## Hébergement
-- Hébergeur : ⟨nom de l'hébergeur⟩ — ⟨adresse en Côte d'Ivoire⟩ — ⟨contact⟩.
+- Hébergeur : ⟨nom de l'hébergeur⟩, ⟨adresse en Côte d'Ivoire⟩, ⟨contact⟩.
 - Les données et fichiers sont hébergés **en Côte d'Ivoire** (espace CEDEAO).
 
 ## Propriété intellectuelle
@@ -27,5 +27,4 @@ confidentialité**, conforme à la Loi N°2013-450 du 19 juin 2013. Autorité de
 contrôle : **ARTCI** (www.artci.ci).
 
 ## Médiation / litiges
-⟨modalités de réclamation⟩. Droit applicable : **droit ivoirien** —
-juridictions compétentes d'**Abidjan**.
+⟨modalités de réclamation⟩. Droit applicable : **droit ivoirien**, juridictions compétentes d'**Abidjan**.

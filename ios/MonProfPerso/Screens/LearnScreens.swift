@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - Écran 12 — Mes cours (données live via l'API commune)
+// MARK: - Écran 12, Mes cours (données live via l'API commune)
 struct MyCoursesScreen: View {
     @EnvironmentObject var router: Router
     @StateObject private var store = CoursesStore()
@@ -93,7 +93,7 @@ struct MyCoursesScreen: View {
     }
 }
 
-// MARK: - Écran 13 — Cours en ligne (visio)
+// MARK: - Écran 13, Cours en ligne (visio)
 struct OnlineCourseScreen: View {
     @EnvironmentObject var router: Router
     var body: some View {
@@ -145,7 +145,7 @@ struct OnlineCourseScreen: View {
     }
 }
 
-// MARK: - Écran 14 — Messagerie
+// MARK: - Écran 14, Messagerie
 struct MessagingScreen: View {
     @EnvironmentObject var router: Router
     var body: some View {
@@ -207,7 +207,7 @@ struct MessagingScreen: View {
     }
 }
 
-// MARK: - Écran 15 — Laisser un avis
+// MARK: - Écran 15, Laisser un avis
 struct ReviewScreen: View {
     @EnvironmentObject var router: Router
     @State private var rating = 5

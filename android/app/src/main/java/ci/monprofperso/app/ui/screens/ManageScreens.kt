@@ -32,7 +32,7 @@ import ci.monprofperso.app.ui.theme.Hanken
 import ci.monprofperso.app.ui.theme.Schibsted
 
 /* ====================================================================== *
- * ÉCRAN 31 — GÉRER LE COURS (ANNULER / REPROGRAMMER)
+ * ÉCRAN 31, GÉRER LE COURS (ANNULER / REPROGRAMMER)
  * ====================================================================== */
 @Composable
 fun ManageCourseScreen(nav: NavActions) {
@@ -73,7 +73,7 @@ fun ManageCourseScreen(nav: NavActions) {
                 }
             }
             Spacer(Modifier.height(14.dp))
-            Text("Reprogrammer — nouveaux créneaux", fontFamily = Schibsted, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AkColors.Ink)
+            Text("Reprogrammer, nouveaux créneaux", fontFamily = Schibsted, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AkColors.Ink)
             Spacer(Modifier.height(11.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("Dim 23 · 14h", "Lun 24 · 17h", "Mar 25 · 16h").forEachIndexed { i, label ->
@@ -103,7 +103,7 @@ private fun IconLine(icon: ImageVector, text: String, last: Boolean = false) {
 }
 
 /* ====================================================================== *
- * ÉCRAN 32 — BILAN DE PROGRESSION DÉTAILLÉ
+ * ÉCRAN 32, BILAN DE PROGRESSION DÉTAILLÉ
  * ====================================================================== */
 @Composable
 fun ProgressReportScreen(nav: NavActions) {
@@ -183,12 +183,12 @@ private fun StrengthCard(title: String, color: Color, items: List<String>, warn:
 }
 
 /* ====================================================================== *
- * ÉCRAN 33 — REÇU / FACTURE
+ * ÉCRAN 33, REÇU / FACTURE
  * ====================================================================== */
 @Composable
 fun ReceiptScreen(nav: NavActions) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val receiptText = "Reçu Mon Prof Perso N° AKW-2058 — Cours de Maths · 3ᵉ avec Koffi N'Guessan — Total payé 6 000 F (Orange Money)."
+    val receiptText = "Reçu Mon Prof Perso N° AKW-2058, Cours de Maths · 3ᵉ avec Koffi N'Guessan, Total payé 6 000 F (Orange Money)."
     AkScreen {
         TopBar("Reçu de paiement", onBack = { nav.back() })
         Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 22.dp).padding(top = 16.dp)) {

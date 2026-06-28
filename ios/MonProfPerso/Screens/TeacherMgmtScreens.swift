@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - Écran 29 — Devenir professeur
+// MARK: - Écran 29, Devenir professeur
 struct BecomeTeacherScreen: View {
     @EnvironmentObject var router: Router
     var body: some View {
@@ -45,7 +45,7 @@ struct BecomeTeacherScreen: View {
     }
 }
 
-// MARK: - Écran 30 — Retrait des gains
+// MARK: - Écran 30, Retrait des gains
 struct WithdrawScreen: View {
     @EnvironmentObject var router: Router
     @State private var amount = 1

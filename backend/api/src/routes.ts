@@ -353,7 +353,7 @@ api.get("/progress", wrap(async (_req, res) => {
   );
   res.json({
     student: "Kouadio, 3ᵉ", average: "13,2", trend: "+1,4",
-    goal: "Objectif BEPC : 14/20 — vous y êtes presque !",
+    goal: "Objectif BEPC : 14/20, vous y êtes presque !",
     subjects: subs.rows,
   });
 }));

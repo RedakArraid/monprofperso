@@ -40,7 +40,7 @@ import ci.monprofperso.app.ui.theme.Hanken
 import ci.monprofperso.app.ui.theme.Schibsted
 
 /* ====================================================================== *
- * ÉCRAN 16 — SUIVI DES PROGRÈS
+ * ÉCRAN 16, SUIVI DES PROGRÈS
  * ====================================================================== */
 @Composable
 fun ProgressScreen(nav: NavActions, vm: ci.monprofperso.app.data.ProgressViewModel = androidx.lifecycle.viewmodel.compose.viewModel()) {
@@ -113,7 +113,7 @@ private fun SubjectProgress(subject: String, grade: String, fraction: Float, war
 }
 
 /* ====================================================================== *
- * ÉCRAN 17 — NOTIFICATIONS
+ * ÉCRAN 17, NOTIFICATIONS
  * ====================================================================== */
 private data class Notif(val icon: ImageVector, val green: Boolean, val text: String, val time: String, val unread: Boolean)
 
@@ -206,7 +206,7 @@ private fun NotifItem(n: Notif, onClick: () -> Unit = {}) {
 }
 
 /* ====================================================================== *
- * ÉCRAN 18 — MON COMPTE
+ * ÉCRAN 18, MON COMPTE
  * ====================================================================== */
 @Composable
 fun AccountScreen(nav: NavActions) {
@@ -326,7 +326,7 @@ private fun AccountRow(icon: ImageVector, label: String, badge: String? = null, 
 private fun RowDivider() = Box(Modifier.fillMaxWidth().padding(horizontal = 15.dp).height(1.dp).background(AkColors.CardField))
 
 /* ====================================================================== *
- * ÉCRAN 19 — PORTEFEUILLE & PAIEMENTS
+ * ÉCRAN 19, PORTEFEUILLE & PAIEMENTS
  * ====================================================================== */
 private data class Tx(val title: String, val sub: String, val amount: String, val credit: Boolean)
 

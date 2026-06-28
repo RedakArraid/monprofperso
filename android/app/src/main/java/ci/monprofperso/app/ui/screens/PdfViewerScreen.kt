@@ -36,7 +36,7 @@ import java.io.File
 import java.net.URL
 
 /* ====================================================================== *
- * VISUALISEUR PDF IN-APP (sans dépendance — android.graphics.pdf.PdfRenderer)
+ * VISUALISEUR PDF IN-APP (sans dépendance, android.graphics.pdf.PdfRenderer)
  * Télécharge le PDF (endpoint public), le rend page par page en images.
  * Repli « ouvrir dans le navigateur » si le rendu échoue.
  * ====================================================================== */

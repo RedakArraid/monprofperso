@@ -1,7 +1,7 @@
 import SwiftUI
 
 /* ====================================================================== *
- * ÉCRAN UTILISATEUR — RESSOURCES & SUPPORTS (lecture seule)
+ * ÉCRAN UTILISATEUR, RESSOURCES & SUPPORTS (lecture seule)
  * Consomme /api/resources en live ; repli sur quelques exemples hors-ligne.
  * Les ressources sont publiées par l'admin (cours / devoirs / exercices).
  * ====================================================================== */
