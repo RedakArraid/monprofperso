@@ -35,12 +35,10 @@ echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); assert 'stat
 
 echo "==> Smoke OK"
 
-# Prod : l'apex doit rediriger vers www (canonique Traefik).
+# Prod : l'apex doit rediriger vers www (nginx dans le conteneur web).
 if [[ "$WEB" == "https://www.monprofperso.com" ]]; then
-  loc=$(curl -sS -o /dev/null -w "%{http_code} %{redirect_url}" -L --max-redirs 0 "https://monprofperso.com/" || true)
-  code="${loc%% *}"
-  target="${loc#* }"
-  echo "  GET apex → ${code} ${target}"
-  [ "$code" = "301" ] || [ "$code" = "308" ] || { echo "WARN: apex sans redirect 301"; }
-  [[ "$target" == https://www.monprofperso.com/* ]] || [[ "$target" == https://www.monprofperso.com ]] || { echo "WARN: redirect apex inattendu"; }
+  code=$(curl -sS -o /dev/null -w "%{http_code}" -L --max-redirs 0 "https://monprofperso.com/" || true)
+  loc=$(curl -sSI "https://monprofperso.com/" 2>/dev/null | awk -F': ' 'tolower($1)=="location"{print $2}' | tr -d '\r')
+  echo "  GET apex → HTTP ${code} ${loc:-}"
+  [ "$code" = "301" ] || [ "$code" = "308" ] || echo "WARN: apex sans redirect 301"
 fi

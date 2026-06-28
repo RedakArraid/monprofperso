@@ -88,18 +88,7 @@ services:
     labels:
       - traefik.enable=true
       - traefik.http.services.monprofperso-web.loadbalancer.server.port=80
-      # Redirige monprofperso.com → www.monprofperso.com (URL canonique)
-      - traefik.http.middlewares.monprofperso-apex-www.redirectregex.regex=^https://monprofperso.com(.*)
-      - traefik.http.middlewares.monprofperso-apex-www.redirectregex.replacement=https://www.monprofperso.com$${1}
-      - traefik.http.middlewares.monprofperso-apex-www.redirectregex.permanent=true
-      - traefik.http.routers.monprofperso-web-apex.rule=Host(`monprofperso.com`)
-      - traefik.http.routers.monprofperso-web-apex.entrypoints=websecure
-      - traefik.http.routers.monprofperso-web-apex.tls=true
-      - traefik.http.routers.monprofperso-web-apex.tls.certresolver=mytlschallenge
-      - traefik.http.routers.monprofperso-web-apex.middlewares=monprofperso-apex-www
-      - traefik.http.routers.monprofperso-web-apex.service=monprofperso-web
-      - traefik.http.routers.monprofperso-web-apex.priority=200
-      - traefik.http.routers.monprofperso-web.rule=Host(`www.monprofperso.com`)
+      - "traefik.http.routers.monprofperso-web.rule=Host(`monprofperso.com`) || Host(`www.monprofperso.com`)"
       - traefik.http.routers.monprofperso-web.entrypoints=websecure
       - traefik.http.routers.monprofperso-web.tls=true
       - traefik.http.routers.monprofperso-web.tls.certresolver=mytlschallenge
