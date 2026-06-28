@@ -263,6 +263,8 @@ fun AccountScreen(nav: NavActions) {
                     RowDivider()
                     AccountRow(Icons.Filled.DateRange, "Mon agenda") { nav.go(Routes.Agenda) }
                 } else {
+                    AccountRow(Icons.Filled.School, "Devenir professeur") { nav.go(Routes.BecomeTeacher) }
+                    RowDivider()
                     AccountRow(Icons.Filled.WorkspacePremium, "Mon abonnement", badge = "Actif", badgeFg = AkColors.Green, badgeBg = AkColors.GreenSoft) { nav.go(Routes.MySubscription) }
                     RowDivider()
                     AccountRow(Icons.Filled.AccountBalanceWallet, "Moyens de paiement") { nav.go(Routes.Wallet) }
@@ -296,8 +298,8 @@ fun AccountScreen(nav: NavActions) {
             if (!isTeacher) {
                 Spacer(Modifier.height(8.dp))
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Text("Espace professeur →", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.5.sp, color = AkColors.Muted,
-                        modifier = Modifier.clickable { nav.go(Routes.TeacherDashboard) })
+                    Text("Devenir professeur →", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.5.sp, color = AkColors.Muted,
+                        modifier = Modifier.clickable { nav.go(Routes.BecomeTeacher) })
                 }
             }
             Spacer(Modifier.height(16.dp))

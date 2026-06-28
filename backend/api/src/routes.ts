@@ -3,6 +3,7 @@ import { pool } from "./db";
 import { ValidationError, optionalString, optionalPhone, optionalEnum, optionalNumber, requiredString, requiredEnum } from "./validate";
 import { optionalAuth, currentUserId, signJwt, requireAdmin, DEMO_USER } from "./auth";
 import { putFile, getFileStream } from "./storage";
+import { registerTeacherApplicationRoutes } from "./teacherApplications";
 
 export const api = Router();
 
@@ -845,6 +846,8 @@ admin.delete("/groups/:id", wrap(async (req, res) => {
   if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
   res.status(204).end();
 }));
+
+registerTeacherApplicationRoutes(api, admin, { wrap, serveFile, consentVersion: CONSENT_VERSION });
 
 api.use("/admin", admin);
 

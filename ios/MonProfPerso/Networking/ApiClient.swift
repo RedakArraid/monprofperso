@@ -175,6 +175,20 @@ struct UserDTO: Codable { let id: Int; let role: String }
 struct AuthResponse: Codable { let token: String; let user: UserDTO }
 struct VerifyResponse: Codable { let token: String; let verified: Bool }
 
+struct TeacherApplicationResultDTO: Codable {
+    let id: Int
+    let full_name: String?
+    let phone: String
+    let status: String
+    let created_at: String?
+}
+
+struct TeacherApplicationStatusDTO: Codable {
+    let status: String
+    let rejectionReason: String?
+    let createdAt: String?
+}
+
 struct ApiClient {
     static let shared = ApiClient()
     private let session = URLSession.shared
@@ -230,6 +244,17 @@ struct ApiClient {
     func verifyOtp(phone: String = ApiConfig.demoPhone) async {
         if let data = try? await request("api/auth/verify-otp", method: "POST", json: ["phone": phone]),
            let r = try? JSONDecoder().decode(VerifyResponse.self, from: data) { TokenStore.token = r.token }
+    }
+
+    // MARK: Candidatures professeur
+    func submitTeacherApplication(_ body: [String: Any]) async throws -> TeacherApplicationResultDTO {
+        let data = try await request("api/teacher-applications", method: "POST", json: body)
+        return try JSONDecoder().decode(TeacherApplicationResultDTO.self, from: data)
+    }
+
+    func teacherApplicationStatus(phone: String) async throws -> TeacherApplicationStatusDTO {
+        let enc = phone.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? phone
+        return try await get("api/teacher-applications/status?phone=\(enc)")
     }
 
     func subjects() async throws -> [SubjectDTO] { try await get("api/subjects") }

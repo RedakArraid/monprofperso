@@ -148,6 +148,12 @@ interface MonProfPersoApi {
 
     @POST("api/auth/verify-otp")
     suspend fun verifyOtp(@Body body: Map<String, String>): VerifyResponse
+
+    @POST("api/teacher-applications")
+    suspend fun submitTeacherApplication(@Body body: Map<String, @JvmSuppressWildcards Any?>): TeacherApplicationResultDto
+
+    @GET("api/teacher-applications/status")
+    suspend fun teacherApplicationStatus(@Query("phone") phone: String): TeacherApplicationStatusDto
 }
 
 object Api {

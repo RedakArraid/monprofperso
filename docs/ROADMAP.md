@@ -61,6 +61,11 @@ Maillon faible : auth/paiement simulés. À traiter avant toute nouvelle feature
       Fait côté apps : espace prof (dashboard, demandes, revenus) **branché en live**
       sur Android + iOS, avec boutons « Accepter » / « Refuser » câblés
       (`/teacher/requests/:id/{accept,refuse}`) et repli mock. Reste : calendrier.
+- [x] **Candidatures professeur** : table `teacher_applications`, soumission publique
+      (`POST /api/teacher-applications` + statut par téléphone), validation admin
+      (approve → crée `teachers` + compte `teacher`), console `/admin/` (liste/détail/
+      fichiers), vitrine `web/devenir-prof.html`, écran app « Devenir professeur »
+      (Android + iOS, 3 étapes + upload). Migration `1700000012000`, tests dédiés.
 - [~] Notifications push (FCM Android / APNs iOS).
       Fait : notifications **in-app** persistées en base, le parent est notifié quand
       sa réservation est acceptée/refusée ; l'écran Notifications est branché en live
@@ -68,8 +73,9 @@ Maillon faible : auth/paiement simulés. À traiter avant toute nouvelle feature
 
 ## Phase 3, Qualité apps natives
 - [~] Brancher en live les écrans encore en repli local (Android + iOS).
-      Fait : espace prof (tableau de bord, demandes + validation, revenus). Reste les
-      écrans encore mockés (agenda, gestion de cours, réglages, etc.).
+      Fait : espace prof (tableau de bord, demandes + validation, revenus), candidature
+      prof (écran 29 « Devenir professeur »). Reste les écrans encore mockés (agenda,
+      gestion de cours, réglages, etc.).
 - [~] États réseau uniformes (loading / erreur / offline) des deux côtés.
       Fait : composants réutilisables `OfflineBanner` (bandeau « hors-ligne » +
       Réessayer, respectant le repli mock) et `LoadingRow`, appliqués aux écrans

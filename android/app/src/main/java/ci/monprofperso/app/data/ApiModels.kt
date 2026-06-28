@@ -200,3 +200,17 @@ data class UserDto(
 data class AuthResponse(val token: String, val user: UserDto)
 
 data class VerifyResponse(val token: String, val verified: Boolean)
+
+data class TeacherApplicationResultDto(
+    val id: Int,
+    @SerializedName("full_name") val fullName: String,
+    val phone: String,
+    val status: String,
+    @SerializedName("created_at") val createdAt: String?,
+)
+
+data class TeacherApplicationStatusDto(
+    val status: String,
+    @SerializedName("rejectionReason") val rejectionReason: String? = null,
+    @SerializedName("createdAt") val createdAt: String? = null,
+)

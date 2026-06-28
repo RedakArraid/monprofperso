@@ -10,6 +10,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.ImeAction
+import kotlinx.coroutines.launch
+import android.provider.OpenableColumns
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -23,6 +35,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ci.monprofperso.app.data.Api
 import ci.monprofperso.app.nav.NavActions
 import ci.monprofperso.app.ui.components.*
 import ci.monprofperso.app.ui.theme.AkColors
@@ -30,47 +43,214 @@ import ci.monprofperso.app.ui.theme.Hanken
 import ci.monprofperso.app.ui.theme.Schibsted
 
 /* ====================================================================== *
- * ÉCRAN 29, DEVENIR PROFESSEUR
+ * ÉCRAN 29, DEVENIR PROFESSEUR (candidature live → /api/teacher-applications)
  * ====================================================================== */
+private data class DocPick(val name: String, val mime: String, val b64: String)
+
 @Composable
 fun BecomeTeacherScreen(nav: NavActions) {
-    AkScreen {
-        TopBar("Devenir professeur", onBack = { nav.back() })
-        Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 22.dp).padding(top = 14.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(Modifier.weight(1f).height(5.dp).clip(RoundedCornerShape(3.dp)).background(AkColors.Green))
-                Box(Modifier.weight(1f).height(5.dp).clip(RoundedCornerShape(3.dp)).background(AkColors.Green))
-                Box(Modifier.weight(1f).height(5.dp).clip(RoundedCornerShape(3.dp)).background(Color(0xFFEAE5DC)))
-            }
-            Text("Étape 2 / 3 · Vos documents", fontFamily = Hanken, fontSize = 12.sp, color = AkColors.Muted, modifier = Modifier.padding(top = 7.dp))
-            Text("Vérifions votre profil", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = AkColors.Ink, modifier = Modifier.padding(top = 14.dp))
-            Text("Pour rassurer les parents, chaque professeur est vérifié avant d'apparaître sur Mon Prof Perso.",
-                fontFamily = Hanken, fontSize = 13.sp, lineHeight = 19.sp, color = AkColors.Muted, modifier = Modifier.padding(top = 6.dp))
-            Spacer(Modifier.height(16.dp))
-            DocRow(Icons.Filled.Badge, "Pièce d'identité (CNI)", "Téléversée", done = true)
-            Spacer(Modifier.height(10.dp))
-            DocRow(Icons.Filled.WorkspacePremium, "Diplôme / attestation", "Téléversé", done = true)
-            Spacer(Modifier.height(10.dp))
-            DocRow(Icons.Filled.PhotoCamera, "Photo de profil", "Obligatoire", done = false)
-            Spacer(Modifier.height(14.dp))
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(AkColors.GreenSoft).padding(horizontal = 14.dp, vertical = 13.dp), verticalAlignment = Alignment.Top) {
-                Icon(Icons.Filled.VerifiedUser, null, tint = AkColors.Green, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(9.dp))
-                Text("Vos documents sont confidentiels et vérifiés sous 24 à 48h.", fontFamily = Hanken, fontSize = 12.5.sp, lineHeight = 18.sp, color = Color(0xFF3F6B59))
-            }
-            Spacer(Modifier.height(16.dp))
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var step by remember { mutableIntStateOf(0) }
+    var fullName by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+    var subjects by remember { mutableStateOf("") }
+    var location by remember { mutableStateOf("Abidjan") }
+    var price by remember { mutableStateOf("4000") }
+    var bio by remember { mutableStateOf("") }
+    var consent by remember { mutableStateOf(false) }
+    var idCard by remember { mutableStateOf<DocPick?>(null) }
+    var diploma by remember { mutableStateOf<DocPick?>(null) }
+    var photo by remember { mutableStateOf<DocPick?>(null) }
+    var err by remember { mutableStateOf<String?>(null) }
+    var done by remember { mutableStateOf(false) }
+    var loading by remember { mutableStateOf(false) }
+    var pickKind by remember { mutableStateOf("") }
+
+    fun readUri(uri: android.net.Uri): DocPick? {
+        val resolver = context.contentResolver
+        val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: return null
+        var name = "fichier"
+        resolver.query(uri, null, null, null, null)?.use { c ->
+            val idx = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (idx >= 0 && c.moveToFirst()) c.getString(idx)?.let { name = it }
         }
-        Box(Modifier.fillMaxWidth().background(AkColors.White).padding(horizontal = 22.dp).padding(top = 14.dp, bottom = 24.dp)) {
-            PrimaryButton("Envoyer ma candidature", Modifier.fillMaxWidth(), trailingIcon = null, onClick = { nav.back() })
+        val mime = resolver.getType(uri) ?: "application/octet-stream"
+        val b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+        return DocPick(name, mime, b64)
+    }
+
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        readUri(uri)?.let { doc ->
+            when (pickKind) {
+                "id" -> idCard = doc
+                "dip" -> diploma = doc
+                "photo" -> photo = doc
+            }
+        }
+    }
+
+    suspend fun submit() {
+        loading = true
+        err = null
+        runCatching {
+            Api.service.submitTeacherApplication(buildMap {
+                put("fullName", fullName.trim())
+                put("phone", phone.trim())
+                put("subjects", subjects.trim())
+                put("location", location.trim())
+                put("pricePerHour", price.toIntOrNull() ?: 4000)
+                put("bio", bio.trim())
+                put("levels", listOf("Collège", "Lycée"))
+                put("formats", listOf("home", "online"))
+                put("programs", listOf("standard"))
+                put("consent", true)
+                idCard?.let {
+                    put("idCardBase64", it.b64); put("idCardFileName", it.name); put("idCardMimeType", it.mime)
+                }
+                diploma?.let {
+                    put("diplomaBase64", it.b64); put("diplomaFileName", it.name); put("diplomaMimeType", it.mime)
+                }
+                photo?.let {
+                    put("photoBase64", it.b64); put("photoFileName", it.name); put("photoMimeType", it.mime)
+                }
+            })
+        }.onSuccess { done = true }
+            .onFailure { err = it.message ?: "Envoi impossible" }
+        loading = false
+    }
+
+    AkScreen {
+        TopBar("Devenir professeur", onBack = { if (!done) nav.back() })
+        if (done) {
+            Column(Modifier.weight(1f).padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                Icon(Icons.Filled.VerifiedUser, null, tint = AkColors.Green, modifier = Modifier.size(48.dp))
+                Spacer(Modifier.height(16.dp))
+                Text("Candidature envoyée", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, color = AkColors.Ink)
+                Text("Vérification sous 24 à 48 h. Vous serez contacté sur votre numéro.",
+                    fontFamily = Hanken, fontSize = 14.sp, color = AkColors.Muted, modifier = Modifier.padding(top = 10.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                Spacer(Modifier.height(24.dp))
+                PrimaryButton("Retour au compte", Modifier.fillMaxWidth(), trailingIcon = null) { nav.back() }
+            }
+        } else {
+            Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 22.dp).padding(top = 14.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    repeat(3) { i ->
+                        Box(Modifier.weight(1f).height(5.dp).clip(RoundedCornerShape(3.dp))
+                            .background(if (i <= step) AkColors.Green else Color(0xFFEAE5DC)))
+                    }
+                }
+                Text("Étape ${step + 1} / 3 · ${when (step) { 0 -> "Votre profil"; 1 -> "Consentement"; else -> "Vos documents" }}",
+                    fontFamily = Hanken, fontSize = 12.sp, color = AkColors.Muted, modifier = Modifier.padding(top = 7.dp))
+                when (step) {
+                    0 -> {
+                        Text("Parlez-nous de vous", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = AkColors.Ink, modifier = Modifier.padding(top = 14.dp))
+                        Spacer(Modifier.height(12.dp))
+                        FieldLabel("Nom complet"); AppField(fullName, { fullName = it }, "Koffi N'Guessan")
+                        Spacer(Modifier.height(10.dp))
+                        FieldLabel("Téléphone"); AppField(phone, { phone = it }, "+2250700000000")
+                        Spacer(Modifier.height(10.dp))
+                        FieldLabel("Matières"); AppField(subjects, { subjects = it }, "Maths · Physique")
+                        Spacer(Modifier.height(10.dp))
+                        FieldLabel("Quartier / ville"); AppField(location, { location = it }, "Cocody")
+                        Spacer(Modifier.height(10.dp))
+                        FieldLabel("Tarif horaire (F)"); AppField(price, { price = it }, "4000")
+                        Spacer(Modifier.height(10.dp))
+                        FieldLabel("Présentation"); AppField(bio, { bio = it }, "Votre parcours…", singleLine = false)
+                    }
+                    1 -> {
+                        Text("Confidentialité", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = AkColors.Ink, modifier = Modifier.padding(top = 14.dp))
+                        Text("Pour rassurer les parents, chaque professeur est vérifié avant d'apparaître sur Mon Prof Perso.",
+                            fontFamily = Hanken, fontSize = 13.sp, lineHeight = 19.sp, color = AkColors.Muted, modifier = Modifier.padding(top = 6.dp))
+                        Spacer(Modifier.height(16.dp))
+                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(AkColors.GreenSoft).padding(14.dp), verticalAlignment = Alignment.Top) {
+                            Icon(Icons.Filled.VerifiedUser, null, tint = AkColors.Green, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(9.dp))
+                            Text("Vos documents sont confidentiels et vérifiés sous 24 à 48 h.", fontFamily = Hanken, fontSize = 12.5.sp, lineHeight = 18.sp, color = Color(0xFF3F6B59))
+                        }
+                        Spacer(Modifier.height(14.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { consent = !consent }) {
+                            Checkbox(checked = consent, onCheckedChange = { consent = it })
+                            Text("J'accepte les CGU et la politique de confidentialité.", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Ink)
+                        }
+                    }
+                    else -> {
+                        Text("Vérifions votre profil", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = AkColors.Ink, modifier = Modifier.padding(top = 14.dp))
+                        Spacer(Modifier.height(12.dp))
+                        DocRow(Icons.Filled.Badge, "Pièce d'identité (CNI)", idCard?.name ?: "Obligatoire", done = idCard != null) { pickKind = "id"; picker.launch(arrayOf("image/*", "application/pdf")) }
+                        Spacer(Modifier.height(10.dp))
+                        DocRow(Icons.Filled.WorkspacePremium, "Diplôme / attestation", diploma?.name ?: "Obligatoire", done = diploma != null) { pickKind = "dip"; picker.launch(arrayOf("image/*", "application/pdf")) }
+                        Spacer(Modifier.height(10.dp))
+                        DocRow(Icons.Filled.PhotoCamera, "Photo de profil", photo?.name ?: "Obligatoire", done = photo != null) { pickKind = "photo"; picker.launch(arrayOf("image/*")) }
+                    }
+                }
+                err?.let { Text(it, color = Color(0xFFE0392B), fontFamily = Hanken, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp)) }
+                Spacer(Modifier.height(16.dp))
+            }
+            Row(Modifier.fillMaxWidth().background(AkColors.White).padding(horizontal = 22.dp).padding(top = 14.dp, bottom = 24.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (step > 0) {
+                    Row(
+                        Modifier.weight(1f).clip(RoundedCornerShape(15.dp)).border(1.dp, AkColors.Border, RoundedCornerShape(15.dp))
+                            .clickable { step-- }.padding(vertical = 16.dp),
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
+                        Text("Retour", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 15.5.sp, color = AkColors.Ink)
+                    }
+                }
+                PrimaryButton(
+                    if (step < 2) "Suivant" else if (loading) "Envoi…" else "Envoyer ma candidature",
+                    Modifier.weight(1f), trailingIcon = null,
+                ) {
+                    if (loading) return@PrimaryButton
+                    err = null
+                    when (step) {
+                        0 -> {
+                            if (fullName.isBlank() || phone.isBlank() || subjects.isBlank()) err = "Remplissez les champs obligatoires."
+                            else step++
+                        }
+                        1 -> {
+                            if (!consent) err = "Acceptez les conditions."
+                            else step++
+                        }
+                        else -> {
+                            if (idCard == null || diploma == null || photo == null) err = "Ajoutez les trois documents."
+                            else scope.launch { submit() }
+                        }
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun DocRow(icon: ImageVector, title: String, status: String, done: Boolean) {
+private fun AppField(value: String, onValueChange: (String) -> Unit, placeholder: String, singleLine: Boolean = true) {
+    OutlinedTextField(
+        value = value, onValueChange = onValueChange, modifier = Modifier.fillMaxWidth(),
+        placeholder = { Text(placeholder, fontFamily = Hanken, fontSize = 14.sp, color = AkColors.Faint) },
+        singleLine = singleLine, minLines = if (singleLine) 1 else 3,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+        shape = RoundedCornerShape(14.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = AkColors.Green, unfocusedBorderColor = AkColors.Border,
+            focusedContainerColor = AkColors.White, unfocusedContainerColor = AkColors.White,
+            cursorColor = AkColors.Green,
+        ),
+    )
+}
+
+@Composable
+private fun FieldLabel(text: String) {
+    Text(text, fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = AkColors.Muted)
+}
+
+@Composable
+private fun DocRow(icon: ImageVector, title: String, status: String, done: Boolean, onAdd: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(AkColors.White)
             .then(if (done) Modifier.border(1.dp, AkColors.Border, RoundedCornerShape(15.dp)) else Modifier.border(1.5.dp, Color(0xFFC9C2B5), RoundedCornerShape(15.dp)))
+            .clickable(enabled = !done) { onAdd() }
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

@@ -207,6 +207,8 @@ struct AccountScreen: View {
                             accountRow("crown.fill", "Mon abonnement", badge: "Actif", bf: Ak.green, bb: Ak.greenSoft) { router.go(.mySubscription) }
                             rowDivider()
                             accountRow("creditcard.fill", "Moyens de paiement") { router.go(.wallet) }
+                            rowDivider()
+                            accountRow("graduationcap.fill", "Devenir professeur") { router.go(.becomeTeacher) }
                         }
                         rowDivider()
                         accountRow("doc.text.fill", "Ressources & supports") { router.go(.resources) }
@@ -233,7 +235,7 @@ struct AccountScreen: View {
 
                     Text("Se déconnecter").font(AkFont.bold(13.5)).foregroundColor(Ak.danger).frame(maxWidth: .infinity).padding(.top, 14).onTapGesture { router.role = 0; router.authRole = nil; TokenStore.clear(); router.popToRoot() }
                     if !isTeacher {
-                        Text("Espace professeur →").font(AkFont.bold(12.5)).foregroundColor(Ak.muted).frame(maxWidth: .infinity).padding(.top, 8).onTapGesture { router.go(.teacherDashboard) }
+                        Text("Devenir professeur →").font(AkFont.bold(12.5)).foregroundColor(Ak.muted).frame(maxWidth: .infinity).padding(.top, 8).onTapGesture { router.go(.becomeTeacher) }
                     }
                 }.padding(.horizontal, 22).padding(.top, 6).padding(.bottom, 16)
             }

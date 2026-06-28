@@ -159,6 +159,11 @@ img { max-width: 100%; height: auto; display: block; }
 .card-icon .ui-icon { width: 28px; height: 28px; color: var(--green); }
 .card.audience .card-icon { background: var(--orange-soft); }
 .card.audience .card-icon .ui-icon { color: var(--orange); }
+.card-link {
+  display: inline-block; margin-top: 14px; font-weight: 700; font-size: 0.9rem;
+  color: var(--orange); text-decoration: none;
+}
+.card-link:hover { text-decoration: underline; }
 .ui-icon { display: block; fill: currentColor; }
 .ui-icon-sm { width: 18px; height: 18px; flex-shrink: 0; }
 .ui-icon-stat { width: 32px; height: 32px; margin: 0 auto 10px; color: var(--green); }

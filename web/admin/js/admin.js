@@ -162,6 +162,7 @@ async function boot() {
  * ===================================================================== */
 const VIEWS = {
   dashboard: { title: "Tableau de bord", render: renderDashboard },
+  applications: { title: "Candidatures profs", render: renderApplications },
   teachers: { title: "Professeurs", render: renderTeachers },
   groups: { title: "Cours de groupe", render: renderGroups },
   catalog: { title: "Matières & niveaux", render: renderCatalog },
@@ -214,11 +215,14 @@ document.addEventListener("keydown", (e) => {
  * Vue : Tableau de bord
  * ===================================================================== */
 async function renderDashboard(root) {
-  const [subjects, levels, teachers, groups, resources] = await Promise.all([
+  const [subjects, levels, teachers, groups, resources, applications] = await Promise.all([
     api("/api/subjects"), api("/api/levels"), api("/api/teachers"),
     api("/api/groups"), api("/api/resources"),
+    api("/api/admin/teacher-applications?status=pending"),
   ]).then((rows) => rows.map(asList));
+  const pendingApps = applications.length;
   const cards = [
+    ["Candidatures en attente", pendingApps, "applications"],
     ["Professeurs", teachers.length, "teachers"],
     ["Cours de groupe", groups.length, "groups"],
     ["Matières", subjects.length, "catalog"],
@@ -239,6 +243,101 @@ async function renderDashboard(root) {
     </div>`;
   root.querySelectorAll("[data-go]").forEach((c) =>
     c.addEventListener("click", () => navigate(c.dataset.go)));
+}
+
+/* =====================================================================
+ * Vue : Candidatures professeurs
+ * ===================================================================== */
+const APP_STATUS_LABEL = { pending: "En attente", approved: "Acceptée", rejected: "Refusée" };
+
+async function renderApplications(root) {
+  const filter = root.dataset.filter || "pending";
+  const apps = asList(await api("/api/admin/teacher-applications" + (filter !== "all" ? "?status=" + filter : "")));
+  root.innerHTML = `
+    <div class="section-head">
+      <h3>Candidatures <span class="count">${apps.length}</span></h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${["pending", "approved", "rejected", "all"].map((s) =>
+          `<button class="btn btn-sm ${filter === s ? "btn-primary" : "btn-ghost"}" data-filter="${s}">${s === "all" ? "Toutes" : APP_STATUS_LABEL[s]}</button>`
+        ).join("")}
+      </div>
+    </div>
+    <div class="list" id="appList">
+      ${apps.length ? apps.map(applicationRow).join("") : `<p class="empty">Aucune candidature${filter === "pending" ? " en attente" : ""}.</p>`}
+    </div>`;
+  root.querySelectorAll("[data-filter]").forEach((b) =>
+    b.addEventListener("click", () => { root.dataset.filter = b.dataset.filter; renderApplications(root); }));
+  root.querySelectorAll("[data-open]").forEach((b) =>
+    b.addEventListener("click", () => openApplication(Number(b.dataset.open))));
+}
+
+function applicationRow(a) {
+  const st = APP_STATUS_LABEL[a.status] || a.status;
+  const pill = a.status === "pending" ? "orange" : a.status === "approved" ? "green" : "";
+  return `<div class="row">
+    <span class="dot ${a.status === "pending" ? "orange" : a.status === "approved" ? "green" : ""}"></span>
+    <div class="row-main">
+      <div class="row-title">${esc(a.full_name)} <span class="pill ${pill}">${esc(st)}</span></div>
+      <div class="row-meta">${esc(a.phone)} · ${esc(a.subjects)} · ${esc(a.location || "Abidjan")}
+        ${a.price_per_hour ? " · " + fcfa(a.price_per_hour) + " F/h" : ""}</div>
+    </div>
+    <div class="row-actions">
+      <button class="btn btn-ghost btn-sm" data-open="${a.id}">Voir</button>
+    </div>
+  </div>`;
+}
+
+async function openApplication(id) {
+  const a = await api("/api/admin/teacher-applications/" + id);
+  const docs = [
+    ["id_card", "Pièce d'identité", a.hasIdCard],
+    ["diploma", "Diplôme / attestation", a.hasDiploma],
+    ["photo", "Photo de profil", a.hasPhoto],
+  ];
+  modal(`Candidature · ${a.full_name}`, `
+    <p class="muted" style="margin-bottom:12px">${esc(a.phone)}${a.email ? " · " + esc(a.email) : ""}</p>
+    <p><strong>Matières :</strong> ${esc(a.subjects)}</p>
+    <p><strong>Lieu :</strong> ${esc(a.location)} · <strong>Prix :</strong> ${a.price_per_hour ? fcfa(a.price_per_hour) + " F/h" : "—"}</p>
+    <p><strong>Niveaux :</strong> ${esc((a.levels || []).join(", ") || "—")}</p>
+    <p><strong>Formats :</strong> ${esc((a.formats || []).join(", ") || "—")}</p>
+    ${a.bio ? `<p><strong>Bio :</strong> ${esc(a.bio)}</p>` : ""}
+    ${a.experience ? `<p><strong>Expérience :</strong> ${esc(a.experience)}</p>` : ""}
+    ${a.rejection_reason ? `<p style="color:var(--orange)"><strong>Motif refus :</strong> ${esc(a.rejection_reason)}</p>` : ""}
+    <hr class="divider">
+    <p><strong>Documents</strong></p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 16px">
+      ${docs.map(([k, lbl, ok]) => ok
+        ? `<a class="btn btn-ghost btn-sm" href="${API_BASE}/api/admin/teacher-applications/${a.id}/files/${k}" target="_blank" rel="noopener">${esc(lbl)}</a>`
+        : `<span class="muted">${esc(lbl)} (manquant)</span>`).join("")}
+    </div>
+    ${a.status === "pending" ? `
+      <div class="field full"><label>Motif de refus (si refus)</label><textarea id="rejReason" placeholder="Ex. diplôme illisible…"></textarea></div>
+      <div class="form-actions">
+        <button class="btn btn-primary" id="approveApp">Accepter et créer le prof</button>
+        <button class="btn btn-danger" id="rejectApp">Refuser</button>
+      </div>` : `<p class="muted">Candidature déjà traitée.</p>`}
+  `, (back, close) => {
+    const approve = back.querySelector("#approveApp");
+    const reject = back.querySelector("#rejectApp");
+    approve?.addEventListener("click", async () => {
+      approve.disabled = true;
+      try {
+        await api("/api/admin/teacher-applications/" + id + "/approve", { method: "POST", body: {} });
+        toast("Professeur créé et candidature acceptée");
+        close(); navigate("applications");
+      } catch (e) { toast(e.message, true); approve.disabled = false; }
+    });
+    reject?.addEventListener("click", async () => {
+      const reason = back.querySelector("#rejReason")?.value?.trim();
+      if (!reason) { toast("Indiquez un motif de refus", true); return; }
+      reject.disabled = true;
+      try {
+        await api("/api/admin/teacher-applications/" + id + "/reject", { method: "POST", body: { reason } });
+        toast("Candidature refusée");
+        close(); navigate("applications");
+      } catch (e) { toast(e.message, true); reject.disabled = false; }
+    });
+  });
 }
 
 /* =====================================================================

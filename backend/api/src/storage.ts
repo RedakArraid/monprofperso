@@ -38,10 +38,15 @@ export async function ensureBucket(retries = 20): Promise<void> {
 }
 
 /** Téléverse un fichier et renvoie sa clé d'objet, ou null si le stockage a échoué. */
-export async function putFile(buffer: Buffer, mimeType: string | null, fileName: string | null): Promise<string | null> {
+export async function putFile(
+  buffer: Buffer,
+  mimeType: string | null,
+  fileName: string | null,
+  prefix = "resources",
+): Promise<string | null> {
   if (!client) return null;
   const ext = fileName && fileName.includes(".") ? "." + fileName.split(".").pop() : "";
-  const key = `resources/${randomUUID()}${ext}`;
+  const key = `${prefix.replace(/\/+$/, "")}/${randomUUID()}${ext}`;
   try {
     await client.putObject(bucket, key, buffer, buffer.length, {
       "Content-Type": mimeType ?? "application/octet-stream",
