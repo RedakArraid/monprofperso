@@ -23,9 +23,9 @@ const token = {
   clear: () => localStorage.removeItem(TOKEN_KEY),
 };
 
-// --- Appel API générique. ---
+// --- Appel API générique (sans cache navigateur : évite les 304 sans corps). ---
 async function api(path, { method = "GET", body, headers = {} } = {}) {
-  const opt = { method, headers: { ...headers } };
+  const opt = { method, cache: "no-store", headers: { ...headers } };
   const t = token.get();
   if (t) opt.headers["Authorization"] = "Bearer " + t;
   if (body !== undefined) {
@@ -39,6 +39,9 @@ async function api(path, { method = "GET", body, headers = {} } = {}) {
     throw new Error("Impossible de joindre l'API. Vérifiez votre connexion.");
   }
   if (res.status === 204) return null;
+  if (res.status === 304) {
+    throw new Error("Réponse cache invalide — rechargez la page.");
+  }
   const text = await res.text();
   let data = null;
   if (text) {
@@ -52,6 +55,8 @@ async function api(path, { method = "GET", body, headers = {} } = {}) {
   }
   return data;
 }
+
+function asList(v) { return Array.isArray(v) ? v : []; }
 
 // --- Utilitaires UI. ---
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -188,7 +193,7 @@ async function renderDashboard(root) {
   const [subjects, levels, teachers, groups, resources] = await Promise.all([
     api("/api/subjects"), api("/api/levels"), api("/api/teachers"),
     api("/api/groups"), api("/api/resources"),
-  ]);
+  ]).then((rows) => rows.map(asList));
   const cards = [
     ["Professeurs", teachers.length, "teachers"],
     ["Cours de groupe", groups.length, "groups"],
@@ -216,7 +221,7 @@ async function renderDashboard(root) {
  * Vue : Professeurs
  * ===================================================================== */
 async function renderTeachers(root) {
-  const teachers = await api("/api/teachers");
+  const teachers = asList(await api("/api/teachers"));
   root.innerHTML = `
     <div class="section-head">
       <h3>Professeurs <span class="count">${teachers.length}</span></h3>
@@ -325,7 +330,7 @@ function teacherForm(t) {
  * Vue : Cours de groupe
  * ===================================================================== */
 async function renderGroups(root) {
-  const groups = await api("/api/groups");
+  const groups = asList(await api("/api/groups"));
   root.innerHTML = `
     <div class="section-head">
       <h3>Cours de groupe <span class="count">${groups.length}</span></h3>
@@ -413,7 +418,7 @@ function groupForm(g) {
 async function renderCatalog(root) {
   const [subjects, levels, programs] = await Promise.all([
     api("/api/subjects"), api("/api/levels"), api("/api/programs"),
-  ]);
+  ]).then((rows) => rows.map(asList));
   root.innerHTML = `
     <div class="card">
       <div class="section-head"><h3>Matières <span class="count">${subjects.length}</span></h3></div>
@@ -495,7 +500,7 @@ const R_TYPES = { course: "Cours", homework: "Devoir", exercise: "Exercice" };
 async function renderResources(root) {
   const [subjects, levels, resources] = await Promise.all([
     api("/api/subjects"), api("/api/levels"), api("/api/resources"),
-  ]);
+  ]).then((rows) => rows.map(asList));
   root.innerHTML = `
     <div class="card">
       <h3>Nouvelle ressource</h3>
@@ -558,7 +563,7 @@ function resourceRow(r) {
  * Vue : Documents légaux (CGU, confidentialité, mentions)
  * ===================================================================== */
 async function renderLegal(root) {
-  const docs = await api("/api/legal");
+  const docs = asList(await api("/api/legal"));
   root.innerHTML = `
     <div class="card">
       <h3>Documents légaux</h3>
