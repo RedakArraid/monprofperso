@@ -17,6 +17,10 @@ code=$(curl -sS -o /dev/null -w "%{http_code}" "${WEB}/admin/")
 echo "  GET /admin/     → HTTP ${code}"
 [ "$code" = "200" ]
 
+code=$(curl -sS -o /dev/null -w "%{http_code}" "${WEB}/devenir-prof.html")
+echo "  GET /devenir-prof.html → HTTP ${code}"
+[ "$code" = "200" ]
+
 body=$(curl -sS -X POST "${WEB}/api/auth/login" \
   -H "content-type: application/json" \
   -d '{"phone":"+2250700000001"}')
@@ -25,5 +29,8 @@ echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['us
 code=$(curl -sS -o /dev/null -w "%{http_code}" "${WEB}/api/subjects")
 echo "  GET /api/subjects → HTTP ${code}"
 [ "$code" = "200" ]
+
+body=$(curl -sS "${WEB}/api/teacher-applications/status?phone=%2B2250700000099")
+echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); assert 'status' in d, d; print('  GET teacher-applications/status → OK')"
 
 echo "==> Smoke OK"

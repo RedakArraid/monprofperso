@@ -32,11 +32,21 @@ $COMPOSE up -d --build
 echo "==> Status"
 $COMPOSE ps
 
-echo "==> Health"
-docker exec monprofperso-staging-api wget -qO- http://127.0.0.1:8099/health || true
+echo "==> Health (attente API, max 60s)"
+for i in $(seq 1 30); do
+  if docker exec monprofperso-staging-api wget -qO- http://127.0.0.1:8099/health 2>/dev/null | grep -q ok; then
+    echo "  API ready (${i}x2s)"
+    break
+  fi
+  if [ "$i" -eq 30 ]; then
+    echo "  WARN: API health timeout"
+    docker logs monprofperso-staging-api --tail 30 2>&1 || true
+  fi
+  sleep 2
+done
 
 if [ -f scripts/smoke.sh ]; then
-  bash scripts/smoke.sh https://staging.monprofperso.com || echo "WARN: smoke staging échoué (DNS/cert ?)"
+  bash scripts/smoke.sh https://staging.monprofperso.com || echo "WARN: smoke staging échoué"
 fi
 
 echo "Done. Web: https://staging.monprofperso.com | API: https://staging-api.monprofperso.com"
