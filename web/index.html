@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Mon Prof Perso | Soutien scolaire à domicile en Côte d'Ivoire</title>
   <meta name="description" content="Mon Prof Perso (MP²) : trouvez un professeur vérifié pour des cours particuliers à domicile ou en ligne en Côte d'Ivoire. Prépa BEPC & BAC, paiement Mobile Money, suivi des progrès." />
   <meta name="theme-color" content="#0E5A43" />
@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=20260628d" />
+  <link rel="stylesheet" href="css/styles.css?v=20260628e" />
 </head>
 <body>
 
@@ -49,10 +49,11 @@
         <a href="#apercu">Aperçu</a>
         <a href="#download" class="btn btn-sm btn-primary">Télécharger</a>
       </nav>
-      <button class="nav-toggle" id="navToggle" aria-label="Ouvrir le menu" aria-expanded="false">
+      <button class="nav-toggle" id="navToggle" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="nav">
         <span></span><span></span><span></span>
       </button>
     </div>
+    <div class="nav-backdrop" id="navBackdrop" hidden aria-hidden="true"></div>
   </header>
 
   <!-- ============================ HERO ============================ -->

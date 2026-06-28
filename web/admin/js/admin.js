@@ -170,13 +170,26 @@ const VIEWS = {
   social: { title: "Réseaux sociaux & contact", render: renderSocial },
 };
 
+function setSidebarOpen(open) {
+  const sidebar = $("#sidebar");
+  const backdrop = $("#sidebarBackdrop");
+  if (!sidebar) return;
+  sidebar.classList.toggle("open", open);
+  document.body.classList.toggle("sidebar-open", open);
+  if (backdrop) {
+    backdrop.hidden = !open;
+    backdrop.classList.toggle("visible", open);
+    backdrop.setAttribute("aria-hidden", String(!open));
+  }
+}
+
 function navigate(view) {
   const v = VIEWS[view] || VIEWS.dashboard;
   $("#viewTitle").textContent = v.title;
   document.querySelectorAll(".menu-item").forEach((b) =>
     b.classList.toggle("active", b.dataset.view === view));
   $("#content").innerHTML = `<p class="muted">Chargement…</p>`;
-  $(".sidebar").classList.remove("open");
+  setSidebarOpen(false);
   v.render($("#content")).catch((e) => {
     if (e.status === 401 || e.status === 403) { toast("Session expirée", true); logout(); return; }
     $("#content").innerHTML = `<div class="card"><p class="muted">Erreur de chargement : ${esc(e.message)}</p></div>`;
@@ -188,7 +201,14 @@ $("#menu").addEventListener("click", (e) => {
   if (b) navigate(b.dataset.view);
 });
 $("#logoutBtn").addEventListener("click", logout);
-$("#burger").addEventListener("click", () => $(".sidebar").classList.toggle("open"));
+$("#burger").addEventListener("click", () => {
+  const sidebar = $("#sidebar");
+  setSidebarOpen(!sidebar?.classList.contains("open"));
+});
+$("#sidebarBackdrop")?.addEventListener("click", () => setSidebarOpen(false));
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") setSidebarOpen(false);
+});
 
 /* =====================================================================
  * Vue : Tableau de bord

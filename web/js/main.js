@@ -9,17 +9,33 @@
   // --- Menu mobile ---
   var toggle = document.getElementById("navToggle");
   var nav = document.getElementById("nav");
+  var backdrop = document.getElementById("navBackdrop");
+
+  function setNavOpen(open) {
+    if (!nav || !toggle) return;
+    nav.classList.toggle("open", open);
+    toggle.setAttribute("aria-expanded", String(open));
+    toggle.setAttribute("aria-label", open ? "Fermer le menu" : "Ouvrir le menu");
+    document.body.classList.toggle("nav-open", open);
+    if (backdrop) {
+      backdrop.hidden = !open;
+      backdrop.classList.toggle("visible", open);
+      backdrop.setAttribute("aria-hidden", String(!open));
+    }
+  }
+
   if (toggle && nav) {
     toggle.addEventListener("click", function () {
-      var open = nav.classList.toggle("open");
-      toggle.setAttribute("aria-expanded", String(open));
+      setNavOpen(!nav.classList.contains("open"));
     });
-    // Referme le menu après un clic sur un lien (mobile).
+    if (backdrop) {
+      backdrop.addEventListener("click", function () { setNavOpen(false); });
+    }
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") setNavOpen(false);
+    });
     nav.querySelectorAll("a").forEach(function (a) {
-      a.addEventListener("click", function () {
-        nav.classList.remove("open");
-        toggle.setAttribute("aria-expanded", "false");
-      });
+      a.addEventListener("click", function () { setNavOpen(false); });
     });
   }
 
