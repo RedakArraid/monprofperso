@@ -39,9 +39,12 @@ import ci.monprofperso.app.ui.theme.Schibsted
  * ====================================================================== */
 @Composable
 fun TeacherDashboardScreen(nav: NavActions) {
+    val scope = rememberCoroutineScope()
     var dash by remember { mutableStateOf<ci.monprofperso.app.data.TeacherDashboardDto?>(null) }
+    var negotiable by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         dash = runCatching { Api.service.teacherDashboard() }.getOrNull()
+        dash?.let { negotiable = it.negotiable }
     }
     val name = dash?.name ?: "Koffi N'Guessan"
     val revenueLabel = dash?.let { "%,d F".format(it.revenue).replace(',', ' ') } ?: "184 000 F"
@@ -98,6 +101,22 @@ fun TeacherDashboardScreen(nav: NavActions) {
                 Text("Voir", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = AkColors.White,
                     modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(AkColors.Orange).padding(horizontal = 13.dp, vertical = 8.dp))
             }
+            Spacer(Modifier.height(14.dp))
+            // Toggle « à négocier » : autorise les clients à proposer un tarif/fréquence.
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(AkColors.White).border(1.dp, AkColors.Border, RoundedCornerShape(16.dp)).padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Offres à négocier", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AkColors.Ink)
+                    Text("Les clients peuvent proposer un tarif et une fréquence", fontFamily = Hanken, fontSize = 11.5.sp, color = AkColors.Muted)
+                }
+                androidx.compose.material3.Switch(
+                    checked = negotiable,
+                    onCheckedChange = { v ->
+                        negotiable = v
+                        scope.launch { runCatching { Api.service.setNegotiable(mapOf("negotiable" to v)) } }
+                    },
+                    colors = androidx.compose.material3.SwitchDefaults.colors(checkedTrackColor = AkColors.Green),
+                )
+            }
             Spacer(Modifier.height(18.dp))
             Text("Prochains cours", fontFamily = Schibsted, fontWeight = FontWeight.Bold, fontSize = 14.5.sp, color = AkColors.Ink)
             Spacer(Modifier.height(11.dp))
@@ -139,6 +158,7 @@ fun CourseRequestsScreen(nav: NavActions) {
     val scope = rememberCoroutineScope()
     var requests by remember { mutableStateOf<List<ci.monprofperso.app.data.TeacherRequestDto>?>(null) }
     var live by remember { mutableStateOf(false) }
+    var counterFor by remember { mutableStateOf<Int?>(null) }
 
     suspend fun reload() {
         val fetched = runCatching { ci.monprofperso.app.data.Api.service.teacherRequests() }.getOrNull()
@@ -146,6 +166,22 @@ fun CourseRequestsScreen(nav: NavActions) {
         requests = fetched ?: fallbackRequests
     }
     LaunchedEffect(Unit) { reload() }
+
+    counterFor?.let { cid ->
+        CounterDialog(
+            onDismiss = { counterFor = null },
+            onSubmit = { price, freq ->
+                counterFor = null
+                scope.launch {
+                    val body = buildMap<String, Any?> {
+                        price?.let { put("price", it) }
+                        if (!freq.isNullOrBlank()) put("frequency", freq)
+                    }
+                    runCatching { Api.service.counterRequest(cid, body) }.onSuccess { reload() }
+                }
+            },
+        )
+    }
 
     val items = requests ?: emptyList()
     AkScreen(applyBottomInset = false) {
@@ -175,6 +211,7 @@ fun CourseRequestsScreen(nav: NavActions) {
                         if (id != null) scope.launch { runCatching { Api.service.acceptRequest(id) }.onSuccess { reload() } }
                         else nav.go(Routes.Agenda)
                     },
+                    onCounter = { r.courseId?.let { counterFor = it } },
                 )
                 Spacer(Modifier.height(13.dp))
             }
@@ -185,9 +222,12 @@ fun CourseRequestsScreen(nav: NavActions) {
 }
 
 @Composable
-private fun RequestCard(r: ci.monprofperso.app.data.TeacherRequestDto, onRefuse: () -> Unit = {}, onAccept: () -> Unit = {}) {
+private fun RequestCard(r: ci.monprofperso.app.data.TeacherRequestDto, onRefuse: () -> Unit = {}, onAccept: () -> Unit = {}, onCounter: () -> Unit = {}) {
     val green = r.accent != "orange"
     val priceLabel = "%,d F".format(r.price).replace(',', ' ')
+    fun money(v: Int) = "%,d F".format(v).replace(',', ' ')
+    val hasProposal = r.proposedPrice != null || !r.proposedFrequency.isNullOrBlank()
+    val negotiable = r.negotiable || hasProposal || r.courseId != null
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(AkColors.White).border(1.dp, AkColors.Border, RoundedCornerShape(20.dp)).padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             InitialsAvatar(r.initials, size = 42, radius = 12, fontSize = 15, bg = if (green) AkColors.GreenSoft else AkColors.OrangeSoft, fg = if (green) AkColors.Green else AkColors.Orange)
@@ -203,6 +243,16 @@ private fun RequestCard(r: ci.monprofperso.app.data.TeacherRequestDto, onRefuse:
         DetailLine("Matière", r.subject ?: "—")
         DetailLine("Créneau", r.slot ?: "—")
         DetailLine("Format", r.format ?: "—")
+        if (hasProposal) {
+            Column(Modifier.fillMaxWidth().padding(top = 4.dp).clip(RoundedCornerShape(12.dp)).background(AkColors.OrangeSoft).padding(11.dp)) {
+                Text("Proposition du client", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 11.5.sp, color = AkColors.Orange)
+                r.proposedPrice?.let { Text("Tarif souhaité : ${money(it)}", fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Ink) }
+                r.proposedFrequency?.let { Text("Fréquence : $it", fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Ink) }
+            }
+        }
+        if (r.negotiationStatus == "countered") {
+            Text("Contre-proposition envoyée — en attente du client", fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 11.5.sp, color = AkColors.Orange, modifier = Modifier.padding(top = 8.dp))
+        }
         Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
             Box(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(AkColors.White).border(1.dp, AkColors.Border, RoundedCornerShape(12.dp)).clickable { onRefuse() }.padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
                 Text("Refuser", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, color = AkColors.Muted)
@@ -211,7 +261,43 @@ private fun RequestCard(r: ci.monprofperso.app.data.TeacherRequestDto, onRefuse:
                 Text("Accepter", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, color = AkColors.White)
             }
         }
+        if (negotiable && r.courseId != null && r.negotiationStatus != "countered") {
+            Box(Modifier.fillMaxWidth().padding(top = 9.dp).clip(RoundedCornerShape(12.dp)).border(1.dp, AkColors.Orange, RoundedCornerShape(12.dp)).clickable { onCounter() }.padding(vertical = 11.dp), contentAlignment = Alignment.Center) {
+                Text("Faire une contre-proposition", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AkColors.Orange)
+            }
+        }
     }
+}
+
+@Composable
+private fun CounterDialog(onDismiss: () -> Unit, onSubmit: (Int?, String?) -> Unit) {
+    var price by remember { mutableStateOf("") }
+    var freq by remember { mutableStateOf("") }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Contre-proposition", fontFamily = Schibsted, fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                Text("Proposez un tarif et/ou une fréquence.", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Muted)
+                Spacer(Modifier.height(10.dp))
+                androidx.compose.material3.OutlinedTextField(
+                    value = price, onValueChange = { price = it.filter { c -> c.isDigit() } },
+                    label = { Text("Tarif (F / h)") }, singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                )
+                Spacer(Modifier.height(8.dp))
+                androidx.compose.material3.OutlinedTextField(
+                    value = freq, onValueChange = { freq = it }, label = { Text("Fréquence (ex. 2 cours / sem)") }, singleLine = true,
+                )
+            }
+        },
+        confirmButton = {
+            androidx.compose.material3.TextButton(onClick = { onSubmit(price.toIntOrNull(), freq.ifBlank { null }) }) {
+                Text("Envoyer", color = AkColors.Green, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Annuler", color = AkColors.Muted) } },
+    )
 }
 
 @Composable

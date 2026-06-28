@@ -52,4 +52,52 @@
       b.classList.add("highlight");
     });
   }
+
+  // --- Réseaux sociaux, contact et documents légaux depuis l'API ---
+  var API_BASE = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
+    ? "http://localhost:8099"
+    : "https://api.monprofperso.com";
+
+  // Liens légaux : pointent vers le PDF géré par l'admin (s'il existe).
+  fetch(API_BASE + "/api/legal")
+    .then(function (r) { return r.ok ? r.json() : []; })
+    .then(function (docs) {
+      var bySlug = {};
+      (docs || []).forEach(function (d) { bySlug[d.slug] = d; });
+      document.querySelectorAll("[data-legal]").forEach(function (a) {
+        var d = bySlug[a.getAttribute("data-legal")];
+        if (d && d.hasFile) {
+          a.setAttribute("href", API_BASE + "/api/legal/" + d.slug + "/file");
+          a.setAttribute("target", "_blank");
+          a.setAttribute("rel", "noopener");
+        }
+      });
+    })
+    .catch(function () {});
+
+  // Réseaux sociaux + contact : affiche uniquement les liens renseignés par l'admin.
+  fetch(API_BASE + "/api/settings")
+    .then(function (r) { return r.ok ? r.json() : {}; })
+    .then(function (s) {
+      s = s || {};
+      document.querySelectorAll("[data-social]").forEach(function (a) {
+        var url = s[a.getAttribute("data-social")];
+        if (url) {
+          a.setAttribute("href", url);
+          a.setAttribute("target", "_blank");
+          a.setAttribute("rel", "noopener");
+          a.hidden = false;
+        } else {
+          a.hidden = true;
+        }
+      });
+      var contact = document.getElementById("footerContact");
+      if (contact) {
+        var bits = [];
+        if (s.contact_email) bits.push('<a href="mailto:' + s.contact_email + '">' + s.contact_email + "</a>");
+        if (s.contact_phone) bits.push('<a href="tel:' + s.contact_phone.replace(/\s+/g, "") + '">' + s.contact_phone + "</a>");
+        if (bits.length) { contact.innerHTML = bits.join(" · "); contact.hidden = false; }
+      }
+    })
+    .catch(function () {});
 })();

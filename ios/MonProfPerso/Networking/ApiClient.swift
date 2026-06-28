@@ -2,9 +2,9 @@ import Foundation
 
 /// URL de base de l'API MonProfPerso commune (mêmes endpoints que côté Android).
 enum ApiConfig {
-    // Simulateur iOS : localhost de la machine hôte.
-    // Appareil physique : remplacer par l'IP LAN du Mac (ex. http://192.168.1.20:8099).
-    static let baseURL = URL(string: "http://localhost:8099")!
+    // Production VPS (Traefik + Let's Encrypt).
+    static let baseURL = URL(string: "https://api.monprofperso.com")!
+    // Dev simulateur : URL(string: "http://localhost:8099")!
     /// Numéro de démonstration (= utilisateur seed « Aya Koné »).
     static let demoPhone = "+2250758421903"
     /// Numéro de l'administrateur de démonstration (seed).
@@ -16,6 +16,7 @@ enum ApiConfig {
 /// retombe sur l'utilisateur de démonstration (rétrocompat).
 enum TokenStore {
     private static let key = "mpp_jwt"
+    private static let roleKey = "mpp_role"
     static var token: String? {
         get { UserDefaults.standard.string(forKey: key) }
         set {
@@ -23,7 +24,15 @@ enum TokenStore {
             else { UserDefaults.standard.removeObject(forKey: key) }
         }
     }
-    static func clear() { token = nil }
+    /// Rôle réel persisté (`parent|student|teacher|admin`), restauré au lancement.
+    static var role: String? {
+        get { UserDefaults.standard.string(forKey: roleKey) }
+        set {
+            if let v = newValue { UserDefaults.standard.set(v, forKey: roleKey) }
+            else { UserDefaults.standard.removeObject(forKey: roleKey) }
+        }
+    }
+    static func clear() { token = nil; role = nil }
 }
 
 // MARK: - Modèles (Codable) — mêmes champs que les DTO Android
@@ -34,6 +43,11 @@ struct SubjectDTO: Codable, Identifiable {
 }
 
 struct LevelDTO: Codable, Identifiable {
+    var id: String { slug }
+    let slug, name: String
+}
+
+struct ProgramDTO: Codable, Identifiable {
     var id: String { slug }
     let slug, name: String
 }
@@ -71,6 +85,8 @@ struct TeacherDTO: Codable, Identifiable {
     let formats: [String]?
     let experience, students, bac_success, bio: String?
     let levels: [String]?
+    let programs: [String]?
+    let negotiable: Bool?
     let reviews: [ReviewDTO]?
 
     var priceLabel: String { "\(price_per_hour.formattedFCFA) F" }
@@ -89,6 +105,12 @@ struct CourseDTO: Codable, Identifiable {
     let price: Int
     let status: String
     let badge: String?
+    let negotiable: Bool?
+    let proposed_price: Int?
+    let proposed_frequency: String?
+    let counter_price: Int?
+    let counter_frequency: String?
+    let negotiation_status: String?
 }
 
 struct UnreadDTO: Codable { let count: Int }
@@ -116,12 +138,19 @@ struct ProgressDTO: Codable { let student, average, trend, goal: String; let sub
 struct StatDTO: Codable, Identifiable { let value, label: String; var id: String { label } }
 struct TeacherDashboardDTO: Codable {
     let name: String; let revenue: Int; let trend: String; let stats: [StatDTO]; let pendingRequests: Int
+    let negotiable: Bool?
 }
 struct TeacherRequestDTO: Codable, Identifiable {
     let courseId: Int?
     let initials, accent, name, ago: String
     let price: Int
     let student, subject, slot, format: String?
+    let negotiable: Bool?
+    let proposedPrice: Int?
+    let proposedFrequency: String?
+    let counterPrice: Int?
+    let counterFrequency: String?
+    let negotiationStatus: String?
     var id: String { courseId.map(String.init) ?? "\(name)-\(slot ?? "")" }
 }
 struct EarningWeekDTO: Codable, Identifiable { let label: String; let f: Double; var id: String { label } }
@@ -180,7 +209,7 @@ struct ApiClient {
     func login(phone: String = ApiConfig.demoPhone) async -> String? {
         if let data = try? await request("api/auth/login", method: "POST", json: ["phone": phone]),
            let r = try? JSONDecoder().decode(AuthResponse.self, from: data) {
-            TokenStore.token = r.token; return r.user.role
+            TokenStore.token = r.token; TokenStore.role = r.user.role; return r.user.role
         }
         return nil
     }
@@ -193,7 +222,7 @@ struct ApiClient {
                                          json: ["fullName": fullName, "phone": phone, "role": role,
                                                 "consent": consent, "parentalConsent": parentalConsent]),
            let r = try? JSONDecoder().decode(AuthResponse.self, from: data) {
-            TokenStore.token = r.token; return r.user.role
+            TokenStore.token = r.token; TokenStore.role = r.user.role; return r.user.role
         }
         return nil
     }
@@ -205,6 +234,7 @@ struct ApiClient {
 
     func subjects() async throws -> [SubjectDTO] { try await get("api/subjects") }
     func levels() async throws -> [LevelDTO] { try await get("api/levels") }
+    func programs() async throws -> [ProgramDTO] { try await get("api/programs") }
     func teachers() async throws -> [TeacherDTO] { try await get("api/teachers") }
     func teacher(_ id: Int) async throws -> TeacherDTO { try await get("api/teachers/\(id)") }
     func courses(status: String? = nil) async throws -> [CourseDTO] {
@@ -221,6 +251,23 @@ struct ApiClient {
     func teacherEarnings() async throws -> TeacherEarningsDTO { try await get("api/teacher/earnings") }
     func acceptRequest(courseId: Int) async throws { _ = try await request("api/teacher/requests/\(courseId)/accept", method: "POST") }
     func refuseRequest(courseId: Int) async throws { _ = try await request("api/teacher/requests/\(courseId)/refuse", method: "POST") }
+    /// Contre-proposition du prof (tarif et/ou fréquence).
+    func counterRequest(courseId: Int, price: Int?, frequency: String?) async throws {
+        var json: [String: Any] = [:]
+        if let price { json["price"] = price }
+        if let frequency, !frequency.isEmpty { json["frequency"] = frequency }
+        _ = try await request("api/teacher/requests/\(courseId)/counter", method: "POST", json: json)
+    }
+    /// Le prof active/désactive « à négocier » sur ses offres.
+    @discardableResult
+    func setNegotiable(_ negotiable: Bool) async throws -> Bool {
+        let data = try await request("api/teacher/negotiable", method: "POST", json: ["negotiable": negotiable])
+        struct R: Codable { let negotiable: Bool }
+        return (try? JSONDecoder().decode(R.self, from: data))?.negotiable ?? negotiable
+    }
+    /// Le client accepte / refuse la contre-proposition du prof.
+    func acceptNegotiation(courseId: Int) async throws { _ = try await request("api/courses/\(courseId)/negotiation/accept", method: "POST") }
+    func refuseNegotiation(courseId: Int) async throws { _ = try await request("api/courses/\(courseId)/negotiation/refuse", method: "POST") }
 
     // MARK: Espace admin (rôle admin requis ; le token Bearer est ajouté à chaque requête).
     func createSubject(slug: String, name: String, accent: String, icon: String = "more") async throws -> SubjectDTO {
@@ -236,6 +283,13 @@ struct ApiClient {
         return try JSONDecoder().decode(LevelDTO.self, from: data)
     }
     func deleteLevel(slug: String) async throws { _ = try await request("api/admin/levels/\(slug)", method: "DELETE") }
+
+    func createProgram(slug: String, name: String, ord: Int) async throws -> ProgramDTO {
+        let data = try await request("api/admin/programs", method: "POST",
+                                     json: ["slug": slug, "name": name, "ord": ord])
+        return try JSONDecoder().decode(ProgramDTO.self, from: data)
+    }
+    func deleteProgram(slug: String) async throws { _ = try await request("api/admin/programs/\(slug)", method: "DELETE") }
 
     func resources(type: String? = nil, subject: String? = nil, level: String? = nil) async throws -> [ResourceDTO] {
         var q: [String] = []
@@ -259,6 +313,13 @@ struct ApiClient {
         return try JSONDecoder().decode(ResourceDTO.self, from: data)
     }
     func deleteResource(id: Int) async throws { _ = try await request("api/admin/resources/\(id)", method: "DELETE") }
+
+    // MARK: Paramètres plateforme (réseaux sociaux + contact)
+    func settings() async throws -> [String: String] { try await get("api/settings") }
+    func updateSettings(_ values: [String: String]) async throws -> [String: String] {
+        let data = try await request("api/admin/settings", method: "PUT", json: values)
+        return try JSONDecoder().decode([String: String].self, from: data)
+    }
 
     // MARK: Documents légaux
     func legalDocs() async throws -> [LegalDocDTO] { try await get("api/legal") }

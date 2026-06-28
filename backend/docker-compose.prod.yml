@@ -1,0 +1,100 @@
+# =============================================================================
+# Mon Prof Perso — PRODUCTION (VPS Contabo + Traefik)
+# =============================================================================
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+# =============================================================================
+
+name: monprofperso
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: monprofperso-db
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-monprofperso}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requis}
+      POSTGRES_DB: ${POSTGRES_DB:-monprofperso}
+    volumes:
+      - monprofperso_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-monprofperso} -d ${POSTGRES_DB:-monprofperso}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - monprofperso_internal
+
+  api:
+    build: ./api
+    container_name: monprofperso-api
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      PORT: 8099
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER:-monprofperso}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requis}
+      PGDATABASE: ${POSTGRES_DB:-monprofperso}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET requis}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_PORT: ${S3_PORT:-443}
+      S3_USE_SSL: ${S3_USE_SSL:-true}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-}
+      S3_BUCKET: ${S3_BUCKET:-monprofperso}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8099/health | grep -q ok || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - traefik_network
+      - monprofperso_internal
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.monprofperso-api.loadbalancer.server.port=8099
+      - traefik.http.routers.monprofperso-api.rule=Host(`api.monprofperso.com`)
+      - traefik.http.routers.monprofperso-api.entrypoints=websecure
+      - traefik.http.routers.monprofperso-api.tls=true
+      - traefik.http.routers.monprofperso-api.tls.certresolver=myhttpchallenge
+      - traefik.http.routers.monprofperso-api.service=monprofperso-api
+
+  web:
+    image: nginx:alpine
+    container_name: monprofperso-web
+    restart: unless-stopped
+    volumes:
+      - ../web:/usr/share/nginx/html:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/ | grep -qi html || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - traefik_network
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.monprofperso-web.loadbalancer.server.port=80
+      - "traefik.http.routers.monprofperso-web.rule=Host(`monprofperso.com`) || Host(`www.monprofperso.com`)"
+      - traefik.http.routers.monprofperso-web.entrypoints=websecure
+      - traefik.http.routers.monprofperso-web.tls=true
+      - traefik.http.routers.monprofperso-web.tls.certresolver=myhttpchallenge
+      - traefik.http.routers.monprofperso-web.service=monprofperso-web
+
+volumes:
+  monprofperso_pgdata:
+
+networks:
+  traefik_network:
+    external: true
+  monprofperso_internal:
+    driver: bridge

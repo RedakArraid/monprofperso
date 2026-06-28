@@ -21,9 +21,11 @@ struct AdminCatalogScreen: View {
     @EnvironmentObject var router: Router
     @State private var subjects: [SubjectDTO] = []
     @State private var levels: [LevelDTO] = []
+    @State private var programs: [ProgramDTO] = []
     @State private var newSubject = ""
     @State private var newSubjectAccent = "green"
     @State private var newLevel = ""
+    @State private var newProgram = ""
     @State private var message: String? = nil
 
     var body: some View {
@@ -62,6 +64,21 @@ struct AdminCatalogScreen: View {
                         }
                     }.padding(.top, 14)
 
+                    // -------------------------------------------------- Programmes
+                    sectionTitle("Programmes", count: programs.count).padding(.top, 22)
+                    Text("Programmes scolaires jusqu'en Terminale (standard, français…)")
+                        .font(AkFont.regular(11.5)).foregroundColor(Ak.muted).padding(.top, 4)
+                    HStack(spacing: 10) {
+                        adminField(text: $newProgram, placeholder: "Ex. Programme Cambridge…")
+                        addButton(enabled: !newProgram.trimmed.isEmpty, action: addProgram)
+                    }.padding(.top, 10)
+
+                    VStack(spacing: 9) {
+                        ForEach(programs) { p in
+                            catalogRow(name: p.name, slug: p.slug, accent: "orange") { deleteProgram(p) }
+                        }
+                    }.padding(.top, 14)
+
                     if let message {
                         Text(message).font(AkFont.semibold(12.5)).foregroundColor(Ak.green).padding(.top, 16)
                     }
@@ -77,6 +94,7 @@ struct AdminCatalogScreen: View {
     private func reload() async {
         if let s = try? await ApiClient.shared.subjects() { subjects = s }
         if let l = try? await ApiClient.shared.levels() { levels = l }
+        if let p = try? await ApiClient.shared.programs() { programs = p }
     }
 
     private func addSubject() {
@@ -110,6 +128,23 @@ struct AdminCatalogScreen: View {
     private func deleteLevel(_ l: LevelDTO) {
         Task { @MainActor in
             if (try? await ApiClient.shared.deleteLevel(slug: l.slug)) != nil { message = "Niveau supprimé"; await reload() }
+        }
+    }
+
+    private func addProgram() {
+        let slug = slugify(newProgram)
+        guard !slug.isEmpty else { return }
+        Task { @MainActor in
+            do {
+                _ = try await ApiClient.shared.createProgram(slug: slug, name: newProgram.trimmed, ord: programs.count + 1)
+                newProgram = ""; message = "Programme ajouté"; await reload()
+            } catch { message = "Échec : programme déjà existant ?" }
+        }
+    }
+
+    private func deleteProgram(_ p: ProgramDTO) {
+        Task { @MainActor in
+            if (try? await ApiClient.shared.deleteProgram(slug: p.slug)) != nil { message = "Programme supprimé"; await reload() }
         }
     }
 
@@ -404,6 +439,104 @@ struct AdminResourcesScreen: View {
         .padding(.horizontal, 14).padding(.vertical, 12)
         .background(.white).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(Ak.border, lineWidth: 1))
+    }
+}
+
+/* ====================================================================== *
+ * ÉCRAN ADMIN — RÉSEAUX SOCIAUX & CONTACT
+ * Liens affichés sur la vitrine web et dans les apps. Écritures en live sur
+ * /api/admin/settings ; lecture publique sur /api/settings.
+ * ====================================================================== */
+private let socialFields: [(key: String, label: String)] = [
+    ("social_facebook", "Facebook"),
+    ("social_instagram", "Instagram"),
+    ("social_tiktok", "TikTok"),
+    ("social_whatsapp", "WhatsApp"),
+    ("social_linkedin", "LinkedIn"),
+    ("social_x", "X (Twitter)"),
+    ("social_youtube", "YouTube"),
+    ("contact_email", "E-mail de contact"),
+    ("contact_phone", "Téléphone de contact"),
+]
+
+struct AdminSocialScreen: View {
+    @EnvironmentObject var router: Router
+    @State private var values: [String: String] = [:]
+    @State private var loaded = false
+    @State private var message: String? = nil
+
+    var body: some View {
+        AkScreen {
+            TopBar(title: "Réseaux sociaux & contact", subtitle: "Espace administrateur", onBack: { router.back() })
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Ces liens s'affichent sur le site et dans l'application. Laissez un champ vide pour le masquer.")
+                        .font(AkFont.regular(12.5)).foregroundColor(Ak.muted)
+                        .fixedSize(horizontal: false, vertical: true).padding(.bottom, 16)
+
+                    ForEach(socialFields, id: \.key) { f in
+                        Text(f.label).font(AkFont.regular(12.5)).foregroundColor(Ak.muted).padding(.bottom, 6)
+                        field(key: f.key, placeholder: f.key.hasPrefix("contact") ? "" : "https://…").padding(.bottom, 14)
+                    }
+
+                    HStack {
+                        Spacer()
+                        addButton(enabled: loaded, action: save)
+                    }
+
+                    if let message {
+                        Text(message).font(AkFont.semibold(12.5)).foregroundColor(Ak.green).padding(.top, 16)
+                    }
+                    Spacer(minLength: 20)
+                }
+                .padding(.horizontal, 22).padding(.top, 8)
+            }
+        }
+        .task { await reload() }
+    }
+
+    private func reload() async {
+        if let s = try? await ApiClient.shared.settings() {
+            for f in socialFields { values[f.key] = s[f.key] ?? "" }
+        } else {
+            for f in socialFields { values[f.key] = "" }
+        }
+        loaded = true
+    }
+
+    private func save() {
+        Task { @MainActor in
+            var body: [String: String] = [:]
+            for f in socialFields { body[f.key] = (values[f.key] ?? "").trimmed }
+            do { _ = try await ApiClient.shared.updateSettings(body); message = "Paramètres enregistrés" }
+            catch { message = "Échec de l'enregistrement" }
+        }
+    }
+
+    private func field(key: String, placeholder: String) -> some View {
+        let binding = Binding<String>(
+            get: { values[key] ?? "" },
+            set: { values[key] = $0 }
+        )
+        return TextField("", text: binding, prompt: Text(placeholder).foregroundColor(Ak.faint))
+            .font(AkFont.regular(14)).foregroundColor(Ak.ink).tint(Ak.green)
+            .textInputAutocapitalization(.never).autocorrectionDisabled(true)
+            .padding(.horizontal, 14).padding(.vertical, 13)
+            .background(.white).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Ak.border, lineWidth: 1))
+    }
+
+    private func addButton(enabled: Bool, action: @escaping () -> Void) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: "checkmark").font(.system(size: 13, weight: .bold))
+            Text("Enregistrer").font(AkFont.bold(13))
+        }
+        .foregroundColor(.white)
+        .padding(.horizontal, 16).padding(.vertical, 11)
+        .background(enabled ? Ak.green : Ak.border)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .contentShape(Rectangle())
+        .onTapGesture { if enabled { action() } }
     }
 }
 

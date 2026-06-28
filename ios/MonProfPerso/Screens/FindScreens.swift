@@ -284,6 +284,16 @@ struct TeacherProfileScreen: View {
                     Text(t.bio ?? "Professeur certifié, ancien du Lycée Classique d'Abidjan. J'accompagne les élèves de la 3ᵉ à la Terminale avec une méthode claire et beaucoup d'exercices types examen.")
                         .font(AkFont.regular(13.5)).foregroundColor(Ak.textBody).lineSpacing(4).padding(.top, 8)
                     HStack(spacing: 7) { ForEach(levels, id: \.self) { neutralTag($0) } }.padding(.top, 14)
+                    if let progs = t.programs, !progs.isEmpty {
+                        Text("Programmes").font(AkFont.bold(12)).foregroundColor(Ak.muted).padding(.top, 10)
+                        HStack(spacing: 7) { ForEach(progs, id: \.self) { neutralTag(programLabel($0)) } }.padding(.top, 7)
+                    }
+                    if t.negotiable == true {
+                        HStack(spacing: 8) {
+                            Image(systemName: "hand.raised.fill").font(.system(size: 13)).foregroundColor(Ak.orange)
+                            Text("Tarif & fréquence à négocier").font(AkFont.bold(12.5)).foregroundColor(Ak.orange)
+                        }.padding(.horizontal, 12).padding(.vertical, 8).background(Ak.orangeSoft).clipShape(RoundedRectangle(cornerRadius: 10)).padding(.top, 12)
+                    }
                     SectionHeader(title: "Avis des parents").padding(.top, 18)
                     VStack(alignment: .leading, spacing: 0) {
                         HStack(spacing: 10) {
@@ -334,5 +344,12 @@ struct TeacherProfileScreen: View {
     func neutralTag(_ t: String) -> some View {
         Text(t).font(AkFont.semibold(12)).foregroundColor(Ak.inkSoft)
             .padding(.horizontal, 12).padding(.vertical, 7).background(Ak.cardField).clipShape(RoundedRectangle(cornerRadius: 9))
+    }
+    func programLabel(_ slug: String) -> String {
+        switch slug {
+        case "standard": return "Programme standard"
+        case "francais": return "Programme français"
+        default: return slug.prefix(1).uppercased() + slug.dropFirst()
+        }
     }
 }

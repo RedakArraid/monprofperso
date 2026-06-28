@@ -65,14 +65,17 @@ fun AdminCatalogScreen(nav: NavActions) {
     val scope = rememberCoroutineScope()
     var subjects by remember { mutableStateOf(listOf<SubjectDto>()) }
     var levels by remember { mutableStateOf(listOf<LevelDto>()) }
+    var programs by remember { mutableStateOf(listOf<ProgramDto>()) }
     var newSubject by remember { mutableStateOf("") }
     var newSubjectAccent by remember { mutableStateOf("green") }
     var newLevel by remember { mutableStateOf("") }
+    var newProgram by remember { mutableStateOf("") }
     var message by remember { mutableStateOf<String?>(null) }
 
     suspend fun reload() {
         runCatching { Api.service.subjects() }.onSuccess { subjects = it }
         runCatching { Api.service.levels() }.onSuccess { levels = it }
+        runCatching { Api.service.programs() }.onSuccess { programs = it }
     }
     LaunchedEffect(Unit) { reload() }
 
@@ -135,6 +138,35 @@ fun AdminCatalogScreen(nav: NavActions) {
             levels.forEach { l ->
                 CatalogRow(l.name, l.slug, "green") {
                     scope.launch { runCatching { Api.service.deleteLevel(l.slug) }.onSuccess { message = "Niveau supprimé"; reload() } }
+                }
+            }
+
+            Spacer(Modifier.height(22.dp))
+
+            // ------------------------------------------------------- Programmes
+            SectionTitle("Programmes", "${programs.size}")
+            Text("Programmes scolaires jusqu'en Terminale (standard, français…)",
+                fontFamily = Hanken, fontSize = 11.5.sp, color = AkColors.Muted, modifier = Modifier.padding(top = 4.dp))
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                AdminField(value = newProgram, onValueChange = { newProgram = it }, placeholder = "Ex. Programme Cambridge…",
+                    modifier = Modifier.weight(1f))
+                Spacer(Modifier.width(10.dp))
+                AddButton(enabled = newProgram.isNotBlank()) {
+                    val slug = slugify(newProgram)
+                    if (slug.isBlank()) return@AddButton
+                    scope.launch {
+                        runCatching {
+                            Api.service.createProgram(mapOf("slug" to slug, "name" to newProgram.trim(), "ord" to programs.size + 1))
+                        }.onSuccess { newProgram = ""; message = "Programme ajouté"; reload() }
+                            .onFailure { message = "Échec : programme déjà existant ?" }
+                    }
+                }
+            }
+            Spacer(Modifier.height(14.dp))
+            programs.forEach { p ->
+                CatalogRow(p.name, p.slug, "orange") {
+                    scope.launch { runCatching { Api.service.deleteProgram(p.slug) }.onSuccess { message = "Programme supprimé"; reload() } }
                 }
             }
 
@@ -396,6 +428,75 @@ private fun ResourceRow(r: ResourceDto, onDelete: () -> Unit) {
             Modifier.size(30.dp).clip(RoundedCornerShape(9.dp)).background(AkColors.OrangeSoft).clickable { onDelete() },
             contentAlignment = Alignment.Center,
         ) { Icon(Icons.Filled.Close, "Supprimer", tint = AkColors.Orange, modifier = Modifier.size(16.dp)) }
+    }
+}
+
+/* ====================================================================== *
+ * ÉCRAN ADMIN — RÉSEAUX SOCIAUX & CONTACT
+ * Liens affichés sur la vitrine web et dans les apps. Écritures en live sur
+ * /api/admin/settings ; lecture publique sur /api/settings.
+ * ====================================================================== */
+private val SOCIAL_FIELDS = listOf(
+    "social_facebook" to "Facebook",
+    "social_instagram" to "Instagram",
+    "social_tiktok" to "TikTok",
+    "social_whatsapp" to "WhatsApp",
+    "social_linkedin" to "LinkedIn",
+    "social_x" to "X (Twitter)",
+    "social_youtube" to "YouTube",
+    "contact_email" to "E-mail de contact",
+    "contact_phone" to "Téléphone de contact",
+)
+
+@Composable
+fun AdminSocialScreen(nav: NavActions) {
+    val scope = rememberCoroutineScope()
+    val values = remember { mutableStateMapOf<String, String>() }
+    var message by remember { mutableStateOf<String?>(null) }
+    var loaded by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        runCatching { Api.service.settings() }.onSuccess { s ->
+            SOCIAL_FIELDS.forEach { (k, _) -> values[k] = s[k] ?: "" }
+            loaded = true
+        }.onFailure {
+            SOCIAL_FIELDS.forEach { (k, _) -> values[k] = "" }
+            loaded = true
+        }
+    }
+
+    AkScreen(applyBottomInset = false) {
+        TopBar("Réseaux sociaux & contact", subtitle = "Espace administrateur", onBack = { nav.back() })
+        Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 22.dp).padding(top = 8.dp)) {
+            Text(
+                "Ces liens s'affichent sur le site et dans l'application. Laissez un champ vide pour le masquer.",
+                fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted,
+            )
+            Spacer(Modifier.height(16.dp))
+            SOCIAL_FIELDS.forEach { (key, label) ->
+                Text(label, fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted)
+                Spacer(Modifier.height(6.dp))
+                AdminField(
+                    value = values[key] ?: "",
+                    onValueChange = { values[key] = it },
+                    placeholder = if (key.startsWith("contact")) "" else "https://…",
+                )
+                Spacer(Modifier.height(14.dp))
+            }
+            AddButton(enabled = loaded) {
+                scope.launch {
+                    runCatching {
+                        Api.service.updateSettings(SOCIAL_FIELDS.associate { (k, _) -> k to (values[k]?.trim() ?: "") })
+                    }.onSuccess { message = "Paramètres enregistrés" }
+                        .onFailure { message = "Échec de l'enregistrement" }
+                }
+            }
+            message?.let {
+                Spacer(Modifier.height(16.dp))
+                Text(it, fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 12.5.sp, color = AkColors.Green)
+            }
+            Spacer(Modifier.height(20.dp))
+        }
     }
 }
 

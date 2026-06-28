@@ -12,9 +12,15 @@ import android.content.SharedPreferences
 object TokenStore {
     private const val PREFS = "mpp_auth"
     private const val KEY_TOKEN = "jwt"
+    private const val KEY_ROLE = "role"
 
     @Volatile
     var token: String? = null
+        private set
+
+    /** Rôle réel persisté (`parent|student|teacher|admin`), restauré au démarrage. */
+    @Volatile
+    var role: String? = null
         private set
 
     private var prefs: SharedPreferences? = null
@@ -24,15 +30,23 @@ object TokenStore {
         val p = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         prefs = p
         token = p.getString(KEY_TOKEN, null)
+        role = p.getString(KEY_ROLE, null)
     }
 
-    fun save(value: String) {
+    /** Enregistre le token (et, si fourni, le rôle réel renvoyé par le serveur). */
+    fun save(value: String, userRole: String? = null) {
         token = value
-        prefs?.edit()?.putString(KEY_TOKEN, value)?.apply()
+        if (userRole != null) role = userRole
+        prefs?.edit()?.apply {
+            putString(KEY_TOKEN, value)
+            if (userRole != null) putString(KEY_ROLE, userRole)
+            apply()
+        }
     }
 
     fun clear() {
         token = null
-        prefs?.edit()?.remove(KEY_TOKEN)?.apply()
+        role = null
+        prefs?.edit()?.remove(KEY_TOKEN)?.remove(KEY_ROLE)?.apply()
     }
 }

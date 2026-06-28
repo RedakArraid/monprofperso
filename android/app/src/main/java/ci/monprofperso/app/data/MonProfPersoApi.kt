@@ -15,9 +15,9 @@ import java.util.concurrent.TimeUnit
 
 /** Configuration de l'URL de base de l'API commune. */
 object ApiConfig {
-    // Émulateur Android : 10.0.2.2 = localhost de la machine hôte.
-    // Appareil physique : remplacer par l'IP LAN du Mac (ex. http://192.168.1.20:8099).
-    const val BASE_URL = "http://10.0.2.2:8099/"
+    // Production VPS (Traefik + Let's Encrypt).
+    const val BASE_URL = "https://api.monprofperso.com/"
+    // Dev local émulateur : "http://10.0.2.2:8099/"
 }
 
 interface MonProfPersoApi {
@@ -26,6 +26,15 @@ interface MonProfPersoApi {
 
     @GET("api/levels")
     suspend fun levels(): List<LevelDto>
+
+    @GET("api/programs")
+    suspend fun programs(): List<ProgramDto>
+
+    @POST("api/admin/programs")
+    suspend fun createProgram(@Body body: Map<String, @JvmSuppressWildcards Any?>): ProgramDto
+
+    @DELETE("api/admin/programs/{slug}")
+    suspend fun deleteProgram(@Path("slug") slug: String): Response<Unit>
 
     // --- Espace admin (rôle admin requis ; le token Bearer est ajouté par l'intercepteur) ---
     @POST("api/admin/subjects")
@@ -52,6 +61,13 @@ interface MonProfPersoApi {
 
     @DELETE("api/admin/resources/{id}")
     suspend fun deleteResource(@Path("id") id: Int): Response<Unit>
+
+    // --- Paramètres plateforme (réseaux sociaux + contact) ---
+    @GET("api/settings")
+    suspend fun settings(): Map<String, String>
+
+    @retrofit2.http.PUT("api/admin/settings")
+    suspend fun updateSettings(@Body body: Map<String, String>): Map<String, String>
 
     // --- Documents légaux ---
     @GET("api/legal")
@@ -108,6 +124,21 @@ interface MonProfPersoApi {
 
     @POST("api/teacher/requests/{id}/refuse")
     suspend fun refuseRequest(@Path("id") id: Int): Response<Unit>
+
+    // Contre-proposition du prof (tarif et/ou fréquence).
+    @POST("api/teacher/requests/{id}/counter")
+    suspend fun counterRequest(@Path("id") id: Int, @Body body: Map<String, @JvmSuppressWildcards Any?>): Response<Unit>
+
+    // Le prof active/désactive « à négocier » sur ses offres.
+    @POST("api/teacher/negotiable")
+    suspend fun setNegotiable(@Body body: Map<String, Boolean>): Map<String, Any?>
+
+    // Le client accepte / refuse la contre-proposition du prof.
+    @POST("api/courses/{id}/negotiation/accept")
+    suspend fun acceptNegotiation(@Path("id") id: Int): Response<Unit>
+
+    @POST("api/courses/{id}/negotiation/refuse")
+    suspend fun refuseNegotiation(@Path("id") id: Int): Response<Unit>
 
     @POST("api/auth/login")
     suspend fun login(@Body body: Map<String, String>): AuthResponse

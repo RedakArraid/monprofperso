@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Administration — Mon Prof Perso</title>
+  <link rel="icon" href="../assets/mp2-logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/admin.css" />
+</head>
+<body>
+
+  <!-- ============================ CONNEXION ============================ -->
+  <div id="login" class="login">
+    <form class="login-card" id="loginForm">
+      <img src="../assets/mp2-logo.png" alt="Logo MP²" class="login-logo" />
+      <h1>Espace administrateur</h1>
+      <p class="login-sub">Connectez-vous pour gérer la plateforme Mon Prof Perso.</p>
+      <label for="phone">Numéro administrateur</label>
+      <input id="phone" type="tel" inputmode="tel" placeholder="+2250700000001" autocomplete="username" />
+      <button type="submit" class="btn btn-primary" id="loginBtn">Se connecter</button>
+      <p class="login-err" id="loginErr" hidden></p>
+      <p class="login-hint">Astuce démo : numéro admin <code>+2250700000001</code></p>
+    </form>
+  </div>
+
+  <!-- ============================ APPLICATION ============================ -->
+  <div id="app" class="app" hidden>
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <img src="../assets/mp2-logo.png" alt="Logo MP²" />
+        <div><strong>Mon Prof Perso</strong><span>Administration</span></div>
+      </div>
+      <nav class="menu" id="menu">
+        <button class="menu-item active" data-view="dashboard">Tableau de bord</button>
+        <button class="menu-item" data-view="teachers">Professeurs</button>
+        <button class="menu-item" data-view="groups">Cours de groupe</button>
+        <button class="menu-item" data-view="catalog">Matières &amp; niveaux</button>
+        <button class="menu-item" data-view="resources">Ressources</button>
+        <button class="menu-item" data-view="legal">Documents légaux</button>
+        <button class="menu-item" data-view="social">Réseaux &amp; contact</button>
+      </nav>
+      <div class="sidebar-foot">
+        <a href="../index.html" class="link-quiet">← Voir le site</a>
+        <button class="link-quiet" id="logoutBtn">Se déconnecter</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="burger" id="burger" aria-label="Menu">☰</button>
+        <h2 id="viewTitle">Tableau de bord</h2>
+        <span class="who" id="who"></span>
+      </header>
+      <div class="content" id="content"><!-- injecté par admin.js --></div>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="js/admin.js"></script>
+</body>
+</html>

@@ -63,6 +63,7 @@ object Routes {
     const val AdminCatalog = "admin_catalog"
     const val AdminResources = "admin_resources"
     const val AdminLegal = "admin_legal"
+    const val AdminSocial = "admin_social"
 }
 
 @Composable
@@ -126,5 +127,6 @@ fun MonProfPersoNavGraph() {
         composable(Routes.AdminCatalog) { AdminCatalogScreen(actions) }
         composable(Routes.AdminResources) { AdminResourcesScreen(actions) }
         composable(Routes.AdminLegal) { AdminLegalScreen(actions) }
+        composable(Routes.AdminSocial) { AdminSocialScreen(actions) }
     }
 }

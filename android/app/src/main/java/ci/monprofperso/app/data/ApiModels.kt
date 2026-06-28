@@ -18,6 +18,11 @@ data class LevelDto(
     val name: String,
 )
 
+data class ProgramDto(
+    val slug: String,
+    val name: String,
+)
+
 data class ResourceDto(
     val id: Int,
     val type: String,
@@ -50,6 +55,8 @@ data class TeacherDto(
     @SerializedName("bac_success") val bacSuccess: String? = null,
     val bio: String? = null,
     val levels: List<String>? = null,
+    val programs: List<String>? = null,
+    val negotiable: Boolean = false,
     val reviews: List<ReviewDto>? = null,
 ) {
     val priceLabel: String get() = "%,d F".format(pricePerHour).replace(',', ' ')
@@ -78,6 +85,12 @@ data class CourseDto(
     val price: Int,
     val status: String,
     val badge: String?,
+    val negotiable: Boolean = false,
+    @SerializedName("proposed_price") val proposedPrice: Int? = null,
+    @SerializedName("proposed_frequency") val proposedFrequency: String? = null,
+    @SerializedName("counter_price") val counterPrice: Int? = null,
+    @SerializedName("counter_frequency") val counterFrequency: String? = null,
+    @SerializedName("negotiation_status") val negotiationStatus: String = "none",
 )
 
 data class UnreadDto(val count: Int)
@@ -142,6 +155,7 @@ data class TeacherDashboardDto(
     val trend: String,
     val stats: List<StatDto>,
     val pendingRequests: Int,
+    val negotiable: Boolean = false,
 )
 
 data class TeacherRequestDto(
@@ -155,6 +169,12 @@ data class TeacherRequestDto(
     val subject: String?,
     val slot: String?,
     val format: String?,
+    val negotiable: Boolean = false,
+    @SerializedName("proposedPrice") val proposedPrice: Int? = null,
+    @SerializedName("proposedFrequency") val proposedFrequency: String? = null,
+    @SerializedName("counterPrice") val counterPrice: Int? = null,
+    @SerializedName("counterFrequency") val counterFrequency: String? = null,
+    @SerializedName("negotiationStatus") val negotiationStatus: String = "none",
 )
 
 data class EarningWeekDto(val label: String, val f: Double)

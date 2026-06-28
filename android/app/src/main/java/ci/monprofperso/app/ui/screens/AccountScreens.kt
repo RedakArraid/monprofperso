@@ -284,12 +284,14 @@ fun AccountScreen(nav: NavActions) {
                     AccountRow(Icons.Filled.Description, "Ressources pédagogiques", badge = "Admin", badgeFg = AkColors.Green, badgeBg = AkColors.GreenSoft) { nav.go(Routes.AdminResources) }
                     RowDivider()
                     AccountRow(Icons.Filled.Gavel, "Gérer les documents légaux", badge = "Admin", badgeFg = AkColors.Green, badgeBg = AkColors.GreenSoft) { nav.go(Routes.AdminLegal) }
+                    RowDivider()
+                    AccountRow(Icons.Filled.Share, "Réseaux sociaux & contact", badge = "Admin", badgeFg = AkColors.Green, badgeBg = AkColors.GreenSoft) { nav.go(Routes.AdminSocial) }
                 }
             }
             Spacer(Modifier.height(14.dp))
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Text("Se déconnecter", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, color = Color(0xFFE0392B),
-                    modifier = Modifier.clickable { ci.monprofperso.app.data.AppState.role = 0; ci.monprofperso.app.data.AppState.authRole = null; nav.go(Routes.Welcome) })
+                    modifier = Modifier.clickable { ci.monprofperso.app.data.Auth.logout(); ci.monprofperso.app.data.AppState.role = 0; ci.monprofperso.app.data.AppState.authRole = null; nav.go(Routes.Welcome) })
             }
             if (!isTeacher) {
                 Spacer(Modifier.height(8.dp))

@@ -19,7 +19,7 @@ object Auth {
 
     suspend fun login(phone: String = DEMO_PHONE) {
         runCatching { Api.service.login(mapOf("phone" to phone)) }
-            .onSuccess { TokenStore.save(it.token); AppState.authRole = it.user.role }
+            .onSuccess { TokenStore.save(it.token, it.user.role); AppState.authRole = it.user.role }
     }
 
     suspend fun signup(
@@ -36,7 +36,7 @@ object Auth {
                     "consent" to consent.toString(), "parentalConsent" to parentalConsent.toString(),
                 )
             )
-        }.onSuccess { TokenStore.save(it.token); AppState.authRole = it.user.role }
+        }.onSuccess { TokenStore.save(it.token, it.user.role); AppState.authRole = it.user.role }
     }
 
     suspend fun verifyOtp(phone: String = DEMO_PHONE) {

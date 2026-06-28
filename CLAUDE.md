@@ -18,7 +18,10 @@ android/    App Android — Kotlin + Jetpack Compose (~4400 lignes)
 ios/        App iOS     — Swift + SwiftUI (~3080 lignes, 37 vues)
 backend/    API REST commune — Node/TS + Express + PostgreSQL (docker compose)
 web/        Page vitrine (HTML/CSS/JS statique, sans build) — présentation,
-            téléchargement des apps, réseaux sociaux. Servir `web/` tel quel.
+            téléchargement des apps, réseaux sociaux (chargés depuis `/api/settings`).
+            `web/admin/` = console d'administration web (connexion par numéro admin ;
+            gère profs, cours de groupe, catalogue, ressources, CGU, réseaux sociaux),
+            servie sur `/admin/`. Servir `web/` tel quel.
 _maquette/  Maquette HTML d'origine (référence, gitignorée)
 docs/       Présentation .docx + assets, ROADMAP.md, COMPLIANCE.md (légal CI :
             Loi 2013-450/ARTCI, CEPICI — voir docs/legal/), logo MP² (docs/logo/)
@@ -60,7 +63,13 @@ docs/       Présentation .docx + assets, ROADMAP.md, COMPLIANCE.md (légal CI :
   `users` (`consent_version`, `consent_at`, `parental_consent`) — conformité
   Loi CI N°2013-450 (cf. `docs/COMPLIANCE.md`). Enfin `1700000009000_legal-documents`
   ajoute `legal_documents` (CGU, confidentialité, mentions légales — PDF géré par
-  l'admin) — **21 tables au total**. Suivi dans la table `pgmigrations`.
+  l'admin), et `1700000010000_app-settings` ajoute `app_settings` (clé/valeur :
+  liens **réseaux sociaux** + coordonnées de contact, gérés par l'admin, lus
+  publiquement). Enfin `1700000011000_programs-negotiation` ajoute les **programmes
+  scolaires** (`programs` : standard/français jusqu'en Terminale, géré par l'admin),
+  `teachers.programs`/`teachers.negotiable`, et les colonnes de **négociation** sur
+  `courses` (`negotiable`, `proposed_price`, `proposed_frequency`, `counter_price`,
+  `counter_frequency`, `negotiation_status`) — **23 tables au total**. Suivi dans la table `pgmigrations`.
   Créer une migration : `npm run migrate create <nom>` (puis éditer le `.sql`).
 - **Ports (custom, pour éviter les collisions)** : API **8099**, Postgres **5544**,
   Adminer **8098**, MinIO API **9000** / console **8097**, page vitrine web **8095**
@@ -72,20 +81,28 @@ docs/       Présentation .docx + assets, ROADMAP.md, COMPLIANCE.md (légal CI :
   permissifs (les défauts serveur restent) mais rejettent tout champ malformé (HTTP 400).
   `requiredString`/`requiredEnum` pour les écritures admin (champs obligatoires).
 - Endpoints publics/user : `/health`, `/api/auth/{login,signup,verify-otp}`, `/api/me`,
-  `/api/subjects`, `/api/levels`, `/api/teachers[?format=&level=]`, `/api/teachers/:id`,
-  `/api/courses[?status=upcoming|done]`, `/api/bookings`,
+  `/api/subjects`, `/api/levels`, `/api/programs` (programmes scolaires standard/français),
+  `/api/teachers[?format=&level=]`, `/api/teachers/:id`,
+  `/api/courses[?status=upcoming|done]`, `/api/bookings` (accepte `proposedPrice`/`proposedFrequency`
+  pour une **offre à négocier**), `/api/courses/:id/negotiation/{accept,refuse}` (le client
+  accepte/refuse la contre-proposition du prof),
   `/api/notifications`, `/api/notifications/unread` (compteur non lu),
   `/api/notifications/read` (POST, « tout lire »),
   `/api/wallet`, `/api/groups[/:id]`, `/api/subscription/{plans,mine}`,
   `/api/progress`, `/api/teacher/{dashboard,requests,earnings}`,
-  `/api/teacher/requests/:id/{accept,refuse}` (le prof valide/refuse une réservation),
+  `/api/teacher/requests/:id/{accept,refuse,counter}` (le prof valide/refuse/**contre-propose**),
+  `/api/teacher/negotiable` (POST, le prof active « à négocier » sur ses offres),
   `/api/referral`,
   `/api/resources[?type=&subject=&level=]`, `/api/files/:id`,
-  `/api/legal`, `/api/legal/:slug/file` (documents légaux publics).
+  `/api/legal`, `/api/legal/:slug/file` (documents légaux publics),
+  `/api/settings` (réseaux sociaux + contact, lecture publique).
 - **Espace admin** (réservé au rôle `admin`, garde `requireAdmin`) :
   `POST/PUT/DELETE /api/admin/subjects[/:slug]`, `POST/DELETE /api/admin/levels[/:slug]`,
+  `POST/DELETE /api/admin/programs[/:slug]` (programmes scolaires),
   `POST/DELETE /api/admin/resources[/:id]`, `PUT /api/admin/legal/:slug` (téléverse
-  le PDF d'un document légal). Permet d'ajouter matières (musique, langues
+  le PDF d'un document légal), `POST/PUT/DELETE /api/admin/teachers[/:id]`,
+  `POST/PUT/DELETE /api/admin/groups[/:id]` (cours de groupe), et
+  `PUT /api/admin/settings` (réseaux sociaux + contact). Permet d'ajouter matières (musique, langues
   hors FR/EN…), niveaux (supérieur/universitaire…), ressources pédagogiques
   (cours/devoirs/exercices) avec fichier (uploadé en base64, stocké sur MinIO/S3 ;
   repli `BYTEA` — voir « Stockage fichiers »), et de gérer les **documents légaux**
@@ -100,11 +117,18 @@ docs/       Présentation .docx + assets, ROADMAP.md, COMPLIANCE.md (légal CI :
   — les **PDF** dans le **visualiseur in-app** (Android `PdfRenderer` / iOS `PDFKit`,
   écran `PdfViewer`/`.pdfViewer`, avec **bouton de partage** : `FileProvider`+`ACTION_SEND`
   Android / `UIActivityViewController` iOS), les autres types en externe (Intent
-  `ACTION_VIEW` / `openURL`). Idem pour les documents légaux. La connexion mémorise
+  `ACTION_VIEW` / `openURL`). Idem pour les documents légaux. Un 3ᵉ écran admin
+  « Réseaux sociaux & contact » (`AdminSocial`/`.adminSocial`) édite les liens
+  réseaux + contact via `PUT /api/admin/settings`. La connexion mémorise
   le rôle réel renvoyé par le serveur (`AppState.authRole` Android / `Router.authRole`
-  iOS → `isAdmin`) ; les deux entrées n'apparaissent dans « Mon compte » que pour un
-  admin. Un raccourci « Démo administrateur » sur l'écran de connexion logue le seed
-  admin (`+2250700000001`).
+  iOS → `isAdmin`) ; les entrées admin n'apparaissent dans « Mon compte » que pour un
+  admin. Le rôle est désormais **persisté** (Android `TokenStore.role` →
+  SharedPreferences, restauré dans `MainActivity` ; iOS `TokenStore.role` →
+  UserDefaults, restauré dans `RootView` init) — l'espace admin survit au redémarrage.
+  La **déconnexion efface le JWT + le rôle** des deux côtés (`Auth.logout()` Android /
+  `TokenStore.clear()` iOS). Un raccourci « Démo administrateur » sur l'écran de
+  connexion logue le seed admin (`+2250700000001`). La gestion complète des **profs**
+  et **cours de groupe** se fait via la **console web** `web/admin/` (formulaires riches).
 - **Auth JWT** (`api/src/auth.ts`, HS256 via `crypto` natif, secret `JWT_SECRET`).
   login/signup/verify-otp émettent un vrai JWT (`sub` = id user). Middleware
   `optionalAuth` : si `Authorization: Bearer <jwt>` valide → utilisateur courant = `sub`,
@@ -171,5 +195,11 @@ Vert `#0E5A43`, orange `#E8722A`, crème `#ECE7DE`. Polices **Schibsted Grotesk*
 - Les secrets DB sont en clair dans `docker-compose.yml` — OK en démo, à externaliser
   avant prod.
 
-## État Git
-Repo initialisé mais **sans commit** au 2026-06-24 (tout en untracked). Pas encore de remote.
+## État Git & workflow de branches
+Remote : `github.com/RedakArraid/monprofperso`. **Trois branches au long cours** :
+- **`dev`** — intégration : c'est là qu'on développe et qu'on pousse en premier.
+- **`staging`** — pré-production : merge depuis `dev` quand une itération est prête à tester.
+- **`prod`** — production : merge depuis `staging` ; **c'est cette branche qui est déployée sur le VPS**.
+
+Flux : `dev` → (merge) → `staging` → (merge) → `prod` → déploiement (`./deploy-monprofperso.sh`).
+`main` reste l'historique de référence. Ne jamais déployer depuis `dev`/`staging`.

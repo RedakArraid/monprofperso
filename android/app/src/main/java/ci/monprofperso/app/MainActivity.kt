@@ -13,6 +13,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         TokenStore.init(applicationContext)
+        ci.monprofperso.app.data.AppState.authRole = TokenStore.role
         setContent {
             MonProfPersoTheme {
                 MonProfPersoNavGraph()

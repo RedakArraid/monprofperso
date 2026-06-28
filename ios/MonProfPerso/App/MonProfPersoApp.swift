@@ -11,7 +11,12 @@ struct MonProfPersoApp: App {
 
 /// NavigationStack racine + table de routage des 37 écrans.
 struct RootView: View {
-    @StateObject private var router = Router()
+    @StateObject private var router: Router
+
+    init() {
+        // Restaure le rôle réel persisté (l'espace admin réapparaît au lancement).
+        _router = StateObject(wrappedValue: { let r = Router(); r.authRole = TokenStore.role; return r }())
+    }
 
     var body: some View {
         NavigationStack(path: $router.path) {
@@ -72,6 +77,7 @@ struct RootView: View {
         case .adminCatalog:           AdminCatalogScreen()
         case .adminResources:         AdminResourcesScreen()
         case .adminLegal:             AdminLegalScreen()
+        case .adminSocial:            AdminSocialScreen()
         case let .pdfViewer(url, title): PdfViewerScreen(urlString: url, title: title)
         }
     }

@@ -83,6 +83,30 @@ api.get("/levels", wrap(async (_req, res) => {
   res.json(r.rows);
 }));
 
+// ------------------------------------------------------------------ Programmes
+// Programmes scolaires (jusqu'en Terminale) : standard (ivoirien) + français.
+api.get("/programs", wrap(async (_req, res) => {
+  const r = await pool.query("SELECT slug, name FROM programs ORDER BY ord, id");
+  res.json(r.rows);
+}));
+
+// --------------------------------------------------------- Paramètres plateforme
+// Clés connues (réseaux sociaux + contact) gérées par l'admin et lues
+// publiquement (vitrine web + apps). Toute autre clé est ignorée à l'écriture.
+const SETTING_KEYS = [
+  "social_facebook", "social_instagram", "social_tiktok", "social_whatsapp",
+  "social_linkedin", "social_x", "social_youtube", "contact_email", "contact_phone",
+] as const;
+
+// Paramètres publics : objet { clé: valeur } (valeurs vides comprises).
+api.get("/settings", wrap(async (_req, res) => {
+  const r = await pool.query("SELECT key, value FROM app_settings");
+  const out: Record<string, string> = {};
+  for (const k of SETTING_KEYS) out[k] = "";
+  for (const row of r.rows) if (SETTING_KEYS.includes(row.key)) out[row.key] = row.value;
+  res.json(out);
+}));
+
 // ----------------------------------------------------- Ressources pédagogiques
 const RESOURCE_TYPES = ["course", "homework", "exercise"] as const;
 
@@ -157,7 +181,8 @@ api.get("/teachers", wrap(async (req, res) => {
   if (format) { params.push(format); where.push(`$${params.length} = ANY(formats)`); }
   if (level)  { params.push(level);  where.push(`$${params.length} = ANY(levels)`); }
   const sql = `SELECT id, initials, name, subjects, rating, reviews_count, location,
-                      price_per_hour, distance_km, accent, verified, special_bepc, formats
+                      price_per_hour, distance_km, accent, verified, special_bepc, formats,
+                      programs, negotiable
                FROM teachers ${where.length ? "WHERE " + where.join(" AND ") : ""} ORDER BY rating DESC`;
   const r = await pool.query(sql, params);
   res.json(r.rows);
@@ -197,14 +222,46 @@ api.post("/bookings", wrap(async (req, res) => {
   const time = optionalString(b, "time", { max: 20 });
   const duration = optionalString(b, "duration", { max: 20 });
   const location = optionalString(b, "location", { max: 200 });
+  // Négociation (offre « à négocier ») : le client propose un tarif et/ou une fréquence.
+  const proposedPrice = optionalNumber(b, "proposedPrice", { min: 0, max: 1_000_000 });
+  const proposedFrequency = optionalString(b, "proposedFrequency", { max: 60 });
+  const hasProposal = proposedPrice !== undefined || proposedFrequency !== undefined;
+  const negotiationStatus = hasProposal ? "proposed" : "none";
   const r = await pool.query(
-    `INSERT INTO courses (user_id,teacher_id,teacher_name,subject,level,day_label,day_num,time,duration,format,location,price,status,badge,accepted)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'upcoming',$13,FALSE) RETURNING *`,
+    `INSERT INTO courses (user_id,teacher_id,teacher_name,subject,level,day_label,day_num,time,duration,format,location,price,status,badge,accepted,
+                          negotiable,proposed_price,proposed_frequency,negotiation_status)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'upcoming',$13,FALSE,$14,$15,$16,$17) RETURNING *`,
     [currentUserId(res), teacherId ?? 1, teacherName ?? "Koffi N'Guessan", subject ?? "Maths", level ?? "3ᵉ",
      dayLabel ?? "SAM", dayNum ?? "22", time ?? "16h00", duration ?? "1h30",
-     format ?? "home", location ?? "À domicile, Cocody", price ?? 6000, "En attente"]
+     format ?? "home", location ?? "À domicile, Cocody", price ?? 6000, "En attente",
+     hasProposal, proposedPrice ?? null, proposedFrequency ?? null, negotiationStatus]
   );
   res.status(201).json({ reference: "AKW-" + (2000 + r.rows[0].id), course: r.rows[0] });
+}));
+
+// Le client accepte la contre-proposition du prof (tarif + fréquence retenus).
+api.post("/courses/:id/negotiation/accept", wrap(async (req, res) => {
+  const r = await pool.query(
+    `UPDATE courses
+        SET price = COALESCE(counter_price, price),
+            accepted = TRUE, badge = 'Confirmé', negotiation_status = 'accepted'
+      WHERE id = $1 AND user_id = $2 AND negotiation_status = 'countered'
+      RETURNING id, teacher_id`,
+    [req.params.id, currentUserId(res)]
+  );
+  if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
+  res.json({ ok: true, courseId: r.rows[0].id });
+}));
+
+// Le client refuse la contre-proposition du prof (la demande est abandonnée).
+api.post("/courses/:id/negotiation/refuse", wrap(async (req, res) => {
+  const r = await pool.query(
+    `UPDATE courses SET status = 'refused', badge = 'Refusé', negotiation_status = 'refused'
+      WHERE id = $1 AND user_id = $2 AND negotiation_status = 'countered' RETURNING id`,
+    [req.params.id, currentUserId(res)]
+  );
+  if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
+  res.json({ ok: true, courseId: r.rows[0].id });
 }));
 
 // ----------------------------------------------------------------- Notifications
@@ -310,7 +367,7 @@ async function currentTeacherId(res: any): Promise<number> {
 api.get("/teacher/dashboard", wrap(async (_req, res) => {
   const teacherId = await currentTeacherId(res);
   const p = (await pool.query("SELECT * FROM teacher_profiles WHERE teacher_id=$1", [teacherId])).rows[0];
-  const t = (await pool.query("SELECT name FROM teachers WHERE id=$1", [teacherId])).rows[0];
+  const t = (await pool.query("SELECT name, negotiable FROM teachers WHERE id=$1", [teacherId])).rows[0];
   if (!p || !t) { res.status(404).json({ error: "not_found" }); return; }
   const pending = (await pool.query(
     `SELECT ((SELECT count(*) FROM teacher_requests WHERE teacher_id=$1)
@@ -325,7 +382,19 @@ api.get("/teacher/dashboard", wrap(async (_req, res) => {
       { value: p.new_students, label: "nouveaux élèves" },
     ],
     pendingRequests: pending,
+    negotiable: t.negotiable,
   });
+}));
+
+// Le prof active/désactive l'option « à négocier » sur ses offres.
+api.post("/teacher/negotiable", wrap(async (req, res) => {
+  const teacherId = await currentTeacherId(res);
+  const negotiable = req.body?.negotiable === true || req.body?.negotiable === "true";
+  const r = await pool.query(
+    "UPDATE teachers SET negotiable=$2 WHERE id=$1 RETURNING negotiable", [teacherId, negotiable]
+  );
+  if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
+  res.json({ ok: true, negotiable: r.rows[0].negotiable });
 }));
 
 api.get("/teacher/requests", wrap(async (_req, res) => {
@@ -336,7 +405,10 @@ api.get("/teacher/requests", wrap(async (_req, res) => {
             'nouveau' AS ago, c.price, c.level AS student, c.subject,
             (c.day_label || ' ' || c.day_num || ' · ' || c.time) AS slot,
             CASE c.format WHEN 'online' THEN 'En ligne'
-                          ELSE COALESCE(c.location, 'À domicile') END AS format
+                          ELSE COALESCE(c.location, 'À domicile') END AS format,
+            c.negotiable, c.proposed_price AS "proposedPrice", c.proposed_frequency AS "proposedFrequency",
+            c.counter_price AS "counterPrice", c.counter_frequency AS "counterFrequency",
+            c.negotiation_status AS "negotiationStatus"
      FROM courses c JOIN users u ON u.id = c.user_id
      WHERE c.teacher_id = $1 AND c.accepted = FALSE AND c.status = 'upcoming'
      ORDER BY c.id DESC`,
@@ -344,7 +416,9 @@ api.get("/teacher/requests", wrap(async (_req, res) => {
   );
   // Demandes de démonstration (sans cours réel rattaché : courseId nul).
   const seeded = await pool.query(
-    `SELECT NULL::int AS "courseId", initials, accent, name, ago, price, student, subject, slot, format
+    `SELECT NULL::int AS "courseId", initials, accent, name, ago, price, student, subject, slot, format,
+            FALSE AS negotiable, NULL::int AS "proposedPrice", NULL::text AS "proposedFrequency",
+            NULL::int AS "counterPrice", NULL::text AS "counterFrequency", 'none' AS "negotiationStatus"
      FROM teacher_requests WHERE teacher_id=$1 ORDER BY ord, id`,
     [teacherId]
   );
@@ -363,15 +437,43 @@ async function notifyParent(userId: number, icon: string, accent: string, text: 
 // Validation d'une demande réelle : le prof accepte la réservation d'un parent.
 api.post("/teacher/requests/:id/accept", wrap(async (req, res) => {
   const teacherId = await currentTeacherId(res);
+  // Si le client avait proposé un tarif (négociation), le prof l'accepte tel quel.
   const r = await pool.query(
-    `UPDATE courses SET accepted = TRUE, badge = 'Confirmé'
-     WHERE id = $1 AND teacher_id = $2 AND accepted = FALSE RETURNING id, user_id, subject`,
+    `UPDATE courses
+        SET accepted = TRUE, badge = 'Confirmé',
+            price = CASE WHEN negotiation_status = 'proposed' AND proposed_price IS NOT NULL
+                         THEN proposed_price ELSE price END,
+            negotiation_status = CASE WHEN negotiation_status = 'none' THEN 'none' ELSE 'accepted' END
+      WHERE id = $1 AND teacher_id = $2 AND accepted = FALSE RETURNING id, user_id, subject`,
     [req.params.id, teacherId]
   );
   const c = r.rows[0];
   if (!c) { res.status(404).json({ error: "not_found" }); return; }
   await notifyParent(c.user_id, "seal", "green",
     `Votre demande de cours${c.subject ? ` de ${c.subject}` : ""} a été acceptée`);
+  res.json({ ok: true, courseId: c.id });
+}));
+
+// Contre-proposition du prof : nouveau tarif et/ou fréquence soumis au client.
+api.post("/teacher/requests/:id/counter", wrap(async (req, res) => {
+  const teacherId = await currentTeacherId(res);
+  const price = optionalNumber(req.body, "price", { min: 0, max: 1_000_000 });
+  const frequency = optionalString(req.body, "frequency", { max: 60 });
+  if (price === undefined && frequency === undefined) {
+    res.status(400).json({ error: "validation_error", message: "tarif ou fréquence requis" });
+    return;
+  }
+  const r = await pool.query(
+    `UPDATE courses
+        SET counter_price = $3, counter_frequency = $4, negotiable = TRUE, negotiation_status = 'countered'
+      WHERE id = $1 AND teacher_id = $2 AND accepted = FALSE AND status = 'upcoming'
+      RETURNING id, user_id, subject`,
+    [req.params.id, teacherId, price ?? null, frequency ?? null]
+  );
+  const c = r.rows[0];
+  if (!c) { res.status(404).json({ error: "not_found" }); return; }
+  await notifyParent(c.user_id, "wallet", "orange",
+    `Le professeur vous fait une contre-proposition${c.subject ? ` pour ${c.subject}` : ""}`);
   res.json({ ok: true, courseId: c.id });
 }));
 
@@ -474,6 +576,26 @@ admin.delete("/levels/:slug", wrap(async (req, res) => {
   res.status(204).end();
 }));
 
+// --- Programmes (programme standard, programme français, etc.) ---
+admin.post("/programs", wrap(async (req, res) => {
+  const slug = requiredString(req.body, "slug", { max: 40 });
+  const name = requiredString(req.body, "name", { max: 60 });
+  const ord = optionalNumber(req.body, "ord", { min: 0, max: 999 }) ?? 0;
+  const r = await pool.query(
+    `INSERT INTO programs (slug, name, ord) VALUES ($1,$2,$3)
+     ON CONFLICT (slug) DO NOTHING RETURNING slug, name, ord`,
+    [slug, name, ord]
+  );
+  if (!r.rows[0]) { res.status(409).json({ error: "conflict", message: "slug déjà utilisé" }); return; }
+  res.status(201).json(r.rows[0]);
+}));
+
+admin.delete("/programs/:slug", wrap(async (req, res) => {
+  const r = await pool.query("DELETE FROM programs WHERE slug=$1 RETURNING slug", [req.params.slug]);
+  if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
+  res.status(204).end();
+}));
+
 // --- Ressources pédagogiques (cours, devoirs, exercices) + fichier ---
 admin.post("/resources", wrap(async (req, res) => {
   const b = req.body ?? {};
@@ -544,6 +666,179 @@ admin.put("/legal/:slug", wrap(async (req, res) => {
     params
   );
   res.json(r.rows[0]);
+}));
+
+// --- Paramètres plateforme : réseaux sociaux + contact (mise à jour groupée) ---
+// Corps = objet { clé: valeur } ; seules les clés connues sont prises en compte.
+admin.put("/settings", wrap(async (req, res) => {
+  const b = req.body ?? {};
+  const updates: [string, string][] = [];
+  for (const key of SETTING_KEYS) {
+    const v = optionalString(b, key, { max: 300 });
+    if (v !== undefined) updates.push([key, v.trim()]);
+  }
+  for (const [key, value] of updates) {
+    await pool.query(
+      `INSERT INTO app_settings (key, value, updated_at, updated_by)
+       VALUES ($1,$2,now(),$3)
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value,
+         updated_at = now(), updated_by = EXCLUDED.updated_by`,
+      [key, value, currentUserId(res)]
+    );
+  }
+  const r = await pool.query("SELECT key, value FROM app_settings");
+  const out: Record<string, string> = {};
+  for (const k of SETTING_KEYS) out[k] = "";
+  for (const row of r.rows) if (SETTING_KEYS.includes(row.key as any)) out[row.key] = row.value;
+  res.json(out);
+}));
+
+// --- Professeurs : création / modification / suppression ---
+// Champs texte ; `subjects` est une chaîne libre (« Maths · Physique »),
+// `levels`/`formats` des listes de chaînes (formats : home | online).
+function strArray(body: any, field: string): string[] | undefined {
+  const v = body?.[field];
+  if (v === undefined || v === null) return undefined;
+  if (!Array.isArray(v) || v.some((x) => typeof x !== "string"))
+    throw new ValidationError(field, `${field} doit être une liste de chaînes`);
+  return v;
+}
+
+admin.post("/teachers", wrap(async (req, res) => {
+  const b = req.body ?? {};
+  const name = requiredString(b, "name", { max: 120 });
+  const subjects = requiredString(b, "subjects", { max: 200 });
+  const location = optionalString(b, "location", { max: 120 }) ?? "Abidjan";
+  const pricePerHour = optionalNumber(b, "pricePerHour", { min: 0, max: 1_000_000 }) ?? 4000;
+  const rating = optionalNumber(b, "rating", { min: 0, max: 5 }) ?? 5.0;
+  const reviewsCount = optionalNumber(b, "reviewsCount", { min: 0 }) ?? 0;
+  const accent = optionalEnum(b, "accent", ["green", "orange"]) ?? "green";
+  const experience = optionalString(b, "experience", { max: 40 });
+  const students = optionalString(b, "students", { max: 40 });
+  const bacSuccess = optionalString(b, "bacSuccess", { max: 40 });
+  const bio = optionalString(b, "bio", { max: 2000 });
+  const levels = strArray(b, "levels") ?? [];
+  const formats = strArray(b, "formats") ?? ["home", "online"];
+  const programs = strArray(b, "programs") ?? ["standard"];
+  const distanceKm = optionalNumber(b, "distanceKm", { min: 0, max: 99 });
+  const verified = b.verified === false || b.verified === "false" ? false : true;
+  const specialBepc = b.specialBepc === true || b.specialBepc === "true";
+  const negotiable = b.negotiable === true || b.negotiable === "true";
+  const initials = name.split(" ").map((s: string) => s[0]).join("").slice(0, 2).toUpperCase();
+  const r = await pool.query(
+    `INSERT INTO teachers (initials,name,subjects,rating,reviews_count,location,price_per_hour,
+        experience,students,bac_success,bio,levels,formats,programs,distance_km,accent,verified,special_bepc,negotiable)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING *`,
+    [initials, name, subjects, rating, reviewsCount, location, pricePerHour,
+     experience ?? null, students ?? null, bacSuccess ?? null, bio ?? null,
+     levels, formats, programs, distanceKm ?? null, accent, verified, specialBepc, negotiable]
+  );
+  res.status(201).json(r.rows[0]);
+}));
+
+admin.put("/teachers/:id", wrap(async (req, res) => {
+  const b = req.body ?? {};
+  const name = optionalString(b, "name", { max: 120 });
+  const subjects = optionalString(b, "subjects", { max: 200 });
+  const location = optionalString(b, "location", { max: 120 });
+  const pricePerHour = optionalNumber(b, "pricePerHour", { min: 0, max: 1_000_000 });
+  const rating = optionalNumber(b, "rating", { min: 0, max: 5 });
+  const reviewsCount = optionalNumber(b, "reviewsCount", { min: 0 });
+  const accent = optionalEnum(b, "accent", ["green", "orange"]);
+  const experience = optionalString(b, "experience", { max: 40 });
+  const students = optionalString(b, "students", { max: 40 });
+  const bacSuccess = optionalString(b, "bacSuccess", { max: 40 });
+  const bio = optionalString(b, "bio", { max: 2000 });
+  const levels = strArray(b, "levels");
+  const formats = strArray(b, "formats");
+  const programs = strArray(b, "programs");
+  const distanceKm = optionalNumber(b, "distanceKm", { min: 0, max: 99 });
+  const verified = b.verified === undefined ? undefined : (b.verified === true || b.verified === "true");
+  const specialBepc = b.specialBepc === undefined ? undefined : (b.specialBepc === true || b.specialBepc === "true");
+  const negotiable = b.negotiable === undefined ? undefined : (b.negotiable === true || b.negotiable === "true");
+  const r = await pool.query(
+    `UPDATE teachers SET
+        name = COALESCE($2,name), subjects = COALESCE($3,subjects), location = COALESCE($4,location),
+        price_per_hour = COALESCE($5,price_per_hour), rating = COALESCE($6,rating),
+        reviews_count = COALESCE($7,reviews_count), accent = COALESCE($8,accent),
+        experience = COALESCE($9,experience), students = COALESCE($10,students),
+        bac_success = COALESCE($11,bac_success), bio = COALESCE($12,bio),
+        levels = COALESCE($13,levels), formats = COALESCE($14,formats),
+        distance_km = COALESCE($15,distance_km), verified = COALESCE($16,verified),
+        special_bepc = COALESCE($17,special_bepc),
+        programs = COALESCE($18,programs), negotiable = COALESCE($19,negotiable)
+     WHERE id = $1 RETURNING *`,
+    [req.params.id, name ?? null, subjects ?? null, location ?? null, pricePerHour ?? null,
+     rating ?? null, reviewsCount ?? null, accent ?? null, experience ?? null, students ?? null,
+     bacSuccess ?? null, bio ?? null, levels ?? null, formats ?? null, distanceKm ?? null,
+     verified ?? null, specialBepc ?? null, programs ?? null, negotiable ?? null]
+  );
+  if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
+  res.json(r.rows[0]);
+}));
+
+admin.delete("/teachers/:id", wrap(async (req, res) => {
+  const r = await pool.query("DELETE FROM teachers WHERE id=$1 RETURNING id", [req.params.id]);
+  if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
+  res.status(204).end();
+}));
+
+// --- Cours de groupe (ateliers, prépa BEPC/BAC collectifs) ---
+admin.post("/groups", wrap(async (req, res) => {
+  const b = req.body ?? {};
+  const tag = requiredString(b, "tag", { max: 40 });
+  const tagAccent = optionalEnum(b, "tagAccent", ["green", "orange"]) ?? "green";
+  const price = optionalNumber(b, "price", { min: 0, max: 1_000_000 }) ?? 0;
+  const title = requiredString(b, "title", { max: 160 });
+  const detail = requiredString(b, "detail", { max: 200 });
+  const teacherInitials = optionalString(b, "teacherInitials", { max: 4 });
+  const teacherName = optionalString(b, "teacherName", { max: 120 });
+  const teacherAccent = optionalEnum(b, "teacherAccent", ["green", "orange"]) ?? "green";
+  const enrolled = optionalNumber(b, "enrolled", { min: 0 });
+  const capacity = optionalNumber(b, "capacity", { min: 0 });
+  const placesLeft = optionalNumber(b, "placesLeft", { min: 0 });
+  const r = await pool.query(
+    `INSERT INTO group_courses (tag,tag_accent,price,title,detail,teacher_initials,teacher_name,teacher_accent,enrolled,capacity,places_left)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+    [tag, tagAccent, price, title, detail, teacherInitials ?? null, teacherName ?? null,
+     teacherAccent, enrolled ?? null, capacity ?? null, placesLeft ?? null]
+  );
+  res.status(201).json(r.rows[0]);
+}));
+
+admin.put("/groups/:id", wrap(async (req, res) => {
+  const b = req.body ?? {};
+  const tag = optionalString(b, "tag", { max: 40 });
+  const tagAccent = optionalEnum(b, "tagAccent", ["green", "orange"]);
+  const price = optionalNumber(b, "price", { min: 0, max: 1_000_000 });
+  const title = optionalString(b, "title", { max: 160 });
+  const detail = optionalString(b, "detail", { max: 200 });
+  const teacherInitials = optionalString(b, "teacherInitials", { max: 4 });
+  const teacherName = optionalString(b, "teacherName", { max: 120 });
+  const teacherAccent = optionalEnum(b, "teacherAccent", ["green", "orange"]);
+  const enrolled = optionalNumber(b, "enrolled", { min: 0 });
+  const capacity = optionalNumber(b, "capacity", { min: 0 });
+  const placesLeft = optionalNumber(b, "placesLeft", { min: 0 });
+  const r = await pool.query(
+    `UPDATE group_courses SET
+        tag = COALESCE($2,tag), tag_accent = COALESCE($3,tag_accent), price = COALESCE($4,price),
+        title = COALESCE($5,title), detail = COALESCE($6,detail),
+        teacher_initials = COALESCE($7,teacher_initials), teacher_name = COALESCE($8,teacher_name),
+        teacher_accent = COALESCE($9,teacher_accent), enrolled = COALESCE($10,enrolled),
+        capacity = COALESCE($11,capacity), places_left = COALESCE($12,places_left)
+     WHERE id = $1 RETURNING *`,
+    [req.params.id, tag ?? null, tagAccent ?? null, price ?? null, title ?? null, detail ?? null,
+     teacherInitials ?? null, teacherName ?? null, teacherAccent ?? null,
+     enrolled ?? null, capacity ?? null, placesLeft ?? null]
+  );
+  if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
+  res.json(r.rows[0]);
+}));
+
+admin.delete("/groups/:id", wrap(async (req, res) => {
+  const r = await pool.query("DELETE FROM group_courses WHERE id=$1 RETURNING id", [req.params.id]);
+  if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
+  res.status(204).end();
 }));
 
 api.use("/admin", admin);

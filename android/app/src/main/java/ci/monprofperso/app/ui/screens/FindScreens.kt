@@ -418,6 +418,22 @@ fun TeacherProfileScreen(nav: NavActions, vm: ci.monprofperso.app.data.TeacherPr
             Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 levels.forEach { NeutralTag(it) }
             }
+            if (!t.programs.isNullOrEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                Text("Programmes", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = AkColors.Muted)
+                Spacer(Modifier.height(7.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    t.programs.forEach { NeutralTag(programLabel(it)) }
+                }
+            }
+            if (t.negotiable) {
+                Spacer(Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(AkColors.OrangeSoft).padding(horizontal = 12.dp, vertical = 8.dp)) {
+                    Icon(Icons.Filled.Handshake, null, tint = AkColors.Orange, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Tarif & fréquence à négocier", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.5.sp, color = AkColors.Orange)
+                }
+            }
             Spacer(Modifier.height(18.dp))
             SectionHeader("Avis des parents")
             Spacer(Modifier.height(11.dp))
@@ -473,6 +489,12 @@ private fun StatTile(value: String, label: String, modifier: Modifier = Modifier
         Text(value, fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 19.sp, color = AkColors.Green)
         Text(label, fontFamily = Hanken, fontSize = 11.sp, color = AkColors.Muted, modifier = Modifier.padding(top = 2.dp))
     }
+}
+
+fun programLabel(slug: String): String = when (slug) {
+    "standard" -> "Programme standard"
+    "francais" -> "Programme français"
+    else -> slug.replaceFirstChar { it.uppercase() }
 }
 
 @Composable
