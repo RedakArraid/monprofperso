@@ -37,8 +37,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.runtime.LaunchedEffect
 import ci.monprofperso.app.data.Api
 import ci.monprofperso.app.nav.NavActions
@@ -62,7 +63,14 @@ private val FB_SUBJECTS = listOf("Maths", "Physique", "Français", "Anglais", "S
 private val FB_LEVELS = listOf("Primaire", "Collège", "Lycée", "Supérieur", "Université")
 private val FB_PROGRAMS = listOf("standard" to "Programme standard", "francais" to "Programme français")
 
-@OptIn(ExperimentalLayoutApi::class)
+private fun normalizePhone(raw: String): String {
+    var p = raw.trim().replace(Regex("[\\s.-]"), "")
+    if (Regex("^0\\d{9}$").matches(p)) p = "+225${p.drop(1)}"
+    else if (Regex("^225\\d{8,12}$").matches(p)) p = "+$p"
+    return p
+}
+
+@OptIn(ExperimentalLayoutApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun BecomeTeacherScreen(nav: NavActions) {
     val scope = rememberCoroutineScope()
@@ -136,7 +144,7 @@ fun BecomeTeacherScreen(nav: NavActions) {
         runCatching {
             Api.service.submitTeacherApplication(buildMap {
                 put("fullName", fullName.trim())
-                put("phone", phone.trim())
+                put("phone", normalizePhone(phone.trim()))
                 if (email.isNotBlank()) put("email", email.trim())
                 put("subjects", selectedSubjects.joinToString(" · "))
                 put("location", location)
@@ -354,21 +362,28 @@ private fun SelectChip(label: String, selected: Boolean, onClick: () -> Unit) {
     )
 }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun PickField(value: String, expanded: Boolean, onExpanded: (Boolean) -> Unit, options: List<String>, onSelect: (String) -> Unit) {
-    Box(Modifier.fillMaxWidth()) {
-        Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).border(1.dp, AkColors.Border, RoundedCornerShape(14.dp))
-                .background(AkColors.White).clickable { onExpanded(true) }.padding(horizontal = 14.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(value, fontFamily = Hanken, fontSize = 14.sp, color = AkColors.Ink)
-            Icon(Icons.Filled.ArrowDropDown, null, tint = AkColors.Muted)
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { onExpanded(false) }) {
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = onExpanded, modifier = Modifier.fillMaxWidth()) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = {},
+            readOnly = true,
+            modifier = Modifier.fillMaxWidth().menuAnchor(),
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            shape = RoundedCornerShape(14.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = AkColors.Green, unfocusedBorderColor = AkColors.Border,
+                focusedContainerColor = AkColors.White, unfocusedContainerColor = AkColors.White,
+            ),
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { onExpanded(false) }) {
             options.forEach { opt ->
-                DropdownMenuItem(text = { Text(opt, fontFamily = Hanken) }, onClick = { onSelect(opt) })
+                DropdownMenuItem(
+                    text = { Text(opt, fontFamily = Hanken) },
+                    onClick = { onSelect(opt) },
+                )
             }
         }
     }

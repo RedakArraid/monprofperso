@@ -4,6 +4,13 @@ import UniformTypeIdentifiers
 private struct DocPick { let name: String; let mime: String; let b64: String }
 private struct ProgramPick: Identifiable { let slug: String; let name: String; var id: String { slug } }
 
+private func normalizePhone(_ raw: String) -> String {
+    var p = raw.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: " ", with: "").replacingOccurrences(of: ".", with: "").replacingOccurrences(of: "-", with: "")
+    if p.range(of: #"^0\d{9}$"#, options: .regularExpression) != nil { p = "+225" + String(p.dropFirst()) }
+    else if p.range(of: #"^225\d{8,12}$"#, options: .regularExpression) != nil { p = "+" + p }
+    return p
+}
+
 private let appLocations = ["Cocody", "Plateau", "Yopougon", "Marcory", "Treichville", "Abobo", "Adjamé", "Koumassi", "Port-Bouët", "Bingerville", "Anyama", "Autre (Abidjan)"]
 private let appExperiences = ["Débutant", "1 à 3 ans", "3 à 5 ans", "5 à 10 ans", "10 ans et +", "Enseignant certifié"]
 private let appPrices = [2500, 3000, 4000, 5000, 6000, 8000, 10000, 12000]
@@ -248,7 +255,7 @@ struct BecomeTeacherScreen: View {
         if fmtOnline { formats.append("online") }
         var json: [String: Any] = [
             "fullName": fullName.trimmingCharacters(in: .whitespaces),
-            "phone": phone.trimmingCharacters(in: .whitespaces),
+            "phone": normalizePhone(phone),
             "subjects": selectedSubjects.sorted().joined(separator: " · "),
             "location": location,
             "pricePerHour": price,

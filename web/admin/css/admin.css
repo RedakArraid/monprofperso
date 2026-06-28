@@ -151,7 +151,12 @@ code { background: var(--green-soft); color: var(--green); padding: 1px 6px; bor
   background: #fff; border-radius: 20px; padding: 26px; width: 100%; max-width: 560px;
   max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow);
 }
-.modal h3 { font-size: 19px; margin-bottom: 16px; }
+.modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.modal-head h3 { font-size: 19px; margin: 0; flex: 1; }
+.modal-close {
+  border: none; background: var(--green-soft); color: var(--green);
+  width: 36px; height: 36px; border-radius: 10px; font-size: 22px; line-height: 1;
+}
 
 /* ----------------------------- Toast ----------------------------- */
 .toast {

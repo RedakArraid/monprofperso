@@ -92,11 +92,36 @@ function fileToBase64(file) {
   });
 }
 
+async function fetchAuthBlob(path) {
+  const res = await fetch(API_BASE + path, {
+    cache: "no-store",
+    headers: { Authorization: "Bearer " + token.get() },
+  });
+  if (!res.ok) throw new Error("Téléchargement impossible (" + res.status + ")");
+  return res.blob();
+}
+
+async function openAuthFile(path, filename) {
+  try {
+    const blob = await fetchAuthBlob(path);
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, "_blank", "noopener");
+    if (!w) {
+      const a = document.createElement("a");
+      a.href = url; a.download = filename || "document"; a.click();
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  } catch (e) {
+    toast(e.message || "Ouverture impossible", true);
+  }
+}
+
 // --- Modale générique. ---
 function modal(title, innerHTML, onMount) {
   const back = document.createElement("div");
   back.className = "modal-back";
-  back.innerHTML = `<div class="modal"><h3>${esc(title)}</h3>${innerHTML}</div>`;
+  back.innerHTML = `<div class="modal"><div class="modal-head"><h3>${esc(title)}</h3><button type="button" class="modal-close" aria-label="Fermer">×</button></div>${innerHTML}</div>`;
+  back.querySelector(".modal-close")?.addEventListener("click", () => back.remove());
   back.addEventListener("click", (e) => { if (e.target === back) back.remove(); });
   document.body.appendChild(back);
   const close = () => back.remove();
@@ -258,7 +283,7 @@ async function renderApplications(root) {
       <h3>Candidatures <span class="count">${apps.length}</span></h3>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         ${["pending", "approved", "rejected", "all"].map((s) =>
-          `<button class="btn btn-sm ${filter === s ? "btn-primary" : "btn-ghost"}" data-filter="${s}">${s === "all" ? "Toutes" : APP_STATUS_LABEL[s]}</button>`
+          `<button type="button" class="btn btn-sm ${filter === s ? "btn-primary" : "btn-ghost"}" data-filter="${s}">${s === "all" ? "Toutes" : APP_STATUS_LABEL[s]}</button>`
         ).join("")}
       </div>
     </div>
@@ -282,7 +307,7 @@ function applicationRow(a) {
         ${a.price_per_hour ? " · " + fcfa(a.price_per_hour) + " F/h" : ""}</div>
     </div>
     <div class="row-actions">
-      <button class="btn btn-ghost btn-sm" data-open="${a.id}">Voir</button>
+      <button type="button" class="btn btn-ghost btn-sm" data-open="${a.id}">Voir</button>
     </div>
   </div>`;
 }
@@ -307,16 +332,23 @@ async function openApplication(id) {
     <p><strong>Documents</strong></p>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 16px">
       ${docs.map(([k, lbl, ok]) => ok
-        ? `<a class="btn btn-ghost btn-sm" href="${API_BASE}/api/admin/teacher-applications/${a.id}/files/${k}" target="_blank" rel="noopener">${esc(lbl)}</a>`
+        ? `<button type="button" class="btn btn-ghost btn-sm" data-dl="${a.id}" data-kind="${k}">${esc(lbl)}</button>`
         : `<span class="muted">${esc(lbl)} (manquant)</span>`).join("")}
     </div>
     ${a.status === "pending" ? `
       <div class="field full"><label>Motif de refus (si refus)</label><textarea id="rejReason" placeholder="Ex. diplôme illisible…"></textarea></div>
       <div class="form-actions">
-        <button class="btn btn-primary" id="approveApp">Accepter et créer le prof</button>
-        <button class="btn btn-danger" id="rejectApp">Refuser</button>
+        <button type="button" class="btn btn-primary" id="approveApp">Accepter et créer le prof</button>
+        <button type="button" class="btn btn-danger" id="rejectApp">Refuser</button>
       </div>` : `<p class="muted">Candidature déjà traitée.</p>`}
   `, (back, close) => {
+    back.querySelectorAll("[data-dl]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const appId = btn.dataset.dl;
+        const kind = btn.dataset.kind;
+        openAuthFile(`/api/admin/teacher-applications/${appId}/files/${kind}`, `${kind}.pdf`);
+      });
+    });
     const approve = back.querySelector("#approveApp");
     const reject = back.querySelector("#rejectApp");
     approve?.addEventListener("click", async () => {

@@ -24,6 +24,7 @@
   var PRICES = [2500, 3000, 4000, 5000, 6000, 8000, 10000, 12000];
 
   var form = document.getElementById("candidatureForm");
+  var formCard = document.getElementById("formCard");
   var stepEls = document.querySelectorAll(".form-step");
   var progressBars = document.querySelectorAll(".progress-bar span");
   var stepLabel = document.getElementById("stepLabel");
@@ -33,6 +34,13 @@
   var successEl = document.getElementById("formSuccess");
   var step = 0;
   var files = { idCard: null, diploma: null, photo: null };
+
+  function normalizePhone(raw) {
+    var p = String(raw || "").trim().replace(/[\s.-]/g, "");
+    if (/^0\d{9}$/.test(p)) p = "+225" + p.slice(1);
+    else if (/^225\d{8,12}$/.test(p)) p = "+" + p;
+    return p;
+  }
 
   function showErr(msg, which) {
     [errEl, errStep0, errStep1].forEach(function (el) { if (el) el.hidden = true; });
@@ -58,6 +66,13 @@
     if (def != null) sel.value = String(def);
   }
 
+  function syncChip(chip) {
+    var input = chip.querySelector("input");
+    if (!input) return;
+    chip.classList.toggle("selected", input.checked);
+    chip.setAttribute("aria-pressed", input.checked ? "true" : "false");
+  }
+
   function buildChips(containerId, items, type) {
     var box = document.getElementById(containerId);
     if (!box) return;
@@ -65,18 +80,27 @@
     items.forEach(function (item) {
       var label = typeof item === "string" ? item : item.name;
       var value = typeof item === "string" ? item : item.slug;
-      var id = containerId + "-" + value.replace(/\s+/g, "-");
-      var lbl = document.createElement("label");
-      lbl.className = "chip";
-      lbl.innerHTML = '<input type="checkbox" name="' + type + '" value="' + value + '" id="' + id + '" />' +
-        "<span>" + label + "</span>";
-      if (type === "programs" && value === "standard") {
-        lbl.querySelector("input").checked = true;
-      }
-      if (type === "levels" && (value === "Collège" || value === "Lycée")) {
-        lbl.querySelector("input").checked = true;
-      }
-      box.appendChild(lbl);
+      var chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip";
+      chip.setAttribute("aria-pressed", "false");
+      chip.innerHTML = "<span>" + label + "</span>";
+      chip.dataset.name = type;
+      chip.dataset.value = value;
+      var hidden = document.createElement("input");
+      hidden.type = "checkbox";
+      hidden.name = type;
+      hidden.value = value;
+      hidden.hidden = true;
+      chip.appendChild(hidden);
+      if (type === "programs" && value === "standard") hidden.checked = true;
+      if (type === "levels" && (value === "Collège" || value === "Lycée")) hidden.checked = true;
+      chip.addEventListener("click", function () {
+        hidden.checked = !hidden.checked;
+        syncChip(chip);
+      });
+      syncChip(chip);
+      box.appendChild(chip);
     });
   }
 
@@ -87,7 +111,10 @@
 
   function checkedLabels(name) {
     return Array.prototype.slice.call(document.querySelectorAll('input[name="' + name + '"]:checked'))
-      .map(function (el) { return el.parentElement.querySelector("span").textContent; });
+      .map(function (el) {
+        var chip = el.closest(".chip");
+        return chip ? chip.querySelector("span").textContent : el.value;
+      });
   }
 
   function fileToBase64(file) {
@@ -102,11 +129,18 @@
   function bindFile(inputId, key, labelId) {
     var input = document.getElementById(inputId);
     var label = labelId ? document.getElementById(labelId) : null;
+    var wrap = input && input.closest(".file-btn");
     if (!input) return;
+    if (wrap) {
+      wrap.addEventListener("click", function (e) {
+        if (e.target !== input) { e.preventDefault(); input.click(); }
+      });
+    }
     input.addEventListener("change", function () {
       var f = input.files[0];
       files[key] = f || null;
-      if (label) label.textContent = f ? f.name : "Choisir un fichier";
+      if (label) label.textContent = f ? f.name : (key === "photo" ? "Choisir une photo" : "Choisir un fichier");
+      if (wrap) wrap.classList.toggle("selected", !!f);
     });
   }
 
@@ -120,6 +154,7 @@
     progressBars.forEach(function (el, i) { el.classList.toggle("done", i <= step); });
     if (stepLabel) stepLabel.textContent = "Étape " + (step + 1) + " / 3";
     showErr("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function validateStep0() {
@@ -149,6 +184,10 @@
 
   document.querySelectorAll("[data-prev]").forEach(function (btn) {
     btn.addEventListener("click", function () { goStep(Math.max(step - 1, 0)); });
+  });
+
+  document.querySelectorAll("[data-legal]").forEach(function (a) {
+    a.addEventListener("click", function (e) { e.stopPropagation(); });
   });
 
   async function loadCatalog() {
@@ -193,7 +232,7 @@
 
         var body = {
           fullName: document.getElementById("fullName").value.trim(),
-          phone: document.getElementById("phone").value.trim(),
+          phone: normalizePhone(document.getElementById("phone").value),
           email: document.getElementById("email").value.trim() || undefined,
           subjects: checkedLabels("subjects").join(" · "),
           location: document.getElementById("location").value,
@@ -224,7 +263,7 @@
         var data = await res.json().catch(function () { return {}; });
         if (!res.ok) throw new Error(data.message || data.error || "Erreur " + res.status);
 
-        form.hidden = true;
+        if (formCard) formCard.hidden = true;
         if (successEl) successEl.hidden = false;
       } catch (ex) {
         showErr(ex.message || "Envoi impossible");

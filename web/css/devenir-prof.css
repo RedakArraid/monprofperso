@@ -30,9 +30,13 @@ fieldset.field legend { font-weight: 600; font-size: 13px; color: var(--ink); ma
   border: 1.5px solid var(--border); border-radius: 999px; padding: 8px 14px;
   font-size: 13px; font-weight: 600; color: var(--ink-soft); background: var(--white);
   transition: background .15s, border-color .15s, color .15s;
+  font-family: inherit;
 }
-.chip input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
-.chip:has(input:checked) { background: var(--green-soft); border-color: var(--green); color: var(--green); }
+.chip input { display: none; }
+.chip.selected, .chip:has(input:checked) {
+  background: var(--green-soft); border-color: var(--green); color: var(--green);
+}
+.file-btn.selected { border-color: var(--green); border-style: solid; }
 .check-row { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: var(--muted); margin: 12px 0; }
 .check-row input { margin-top: 3px; }
 .file-btn {
