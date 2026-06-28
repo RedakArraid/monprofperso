@@ -56,7 +56,7 @@
   // --- Réseaux sociaux, contact et documents légaux depuis l'API ---
   var API_BASE = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
     ? "http://localhost:8099"
-    : "https://api.monprofperso.com";
+    : location.origin;
 
   // Liens légaux : pointent vers le PDF géré par l'admin (s'il existe).
   fetch(API_BASE + "/api/legal")

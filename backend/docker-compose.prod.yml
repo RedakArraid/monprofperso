@@ -72,8 +72,11 @@ services:
     image: nginx:alpine
     container_name: monprofperso-web
     restart: unless-stopped
+    depends_on:
+      - api
     volumes:
       - ../web:/usr/share/nginx/html:ro
+      - ../web/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/ | grep -qi html || exit 1"]
       interval: 30s
@@ -81,6 +84,7 @@ services:
       retries: 3
     networks:
       - traefik_network
+      - monprofperso_internal
     labels:
       - traefik.enable=true
       - traefik.http.services.monprofperso-web.loadbalancer.server.port=80

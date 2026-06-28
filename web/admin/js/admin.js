@@ -4,10 +4,17 @@
  * que les apps). Authentification : JWT admin stocké dans localStorage.
  * ===================================================================== */
 
-// --- Base de l'API : prod par défaut, localhost en dev. ---
+// --- Base de l'API : même origine en prod (proxy nginx /api), localhost en dev. ---
 const API_BASE = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
   ? "http://localhost:8099"
-  : "https://api.monprofperso.com";
+  : location.origin;
+
+function normalizePhone(raw) {
+  let p = String(raw ?? "").trim().replace(/\s/g, "");
+  if (/^0\d{9}$/.test(p)) p = "+225" + p.slice(1);
+  else if (/^225\d{8,12}$/.test(p)) p = "+" + p;
+  return p;
+}
 
 const TOKEN_KEY = "mpp_admin_jwt";
 const token = {
@@ -25,10 +32,18 @@ async function api(path, { method = "GET", body, headers = {} } = {}) {
     opt.headers["Content-Type"] = "application/json";
     opt.body = JSON.stringify(body);
   }
-  const res = await fetch(API_BASE + path, opt);
+  let res;
+  try {
+    res = await fetch(API_BASE + path, opt);
+  } catch (_) {
+    throw new Error("Impossible de joindre l'API. Vérifiez votre connexion.");
+  }
   if (res.status === 204) return null;
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+  let data = null;
+  if (text) {
+    try { data = JSON.parse(text); } catch (_) { /* corps non JSON */ }
+  }
   if (!res.ok) {
     const err = new Error((data && (data.message || data.error)) || ("Erreur " + res.status));
     err.status = res.status;
@@ -86,7 +101,7 @@ function modal(title, innerHTML, onMount) {
  * ===================================================================== */
 $("#loginForm").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const phone = $("#phone").value.trim();
+  const phone = normalizePhone($("#phone").value);
   const btn = $("#loginBtn");
   const err = $("#loginErr");
   err.hidden = true;
