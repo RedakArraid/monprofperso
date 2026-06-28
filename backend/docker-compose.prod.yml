@@ -65,7 +65,7 @@ services:
       - traefik.http.routers.monprofperso-api.rule=Host(`api.monprofperso.com`)
       - traefik.http.routers.monprofperso-api.entrypoints=websecure
       - traefik.http.routers.monprofperso-api.tls=true
-      - traefik.http.routers.monprofperso-api.tls.certresolver=myhttpchallenge
+      - traefik.http.routers.monprofperso-api.tls.certresolver=mytlschallenge
       - traefik.http.routers.monprofperso-api.service=monprofperso-api
 
   web:
@@ -87,7 +87,7 @@ services:
       - "traefik.http.routers.monprofperso-web.rule=Host(`monprofperso.com`) || Host(`www.monprofperso.com`)"
       - traefik.http.routers.monprofperso-web.entrypoints=websecure
       - traefik.http.routers.monprofperso-web.tls=true
-      - traefik.http.routers.monprofperso-web.tls.certresolver=myhttpchallenge
+      - traefik.http.routers.monprofperso-web.tls.certresolver=mytlschallenge
       - traefik.http.routers.monprofperso-web.service=monprofperso-web
 
 volumes:
