@@ -24,7 +24,7 @@ fi
 echo "==> Pull latest (branche ${BRANCH})"
 git fetch origin
 git checkout "${BRANCH}" 2>/dev/null || git checkout -b "${BRANCH}" "origin/${BRANCH}"
-git pull --ff-only "origin/${BRANCH}"
+git pull --ff-only origin "${BRANCH}"
 
 echo "==> Build & start (staging)"
 $COMPOSE up -d --build
