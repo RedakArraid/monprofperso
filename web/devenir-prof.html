@@ -9,8 +9,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=20260628j" />
-  <link rel="stylesheet" href="css/devenir-prof.css?v=20260628j" />
+  <link rel="stylesheet" href="css/styles.css?v=20260628k" />
+  <link rel="stylesheet" href="css/devenir-prof.css?v=20260628k" />
 </head>
 <body>
   <header class="site-header">
@@ -30,7 +30,7 @@
     <div class="container">
       <div class="devenir-card" id="formCard">
         <h1>Devenir professeur</h1>
-        <p class="devenir-intro">Rejoignez Mon Prof Perso et proposez vos cours à domicile ou en ligne. Votre profil sera vérifié sous 24 à 48 h.</p>
+        <p class="devenir-intro">Quelques clics suffisent. Votre profil sera vérifié sous 24 à 48 h.</p>
         <div class="progress-row" aria-hidden="true">
           <div class="progress-bar"><span></span></div>
           <div class="progress-bar"><span></span></div>
@@ -40,22 +40,52 @@
 
         <form id="candidatureForm" novalidate>
           <div class="form-step">
-            <div class="field"><label for="fullName">Nom complet *</label><input id="fullName" required placeholder="Koffi N'Guessan" autocomplete="name" /></div>
             <div class="field-row">
+              <div class="field"><label for="fullName">Nom complet *</label><input id="fullName" required placeholder="Koffi N'Guessan" autocomplete="name" /></div>
               <div class="field"><label for="phone">Téléphone *</label><input id="phone" type="tel" required placeholder="+2250700000000" autocomplete="tel" /></div>
-              <div class="field"><label for="email">E-mail</label><input id="email" type="email" placeholder="prof@exemple.com" autocomplete="email" /></div>
             </div>
-            <div class="field"><label for="subjects">Matières enseignées *</label><input id="subjects" required placeholder="Maths · Physique · Anglais" /></div>
+            <div class="field"><label for="email">E-mail</label><input id="email" type="email" placeholder="prof@exemple.com" autocomplete="email" /></div>
+
+            <fieldset class="field">
+              <legend>Matières enseignées *</legend>
+              <div class="chip-grid" id="subjectsGrid"></div>
+            </fieldset>
+
+            <fieldset class="field">
+              <legend>Niveaux *</legend>
+              <div class="chip-grid" id="levelsGrid"></div>
+            </fieldset>
+
+            <fieldset class="field">
+              <legend>Programmes scolaires *</legend>
+              <div class="chip-grid" id="programsGrid"></div>
+            </fieldset>
+
             <div class="field-row">
-              <div class="field"><label for="location">Quartier / ville</label><input id="location" placeholder="Cocody, Abidjan" /></div>
-              <div class="field"><label for="price">Tarif horaire (FCFA)</label><input id="price" type="number" min="0" placeholder="4000" /></div>
+              <div class="field">
+                <label for="location">Quartier / commune</label>
+                <select id="location"></select>
+              </div>
+              <div class="field">
+                <label for="price">Tarif horaire (FCFA)</label>
+                <select id="price"></select>
+              </div>
             </div>
-            <div class="field"><label for="levels">Niveaux (séparés par des virgules)</label><input id="levels" placeholder="Collège, Lycée, Prépa BAC" /></div>
-            <div class="field"><label for="experience">Expérience</label><input id="experience" placeholder="5 ans, agrégé…" /></div>
-            <div class="field"><label for="bio">Présentation</label><textarea id="bio" rows="4" placeholder="Quelques mots sur votre parcours…"></textarea></div>
-            <label class="check-row"><input type="checkbox" id="fmtHome" checked /> Cours à domicile</label>
-            <label class="check-row"><input type="checkbox" id="fmtOnline" checked /> Cours en ligne</label>
-            <label class="check-row"><input type="checkbox" id="negotiable" /> Tarif négociable</label>
+
+            <div class="field">
+              <label for="experience">Expérience</label>
+              <select id="experience"></select>
+            </div>
+
+            <fieldset class="field field-inline-checks">
+              <legend>Modalités</legend>
+              <label class="check-row"><input type="checkbox" id="fmtHome" checked /> Cours à domicile</label>
+              <label class="check-row"><input type="checkbox" id="fmtOnline" checked /> Cours en ligne</label>
+              <label class="check-row"><input type="checkbox" id="negotiable" /> Tarif négociable</label>
+            </fieldset>
+
+            <div class="field"><label for="bio">Présentation (optionnel)</label><textarea id="bio" rows="3" placeholder="Quelques mots sur votre parcours…"></textarea></div>
+            <p id="formErrStep0" class="form-err" hidden></p>
             <div class="form-actions"><button type="button" class="btn btn-primary" data-next>Suivant</button></div>
           </div>
 
@@ -63,6 +93,7 @@
             <p class="devenir-intro" style="margin-bottom:16px">Pour rassurer les familles, chaque professeur est vérifié avant publication.</p>
             <label class="check-row"><input type="checkbox" id="consent" required /> J'accepte les <a href="#" data-legal="cgu">conditions d'utilisation</a> et la <a href="#" data-legal="confidentialite">politique de confidentialité</a>.</label>
             <p class="muted" style="font-size:13px">Vos documents restent confidentiels et ne sont visibles que par l'équipe Mon Prof Perso.</p>
+            <p id="formErrStep1" class="form-err" hidden></p>
             <div class="form-actions">
               <button type="button" class="btn btn-ghost" data-prev>Retour</button>
               <button type="button" class="btn btn-primary" data-next>Suivant</button>
@@ -101,6 +132,6 @@
 
   <footer class="footer"><div class="container footer-bottom"><span>© Mon Prof Perso (MP²)</span></div></footer>
   <script src="js/main.js"></script>
-  <script src="js/devenir-prof.js"></script>
+  <script src="js/devenir-prof.js?v=20260628k"></script>
 </body>
 </html>

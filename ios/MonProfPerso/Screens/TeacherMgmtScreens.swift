@@ -2,6 +2,11 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 private struct DocPick { let name: String; let mime: String; let b64: String }
+private struct ProgramPick: Identifiable { let slug: String; let name: String; var id: String { slug } }
+
+private let appLocations = ["Cocody", "Plateau", "Yopougon", "Marcory", "Treichville", "Abobo", "Adjamé", "Koumassi", "Port-Bouët", "Bingerville", "Anyama", "Autre (Abidjan)"]
+private let appExperiences = ["Débutant", "1 à 3 ans", "3 à 5 ans", "5 à 10 ans", "10 ans et +", "Enseignant certifié"]
+private let appPrices = [2500, 3000, 4000, 5000, 6000, 8000, 10000, 12000]
 
 // MARK: - Écran 29, Devenir professeur (live → /api/teacher-applications)
 struct BecomeTeacherScreen: View {
@@ -9,11 +14,24 @@ struct BecomeTeacherScreen: View {
     @State private var step = 0
     @State private var fullName = ""
     @State private var phone = ""
-    @State private var subjects = ""
-    @State private var location = "Abidjan"
-    @State private var price = "4000"
+    @State private var email = ""
+    @State private var location = "Cocody"
+    @State private var price = 4000
+    @State private var experience = "3 à 5 ans"
     @State private var bio = ""
     @State private var consent = false
+    @State private var fmtHome = true
+    @State private var fmtOnline = true
+    @State private var negotiable = false
+    @State private var subjectNames: [String] = ["Maths", "Physique", "Français", "Anglais", "SVT", "Philo", "Hist-Géo"]
+    @State private var levelNames: [String] = ["Primaire", "Collège", "Lycée", "Supérieur", "Université"]
+    @State private var programItems: [ProgramPick] = [
+        ProgramPick(slug: "standard", name: "Programme standard"),
+        ProgramPick(slug: "francais", name: "Programme français"),
+    ]
+    @State private var selectedSubjects = Set<String>()
+    @State private var selectedLevels: Set<String> = ["Collège", "Lycée"]
+    @State private var selectedPrograms: Set<String> = ["standard"]
     @State private var idCard: DocPick?
     @State private var diploma: DocPick?
     @State private var photo: DocPick?
@@ -61,6 +79,7 @@ struct BecomeTeacherScreen: View {
                 }.padding(.horizontal, 22).padding(.vertical, 14).background(.white)
             }
         }
+        .task { await loadCatalog() }
         .fileImporter(isPresented: $showImporter, allowedContentTypes: allowedTypes, allowsMultipleSelection: false) { result in
             guard case .success(let urls) = result, let url = urls.first else { return }
             guard url.startAccessingSecurityScopedResource() else { return }
@@ -95,12 +114,27 @@ struct BecomeTeacherScreen: View {
         switch step {
         case 0:
             Text("Parlez-nous de vous").font(AkFont.schibstedExtra(20)).foregroundColor(Ak.ink)
-            fieldLabel("Nom complet"); appField($fullName, "Koffi N'Guessan").padding(.top, 12)
+            fieldLabel("Nom complet").padding(.top, 12); appField($fullName, "Koffi N'Guessan")
             fieldLabel("Téléphone").padding(.top, 10); appField($phone, "+2250700000000")
-            fieldLabel("Matières").padding(.top, 10); appField($subjects, "Maths · Physique")
-            fieldLabel("Quartier / ville").padding(.top, 10); appField($location, "Cocody")
-            fieldLabel("Tarif horaire (F)").padding(.top, 10); appField($price, "4000")
-            fieldLabel("Présentation").padding(.top, 10); appField($bio, "Votre parcours…", lines: 3)
+            fieldLabel("E-mail (optionnel)").padding(.top, 10); appField($email, "prof@exemple.com")
+            fieldLabel("Matières enseignées").padding(.top, 14)
+            chipWrap(subjectNames, selected: $selectedSubjects)
+            fieldLabel("Niveaux").padding(.top, 14)
+            chipWrap(levelNames, selected: $selectedLevels)
+            fieldLabel("Programmes scolaires").padding(.top, 14)
+            programChips()
+            fieldLabel("Quartier / commune").padding(.top, 14)
+            pickerField(selection: $location, options: appLocations)
+            fieldLabel("Tarif horaire").padding(.top, 10)
+            pickerField(selection: $price, options: appPrices, label: { "\($0.formatted(.number.grouping(.automatic))) F / h" })
+            fieldLabel("Expérience").padding(.top, 10)
+            pickerField(selection: $experience, options: appExperiences)
+            fieldLabel("Modalités").padding(.top, 12)
+            Toggle("Cours à domicile", isOn: $fmtHome).font(AkFont.regular(13))
+            Toggle("Cours en ligne", isOn: $fmtOnline).font(AkFont.regular(13))
+            Toggle("Tarif négociable", isOn: $negotiable).font(AkFont.regular(13))
+            fieldLabel("Présentation (optionnel)").padding(.top, 10)
+            appField($bio, "Votre parcours…", lines: 3)
         case 1:
             Text("Confidentialité").font(AkFont.schibstedExtra(20)).foregroundColor(Ak.ink)
             Text("Pour rassurer les parents, chaque professeur est vérifié avant d'apparaître sur Mon Prof Perso.")
@@ -120,6 +154,56 @@ struct BecomeTeacherScreen: View {
         }
     }
 
+    private func loadCatalog() async {
+        if let s = try? await ApiClient.shared.subjects(), !s.isEmpty { subjectNames = s.map(\.name) }
+        if let l = try? await ApiClient.shared.levels(), !l.isEmpty { levelNames = l.map(\.name) }
+        if let p = try? await ApiClient.shared.programs(), !p.isEmpty {
+            programItems = p.map { ProgramPick(slug: $0.slug, name: $0.name) }
+        }
+    }
+
+    private func chipWrap(_ items: [String], selected: Binding<Set<String>>) -> some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 8)], spacing: 8) {
+            ForEach(items, id: \.self) { item in
+                let on = selected.wrappedValue.contains(item)
+                Text(item).font(AkFont.bold(12)).foregroundColor(on ? Ak.green : Ak.inkSoft)
+                    .padding(.horizontal, 12).padding(.vertical, 9)
+                    .background(on ? Ak.greenSoft : .white)
+                    .clipShape(Capsule())
+                    .overlay(Capsule().stroke(on ? Ak.green : Ak.border, lineWidth: 1))
+                    .onTapGesture {
+                        if on { selected.wrappedValue.remove(item) } else { selected.wrappedValue.insert(item) }
+                    }
+            }
+        }.padding(.top, 8)
+    }
+
+    private func programChips() -> some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 8)], spacing: 8) {
+            ForEach(programItems) { p in
+                let on = selectedPrograms.contains(p.slug)
+                Text(p.name).font(AkFont.bold(12)).foregroundColor(on ? Ak.green : Ak.inkSoft)
+                    .padding(.horizontal, 12).padding(.vertical, 9)
+                    .background(on ? Ak.greenSoft : .white)
+                    .clipShape(Capsule())
+                    .overlay(Capsule().stroke(on ? Ak.green : Ak.border, lineWidth: 1))
+                    .onTapGesture {
+                        if on { selectedPrograms.remove(p.slug) } else { selectedPrograms.insert(p.slug) }
+                    }
+            }
+        }.padding(.top, 8)
+    }
+
+    private func pickerField<T: Hashable>(selection: Binding<T>, options: [T], label: ((T) -> String)? = nil) -> some View {
+        Picker("", selection: selection) {
+            ForEach(options, id: \.self) { opt in
+                Text(label?(opt) ?? String(describing: opt)).tag(opt)
+            }
+        }.pickerStyle(.menu).frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12).background(.white).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Ak.border, lineWidth: 1))
+    }
+
     private func fieldLabel(_ text: String) -> some View {
         Text(text).font(AkFont.semibold(12)).foregroundColor(Ak.muted)
     }
@@ -137,8 +221,16 @@ struct BecomeTeacherScreen: View {
         err = nil
         switch step {
         case 0:
-            if fullName.trimmingCharacters(in: .whitespaces).isEmpty || phone.trimmingCharacters(in: .whitespaces).isEmpty || subjects.trimmingCharacters(in: .whitespaces).isEmpty {
-                err = "Remplissez les champs obligatoires."
+            if fullName.trimmingCharacters(in: .whitespaces).isEmpty || phone.trimmingCharacters(in: .whitespaces).isEmpty {
+                err = "Remplissez nom et téléphone."
+            } else if selectedSubjects.isEmpty {
+                err = "Sélectionnez au moins une matière."
+            } else if selectedLevels.isEmpty {
+                err = "Sélectionnez au moins un niveau."
+            } else if selectedPrograms.isEmpty {
+                err = "Sélectionnez au moins un programme."
+            } else if !fmtHome && !fmtOnline {
+                err = "Choisissez domicile ou en ligne."
             } else { step += 1 }
         case 1:
             if !consent { err = "Acceptez les conditions." } else { step += 1 }
@@ -151,18 +243,25 @@ struct BecomeTeacherScreen: View {
 
     private func submit() async {
         loading = true; err = nil
+        var formats: [String] = []
+        if fmtHome { formats.append("home") }
+        if fmtOnline { formats.append("online") }
         var json: [String: Any] = [
             "fullName": fullName.trimmingCharacters(in: .whitespaces),
             "phone": phone.trimmingCharacters(in: .whitespaces),
-            "subjects": subjects.trimmingCharacters(in: .whitespaces),
-            "location": location.trimmingCharacters(in: .whitespaces),
-            "pricePerHour": Int(price) ?? 4000,
+            "subjects": selectedSubjects.sorted().joined(separator: " · "),
+            "location": location,
+            "pricePerHour": price,
             "bio": bio.trimmingCharacters(in: .whitespaces),
-            "levels": ["Collège", "Lycée"],
-            "formats": ["home", "online"],
-            "programs": ["standard"],
+            "experience": experience,
+            "levels": Array(selectedLevels),
+            "formats": formats.isEmpty ? ["home", "online"] : formats,
+            "programs": Array(selectedPrograms),
+            "negotiable": negotiable,
             "consent": true,
         ]
+        let em = email.trimmingCharacters(in: .whitespaces)
+        if !em.isEmpty { json["email"] = em }
         if let idCard {
             json["idCardBase64"] = idCard.b64; json["idCardFileName"] = idCard.name; json["idCardMimeType"] = idCard.mime
         }

@@ -1,4 +1,4 @@
-/* Formulaire candidature professeur, Mon Prof Perso */
+/* Formulaire candidature professeur — cases à cocher + listes déroulantes */
 (function () {
   "use strict";
 
@@ -6,17 +6,88 @@
     ? "http://localhost:8099"
     : location.origin;
 
+  var FALLBACK = {
+    subjects: ["Maths", "Physique", "Français", "Anglais", "SVT", "Philo", "Hist-Géo", "Musique", "Espagnol", "Allemand"],
+    levels: ["Primaire", "Collège", "Lycée", "Supérieur", "Université"],
+    programs: [
+      { slug: "standard", name: "Programme standard" },
+      { slug: "francais", name: "Programme français" },
+    ],
+  };
+
+  var LOCATIONS = [
+    "Cocody", "Plateau", "Yopougon", "Marcory", "Treichville", "Abobo", "Adjamé",
+    "Koumassi", "Port-Bouët", "Bingerville", "Anyama", "Autre (Abidjan)",
+  ];
+
+  var EXPERIENCES = ["Débutant", "1 à 3 ans", "3 à 5 ans", "5 à 10 ans", "10 ans et +", "Enseignant certifié"];
+  var PRICES = [2500, 3000, 4000, 5000, 6000, 8000, 10000, 12000];
+
   var form = document.getElementById("candidatureForm");
   var stepEls = document.querySelectorAll(".form-step");
   var progressBars = document.querySelectorAll(".progress-bar span");
   var stepLabel = document.getElementById("stepLabel");
   var errEl = document.getElementById("formErr");
+  var errStep0 = document.getElementById("formErrStep0");
+  var errStep1 = document.getElementById("formErrStep1");
   var successEl = document.getElementById("formSuccess");
   var step = 0;
   var files = { idCard: null, diploma: null, photo: null };
 
-  function showErr(msg) {
-    if (errEl) { errEl.textContent = msg; errEl.hidden = !msg; }
+  function showErr(msg, which) {
+    [errEl, errStep0, errStep1].forEach(function (el) { if (el) el.hidden = true; });
+    var target = which === 0 ? errStep0 : which === 1 ? errStep1 : errEl;
+    if (target) { target.textContent = msg || ""; target.hidden = !msg; }
+  }
+
+  function fillSelect(id, options, def) {
+    var sel = document.getElementById(id);
+    if (!sel) return;
+    sel.innerHTML = "";
+    options.forEach(function (opt) {
+      var o = document.createElement("option");
+      if (typeof opt === "number") {
+        o.value = String(opt);
+        o.textContent = opt.toLocaleString("fr-FR") + " F / h";
+      } else {
+        o.value = opt;
+        o.textContent = opt;
+      }
+      sel.appendChild(o);
+    });
+    if (def != null) sel.value = String(def);
+  }
+
+  function buildChips(containerId, items, type) {
+    var box = document.getElementById(containerId);
+    if (!box) return;
+    box.innerHTML = "";
+    items.forEach(function (item) {
+      var label = typeof item === "string" ? item : item.name;
+      var value = typeof item === "string" ? item : item.slug;
+      var id = containerId + "-" + value.replace(/\s+/g, "-");
+      var lbl = document.createElement("label");
+      lbl.className = "chip";
+      lbl.innerHTML = '<input type="checkbox" name="' + type + '" value="' + value + '" id="' + id + '" />' +
+        "<span>" + label + "</span>";
+      if (type === "programs" && value === "standard") {
+        lbl.querySelector("input").checked = true;
+      }
+      if (type === "levels" && (value === "Collège" || value === "Lycée")) {
+        lbl.querySelector("input").checked = true;
+      }
+      box.appendChild(lbl);
+    });
+  }
+
+  function checkedValues(name) {
+    return Array.prototype.slice.call(document.querySelectorAll('input[name="' + name + '"]:checked'))
+      .map(function (el) { return el.value; });
+  }
+
+  function checkedLabels(name) {
+    return Array.prototype.slice.call(document.querySelectorAll('input[name="' + name + '"]:checked'))
+      .map(function (el) { return el.parentElement.querySelector("span").textContent; });
   }
 
   function fileToBase64(file) {
@@ -51,15 +122,26 @@
     showErr("");
   }
 
+  function validateStep0() {
+    if (!document.getElementById("fullName").value.trim()) return "Indiquez votre nom complet.";
+    if (!document.getElementById("phone").value.trim()) return "Indiquez votre numéro.";
+    if (!checkedLabels("subjects").length) return "Sélectionnez au moins une matière.";
+    if (!checkedLabels("levels").length) return "Sélectionnez au moins un niveau.";
+    if (!checkedValues("programs").length) return "Sélectionnez au moins un programme.";
+    if (!document.getElementById("fmtHome").checked && !document.getElementById("fmtOnline").checked) {
+      return "Choisissez au moins une modalité (domicile ou en ligne).";
+    }
+    return "";
+  }
+
   document.querySelectorAll("[data-next]").forEach(function (btn) {
     btn.addEventListener("click", function () {
       if (step === 0) {
-        if (!document.getElementById("fullName").value.trim()) return showErr("Indiquez votre nom complet.");
-        if (!document.getElementById("phone").value.trim()) return showErr("Indiquez votre numéro.");
-        if (!document.getElementById("subjects").value.trim()) return showErr("Indiquez vos matières.");
+        var e0 = validateStep0();
+        if (e0) return showErr(e0, 0);
       }
       if (step === 1 && !document.getElementById("consent").checked) {
-        return showErr("Acceptez les conditions d'utilisation.");
+        return showErr("Acceptez les conditions d'utilisation.", 1);
       }
       goStep(Math.min(step + 1, 2));
     });
@@ -68,6 +150,31 @@
   document.querySelectorAll("[data-prev]").forEach(function (btn) {
     btn.addEventListener("click", function () { goStep(Math.max(step - 1, 0)); });
   });
+
+  async function loadCatalog() {
+    fillSelect("location", LOCATIONS, "Cocody");
+    fillSelect("experience", EXPERIENCES, "3 à 5 ans");
+    fillSelect("price", PRICES, 4000);
+
+    var subjects = FALLBACK.subjects.slice();
+    var levels = FALLBACK.levels.slice();
+    var programs = FALLBACK.programs.slice();
+
+    try {
+      var res = await Promise.all([
+        fetch(API_BASE + "/api/subjects").then(function (r) { return r.ok ? r.json() : []; }),
+        fetch(API_BASE + "/api/levels").then(function (r) { return r.ok ? r.json() : []; }),
+        fetch(API_BASE + "/api/programs").then(function (r) { return r.ok ? r.json() : []; }),
+      ]);
+      if (res[0] && res[0].length) subjects = res[0].map(function (s) { return s.name; });
+      if (res[1] && res[1].length) levels = res[1].map(function (l) { return l.name; });
+      if (res[2] && res[2].length) programs = res[2].map(function (p) { return { slug: p.slug, name: p.name }; });
+    } catch (_) { /* repli local */ }
+
+    buildChips("subjectsGrid", subjects, "subjects");
+    buildChips("levelsGrid", levels, "levels");
+    buildChips("programsGrid", programs, "programs");
+  }
 
   if (form) {
     form.addEventListener("submit", async function (e) {
@@ -80,24 +187,22 @@
       btn.disabled = true;
       btn.textContent = "Envoi en cours…";
       try {
-        var levels = document.getElementById("levels").value.split(",").map(function (s) { return s.trim(); }).filter(Boolean);
         var formats = [];
         if (document.getElementById("fmtHome").checked) formats.push("home");
         if (document.getElementById("fmtOnline").checked) formats.push("online");
-        if (!formats.length) formats = ["home", "online"];
 
         var body = {
           fullName: document.getElementById("fullName").value.trim(),
           phone: document.getElementById("phone").value.trim(),
           email: document.getElementById("email").value.trim() || undefined,
-          subjects: document.getElementById("subjects").value.trim(),
-          location: document.getElementById("location").value.trim() || "Abidjan",
+          subjects: checkedLabels("subjects").join(" · "),
+          location: document.getElementById("location").value,
           pricePerHour: Number(document.getElementById("price").value) || undefined,
           bio: document.getElementById("bio").value.trim() || undefined,
-          experience: document.getElementById("experience").value.trim() || undefined,
-          levels: levels,
+          experience: document.getElementById("experience").value,
+          levels: checkedLabels("levels"),
           formats: formats,
-          programs: ["standard"],
+          programs: checkedValues("programs"),
           negotiable: document.getElementById("negotiable").checked,
           consent: true,
           idCardBase64: await fileToBase64(files.idCard),
@@ -129,5 +234,5 @@
     });
   }
 
-  goStep(0);
+  loadCatalog().then(function () { goStep(0); });
 })();

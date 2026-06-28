@@ -35,6 +35,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.runtime.LaunchedEffect
 import ci.monprofperso.app.data.Api
 import ci.monprofperso.app.nav.NavActions
 import ci.monprofperso.app.ui.components.*
@@ -47,6 +52,17 @@ import ci.monprofperso.app.ui.theme.Schibsted
  * ====================================================================== */
 private data class DocPick(val name: String, val mime: String, val b64: String)
 
+private val APP_LOCATIONS = listOf(
+    "Cocody", "Plateau", "Yopougon", "Marcory", "Treichville", "Abobo", "Adjamé",
+    "Koumassi", "Port-Bouët", "Bingerville", "Anyama", "Autre (Abidjan)",
+)
+private val APP_EXPERIENCES = listOf("Débutant", "1 à 3 ans", "3 à 5 ans", "5 à 10 ans", "10 ans et +", "Enseignant certifié")
+private val APP_PRICES = listOf(2500, 3000, 4000, 5000, 6000, 8000, 10000, 12000)
+private val FB_SUBJECTS = listOf("Maths", "Physique", "Français", "Anglais", "SVT", "Philo", "Hist-Géo")
+private val FB_LEVELS = listOf("Primaire", "Collège", "Lycée", "Supérieur", "Université")
+private val FB_PROGRAMS = listOf("standard" to "Programme standard", "francais" to "Programme français")
+
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun BecomeTeacherScreen(nav: NavActions) {
     val scope = rememberCoroutineScope()
@@ -54,11 +70,24 @@ fun BecomeTeacherScreen(nav: NavActions) {
     var step by remember { mutableIntStateOf(0) }
     var fullName by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
-    var subjects by remember { mutableStateOf("") }
-    var location by remember { mutableStateOf("Abidjan") }
-    var price by remember { mutableStateOf("4000") }
+    var email by remember { mutableStateOf("") }
+    var location by remember { mutableStateOf("Cocody") }
+    var price by remember { mutableIntStateOf(4000) }
+    var experience by remember { mutableStateOf("3 à 5 ans") }
     var bio by remember { mutableStateOf("") }
     var consent by remember { mutableStateOf(false) }
+    var fmtHome by remember { mutableStateOf(true) }
+    var fmtOnline by remember { mutableStateOf(true) }
+    var negotiable by remember { mutableStateOf(false) }
+    var subjectNames by remember { mutableStateOf(FB_SUBJECTS) }
+    var levelNames by remember { mutableStateOf(FB_LEVELS) }
+    var programItems by remember { mutableStateOf(FB_PROGRAMS) }
+    var selectedSubjects by remember { mutableStateOf(setOf<String>()) }
+    var selectedLevels by remember { mutableStateOf(setOf("Collège", "Lycée")) }
+    var selectedPrograms by remember { mutableStateOf(setOf("standard")) }
+    var locOpen by remember { mutableStateOf(false) }
+    var expOpen by remember { mutableStateOf(false) }
+    var priceOpen by remember { mutableStateOf(false) }
     var idCard by remember { mutableStateOf<DocPick?>(null) }
     var diploma by remember { mutableStateOf<DocPick?>(null) }
     var photo by remember { mutableStateOf<DocPick?>(null) }
@@ -66,6 +95,12 @@ fun BecomeTeacherScreen(nav: NavActions) {
     var done by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
     var pickKind by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        runCatching { Api.service.subjects() }.getOrNull()?.map { it.name }?.takeIf { it.isNotEmpty() }?.let { subjectNames = it }
+        runCatching { Api.service.levels() }.getOrNull()?.map { it.name }?.takeIf { it.isNotEmpty() }?.let { levelNames = it }
+        runCatching { Api.service.programs() }.getOrNull()?.map { it.slug to it.name }?.takeIf { it.isNotEmpty() }?.let { programItems = it }
+    }
 
     fun readUri(uri: android.net.Uri): DocPick? {
         val resolver = context.contentResolver
@@ -94,17 +129,24 @@ fun BecomeTeacherScreen(nav: NavActions) {
     suspend fun submit() {
         loading = true
         err = null
+        val formats = buildList {
+            if (fmtHome) add("home")
+            if (fmtOnline) add("online")
+        }
         runCatching {
             Api.service.submitTeacherApplication(buildMap {
                 put("fullName", fullName.trim())
                 put("phone", phone.trim())
-                put("subjects", subjects.trim())
-                put("location", location.trim())
-                put("pricePerHour", price.toIntOrNull() ?: 4000)
+                if (email.isNotBlank()) put("email", email.trim())
+                put("subjects", selectedSubjects.joinToString(" · "))
+                put("location", location)
+                put("pricePerHour", price)
                 put("bio", bio.trim())
-                put("levels", listOf("Collège", "Lycée"))
-                put("formats", listOf("home", "online"))
-                put("programs", listOf("standard"))
+                put("experience", experience)
+                put("levels", selectedLevels.toList())
+                put("formats", formats.ifEmpty { listOf("home", "online") })
+                put("programs", selectedPrograms.toList())
+                put("negotiable", negotiable)
                 put("consent", true)
                 idCard?.let {
                     put("idCardBase64", it.b64); put("idCardFileName", it.name); put("idCardMimeType", it.mime)
@@ -151,13 +193,62 @@ fun BecomeTeacherScreen(nav: NavActions) {
                         Spacer(Modifier.height(10.dp))
                         FieldLabel("Téléphone"); AppField(phone, { phone = it }, "+2250700000000")
                         Spacer(Modifier.height(10.dp))
-                        FieldLabel("Matières"); AppField(subjects, { subjects = it }, "Maths · Physique")
+                        FieldLabel("E-mail (optionnel)"); AppField(email, { email = it }, "prof@exemple.com")
+                        Spacer(Modifier.height(14.dp))
+                        FieldLabel("Matières enseignées")
+                        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            subjectNames.forEach { name ->
+                                SelectChip(name, selectedSubjects.contains(name)) {
+                                    selectedSubjects = if (selectedSubjects.contains(name)) selectedSubjects - name else selectedSubjects + name
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(14.dp))
+                        FieldLabel("Niveaux")
+                        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            levelNames.forEach { name ->
+                                SelectChip(name, selectedLevels.contains(name)) {
+                                    selectedLevels = if (selectedLevels.contains(name)) selectedLevels - name else selectedLevels + name
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(14.dp))
+                        FieldLabel("Programmes scolaires")
+                        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            programItems.forEach { (slug, label) ->
+                                SelectChip(label, selectedPrograms.contains(slug)) {
+                                    selectedPrograms = if (selectedPrograms.contains(slug)) selectedPrograms - slug else selectedPrograms + slug
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(14.dp))
+                        FieldLabel("Quartier / commune")
+                        PickField(location, locOpen, { locOpen = it }, APP_LOCATIONS) { location = it; locOpen = false }
                         Spacer(Modifier.height(10.dp))
-                        FieldLabel("Quartier / ville"); AppField(location, { location = it }, "Cocody")
+                        FieldLabel("Tarif horaire")
+                        PickField("${price.formatFr()} F / h", priceOpen, { priceOpen = it }, APP_PRICES.map { "${it.formatFr()} F / h" }) { label ->
+                            price = APP_PRICES.first { "${it.formatFr()} F / h" == label }
+                            priceOpen = false
+                        }
                         Spacer(Modifier.height(10.dp))
-                        FieldLabel("Tarif horaire (F)"); AppField(price, { price = it }, "4000")
+                        FieldLabel("Expérience")
+                        PickField(experience, expOpen, { expOpen = it }, APP_EXPERIENCES) { experience = it; expOpen = false }
+                        Spacer(Modifier.height(12.dp))
+                        FieldLabel("Modalités")
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { fmtHome = !fmtHome }) {
+                            Checkbox(checked = fmtHome, onCheckedChange = { fmtHome = it })
+                            Text("Cours à domicile", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Ink)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { fmtOnline = !fmtOnline }) {
+                            Checkbox(checked = fmtOnline, onCheckedChange = { fmtOnline = it })
+                            Text("Cours en ligne", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Ink)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { negotiable = !negotiable }) {
+                            Checkbox(checked = negotiable, onCheckedChange = { negotiable = it })
+                            Text("Tarif négociable", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Ink)
+                        }
                         Spacer(Modifier.height(10.dp))
-                        FieldLabel("Présentation"); AppField(bio, { bio = it }, "Votre parcours…", singleLine = false)
+                        FieldLabel("Présentation (optionnel)"); AppField(bio, { bio = it }, "Votre parcours…", singleLine = false)
                     }
                     1 -> {
                         Text("Confidentialité", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = AkColors.Ink, modifier = Modifier.padding(top = 14.dp))
@@ -206,8 +297,14 @@ fun BecomeTeacherScreen(nav: NavActions) {
                     err = null
                     when (step) {
                         0 -> {
-                            if (fullName.isBlank() || phone.isBlank() || subjects.isBlank()) err = "Remplissez les champs obligatoires."
-                            else step++
+                            when {
+                                fullName.isBlank() || phone.isBlank() -> err = "Remplissez nom et téléphone."
+                                selectedSubjects.isEmpty() -> err = "Sélectionnez au moins une matière."
+                                selectedLevels.isEmpty() -> err = "Sélectionnez au moins un niveau."
+                                selectedPrograms.isEmpty() -> err = "Sélectionnez au moins un programme."
+                                !fmtHome && !fmtOnline -> err = "Choisissez domicile ou en ligne."
+                                else -> step++
+                            }
                         }
                         1 -> {
                             if (!consent) err = "Acceptez les conditions."
@@ -244,6 +341,40 @@ private fun AppField(value: String, onValueChange: (String) -> Unit, placeholder
 private fun FieldLabel(text: String) {
     Text(text, fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = AkColors.Muted)
 }
+
+@Composable
+private fun SelectChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    val bg = if (selected) AkColors.GreenSoft else AkColors.White
+    val fg = if (selected) AkColors.Green else AkColors.InkSoft
+    Text(
+        label, fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = fg,
+        modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(bg)
+            .then(if (selected) Modifier.border(1.dp, AkColors.Green, RoundedCornerShape(999.dp)) else Modifier.border(1.dp, AkColors.Border, RoundedCornerShape(999.dp)))
+            .clickable { onClick() }.padding(horizontal = 14.dp, vertical = 9.dp),
+    )
+}
+
+@Composable
+private fun PickField(value: String, expanded: Boolean, onExpanded: (Boolean) -> Unit, options: List<String>, onSelect: (String) -> Unit) {
+    Box(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).border(1.dp, AkColors.Border, RoundedCornerShape(14.dp))
+                .background(AkColors.White).clickable { onExpanded(true) }.padding(horizontal = 14.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(value, fontFamily = Hanken, fontSize = 14.sp, color = AkColors.Ink)
+            Icon(Icons.Filled.ArrowDropDown, null, tint = AkColors.Muted)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { onExpanded(false) }) {
+            options.forEach { opt ->
+                DropdownMenuItem(text = { Text(opt, fontFamily = Hanken) }, onClick = { onSelect(opt) })
+            }
+        }
+    }
+}
+
+private fun Int.formatFr(): String = String.format("%,d", this).replace(',', ' ')
 
 @Composable
 private fun DocRow(icon: ImageVector, title: String, status: String, done: Boolean, onAdd: () -> Unit) {
