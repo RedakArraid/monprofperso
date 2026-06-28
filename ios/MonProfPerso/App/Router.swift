@@ -47,6 +47,42 @@ final class Router: ObservableObject {
 
     var isAdmin: Bool { authRole == "admin" }
 
+    // MARK: Brouillon de réservation (fiche prof → Réservation → Paiement → Confirmé)
+    @Published var bkTeacherId = 1
+    @Published var bkTeacherName = "Koffi N'Guessan"
+    @Published var bkTeacherInitials = "KN"
+    @Published var bkSubjectsLine = "Maths · Physique-Chimie"
+    @Published var bkSubject = "Maths"
+    @Published var bkLevel = "3ᵉ"
+    @Published var bkPricePerHour = 4000
+    @Published var bkLocation = "Cocody"
+    @Published var bkNegotiable = false
+    @Published var bkFormat = "home"
+    @Published var bkDayLabel = "SAM"
+    @Published var bkDayNum = "22"
+    @Published var bkDayFull = "Sam. 22 juin"
+    @Published var bkTime = "16:00"
+    @Published var bkDuration = "1h30"
+    @Published var bkPrice = 6000
+    @Published var bkProposedPrice: Int? = nil
+    @Published var bkProposedFrequency: String? = nil
+    @Published var bkHasProposal = false
+    @Published var bkReference = "AKW-2058"
+
+    func startBooking(_ t: TeacherDTO) {
+        bkTeacherId = t.id
+        bkTeacherName = t.name
+        bkTeacherInitials = t.initials
+        bkSubjectsLine = t.subjects
+        bkSubject = t.subjects.split(separator: "·").first.map { $0.trimmingCharacters(in: .whitespaces) } ?? "Cours"
+        bkPricePerHour = t.price_per_hour
+        bkLocation = t.location
+        bkNegotiable = t.negotiable ?? false
+        bkProposedPrice = nil
+        bkProposedFrequency = nil
+        bkHasProposal = false
+    }
+
     func go(_ route: Route) { path.append(route) }
     func back() { if !path.isEmpty { path.removeLast() } }
     func popToRoot() { path = NavigationPath() }

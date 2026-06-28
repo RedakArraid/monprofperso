@@ -7,8 +7,10 @@ COMPOSE="docker compose -f backend/docker-compose.prod.yml --env-file backend/.e
 
 cd "$APP_DIR"
 
-echo "==> Pull latest"
-git pull --ff-only origin main
+echo "==> Pull latest (branche prod)"
+git fetch origin
+git checkout prod 2>/dev/null || git checkout -b prod origin/prod
+git pull --ff-only origin prod
 
 echo "==> Build & start"
 $COMPOSE up -d --build

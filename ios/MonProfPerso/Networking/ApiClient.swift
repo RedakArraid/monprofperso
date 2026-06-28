@@ -240,6 +240,13 @@ struct ApiClient {
     func courses(status: String? = nil) async throws -> [CourseDTO] {
         try await get("api/courses" + (status.map { "?status=\($0)" } ?? ""))
     }
+    /// Crée une réservation (peut porter une proposition de négociation) ; renvoie la référence.
+    @discardableResult
+    func createBooking(_ body: [String: Any]) async throws -> String {
+        let data = try await request("api/bookings", method: "POST", json: body)
+        struct R: Codable { let reference: String? }
+        return (try? JSONDecoder().decode(R.self, from: data))?.reference ?? ""
+    }
     func progress() async throws -> ProgressDTO { try await get("api/progress") }
     func notifications() async throws -> [NotificationDTO] { try await get("api/notifications") }
     func markNotificationsRead() async throws { _ = try await request("api/notifications/read", method: "POST") }

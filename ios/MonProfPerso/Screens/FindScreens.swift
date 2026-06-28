@@ -322,12 +322,12 @@ struct TeacherProfileScreen: View {
                 HStack(spacing: 14) {
                     VStack(alignment: .leading, spacing: 0) {
                         HStack(spacing: 0) {
-                            Text("4 000 F").font(AkFont.schibstedExtra(21)).foregroundColor(Ak.ink)
+                            Text(t.priceLabel).font(AkFont.schibstedExtra(21)).foregroundColor(Ak.ink)
                             Text("/h").font(AkFont.semibold(13)).foregroundColor(Ak.faint)
                         }
-                        Text("1ᵉʳ cours d'essai -50%").font(AkFont.regular(11.5)).foregroundColor(Ak.muted)
+                        Text(t.negotiable == true ? "Tarif à négocier" : "1ᵉʳ cours d'essai -50%").font(AkFont.regular(11.5)).foregroundColor(Ak.muted)
                     }
-                    PrimaryButton(label: "Réserver un cours") { router.go(.booking) }
+                    PrimaryButton(label: "Réserver un cours") { router.startBooking(t); router.go(.booking) }
                 }
             }.padding(.horizontal, 22).padding(.top, 12).padding(.bottom, 12).background(.white)
         }

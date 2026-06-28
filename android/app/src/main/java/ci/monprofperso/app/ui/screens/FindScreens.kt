@@ -468,13 +468,13 @@ fun TeacherProfileScreen(nav: NavActions, vm: ci.monprofperso.app.data.TeacherPr
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column {
                     Row(verticalAlignment = Alignment.Bottom) {
-                        Text("4 000 F", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 21.sp, color = AkColors.Ink)
+                        Text(t.priceLabel, fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 21.sp, color = AkColors.Ink)
                         Text("/h", fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = AkColors.Faint)
                     }
-                    Text("1ᵉʳ cours d'essai -50%", fontFamily = Hanken, fontSize = 11.5.sp, color = AkColors.Muted)
+                    Text(if (t.negotiable) "Tarif à négocier" else "1ᵉʳ cours d'essai -50%", fontFamily = Hanken, fontSize = 11.5.sp, color = AkColors.Muted)
                 }
                 Spacer(Modifier.width(14.dp))
-                PrimaryButton("Réserver un cours", Modifier.weight(1f), onClick = { nav.go(Routes.Booking) })
+                PrimaryButton("Réserver un cours", Modifier.weight(1f), onClick = { ci.monprofperso.app.data.AppState.startBooking(t); nav.go(Routes.Booking) })
             }
         }
     }
