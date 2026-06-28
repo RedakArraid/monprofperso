@@ -5,9 +5,9 @@
  * ===================================================================== */
 
 // --- Base de l'API : même origine en prod (proxy nginx /api), localhost en dev. ---
-const API_BASE = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
+const API_BASE = window.MPP_API_BASE || ((location.hostname === "localhost" || location.hostname === "127.0.0.1")
   ? "http://localhost:8099"
-  : location.origin;
+  : location.origin);
 
 function normalizePhone(raw) {
   let p = String(raw ?? "").trim().replace(/[\s.-]/g, "");
