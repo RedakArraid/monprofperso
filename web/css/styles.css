@@ -214,7 +214,8 @@ img { max-width: 100%; height: auto; display: block; }
 }
 .social-icon {
   width: 24px; height: 24px; display: block; fill: currentColor;
-  flex-shrink: 0; pointer-events: none; overflow: hidden;
+  flex-shrink: 0; pointer-events: none; overflow: visible;
+  transform: translate(50%, 50%);
 }
 .social-icon use { fill: currentColor; }
 .social:hover { background: var(--orange); color: #fff; transform: translateY(-2px); }
