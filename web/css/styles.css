@@ -207,8 +207,12 @@ img { max-width: 100%; height: auto; display: block; }
 .footer-social-text { font-size: 14px; color: #9fb4aa; margin-bottom: 14px; }
 .socials { display: flex; gap: 10px; flex-wrap: wrap; }
 .social {
-  width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center;
+  width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center;
   background: rgba(255,255,255,.07); color: #cfe0d8; transition: background .15s, color .15s, transform .15s;
+  flex-shrink: 0;
+}
+.social-icon {
+  width: 24px; height: 24px; display: block; fill: currentColor;
 }
 .social:hover { background: var(--orange); color: #fff; transform: translateY(-2px); }
 .footer-contact { font-size: 13.5px; color: #9fb4aa; margin-top: 14px; }
