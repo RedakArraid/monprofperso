@@ -205,14 +205,16 @@ img { max-width: 100%; height: auto; display: block; }
 .footer-col a { display: block; color: #aec3b9; font-size: 14.5px; margin-bottom: 10px; transition: color .15s; }
 .footer-col a:hover { color: #fff; }
 .footer-social-text { font-size: 14px; color: #9fb4aa; margin-bottom: 14px; }
-.socials { display: flex; gap: 10px; flex-wrap: wrap; }
+.socials { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .social {
-  width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center;
+  width: 44px; height: 44px; border-radius: 12px;
+  display: inline-flex; align-items: center; justify-content: center;
   background: rgba(255,255,255,.07); color: #cfe0d8; transition: background .15s, color .15s, transform .15s;
-  flex-shrink: 0;
+  flex-shrink: 0; line-height: 0;
 }
 .social-icon {
-  width: 24px; height: 24px; display: block; fill: currentColor;
+  width: 22px; height: 22px; display: block; fill: currentColor;
+  flex-shrink: 0; pointer-events: none;
 }
 .social:hover { background: var(--orange); color: #fff; transform: translateY(-2px); }
 .footer-contact { font-size: 13.5px; color: #9fb4aa; margin-top: 14px; }
@@ -296,6 +298,10 @@ img { max-width: 100%; height: auto; display: block; }
   .cta .store-badge.light { background: rgba(255,255,255,.12); color: #fff; border: 1px solid rgba(255,255,255,.2); }
   .footer { padding: 44px 0 calc(20px + env(safe-area-inset-bottom, 0px)); }
   .footer-grid { gap: 28px; }
+  .footer-brand { text-align: center; }
+  .footer-brand .brand { justify-content: center; }
+  .footer-col--social { text-align: center; }
+  .footer-col--social .socials { justify-content: center; }
   .footer-bottom {
     flex-direction: column; text-align: center; gap: 6px;
     margin-top: 32px; padding-top: 18px;
