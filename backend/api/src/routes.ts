@@ -115,6 +115,12 @@ api.get("/settings", wrap(async (_req, res) => {
 
 // ----------------------------------------------------- Ressources pédagogiques
 const RESOURCE_TYPES = ["course", "homework", "exercise"] as const;
+const RESOURCE_PROGRAM_OTHER = "other";
+
+function resolveResourceProgram(body: any): string {
+  const p = optionalString(body, "program", { max: 80 });
+  return (p && p.trim()) ? p.trim() : "standard";
+}
 
 // Liste les ressources (métadonnées seulement, sans le contenu du fichier).
 api.get("/resources", wrap(async (req, res) => {
@@ -124,12 +130,19 @@ api.get("/resources", wrap(async (req, res) => {
     if (req.query[f]) { params.push(req.query[f]); where.push(`${f} = $${params.length}`); }
   }
   if (req.query.subject) { params.push(req.query.subject); where.push(`subject_slug = $${params.length}`); }
+  const prog = typeof req.query.program === "string" ? req.query.program.trim() : "";
+  if (prog === RESOURCE_PROGRAM_OTHER) {
+    where.push(`program NOT IN ('standard', 'francais')`);
+  } else if (prog) {
+    params.push(prog);
+    where.push(`program = $${params.length}`);
+  }
   const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
   if (q) {
     params.push(`%${q.replace(/[%_\\]/g, "\\$&")}%`);
     where.push(`(title ILIKE $${params.length} OR COALESCE(description, '') ILIKE $${params.length})`);
   }
-  const sql = `SELECT id, type, subject_slug, level, title, description,
+  const sql = `SELECT id, type, subject_slug, level, program, title, description,
                       file_name, mime_type, size_bytes, created_at
                FROM resources ${where.length ? "WHERE " + where.join(" AND ") : ""}
                ORDER BY created_at DESC, id DESC`;
@@ -612,6 +625,7 @@ admin.post("/resources", wrap(async (req, res) => {
   const b = req.body ?? {};
   const type = requiredEnum(b, "type", RESOURCE_TYPES);
   const title = requiredString(b, "title", { max: 160 });
+  const program = resolveResourceProgram(b);
   const subjectSlug = optionalString(b, "subjectSlug", { max: 40 });
   const level = optionalString(b, "level", { max: 40 });
   const description = optionalString(b, "description", { max: 2000 });
@@ -629,11 +643,11 @@ admin.post("/resources", wrap(async (req, res) => {
   }
 
   const r = await pool.query(
-    `INSERT INTO resources (type, subject_slug, level, title, description,
+    `INSERT INTO resources (type, subject_slug, level, program, title, description,
                             file_name, mime_type, size_bytes, content, storage_key, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-     RETURNING id, type, subject_slug, level, title, description, file_name, mime_type, size_bytes, created_at`,
-    [type, subjectSlug ?? null, level ?? null, title, description ?? null,
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+     RETURNING id, type, subject_slug, level, program, title, description, file_name, mime_type, size_bytes, created_at`,
+    [type, subjectSlug ?? null, level ?? null, program, title, description ?? null,
      fileName ?? null, mimeType ?? null, buffer?.length ?? null, content, storageKey, currentUserId(res)]
   );
   res.status(201).json(r.rows[0]);
@@ -652,6 +666,7 @@ admin.put("/resources/:id", wrap(async (req, res) => {
 
   const type = requiredEnum(b, "type", RESOURCE_TYPES);
   const title = requiredString(b, "title", { max: 160 });
+  const program = resolveResourceProgram(b);
   const subjectSlug = optionalString(b, "subjectSlug", { max: 40 }) ?? null;
   const level = optionalString(b, "level", { max: 40 }) ?? null;
   const description = optionalString(b, "description", { max: 2000 }) ?? null;
@@ -678,11 +693,11 @@ admin.put("/resources/:id", wrap(async (req, res) => {
 
   const r = await pool.query(
     `UPDATE resources SET
-        type = $2, subject_slug = $3, level = $4, title = $5, description = $6,
-        file_name = $7, mime_type = $8, size_bytes = $9, content = $10, storage_key = $11
+        type = $2, subject_slug = $3, level = $4, program = $5, title = $6, description = $7,
+        file_name = $8, mime_type = $9, size_bytes = $10, content = $11, storage_key = $12
      WHERE id = $1
-     RETURNING id, type, subject_slug, level, title, description, file_name, mime_type, size_bytes, created_at`,
-    [id, type, subjectSlug, level, title, description, outFileName, outMimeType, sizeBytes, content, storageKey]
+     RETURNING id, type, subject_slug, level, program, title, description, file_name, mime_type, size_bytes, created_at`,
+    [id, type, subjectSlug, level, program, title, description, outFileName, outMimeType, sizeBytes, content, storageKey]
   );
   res.json(r.rows[0]);
 }));

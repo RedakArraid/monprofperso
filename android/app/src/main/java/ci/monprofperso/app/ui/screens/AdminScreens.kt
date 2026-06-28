@@ -235,6 +235,7 @@ private fun AddButton(enabled: Boolean, onClick: () -> Unit) {
  * reste optionnel côté API. Écritures en live sur /api/admin/resources.
  * ====================================================================== */
 private val RESOURCE_TYPES = listOf("course" to "Cours", "homework" to "Devoir", "exercise" to "Exercice")
+private const val RES_OTHER_PROG = "__autre__"
 
 private fun typeLabel(type: String): String = RESOURCE_TYPES.firstOrNull { it.first == type }?.second ?: type
 
@@ -243,8 +244,11 @@ fun AdminResourcesScreen(nav: NavActions) {
     val scope = rememberCoroutineScope()
     var subjects by remember { mutableStateOf(listOf<SubjectDto>()) }
     var levels by remember { mutableStateOf(listOf<LevelDto>()) }
+    var programItems by remember { mutableStateOf(listOf("standard" to "Programme standard", "francais" to "Programme français", RES_OTHER_PROG to "Autre")) }
     var resources by remember { mutableStateOf(listOf<ResourceDto>()) }
     var type by remember { mutableStateOf("course") }
+    var program by remember { mutableStateOf("standard") }
+    var otherProgram by remember { mutableStateOf("") }
     var title by remember { mutableStateOf("") }
     var subjectSlug by remember { mutableStateOf<String?>(null) }
     var level by remember { mutableStateOf<String?>(null) }
@@ -262,6 +266,8 @@ fun AdminResourcesScreen(nav: NavActions) {
     suspend fun reload() {
         runCatching { Api.service.subjects() }.onSuccess { subjects = it }
         runCatching { Api.service.levels() }.onSuccess { levels = it }
+        runCatching { Api.service.programs() }.getOrNull()?.map { it.slug to it.name }?.takeIf { it.isNotEmpty() }
+            ?.let { programItems = it + (RES_OTHER_PROG to "Autre") }
         runCatching { Api.service.resources() }.onSuccess { resources = it }
     }
     LaunchedEffect(Unit) { reload() }
@@ -283,6 +289,20 @@ fun AdminResourcesScreen(nav: NavActions) {
             Text("Titre", fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted)
             Spacer(Modifier.height(8.dp))
             AdminField(value = title, onValueChange = { title = it }, placeholder = "Ex. Fiche de révision, Théorème de Thalès")
+            Spacer(Modifier.height(14.dp))
+
+            Text("Programme scolaire *", fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted)
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.horizontalScroll(rememberScrollState())) {
+                programItems.forEach { (slug, label) ->
+                    PickChip(label, program == slug) { program = slug }
+                    Spacer(Modifier.width(8.dp))
+                }
+            }
+            if (program == RES_OTHER_PROG) {
+                Spacer(Modifier.height(8.dp))
+                AdminField(value = otherProgram, onValueChange = { otherProgram = it }, placeholder = "Ex. Programme IB, Cambridge…")
+            }
             Spacer(Modifier.height(14.dp))
 
             Text("Matière (facultatif)", fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted)
@@ -321,11 +341,12 @@ fun AdminResourcesScreen(nav: NavActions) {
                 onClear = { fileName = null; fileMime = null; fileB64 = null })
             Spacer(Modifier.height(16.dp))
 
-            AddButton(enabled = title.isNotBlank()) {
+            AddButton(enabled = title.isNotBlank() && (program != RES_OTHER_PROG || otherProgram.isNotBlank())) {
                 scope.launch {
+                    val prog = if (program == RES_OTHER_PROG) otherProgram.trim() else program
                     runCatching {
                         Api.service.createResource(buildMap {
-                            put("type", type); put("title", title.trim())
+                            put("type", type); put("title", title.trim()); put("program", prog)
                             subjectSlug?.let { put("subjectSlug", it) }
                             level?.let { put("level", it) }
                             if (description.isNotBlank()) put("description", description.trim())
@@ -336,6 +357,7 @@ fun AdminResourcesScreen(nav: NavActions) {
                         })
                     }.onSuccess {
                         title = ""; description = ""; subjectSlug = null; level = null
+                        program = "standard"; otherProgram = ""
                         fileName = null; fileMime = null; fileB64 = null
                         message = "Ressource ajoutée"; reload()
                     }.onFailure { message = "Échec de l'ajout" }
@@ -412,9 +434,11 @@ private fun ResourceRow(r: ResourceDto, onDelete: () -> Unit) {
                 Text(typeLabel(r.type), fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 10.5.sp, color = accent,
                     modifier = Modifier.clip(RoundedCornerShape(7.dp)).background(soft).padding(horizontal = 7.dp, vertical = 2.dp))
                 val tags = listOfNotNull(r.subjectSlug, r.level).joinToString(" · ")
-                if (tags.isNotEmpty()) {
+                val prog = programLabel(r.program ?: "standard")
+                if (tags.isNotEmpty() || prog.isNotBlank()) {
                     Spacer(Modifier.width(8.dp))
-                    Text(tags, fontFamily = Hanken, fontSize = 11.sp, color = AkColors.Faint)
+                    Text(listOfNotNull(prog, tags.takeIf { it.isNotEmpty() }).joinToString(" · "),
+                        fontFamily = Hanken, fontSize = 11.sp, color = AkColors.Faint)
                 }
             }
             Spacer(Modifier.height(4.dp))

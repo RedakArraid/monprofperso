@@ -143,6 +143,7 @@ code { background: var(--green-soft); color: var(--green); padding: 1px 6px; bor
 .filter-bar { margin-bottom: 16px; }
 .filter-bar .form-grid { margin-bottom: 0; }
 .filter-actions { margin-top: 12px; justify-content: flex-start; gap: 8px; }
+.other-field[hidden] { display: none !important; }
 .empty { color: var(--faint); font-size: 13.5px; padding: 8px 2px; }
 .muted { color: var(--muted); }
 .divider { height: 1px; background: var(--border); margin: 22px 0; border: none; }

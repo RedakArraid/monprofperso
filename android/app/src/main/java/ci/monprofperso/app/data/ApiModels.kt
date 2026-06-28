@@ -28,6 +28,7 @@ data class ResourceDto(
     val type: String,
     @SerializedName("subject_slug") val subjectSlug: String?,
     val level: String?,
+    val program: String? = null,
     val title: String,
     val description: String?,
     @SerializedName("file_name") val fileName: String?,

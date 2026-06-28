@@ -97,7 +97,7 @@ docs/       Présentation .docx + assets, ROADMAP.md, COMPLIANCE.md (légal CI :
   `/api/teacher/requests/:id/{accept,refuse,counter}` (le prof valide/refuse/**contre-propose**),
   `/api/teacher/negotiable` (POST, le prof active « à négocier » sur ses offres),
   `/api/referral`,
-  `/api/resources[?type=&subject=&level=]`, `/api/files/:id`,
+  `/api/resources[?type=&subject=&level=&program=]`, `/api/files/:id`,
   `/api/legal`, `/api/legal/:slug/file` (documents légaux publics),
   `/api/settings` (réseaux sociaux + contact, lecture publique),
   `/api/teacher-applications` (POST, déposer une candidature prof),

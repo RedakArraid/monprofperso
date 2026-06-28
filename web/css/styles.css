@@ -62,6 +62,7 @@ img { max-width: 100%; height: auto; display: block; }
 .nav { display: flex; align-items: center; gap: 26px; }
 .nav a { font-weight: 600; font-size: 15px; color: var(--muted); transition: color .15s; }
 .nav a:hover { color: var(--green); }
+.nav a[aria-current="page"] { color: var(--green); }
 .nav a.btn-primary { color: #fff; }
 .nav-toggle { display: none; flex-direction: column; justify-content: center; gap: 5px; background: none; border: none; cursor: pointer; padding: 8px; z-index: 46; }
 .nav-toggle span { width: 24px; height: 2.5px; background: var(--ink); border-radius: 2px; transition: transform .25s, opacity .25s; }

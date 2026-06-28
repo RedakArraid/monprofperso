@@ -219,12 +219,19 @@ private func resourceTypeLabel(_ type: String) -> String {
     resourceTypes.first { $0.value == type }?.label ?? type
 }
 
+private let resOtherProg = "__autre__"
+
 struct AdminResourcesScreen: View {
     @EnvironmentObject var router: Router
     @State private var subjects: [SubjectDTO] = []
     @State private var levels: [LevelDTO] = []
+    @State private var programItems: [(slug: String, name: String)] = [
+        ("standard", "Programme standard"), ("francais", "Programme français"), (resOtherProg, "Autre"),
+    ]
     @State private var resources: [ResourceDTO] = []
     @State private var type = "course"
+    @State private var program = "standard"
+    @State private var otherProgram = ""
     @State private var title = ""
     @State private var subjectSlug: String? = nil
     @State private var level: String? = nil
@@ -252,6 +259,18 @@ struct AdminResourcesScreen: View {
 
                     fieldLabel("Titre").padding(.top, 14)
                     adminField(text: $title, placeholder: "Ex. Fiche de révision, Théorème de Thalès").padding(.top, 8)
+
+                    fieldLabel("Programme scolaire *").padding(.top, 14)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(programItems, id: \.slug) { p in
+                                pickChip(p.name, selected: program == p.slug) { program = p.slug }
+                            }
+                        }
+                    }.padding(.top, 8)
+                    if program == resOtherProg {
+                        adminField(text: $otherProgram, placeholder: "Ex. Programme IB, Cambridge…").padding(.top, 8)
+                    }
 
                     fieldLabel("Matière (facultatif)").padding(.top, 14)
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -338,16 +357,29 @@ struct AdminResourcesScreen: View {
     private func reload() async {
         if let s = try? await ApiClient.shared.subjects() { subjects = s }
         if let l = try? await ApiClient.shared.levels() { levels = l }
+        if let p = try? await ApiClient.shared.programs(), !p.isEmpty {
+            programItems = p.map { ($0.slug, $0.name) } + [(resOtherProg, "Autre")]
+        }
         if let r = try? await ApiClient.shared.resources() { resources = r }
+    }
+
+    private func resolvedProgram() -> String? {
+        if program == resOtherProg {
+            let custom = otherProgram.trimmed
+            return custom.isEmpty ? nil : custom
+        }
+        return program
     }
 
     private func addResource() {
         Task { @MainActor in
+            guard let prog = resolvedProgram() else { message = "Précisez le programme « Autre »."; return }
             do {
-                _ = try await ApiClient.shared.createResource(type: type, title: title.trimmed,
+                _ = try await ApiClient.shared.createResource(type: type, title: title.trimmed, program: prog,
                                                               subjectSlug: subjectSlug, level: level, description: desc.trimmed,
                                                               fileName: fileName, mimeType: fileMime, contentBase64: fileB64)
                 title = ""; desc = ""; subjectSlug = nil; level = nil
+                program = "standard"; otherProgram = ""
                 fileName = nil; fileMime = nil; fileB64 = nil
                 message = "Ressource ajoutée"; await reload()
             } catch { message = "Échec de l'ajout" }
@@ -413,17 +445,27 @@ struct AdminResourcesScreen: View {
         .onTapGesture { if enabled { action() } }
     }
 
+    private func programLabel(_ slug: String) -> String {
+        switch slug {
+        case "standard": return "Programme standard"
+        case "francais": return "Programme français"
+        default: return slug.prefix(1).uppercased() + slug.dropFirst()
+        }
+    }
+
     private func resourceRow(_ r: ResourceDTO) -> some View {
         let accent = r.type == "homework" ? Ak.orange : Ak.green
         let soft = r.type == "homework" ? Ak.orangeSoft : Ak.greenSoft
+        let prog = programLabel(r.program ?? "standard")
         let tags = [r.subject_slug, r.level].compactMap { $0 }.joined(separator: " · ")
+        let meta = [prog, tags].filter { !$0.isEmpty }.joined(separator: " · ")
         return HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
                     Text(resourceTypeLabel(r.type)).font(AkFont.bold(10.5)).foregroundColor(accent)
                         .padding(.horizontal, 7).padding(.vertical, 2)
                         .background(soft).clipShape(RoundedRectangle(cornerRadius: 7))
-                    if !tags.isEmpty { Text(tags).font(AkFont.regular(11)).foregroundColor(Ak.faint) }
+                    if !meta.isEmpty { Text(meta).font(AkFont.regular(11)).foregroundColor(Ak.faint) }
                 }
                 Text(r.title).font(AkFont.bold(14)).foregroundColor(Ak.ink)
                 if let d = r.description, !d.isEmpty {

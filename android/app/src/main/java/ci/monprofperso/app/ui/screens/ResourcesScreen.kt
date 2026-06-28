@@ -34,9 +34,10 @@ import ci.monprofperso.app.ui.theme.Schibsted
 /* ====================================================================== *
  * ÉCRAN UTILISATEUR, RESSOURCES & SUPPORTS (lecture seule)
  * Consomme /api/resources en live ; repli sur quelques exemples hors-ligne.
- * Les ressources sont publiées par l'admin (cours / devoirs / exercices).
+ * Filtrage par type (cours/devoir/exercice) et par programme scolaire.
  * ====================================================================== */
 private val resourceFilters = listOf(null to "Tout", "course" to "Cours", "homework" to "Devoirs", "exercise" to "Exercices")
+private val programFilters = listOf(null to "Tout", "standard" to "Standard", "francais" to "Français", "other" to "Autre")
 
 private fun resTypeLabel(type: String): String = when (type) {
     "course" -> "Cours"; "homework" -> "Devoir"; "exercise" -> "Exercice"; else -> type
@@ -49,27 +50,53 @@ private fun resTypeIcon(type: String): ImageVector = when (type) {
 }
 
 private val fallbackResources = listOf(
-    ResourceDto(1, "course", "maths", "3eme", "Fiche, Théorème de Thalès", "Rappels de cours et exemples corrigés.", null, null, null, null),
-    ResourceDto(2, "exercise", "physique", "2nde", "Série d'exercices, Optique", "10 exercices progressifs avec corrigés.", null, null, null, null),
-    ResourceDto(3, "homework", "francais", "1ere", "Devoir, Commentaire de texte", "Sujet type BAC à rendre.", null, null, null, null),
+    ResourceDto(1, "course", "maths", "3eme", "standard", "Fiche, Théorème de Thalès", "Rappels de cours et exemples corrigés.", null, null, null, null),
+    ResourceDto(2, "exercise", "physique", "2nde", "standard", "Série d'exercices, Optique", "10 exercices progressifs avec corrigés.", null, null, null, null),
+    ResourceDto(3, "homework", "francais", "1ere", "francais", "Devoir, Commentaire de texte", "Sujet type BAC à rendre.", null, null, null, null),
 )
+
+private fun matchesProgram(r: ResourceDto, filter: String?): Boolean {
+    if (filter == null) return true
+    val p = r.program ?: "standard"
+    if (filter == "other") return p !in setOf("standard", "francais")
+    return p == filter
+}
 
 @Composable
 fun ResourcesScreen(nav: NavActions) {
     var all by remember { mutableStateOf<List<ResourceDto>?>(null) }
-    var filter by remember { mutableStateOf<String?>(null) }
+    var typeFilter by remember { mutableStateOf<String?>(null) }
+    var programFilter by remember { mutableStateOf<String?>(null) }
+    var offline by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
-        all = runCatching { Api.service.resources() }.getOrNull()?.ifEmpty { fallbackResources } ?: fallbackResources
+    LaunchedEffect(typeFilter, programFilter) {
+        val live = runCatching {
+            Api.service.resources(type = typeFilter, program = programFilter)
+        }.getOrNull()
+        if (live != null) {
+            offline = false
+            all = live.ifEmpty { fallbackResources }
+        } else {
+            offline = true
+            all = fallbackResources
+        }
     }
 
-    val items = (all ?: emptyList()).filter { filter == null || it.type == filter }
+    val items = (all ?: emptyList()).filter { r ->
+        (typeFilter == null || r.type == typeFilter) && (offline || matchesProgram(r, programFilter))
+    }
 
     AkScreen(applyBottomInset = false) {
         TopBar("Ressources & supports", subtitle = "Cours, devoirs & exercices", onBack = { nav.back() })
         Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 22.dp, vertical = 4.dp)) {
             resourceFilters.forEach { (value, label) ->
-                FilterChip(label, filter == value) { filter = value }
+                FilterChip(label, typeFilter == value) { typeFilter = value }
+                Spacer(Modifier.width(8.dp))
+            }
+        }
+        Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 22.dp, vertical = 4.dp)) {
+            programFilters.forEach { (value, label) ->
+                FilterChip(label, programFilter == value) { programFilter = value }
                 Spacer(Modifier.width(8.dp))
             }
         }
@@ -104,9 +131,9 @@ private fun ResourceCard(r: ResourceDto, nav: NavActions) {
     val context = LocalContext.current
     val hasFile = !r.fileName.isNullOrBlank()
     val isPdf = r.mimeType == "application/pdf" || r.fileName?.endsWith(".pdf", ignoreCase = true) == true
+    val progLabel = programLabel(r.program ?: "standard")
     val open = {
         val url = ci.monprofperso.app.data.ApiConfig.BASE_URL + "api/files/${r.id}"
-        // Les PDF s'ouvrent dans le visualiseur in-app ; les autres types en externe.
         if (isPdf) nav.openPdf(url, r.title)
         else runCatching {
             context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
@@ -127,6 +154,9 @@ private fun ResourceCard(r: ResourceDto, nav: NavActions) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(resTypeLabel(r.type), fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 10.5.sp, color = accent,
                     modifier = Modifier.clip(RoundedCornerShape(7.dp)).background(soft).padding(horizontal = 7.dp, vertical = 2.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(progLabel, fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 10.5.sp, color = AkColors.Green,
+                    modifier = Modifier.clip(RoundedCornerShape(7.dp)).background(AkColors.GreenSoft).padding(horizontal = 7.dp, vertical = 2.dp))
                 val tags = listOfNotNull(r.subjectSlug, r.level).joinToString(" · ")
                 if (tags.isNotEmpty()) {
                     Spacer(Modifier.width(8.dp))

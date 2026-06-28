@@ -75,11 +75,12 @@ test("admin : créer une ressource avec fichier, la télécharger, la supprimer"
   const contentBase64 = Buffer.from("contenu du devoir").toString("base64");
   const created = await api("/api/admin/resources", {
     method: "POST", token,
-    json: { type: "homework", subjectSlug: "maths", level: "lycee", title: "Devoir 1",
+    json: { type: "homework", subjectSlug: "maths", level: "lycee", program: "standard", title: "Devoir 1",
             fileName: "devoir.txt", mimeType: "text/plain", contentBase64 },
   });
   assert.equal(created.status, 201);
   assert.equal(created.body.type, "homework");
+  assert.equal(created.body.program, "standard");
   assert.equal(created.body.size_bytes, Buffer.from("contenu du devoir").length);
   const id = created.body.id;
 
@@ -103,27 +104,51 @@ test("admin : modifier une ressource et filtrer par titre", async () => {
   const token = await adminToken();
   const created = await api("/api/admin/resources", {
     method: "POST", token,
-    json: { type: "course", subjectSlug: "maths", level: "lycee", title: "Fiche Thalès test",
+    json: { type: "course", subjectSlug: "maths", level: "lycee", program: "francais", title: "Fiche Thalès test",
             description: "Géométrie plane" },
   });
   assert.equal(created.status, 201);
+  assert.equal(created.body.program, "francais");
   const id = created.body.id;
 
   const updated = await api(`/api/admin/resources/${id}`, {
     method: "PUT", token,
     json: { type: "exercise", title: "Exercice Thalès modifié", subjectSlug: "maths", level: "lycee",
-            description: "Corrigé inclus" },
+            program: "francais", description: "Corrigé inclus" },
   });
   assert.equal(updated.status, 200);
   assert.equal(updated.body.type, "exercise");
   assert.equal(updated.body.title, "Exercice Thalès modifié");
+  assert.equal(updated.body.program, "francais");
 
-  const filtered = await api("/api/resources?q=Thalès&type=exercise");
+  const filtered = await api("/api/resources?q=Thalès&type=exercise&program=francais");
   assert.equal(filtered.status, 200);
   assert.ok(filtered.body.some((r) => r.id === id));
 
   const del = await api(`/api/admin/resources/${id}`, { method: "DELETE", token });
   assert.equal(del.status, 204);
+});
+
+test("admin : ressource programme Autre et filtre program=other", async () => {
+  const token = await adminToken();
+  const created = await api("/api/admin/resources", {
+    method: "POST", token,
+    json: { type: "course", program: "Cambridge", title: "Fiche IB Maths", level: "lycee" },
+  });
+  assert.equal(created.status, 201);
+  assert.equal(created.body.program, "Cambridge");
+  const id = created.body.id;
+
+  const byProg = await api("/api/resources?program=Cambridge");
+  assert.ok(byProg.body.some((r) => r.id === id));
+
+  const other = await api("/api/resources?program=other");
+  assert.ok(other.body.some((r) => r.id === id));
+
+  const notStandard = await api("/api/resources?program=standard");
+  assert.ok(!notStandard.body.some((r) => r.id === id));
+
+  await api(`/api/admin/resources/${id}`, { method: "DELETE", token });
 });
 
 // --------------------------------------------------------- Catalogue dynamique

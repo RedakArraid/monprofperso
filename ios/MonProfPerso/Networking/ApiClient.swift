@@ -57,6 +57,7 @@ struct ResourceDTO: Codable, Identifiable {
     let type: String
     let subject_slug: String?
     let level: String?
+    let program: String?
     let title: String
     let description: String?
     let file_name: String?
@@ -323,16 +324,17 @@ struct ApiClient {
     }
     func deleteProgram(slug: String) async throws { _ = try await request("api/admin/programs/\(slug)", method: "DELETE") }
 
-    func resources(type: String? = nil, subject: String? = nil, level: String? = nil) async throws -> [ResourceDTO] {
+    func resources(type: String? = nil, subject: String? = nil, level: String? = nil, program: String? = nil) async throws -> [ResourceDTO] {
         var q: [String] = []
-        if let type { q.append("type=\(type)") }
-        if let subject { q.append("subject=\(subject)") }
-        if let level { q.append("level=\(level)") }
+        if let type { q.append("type=\(type.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? type)") }
+        if let subject { q.append("subject=\(subject.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? subject)") }
+        if let level { q.append("level=\(level.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? level)") }
+        if let program { q.append("program=\(program.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? program)") }
         return try await get("api/resources" + (q.isEmpty ? "" : "?" + q.joined(separator: "&")))
     }
-    func createResource(type: String, title: String, subjectSlug: String?, level: String?, description: String?,
+    func createResource(type: String, title: String, program: String, subjectSlug: String?, level: String?, description: String?,
                         fileName: String? = nil, mimeType: String? = nil, contentBase64: String? = nil) async throws -> ResourceDTO {
-        var json: [String: Any] = ["type": type, "title": title]
+        var json: [String: Any] = ["type": type, "title": title, "program": program]
         if let subjectSlug { json["subjectSlug"] = subjectSlug }
         if let level { json["level"] = level }
         if let description, !description.isEmpty { json["description"] = description }
@@ -398,9 +400,9 @@ extension Fallback {
         payouts: [.init(provider: "Retrait Wave", date: "15 juin", amount: 60000, color: "wave"),
                   .init(provider: "Retrait Orange Money", date: "1 juin", amount: 80000, color: "orange")])
     static let resources: [ResourceDTO] = [
-        .init(id: 1, type: "course", subject_slug: "maths", level: "3eme", title: "Fiche, Théorème de Thalès", description: "Rappels de cours et exemples corrigés.", file_name: nil, mime_type: nil, size_bytes: nil, created_at: nil),
-        .init(id: 2, type: "exercise", subject_slug: "physique", level: "2nde", title: "Série d'exercices, Optique", description: "10 exercices progressifs avec corrigés.", file_name: nil, mime_type: nil, size_bytes: nil, created_at: nil),
-        .init(id: 3, type: "homework", subject_slug: "francais", level: "1ere", title: "Devoir, Commentaire de texte", description: "Sujet type BAC à rendre.", file_name: nil, mime_type: nil, size_bytes: nil, created_at: nil),
+        .init(id: 1, type: "course", subject_slug: "maths", level: "3eme", program: "standard", title: "Fiche, Théorème de Thalès", description: "Rappels de cours et exemples corrigés.", file_name: nil, mime_type: nil, size_bytes: nil, created_at: nil),
+        .init(id: 2, type: "exercise", subject_slug: "physique", level: "2nde", program: "standard", title: "Série d'exercices, Optique", description: "10 exercices progressifs avec corrigés.", file_name: nil, mime_type: nil, size_bytes: nil, created_at: nil),
+        .init(id: 3, type: "homework", subject_slug: "francais", level: "1ere", program: "francais", title: "Devoir, Commentaire de texte", description: "Sujet type BAC à rendre.", file_name: nil, mime_type: nil, size_bytes: nil, created_at: nil),
     ]
     static let courses: [CourseDTO] = [
         .init(id: 1, teacher_name: "Koffi N'Guessan", subject: "Maths", level: "3ᵉ", day_label: "SAM", day_num: "22", time: "16h00", duration: "1h30", format: "home", location: "À domicile, Cocody", price: 6000, status: "upcoming", badge: "Dans 2 jours"),

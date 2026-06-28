@@ -651,24 +651,37 @@ function catalogRow(name, slug, accent, kind) {
  * Vue : Ressources pédagogiques
  * ===================================================================== */
 const R_TYPES = { course: "Cours", homework: "Devoir", exercise: "Exercice" };
+const R_PROGRAM_KNOWN = { standard: "Programme standard", francais: "Programme français" };
+const R_PROGRAM_OTHER = "__autre__";
+
+function programLabel(slug) {
+  return R_PROGRAM_KNOWN[slug] || slug || "—";
+}
+
+function programFormValue(r) {
+  const p = r?.program || "standard";
+  return R_PROGRAM_KNOWN[p] ? p : R_PROGRAM_OTHER;
+}
 
 function resourcesQuery(root) {
   const p = new URLSearchParams();
   const type = root.dataset.rType || "";
   const subject = root.dataset.rSubject || "";
   const level = root.dataset.rLevel || "";
+  const program = root.dataset.rProgram || "";
   const q = root.dataset.rQ || "";
   if (type) p.set("type", type);
   if (subject) p.set("subject", subject);
   if (level) p.set("level", level);
+  if (program) p.set("program", program);
   if (q) p.set("q", q);
   const qs = p.toString();
   return "/api/resources" + (qs ? "?" + qs : "");
 }
 
 async function renderResources(root) {
-  const [subjects, levels, resources] = await Promise.all([
-    api("/api/subjects"), api("/api/levels"), api(resourcesQuery(root)),
+  const [subjects, levels, programs, resources] = await Promise.all([
+    api("/api/subjects"), api("/api/levels"), api("/api/programs"), api(resourcesQuery(root)),
   ]).then((rows) => rows.map(asList));
 
   const subjectMap = Object.fromEntries(subjects.map((s) => [s.slug, s.name]));
@@ -676,6 +689,7 @@ async function renderResources(root) {
   const fType = root.dataset.rType || "";
   const fSubject = root.dataset.rSubject || "";
   const fLevel = root.dataset.rLevel || "";
+  const fProgram = root.dataset.rProgram || "";
   const fQ = root.dataset.rQ || "";
 
   root.innerHTML = `
@@ -691,6 +705,12 @@ async function renderResources(root) {
           <select id="rf_type">
             <option value="">Tous</option>
             ${Object.entries(R_TYPES).map(([v, l]) => `<option value="${v}"${fType === v ? " selected" : ""}>${l}</option>`).join("")}
+          </select></div>
+        <div class="field"><label>Programme</label>
+          <select id="rf_program">
+            <option value="">Tous</option>
+            ${Object.entries(R_PROGRAM_KNOWN).map(([v, l]) => `<option value="${v}"${fProgram === v ? " selected" : ""}>${l}</option>`).join("")}
+            <option value="other"${fProgram === "other" ? " selected" : ""}>Autre</option>
           </select></div>
         <div class="field"><label>Matière</label>
           <select id="rf_subject">
@@ -709,19 +729,20 @@ async function renderResources(root) {
       </div>
     </div>
     <div class="list" id="rList">
-      ${resources.length ? resources.map((r) => resourceRow(r, subjectMap, levelMap)).join("") : `<p class="empty">Aucune ressource${fType || fSubject || fLevel || fQ ? " pour ces filtres" : ""}.</p>`}
+      ${resources.length ? resources.map((r) => resourceRow(r, subjectMap, levelMap)).join("") : `<p class="empty">Aucune ressource${fType || fSubject || fLevel || fProgram || fQ ? " pour ces filtres" : ""}.</p>`}
     </div>`;
 
-  $("#addR").addEventListener("click", () => resourceForm(null, subjects, levels));
+  $("#addR").addEventListener("click", () => resourceForm(null, subjects, levels, programs));
   $("#rf_apply").addEventListener("click", () => {
     root.dataset.rQ = $("#rf_q").value.trim();
     root.dataset.rType = $("#rf_type").value;
+    root.dataset.rProgram = $("#rf_program").value;
     root.dataset.rSubject = $("#rf_subject").value;
     root.dataset.rLevel = $("#rf_level").value;
     renderResources(root);
   });
   $("#rf_reset").addEventListener("click", () => {
-    root.dataset.rQ = root.dataset.rType = root.dataset.rSubject = root.dataset.rLevel = "";
+    root.dataset.rQ = root.dataset.rType = root.dataset.rSubject = root.dataset.rLevel = root.dataset.rProgram = "";
     renderResources(root);
   });
   $("#rf_q").addEventListener("keydown", (e) => {
@@ -731,7 +752,7 @@ async function renderResources(root) {
   root.querySelectorAll("[data-edit]").forEach((b) =>
     b.addEventListener("click", () => {
       const r = resources.find((x) => String(x.id) === b.dataset.edit);
-      if (r) resourceForm(r, subjects, levels);
+      if (r) resourceForm(r, subjects, levels, programs);
     }));
   root.querySelectorAll("[data-del]").forEach((b) =>
     b.addEventListener("click", () => confirmDelete("cette ressource", async () => {
@@ -745,7 +766,7 @@ async function renderResources(root) {
 function resourceRow(r, subjectMap, levelMap) {
   const subj = r.subject_slug ? (subjectMap[r.subject_slug] || r.subject_slug) : "";
   const lvl = r.level ? (levelMap[r.level] || r.level) : "";
-  const tags = [subj, lvl].filter(Boolean).join(" · ");
+  const tags = [programLabel(r.program || "standard"), subj, lvl].filter(Boolean).join(" · ");
   const accent = r.type === "homework" ? "orange" : "green";
   const desc = r.description ? `<div class="row-meta row-desc">${esc(r.description)}</div>` : "";
   return `<div class="row">
@@ -761,14 +782,26 @@ function resourceRow(r, subjectMap, levelMap) {
   </div>`;
 }
 
-function resourceForm(r, subjects, levels) {
+function resourceForm(r, subjects, levels, programs) {
   const isEdit = !!r;
   r = r || {};
+  const progVal = programFormValue(r);
+  const otherVal = R_PROGRAM_KNOWN[r?.program] ? "" : (r?.program || "");
+  const progOptions = programs.map((p) =>
+    `<option value="${esc(p.slug)}"${progVal === p.slug ? " selected" : ""}>${esc(p.name)}</option>`).join("");
   const html = `
     <div class="form-grid">
       <div class="field"><label>Type *</label>
         <select id="r_type">${Object.entries(R_TYPES).map(([v, l]) =>
           `<option value="${v}"${r.type === v ? " selected" : ""}>${l}</option>`).join("")}</select></div>
+      <div class="field"><label>Programme scolaire *</label>
+        <select id="r_program">${progOptions}
+          <option value="${R_PROGRAM_OTHER}"${progVal === R_PROGRAM_OTHER ? " selected" : ""}>Autre</option>
+        </select></div>
+      <div class="field full other-field" id="r_otherWrap"${progVal === R_PROGRAM_OTHER ? "" : " hidden"}>
+        <label for="r_other">Précisez le programme</label>
+        <input id="r_other" value="${esc(otherVal)}" placeholder="Ex. Programme IB, Cambridge…" />
+      </div>
       <div class="field"><label>Fichier ${isEdit ? "(remplacer)" : "(optionnel)"}</label>
         <input id="r_file" type="file" accept="application/pdf,image/*">
         ${r.file_name ? `<p class="muted" style="margin-top:6px;font-size:12px">Actuel : ${esc(r.file_name)}</p>` : ""}</div>
@@ -789,11 +822,21 @@ function resourceForm(r, subjects, levels) {
       <button type="button" class="btn btn-ghost" id="cancel">Annuler</button>
     </div>`;
   modal(isEdit ? "Modifier la ressource" : "Nouvelle ressource", html, (back, close) => {
+    const progSel = $("#r_program", back);
+    const otherWrap = $("#r_otherWrap", back);
+    const syncOther = () => { if (otherWrap) otherWrap.hidden = progSel.value !== R_PROGRAM_OTHER; };
+    progSel?.addEventListener("change", syncOther);
+    syncOther();
     $("#cancel", back).addEventListener("click", close);
     $("#save", back).addEventListener("click", async () => {
       const title = $("#r_title", back).value.trim();
       if (!title) { toast("Le titre est requis", true); return; }
-      const body = { type: $("#r_type", back).value, title };
+      let program = progSel.value;
+      if (program === R_PROGRAM_OTHER) {
+        program = ($("#r_other", back).value || "").trim();
+        if (!program) { toast("Précisez le programme « Autre ».", true); return; }
+      }
+      const body = { type: $("#r_type", back).value, title, program };
       const subj = $("#r_subject", back).value;
       const lvl = $("#r_level", back).value;
       if (isEdit) {

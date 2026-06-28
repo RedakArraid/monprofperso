@@ -54,6 +54,7 @@ interface MonProfPersoApi {
         @Query("type") type: String? = null,
         @Query("subject") subject: String? = null,
         @Query("level") level: String? = null,
+        @Query("program") program: String? = null,
     ): List<ResourceDto>
 
     @POST("api/admin/resources")

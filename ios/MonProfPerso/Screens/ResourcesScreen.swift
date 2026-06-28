@@ -3,26 +3,47 @@ import SwiftUI
 /* ====================================================================== *
  * ÉCRAN UTILISATEUR, RESSOURCES & SUPPORTS (lecture seule)
  * Consomme /api/resources en live ; repli sur quelques exemples hors-ligne.
- * Les ressources sont publiées par l'admin (cours / devoirs / exercices).
+ * Filtrage par type et par programme scolaire (standard, français, autre).
  * ====================================================================== */
 private let resourceFilters: [(value: String?, label: String)] = [
     (nil, "Tout"), ("course", "Cours"), ("homework", "Devoirs"), ("exercise", "Exercices"),
 ]
+private let programFilters: [(value: String?, label: String)] = [
+    (nil, "Tout"), ("standard", "Standard"), ("francais", "Français"), ("other", "Autre"),
+]
+
 private func resTypeLabel(_ type: String) -> String {
     switch type { case "course": return "Cours"; case "homework": return "Devoir"; case "exercise": return "Exercice"; default: return type }
 }
 private func resTypeIcon(_ type: String) -> String {
     switch type { case "homework": return "square.and.pencil"; case "exercise": return "doc.text.fill"; default: return "book.fill" }
 }
+private func programLabel(_ slug: String) -> String {
+    switch slug {
+    case "standard": return "Programme standard"
+    case "francais": return "Programme français"
+    default: return slug.prefix(1).uppercased() + slug.dropFirst()
+    }
+}
+private func matchesProgram(_ r: ResourceDTO, filter: String?) -> Bool {
+    guard let filter else { return true }
+    let p = r.program ?? "standard"
+    if filter == "other" { return p != "standard" && p != "francais" }
+    return p == filter
+}
 
 struct ResourcesScreen: View {
     @EnvironmentObject var router: Router
     @Environment(\.openURL) private var openURL
     @State private var all: [ResourceDTO]? = nil
-    @State private var filter: String? = nil
+    @State private var typeFilter: String? = nil
+    @State private var programFilter: String? = nil
+    @State private var offline = false
 
     private var items: [ResourceDTO] {
-        (all ?? []).filter { filter == nil || $0.type == filter }
+        (all ?? []).filter { r in
+            (typeFilter == nil || r.type == typeFilter) && (offline || matchesProgram(r, programFilter))
+        }
     }
 
     var body: some View {
@@ -31,10 +52,17 @@ struct ResourcesScreen: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(resourceFilters, id: \.label) { f in
-                        filterChip(f.label, selected: filter == f.value) { filter = f.value }
+                        filterChip(f.label, selected: typeFilter == f.value) { typeFilter = f.value }
                     }
                 }.padding(.horizontal, 22)
             }.padding(.vertical, 4)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(programFilters, id: \.label) { f in
+                        filterChip(f.label, selected: programFilter == f.value) { programFilter = f.value }
+                    }
+                }.padding(.horizontal, 22)
+            }.padding(.bottom, 4)
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     if all == nil {
@@ -50,9 +78,16 @@ struct ResourcesScreen: View {
                 .padding(.horizontal, 22).padding(.top, 8)
             }
         }
-        .task {
-            let live = try? await ApiClient.shared.resources()
-            all = (live?.isEmpty == false ? live : Fallback.resources)
+        .task(id: "\(typeFilter ?? "")|\(programFilter ?? "")") { await load() }
+    }
+
+    private func load() async {
+        if let live = try? await ApiClient.shared.resources(type: typeFilter, program: programFilter) {
+            offline = false
+            all = live.isEmpty ? Fallback.resources : live
+        } else {
+            offline = true
+            all = Fallback.resources
         }
     }
 
@@ -60,14 +95,15 @@ struct ResourcesScreen: View {
         Text(label).font(AkFont.bold(12.5)).foregroundColor(selected ? .white : Ak.inkSoft)
             .padding(.horizontal, 14).padding(.vertical, 9)
             .background(selected ? Ak.green : .white)
-            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 11).stroke(Ak.border, lineWidth: selected ? 0 : 1))
+            .clipShape(Capsule())
+            .overlay(Capsule().stroke(Ak.border, lineWidth: selected ? 0 : 1))
             .contentShape(Rectangle()).onTapGesture(perform: action)
     }
 
     private func resourceCard(_ r: ResourceDTO) -> some View {
         let accent = r.type == "homework" ? Ak.orange : Ak.green
         let soft = r.type == "homework" ? Ak.orangeSoft : Ak.greenSoft
+        let prog = programLabel(r.program ?? "standard")
         let tags = [r.subject_slug, r.level].compactMap { $0 }.joined(separator: " · ")
         return HStack(alignment: .top, spacing: 12) {
             Image(systemName: resTypeIcon(r.type)).font(.system(size: 18)).foregroundColor(accent)
@@ -78,6 +114,9 @@ struct ResourcesScreen: View {
                     Text(resTypeLabel(r.type)).font(AkFont.bold(10.5)).foregroundColor(accent)
                         .padding(.horizontal, 7).padding(.vertical, 2)
                         .background(soft).clipShape(RoundedRectangle(cornerRadius: 7))
+                    Text(prog).font(AkFont.bold(10.5)).foregroundColor(Ak.green)
+                        .padding(.horizontal, 7).padding(.vertical, 2)
+                        .background(Ak.greenSoft).clipShape(RoundedRectangle(cornerRadius: 7))
                     if !tags.isEmpty { Text(tags).font(AkFont.regular(11)).foregroundColor(Ak.faint) }
                 }
                 Text(r.title).font(AkFont.schibstedBold(14.5)).foregroundColor(Ak.ink)
@@ -100,7 +139,6 @@ struct ResourcesScreen: View {
         .onTapGesture {
             guard let f = r.file_name, !f.isEmpty else { return }
             let url = ApiConfig.baseURL.appendingPathComponent("api/files/\(r.id)")
-            // Les PDF s'ouvrent dans le visualiseur in-app ; les autres types en externe.
             let isPdf = r.mime_type == "application/pdf" || f.lowercased().hasSuffix(".pdf")
             if isPdf { router.go(.pdfViewer(url: url.absoluteString, title: r.title)) }
             else { openURL(url) }
