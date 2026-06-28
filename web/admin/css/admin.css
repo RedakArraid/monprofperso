@@ -139,6 +139,10 @@ code { background: var(--green-soft); color: var(--green); padding: 1px 6px; bor
 .section-head { display: flex; align-items: center; justify-content: space-between; margin: 6px 0 14px; }
 .section-head h3 { font-size: 18px; }
 .count { font-size: 12px; font-weight: 700; color: var(--green); background: var(--green-soft); padding: 3px 9px; border-radius: 9px; }
+.row .row-desc { margin-top: 4px; font-size: 12px; color: var(--ink-soft); }
+.filter-bar { margin-bottom: 16px; }
+.filter-bar .form-grid { margin-bottom: 0; }
+.filter-actions { margin-top: 12px; justify-content: flex-start; gap: 8px; }
 .empty { color: var(--faint); font-size: 13.5px; padding: 8px 2px; }
 .muted { color: var(--muted); }
 .divider { height: 1px; background: var(--border); margin: 22px 0; border: none; }

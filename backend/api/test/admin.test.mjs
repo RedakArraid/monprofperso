@@ -99,6 +99,33 @@ test("admin : créer une ressource avec fichier, la télécharger, la supprimer"
   assert.equal(gone.status, 404);
 });
 
+test("admin : modifier une ressource et filtrer par titre", async () => {
+  const token = await adminToken();
+  const created = await api("/api/admin/resources", {
+    method: "POST", token,
+    json: { type: "course", subjectSlug: "maths", level: "lycee", title: "Fiche Thalès test",
+            description: "Géométrie plane" },
+  });
+  assert.equal(created.status, 201);
+  const id = created.body.id;
+
+  const updated = await api(`/api/admin/resources/${id}`, {
+    method: "PUT", token,
+    json: { type: "exercise", title: "Exercice Thalès modifié", subjectSlug: "maths", level: "lycee",
+            description: "Corrigé inclus" },
+  });
+  assert.equal(updated.status, 200);
+  assert.equal(updated.body.type, "exercise");
+  assert.equal(updated.body.title, "Exercice Thalès modifié");
+
+  const filtered = await api("/api/resources?q=Thalès&type=exercise");
+  assert.equal(filtered.status, 200);
+  assert.ok(filtered.body.some((r) => r.id === id));
+
+  const del = await api(`/api/admin/resources/${id}`, { method: "DELETE", token });
+  assert.equal(del.status, 204);
+});
+
 // --------------------------------------------------------- Catalogue dynamique
 test("catalogue : /subjects inclut des matières hors FR/EN (musique, langues)", async () => {
   const { status, body } = await api("/api/subjects");

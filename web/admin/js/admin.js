@@ -652,66 +652,175 @@ function catalogRow(name, slug, accent, kind) {
  * ===================================================================== */
 const R_TYPES = { course: "Cours", homework: "Devoir", exercise: "Exercice" };
 
+function resourcesQuery(root) {
+  const p = new URLSearchParams();
+  const type = root.dataset.rType || "";
+  const subject = root.dataset.rSubject || "";
+  const level = root.dataset.rLevel || "";
+  const q = root.dataset.rQ || "";
+  if (type) p.set("type", type);
+  if (subject) p.set("subject", subject);
+  if (level) p.set("level", level);
+  if (q) p.set("q", q);
+  const qs = p.toString();
+  return "/api/resources" + (qs ? "?" + qs : "");
+}
+
 async function renderResources(root) {
   const [subjects, levels, resources] = await Promise.all([
-    api("/api/subjects"), api("/api/levels"), api("/api/resources"),
+    api("/api/subjects"), api("/api/levels"), api(resourcesQuery(root)),
   ]).then((rows) => rows.map(asList));
+
+  const subjectMap = Object.fromEntries(subjects.map((s) => [s.slug, s.name]));
+  const levelMap = Object.fromEntries(levels.map((l) => [l.slug, l.name]));
+  const fType = root.dataset.rType || "";
+  const fSubject = root.dataset.rSubject || "";
+  const fLevel = root.dataset.rLevel || "";
+  const fQ = root.dataset.rQ || "";
+
   root.innerHTML = `
-    <div class="card">
-      <h3>Nouvelle ressource</h3>
-      <p class="card-sub">Cours, devoir ou exercice, avec un fichier optionnel (PDF, image…).</p>
-      <div class="form-grid">
-        <div class="field"><label>Type</label><select id="r_type">${Object.entries(R_TYPES).map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select></div>
-        <div class="field"><label>Fichier (optionnel)</label><input id="r_file" type="file" accept="application/pdf,image/*"></div>
-        <div class="field full"><label>Titre *</label><input id="r_title" placeholder="Fiche, Théorème de Thalès"></div>
-        <div class="field"><label>Matière</label><select id="r_subject"><option value="">- Aucune -</option>${subjects.map((s) => `<option value="${esc(s.slug)}">${esc(s.name)}</option>`).join("")}</select></div>
-        <div class="field"><label>Niveau</label><select id="r_level"><option value="">- Aucun -</option>${levels.map((l) => `<option value="${esc(l.slug)}">${esc(l.name)}</option>`).join("")}</select></div>
-        <div class="field full"><label>Description</label><textarea id="r_desc" placeholder="Quelques mots sur la ressource…"></textarea></div>
-      </div>
-      <div class="form-actions"><button class="btn btn-primary" id="addR">+ Ajouter la ressource</button></div>
+    <div class="section-head">
+      <h3>Ressources <span class="count">${resources.length}</span></h3>
+      <button type="button" class="btn btn-primary btn-sm" id="addR">+ Nouvelle ressource</button>
     </div>
-    <div class="section-head"><h3>Ressources <span class="count">${resources.length}</span></h3></div>
-    <div class="list">
-      ${resources.length ? "" : `<p class="empty">Aucune ressource.</p>`}
-      ${resources.map(resourceRow).join("")}
+    <div class="card filter-bar">
+      <div class="form-grid">
+        <div class="field"><label>Recherche (titre)</label>
+          <input id="rf_q" type="search" placeholder="Thalès, fiche révision…" value="${esc(fQ)}"></div>
+        <div class="field"><label>Type</label>
+          <select id="rf_type">
+            <option value="">Tous</option>
+            ${Object.entries(R_TYPES).map(([v, l]) => `<option value="${v}"${fType === v ? " selected" : ""}>${l}</option>`).join("")}
+          </select></div>
+        <div class="field"><label>Matière</label>
+          <select id="rf_subject">
+            <option value="">Toutes</option>
+            ${subjects.map((s) => `<option value="${esc(s.slug)}"${fSubject === s.slug ? " selected" : ""}>${esc(s.name)}</option>`).join("")}
+          </select></div>
+        <div class="field"><label>Niveau</label>
+          <select id="rf_level">
+            <option value="">Tous</option>
+            ${levels.map((l) => `<option value="${esc(l.slug)}"${fLevel === l.slug ? " selected" : ""}>${esc(l.name)}</option>`).join("")}
+          </select></div>
+      </div>
+      <div class="form-actions filter-actions">
+        <button type="button" class="btn btn-primary btn-sm" id="rf_apply">Filtrer</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="rf_reset">Réinitialiser</button>
+      </div>
+    </div>
+    <div class="list" id="rList">
+      ${resources.length ? resources.map((r) => resourceRow(r, subjectMap, levelMap)).join("") : `<p class="empty">Aucune ressource${fType || fSubject || fLevel || fQ ? " pour ces filtres" : ""}.</p>`}
     </div>`;
-  $("#addR").addEventListener("click", async () => {
-    const title = $("#r_title").value.trim();
-    if (!title) { toast("Le titre est requis", true); return; }
-    const body = { type: $("#r_type").value, title };
-    const subj = $("#r_subject").value; if (subj) body.subjectSlug = subj;
-    const lvl = $("#r_level").value; if (lvl) body.level = lvl;
-    const desc = $("#r_desc").value.trim(); if (desc) body.description = desc;
-    const file = $("#r_file").files[0];
-    try {
-      if (file) {
-        body.contentBase64 = await fileToBase64(file);
-        body.fileName = file.name;
-        body.mimeType = file.type || "application/octet-stream";
-      }
-      await api("/api/admin/resources", { method: "POST", body });
-      toast("Ressource ajoutée"); navigate("resources");
-    } catch (e) { toast(e.message, true); }
+
+  $("#addR").addEventListener("click", () => resourceForm(null, subjects, levels));
+  $("#rf_apply").addEventListener("click", () => {
+    root.dataset.rQ = $("#rf_q").value.trim();
+    root.dataset.rType = $("#rf_type").value;
+    root.dataset.rSubject = $("#rf_subject").value;
+    root.dataset.rLevel = $("#rf_level").value;
+    renderResources(root);
   });
+  $("#rf_reset").addEventListener("click", () => {
+    root.dataset.rQ = root.dataset.rType = root.dataset.rSubject = root.dataset.rLevel = "";
+    renderResources(root);
+  });
+  $("#rf_q").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); $("#rf_apply").click(); }
+  });
+
+  root.querySelectorAll("[data-edit]").forEach((b) =>
+    b.addEventListener("click", () => {
+      const r = resources.find((x) => String(x.id) === b.dataset.edit);
+      if (r) resourceForm(r, subjects, levels);
+    }));
   root.querySelectorAll("[data-del]").forEach((b) =>
     b.addEventListener("click", () => confirmDelete("cette ressource", async () => {
       await api("/api/admin/resources/" + b.dataset.del, { method: "DELETE" });
-      toast("Ressource supprimée"); navigate("resources");
+      toast("Ressource supprimée"); renderResources(root);
     })));
   root.querySelectorAll("[data-file]").forEach((a) =>
     a.setAttribute("href", API_BASE + "/api/files/" + a.dataset.file));
 }
 
-function resourceRow(r) {
-  const tags = [r.subject_slug, r.level].filter(Boolean).join(" · ");
+function resourceRow(r, subjectMap, levelMap) {
+  const subj = r.subject_slug ? (subjectMap[r.subject_slug] || r.subject_slug) : "";
+  const lvl = r.level ? (levelMap[r.level] || r.level) : "";
+  const tags = [subj, lvl].filter(Boolean).join(" · ");
   const accent = r.type === "homework" ? "orange" : "green";
+  const desc = r.description ? `<div class="row-meta row-desc">${esc(r.description)}</div>` : "";
   return `<div class="row">
     <div class="row-main">
       <div class="row-title"><span class="pill ${accent}">${esc(R_TYPES[r.type] || r.type)}</span> ${esc(r.title)}</div>
-      <div class="row-meta">${tags ? esc(tags) : "-"}${r.file_name ? ` · 📎 <a data-file="${r.id}" target="_blank" rel="noopener">${esc(r.file_name)}</a>` : ""}</div>
+      <div class="row-meta">${tags || "—"}${r.file_name ? ` · 📎 <a data-file="${r.id}" target="_blank" rel="noopener">${esc(r.file_name)}</a>` : ""}</div>
+      ${desc}
     </div>
-    <div class="row-actions"><button class="btn btn-danger btn-sm" data-del="${r.id}">Suppr.</button></div>
+    <div class="row-actions">
+      <button type="button" class="btn btn-ghost btn-sm" data-edit="${r.id}">Modifier</button>
+      <button type="button" class="btn btn-danger btn-sm" data-del="${r.id}">Suppr.</button>
+    </div>
   </div>`;
+}
+
+function resourceForm(r, subjects, levels) {
+  const isEdit = !!r;
+  r = r || {};
+  const html = `
+    <div class="form-grid">
+      <div class="field"><label>Type *</label>
+        <select id="r_type">${Object.entries(R_TYPES).map(([v, l]) =>
+          `<option value="${v}"${r.type === v ? " selected" : ""}>${l}</option>`).join("")}</select></div>
+      <div class="field"><label>Fichier ${isEdit ? "(remplacer)" : "(optionnel)"}</label>
+        <input id="r_file" type="file" accept="application/pdf,image/*">
+        ${r.file_name ? `<p class="muted" style="margin-top:6px;font-size:12px">Actuel : ${esc(r.file_name)}</p>` : ""}</div>
+      <div class="field full"><label>Titre *</label><input id="r_title" value="${esc(r.title || "")}" placeholder="Fiche, Théorème de Thalès"></div>
+      <div class="field"><label>Matière</label>
+        <select id="r_subject"><option value="">— Aucune —</option>
+          ${subjects.map((s) => `<option value="${esc(s.slug)}"${r.subject_slug === s.slug ? " selected" : ""}>${esc(s.name)}</option>`).join("")}
+        </select></div>
+      <div class="field"><label>Niveau</label>
+        <select id="r_level"><option value="">— Aucun —</option>
+          ${levels.map((l) => `<option value="${esc(l.slug)}"${r.level === l.slug ? " selected" : ""}>${esc(l.name)}</option>`).join("")}
+        </select></div>
+      <div class="field full"><label>Description</label>
+        <textarea id="r_desc" placeholder="Quelques mots sur la ressource…">${esc(r.description || "")}</textarea></div>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn btn-primary" id="save">${isEdit ? "Enregistrer" : "Ajouter"}</button>
+      <button type="button" class="btn btn-ghost" id="cancel">Annuler</button>
+    </div>`;
+  modal(isEdit ? "Modifier la ressource" : "Nouvelle ressource", html, (back, close) => {
+    $("#cancel", back).addEventListener("click", close);
+    $("#save", back).addEventListener("click", async () => {
+      const title = $("#r_title", back).value.trim();
+      if (!title) { toast("Le titre est requis", true); return; }
+      const body = { type: $("#r_type", back).value, title };
+      const subj = $("#r_subject", back).value;
+      const lvl = $("#r_level", back).value;
+      if (isEdit) {
+        body.subjectSlug = subj || null;
+        body.level = lvl || null;
+      } else {
+        if (subj) body.subjectSlug = subj;
+        if (lvl) body.level = lvl;
+      }
+      const desc = $("#r_desc", back).value.trim();
+      if (desc) body.description = desc;
+      const file = $("#r_file", back).files[0];
+      try {
+        if (file) {
+          body.contentBase64 = await fileToBase64(file);
+          body.fileName = file.name;
+          body.mimeType = file.type || "application/octet-stream";
+        }
+        if (isEdit) await api("/api/admin/resources/" + r.id, { method: "PUT", body });
+        else await api("/api/admin/resources", { method: "POST", body });
+        close();
+        toast(isEdit ? "Ressource modifiée" : "Ressource ajoutée");
+        const root = $("#content");
+        if (root) renderResources(root);
+      } catch (e) { toast(e.message, true); }
+    });
+  });
 }
 
 /* =====================================================================

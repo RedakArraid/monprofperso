@@ -63,3 +63,13 @@ export async function getFileStream(key: string): Promise<Readable> {
   if (!client) throw new Error("storage_disabled");
   return client.getObject(bucket, key);
 }
+
+/** Supprime un objet (best-effort, ignoré si le stockage est désactivé). */
+export async function removeFile(key: string | null | undefined): Promise<void> {
+  if (!client || !key) return;
+  try {
+    await client.removeObject(bucket, key);
+  } catch (e) {
+    console.warn("Échec de suppression objet :", key, e);
+  }
+}

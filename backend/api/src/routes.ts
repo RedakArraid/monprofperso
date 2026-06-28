@@ -2,7 +2,7 @@ import { Router } from "express";
 import { pool } from "./db";
 import { ValidationError, optionalString, optionalPhone, optionalEnum, optionalNumber, requiredString, requiredEnum } from "./validate";
 import { optionalAuth, currentUserId, signJwt, requireAdmin, DEMO_USER } from "./auth";
-import { putFile, getFileStream } from "./storage";
+import { putFile, getFileStream, removeFile } from "./storage";
 import { registerTeacherApplicationRoutes } from "./teacherApplications";
 
 export const api = Router();
@@ -124,6 +124,11 @@ api.get("/resources", wrap(async (req, res) => {
     if (req.query[f]) { params.push(req.query[f]); where.push(`${f} = $${params.length}`); }
   }
   if (req.query.subject) { params.push(req.query.subject); where.push(`subject_slug = $${params.length}`); }
+  const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+  if (q) {
+    params.push(`%${q.replace(/[%_\\]/g, "\\$&")}%`);
+    where.push(`(title ILIKE $${params.length} OR COALESCE(description, '') ILIKE $${params.length})`);
+  }
   const sql = `SELECT id, type, subject_slug, level, title, description,
                       file_name, mime_type, size_bytes, created_at
                FROM resources ${where.length ? "WHERE " + where.join(" AND ") : ""}
@@ -634,9 +639,59 @@ admin.post("/resources", wrap(async (req, res) => {
   res.status(201).json(r.rows[0]);
 }));
 
+admin.put("/resources/:id", wrap(async (req, res) => {
+  const b = req.body ?? {};
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) { res.status(400).json({ error: "bad_id" }); return; }
+
+  const cur = await pool.query(
+    "SELECT id, storage_key, file_name, mime_type, size_bytes, content FROM resources WHERE id=$1",
+    [id]
+  );
+  if (!cur.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
+
+  const type = requiredEnum(b, "type", RESOURCE_TYPES);
+  const title = requiredString(b, "title", { max: 160 });
+  const subjectSlug = optionalString(b, "subjectSlug", { max: 40 }) ?? null;
+  const level = optionalString(b, "level", { max: 40 }) ?? null;
+  const description = optionalString(b, "description", { max: 2000 }) ?? null;
+  const fileName = optionalString(b, "fileName", { max: 200 });
+  const mimeType = optionalString(b, "mimeType", { max: 100 });
+  const contentBase64 = optionalString(b, "contentBase64", { max: 20_000_000 });
+  const buffer = contentBase64 ? Buffer.from(contentBase64, "base64") : null;
+
+  let storageKey = cur.rows[0].storage_key as string | null;
+  let content: Buffer | null = cur.rows[0].content;
+  let outFileName = cur.rows[0].file_name;
+  let outMimeType = cur.rows[0].mime_type;
+  let sizeBytes = cur.rows[0].size_bytes;
+
+  if (buffer) {
+    const uploaded = await putFile(buffer, mimeType ?? null, fileName ?? null);
+    await removeFile(storageKey);
+    storageKey = uploaded;
+    content = uploaded ? null : buffer;
+    sizeBytes = buffer.length;
+    outFileName = fileName ?? null;
+    outMimeType = mimeType ?? null;
+  }
+
+  const r = await pool.query(
+    `UPDATE resources SET
+        type = $2, subject_slug = $3, level = $4, title = $5, description = $6,
+        file_name = $7, mime_type = $8, size_bytes = $9, content = $10, storage_key = $11
+     WHERE id = $1
+     RETURNING id, type, subject_slug, level, title, description, file_name, mime_type, size_bytes, created_at`,
+    [id, type, subjectSlug, level, title, description, outFileName, outMimeType, sizeBytes, content, storageKey]
+  );
+  res.json(r.rows[0]);
+}));
+
 admin.delete("/resources/:id", wrap(async (req, res) => {
+  const cur = await pool.query("SELECT storage_key FROM resources WHERE id=$1", [req.params.id]);
   const r = await pool.query("DELETE FROM resources WHERE id=$1 RETURNING id", [req.params.id]);
   if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
+  await removeFile(cur.rows[0]?.storage_key);
   res.status(204).end();
 }));
 
