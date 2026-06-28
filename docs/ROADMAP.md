@@ -85,7 +85,10 @@ Maillon faible : auth/paiement simulés. À traiter avant toute nouvelle feature
 - [ ] CI : lint + build des 3 cibles à chaque PR.
 
 ## Phase 4, Mise en production
-- [ ] Héberger l'API (conteneur managé) + Postgres managé, HTTPS.
+- [~] Héberger l'API + Postgres + MinIO **en Côte d'Ivoire (CEDEAO)**, HTTPS.
+      Prototype actuel sur VPS Contabo (Europe) ; cible et plan de migration :
+      `docs/HOSTING.md`. Stack : **Docker Compose** (déjà en prod technique).
+      Budget indicatif : `docs/BUDGET-LANCEMENT.md`.
 - [ ] `ApiConfig` par environnement (dev / staging / prod) côté Android et iOS.
 - [ ] Préparer les stores : icônes (logo MP², `docs/logo/`), signatures, fiches
       Play Store / App Store.

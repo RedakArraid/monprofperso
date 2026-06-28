@@ -24,7 +24,9 @@ web/        Page vitrine (HTML/CSS/JS statique, sans build), présentation,
             servie sur `/admin/`. Servir `web/` tel quel.
 _maquette/  Maquette HTML d'origine (référence, gitignorée)
 docs/       Présentation .docx + assets, ROADMAP.md, COMPLIANCE.md (légal CI :
-            Loi 2013-450/ARTCI, CEPICI, voir docs/legal/), logo MP² (docs/logo/)
+            Loi 2013-450/ARTCI, CEPICI, voir docs/legal/), HOSTING.md (hébergement
+            CI, Docker Compose), BUDGET-LANCEMENT.md (coûts de mise en prod),
+            logo MP² (docs/logo/)
 ```
 
 ## Backend (`backend/`)

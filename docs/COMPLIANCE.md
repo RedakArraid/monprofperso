@@ -33,7 +33,8 @@ l'ARTCI est l'autorité de contrôle.
 ### 1. Localisation des données / transfert hors CEDEAO  ✅ décidé
 La loi encadre le **transfert de données hors de l'espace CEDEAO**.
 - **Décision projet** : l'API, Postgres **et** le stockage objet (MinIO/S3) sont
-  hébergés **en Côte d'Ivoire** → **dans l'espace CEDEAO**. L'hébergement ne
+  hébergés **en Côte d'Ivoire** → **dans l'espace CEDEAO**. Plan technique et
+  hébergeurs recommandés : `docs/HOSTING.md`. L'hébergement ne
   constitue donc **pas** un transfert hors CEDEAO ; aucune autorisation de
   transfert n'est requise pour l'hébergement lui-même.
 - **Reste à surveiller** : tout **sous-traitant hors CEDEAO** introduit plus tard
