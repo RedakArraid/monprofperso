@@ -59,9 +59,25 @@ private val APP_LOCATIONS = listOf(
 )
 private val APP_EXPERIENCES = listOf("Débutant", "1 à 3 ans", "3 à 5 ans", "5 à 10 ans", "10 ans et +", "Enseignant certifié")
 private val APP_PRICES = listOf(2500, 3000, 4000, 5000, 6000, 8000, 10000, 12000)
+private const val OTHER = "Autre"
+private const val OTHER_PROG = "__autre__"
 private val FB_SUBJECTS = listOf("Maths", "Physique", "Français", "Anglais", "SVT", "Philo", "Hist-Géo")
-private val FB_LEVELS = listOf("Primaire", "Collège", "Lycée", "Supérieur", "Université")
+private val FB_LEVELS = listOf("Primaire", "Collège", "Lycée", "Professionnel", "Supérieur", "Université")
 private val FB_PROGRAMS = listOf("standard" to "Programme standard", "francais" to "Programme français")
+
+private fun finalizeSubjects(list: List<String>): List<String> =
+    list.filter { it != OTHER } + OTHER
+
+private fun finalizeLevels(list: List<String>): List<String> {
+    val out = list.filter { it != OTHER && it != "Professionnel" }.toMutableList()
+    val idx = out.indexOf("Lycée")
+    if (idx >= 0) out.add(idx + 1, "Professionnel") else if ("Professionnel" !in out) out.add("Professionnel")
+    out.add(OTHER)
+    return out
+}
+
+private fun finalizePrograms(list: List<Pair<String, String>>): List<Pair<String, String>> =
+    list.filter { it.first != OTHER_PROG } + (OTHER_PROG to OTHER)
 
 private fun normalizePhone(raw: String): String {
     var p = raw.trim().replace(Regex("[\\s.-]"), "")
@@ -93,6 +109,9 @@ fun BecomeTeacherScreen(nav: NavActions) {
     var selectedSubjects by remember { mutableStateOf(setOf<String>()) }
     var selectedLevels by remember { mutableStateOf(setOf("Collège", "Lycée")) }
     var selectedPrograms by remember { mutableStateOf(setOf("standard")) }
+    var otherSubject by remember { mutableStateOf("") }
+    var otherLevel by remember { mutableStateOf("") }
+    var otherProgram by remember { mutableStateOf("") }
     var locOpen by remember { mutableStateOf(false) }
     var expOpen by remember { mutableStateOf(false) }
     var priceOpen by remember { mutableStateOf(false) }
@@ -105,9 +124,30 @@ fun BecomeTeacherScreen(nav: NavActions) {
     var pickKind by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
-        runCatching { Api.service.subjects() }.getOrNull()?.map { it.name }?.takeIf { it.isNotEmpty() }?.let { subjectNames = it }
-        runCatching { Api.service.levels() }.getOrNull()?.map { it.name }?.takeIf { it.isNotEmpty() }?.let { levelNames = it }
-        runCatching { Api.service.programs() }.getOrNull()?.map { it.slug to it.name }?.takeIf { it.isNotEmpty() }?.let { programItems = it }
+        runCatching { Api.service.subjects() }.getOrNull()?.map { it.name }?.takeIf { it.isNotEmpty() }
+            ?.let { subjectNames = finalizeSubjects(it) } ?: run { subjectNames = finalizeSubjects(FB_SUBJECTS) }
+        runCatching { Api.service.levels() }.getOrNull()?.map { it.name }?.takeIf { it.isNotEmpty() }
+            ?.let { levelNames = finalizeLevels(it) } ?: run { levelNames = finalizeLevels(FB_LEVELS) }
+        runCatching { Api.service.programs() }.getOrNull()?.map { it.slug to it.name }?.takeIf { it.isNotEmpty() }
+            ?.let { programItems = finalizePrograms(it) } ?: run { programItems = finalizePrograms(FB_PROGRAMS) }
+    }
+
+    fun buildSubjectsString(): String {
+        val parts = selectedSubjects.filter { it != OTHER }.toMutableList()
+        if (OTHER in selectedSubjects) otherSubject.trim().takeIf { it.isNotEmpty() }?.let { parts.add(it) }
+        return parts.joinToString(" · ")
+    }
+
+    fun buildLevelsList(): List<String> {
+        val parts = selectedLevels.filter { it != OTHER }.toMutableList()
+        if (OTHER in selectedLevels) otherLevel.trim().takeIf { it.isNotEmpty() }?.let { parts.add(it) }
+        return parts
+    }
+
+    fun buildProgramsList(): List<String> {
+        val parts = selectedPrograms.filter { it != OTHER_PROG }.toMutableList()
+        if (OTHER_PROG in selectedPrograms) otherProgram.trim().takeIf { it.isNotEmpty() }?.let { parts.add(it) }
+        return parts
     }
 
     fun readUri(uri: android.net.Uri): DocPick? {
@@ -146,14 +186,14 @@ fun BecomeTeacherScreen(nav: NavActions) {
                 put("fullName", fullName.trim())
                 put("phone", normalizePhone(phone.trim()))
                 if (email.isNotBlank()) put("email", email.trim())
-                put("subjects", selectedSubjects.joinToString(" · "))
+                put("subjects", buildSubjectsString())
                 put("location", location)
                 put("pricePerHour", price)
                 put("bio", bio.trim())
                 put("experience", experience)
-                put("levels", selectedLevels.toList())
+                put("levels", buildLevelsList())
                 put("formats", formats.ifEmpty { listOf("home", "online") })
-                put("programs", selectedPrograms.toList())
+                put("programs", buildProgramsList())
                 put("negotiable", negotiable)
                 put("consent", true)
                 idCard?.let {
@@ -211,6 +251,11 @@ fun BecomeTeacherScreen(nav: NavActions) {
                                 }
                             }
                         }
+                        if (OTHER in selectedSubjects) {
+                            Spacer(Modifier.height(8.dp))
+                            FieldLabel("Précisez la matière")
+                            AppField(otherSubject, { otherSubject = it }, "Ex. Droit, Comptabilité…")
+                        }
                         Spacer(Modifier.height(14.dp))
                         FieldLabel("Niveaux")
                         FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -220,6 +265,11 @@ fun BecomeTeacherScreen(nav: NavActions) {
                                 }
                             }
                         }
+                        if (OTHER in selectedLevels) {
+                            Spacer(Modifier.height(8.dp))
+                            FieldLabel("Précisez le niveau")
+                            AppField(otherLevel, { otherLevel = it }, "Ex. Prépa concours, Adultes…")
+                        }
                         Spacer(Modifier.height(14.dp))
                         FieldLabel("Programmes scolaires")
                         FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -228,6 +278,11 @@ fun BecomeTeacherScreen(nav: NavActions) {
                                     selectedPrograms = if (selectedPrograms.contains(slug)) selectedPrograms - slug else selectedPrograms + slug
                                 }
                             }
+                        }
+                        if (OTHER_PROG in selectedPrograms) {
+                            Spacer(Modifier.height(8.dp))
+                            FieldLabel("Précisez le programme")
+                            AppField(otherProgram, { otherProgram = it }, "Ex. Programme IB, Cambridge…")
                         }
                         Spacer(Modifier.height(14.dp))
                         FieldLabel("Quartier / commune")
@@ -308,8 +363,11 @@ fun BecomeTeacherScreen(nav: NavActions) {
                             when {
                                 fullName.isBlank() || phone.isBlank() -> err = "Remplissez nom et téléphone."
                                 selectedSubjects.isEmpty() -> err = "Sélectionnez au moins une matière."
+                                OTHER in selectedSubjects && otherSubject.isBlank() -> err = "Précisez la matière « Autre »."
                                 selectedLevels.isEmpty() -> err = "Sélectionnez au moins un niveau."
+                                OTHER in selectedLevels && otherLevel.isBlank() -> err = "Précisez le niveau « Autre »."
                                 selectedPrograms.isEmpty() -> err = "Sélectionnez au moins un programme."
+                                OTHER_PROG in selectedPrograms && otherProgram.isBlank() -> err = "Précisez le programme « Autre »."
                                 !fmtHome && !fmtOnline -> err = "Choisissez domicile ou en ligne."
                                 else -> step++
                             }

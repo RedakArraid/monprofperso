@@ -6,9 +6,12 @@
     ? "http://localhost:8099"
     : location.origin;
 
+  var OTHER = "Autre";
+  var OTHER_PROG = "__autre__";
+
   var FALLBACK = {
     subjects: ["Maths", "Physique", "Français", "Anglais", "SVT", "Philo", "Hist-Géo", "Musique", "Espagnol", "Allemand"],
-    levels: ["Primaire", "Collège", "Lycée", "Supérieur", "Université"],
+    levels: ["Primaire", "Collège", "Lycée", "Professionnel", "Supérieur", "Université"],
     programs: [
       { slug: "standard", name: "Programme standard" },
       { slug: "francais", name: "Programme français" },
@@ -66,6 +69,70 @@
     if (def != null) sel.value = String(def);
   }
 
+  function isChecked(name, val) {
+    return !!document.querySelector('input[name="' + name + '"][value="' + val + '"]:checked');
+  }
+
+  function finalizeSubjects(list) {
+    var out = list.filter(function (s) { return s !== OTHER; });
+    out.push(OTHER);
+    return out;
+  }
+
+  function finalizeLevels(list) {
+    var out = list.filter(function (s) { return s !== OTHER && s !== "Professionnel"; });
+    var idx = out.indexOf("Lycée");
+    if (idx >= 0) out.splice(idx + 1, 0, "Professionnel");
+    else if (out.indexOf("Professionnel") < 0) out.push("Professionnel");
+    out.push(OTHER);
+    return out;
+  }
+
+  function finalizePrograms(list) {
+    var out = list.filter(function (p) { return p.slug !== OTHER_PROG; });
+    out.push({ slug: OTHER_PROG, name: OTHER });
+    return out;
+  }
+
+  function updateOtherFields() {
+    var subWrap = document.getElementById("otherSubjectWrap");
+    var lvlWrap = document.getElementById("otherLevelWrap");
+    var progWrap = document.getElementById("otherProgramWrap");
+    if (subWrap) subWrap.hidden = !isChecked("subjects", OTHER);
+    if (lvlWrap) lvlWrap.hidden = !isChecked("levels", OTHER);
+    if (progWrap) progWrap.hidden = !isChecked("programs", OTHER_PROG);
+  }
+
+  function collectSubjects() {
+    var labels = checkedLabels("subjects").filter(function (l) { return l !== OTHER; });
+    if (isChecked("subjects", OTHER)) {
+      var custom = (document.getElementById("otherSubject") || {}).value;
+      custom = String(custom || "").trim();
+      if (custom) labels.push(custom);
+    }
+    return labels.join(" · ");
+  }
+
+  function collectLevels() {
+    var labels = checkedLabels("levels").filter(function (l) { return l !== OTHER; });
+    if (isChecked("levels", OTHER)) {
+      var custom = (document.getElementById("otherLevel") || {}).value;
+      custom = String(custom || "").trim();
+      if (custom) labels.push(custom);
+    }
+    return labels;
+  }
+
+  function collectPrograms() {
+    var vals = checkedValues("programs").filter(function (v) { return v !== OTHER_PROG; });
+    if (isChecked("programs", OTHER_PROG)) {
+      var custom = (document.getElementById("otherProgram") || {}).value;
+      custom = String(custom || "").trim();
+      if (custom) vals.push(custom);
+    }
+    return vals;
+  }
+
   function syncChip(chip) {
     var input = chip.querySelector("input");
     if (!input) return;
@@ -98,6 +165,7 @@
       chip.addEventListener("click", function () {
         hidden.checked = !hidden.checked;
         syncChip(chip);
+        updateOtherFields();
       });
       syncChip(chip);
       box.appendChild(chip);
@@ -161,8 +229,17 @@
     if (!document.getElementById("fullName").value.trim()) return "Indiquez votre nom complet.";
     if (!document.getElementById("phone").value.trim()) return "Indiquez votre numéro.";
     if (!checkedLabels("subjects").length) return "Sélectionnez au moins une matière.";
+    if (isChecked("subjects", OTHER) && !(document.getElementById("otherSubject").value || "").trim()) {
+      return "Précisez la matière « Autre ».";
+    }
     if (!checkedLabels("levels").length) return "Sélectionnez au moins un niveau.";
+    if (isChecked("levels", OTHER) && !(document.getElementById("otherLevel").value || "").trim()) {
+      return "Précisez le niveau « Autre ».";
+    }
     if (!checkedValues("programs").length) return "Sélectionnez au moins un programme.";
+    if (isChecked("programs", OTHER_PROG) && !(document.getElementById("otherProgram").value || "").trim()) {
+      return "Précisez le programme « Autre ».";
+    }
     if (!document.getElementById("fmtHome").checked && !document.getElementById("fmtOnline").checked) {
       return "Choisissez au moins une modalité (domicile ou en ligne).";
     }
@@ -195,9 +272,9 @@
     fillSelect("experience", EXPERIENCES, "3 à 5 ans");
     fillSelect("price", PRICES, 4000);
 
-    var subjects = FALLBACK.subjects.slice();
-    var levels = FALLBACK.levels.slice();
-    var programs = FALLBACK.programs.slice();
+    var subjects = finalizeSubjects(FALLBACK.subjects.slice());
+    var levels = finalizeLevels(FALLBACK.levels.slice());
+    var programs = finalizePrograms(FALLBACK.programs.slice());
 
     try {
       var res = await Promise.all([
@@ -205,14 +282,21 @@
         fetch(API_BASE + "/api/levels").then(function (r) { return r.ok ? r.json() : []; }),
         fetch(API_BASE + "/api/programs").then(function (r) { return r.ok ? r.json() : []; }),
       ]);
-      if (res[0] && res[0].length) subjects = res[0].map(function (s) { return s.name; });
-      if (res[1] && res[1].length) levels = res[1].map(function (l) { return l.name; });
-      if (res[2] && res[2].length) programs = res[2].map(function (p) { return { slug: p.slug, name: p.name }; });
+      if (res[0] && res[0].length) subjects = finalizeSubjects(res[0].map(function (s) { return s.name; }));
+      if (res[1] && res[1].length) levels = finalizeLevels(res[1].map(function (l) { return l.name; }));
+      if (res[2] && res[2].length) {
+        programs = finalizePrograms(res[2].map(function (p) { return { slug: p.slug, name: p.name }; }));
+      }
     } catch (_) { /* repli local */ }
 
     buildChips("subjectsGrid", subjects, "subjects");
     buildChips("levelsGrid", levels, "levels");
     buildChips("programsGrid", programs, "programs");
+    updateOtherFields();
+    ["otherSubject", "otherLevel", "otherProgram"].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener("input", updateOtherFields);
+    });
   }
 
   if (form) {
@@ -234,14 +318,14 @@
           fullName: document.getElementById("fullName").value.trim(),
           phone: normalizePhone(document.getElementById("phone").value),
           email: document.getElementById("email").value.trim() || undefined,
-          subjects: checkedLabels("subjects").join(" · "),
+          subjects: collectSubjects(),
           location: document.getElementById("location").value,
           pricePerHour: Number(document.getElementById("price").value) || undefined,
           bio: document.getElementById("bio").value.trim() || undefined,
           experience: document.getElementById("experience").value,
-          levels: checkedLabels("levels"),
+          levels: collectLevels(),
           formats: formats,
-          programs: checkedValues("programs"),
+          programs: collectPrograms(),
           negotiable: document.getElementById("negotiable").checked,
           consent: true,
           idCardBase64: await fileToBase64(files.idCard),

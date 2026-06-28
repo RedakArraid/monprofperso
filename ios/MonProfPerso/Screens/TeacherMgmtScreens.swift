@@ -14,6 +14,24 @@ private func normalizePhone(_ raw: String) -> String {
 private let appLocations = ["Cocody", "Plateau", "Yopougon", "Marcory", "Treichville", "Abobo", "Adjamé", "Koumassi", "Port-Bouët", "Bingerville", "Anyama", "Autre (Abidjan)"]
 private let appExperiences = ["Débutant", "1 à 3 ans", "3 à 5 ans", "5 à 10 ans", "10 ans et +", "Enseignant certifié"]
 private let appPrices = [2500, 3000, 4000, 5000, 6000, 8000, 10000, 12000]
+private let otherLabel = "Autre"
+private let otherProgramSlug = "__autre__"
+
+private func finalizeSubjects(_ list: [String]) -> [String] {
+    list.filter { $0 != otherLabel } + [otherLabel]
+}
+
+private func finalizeLevels(_ list: [String]) -> [String] {
+    var out = list.filter { $0 != otherLabel && $0 != "Professionnel" }
+    if let idx = out.firstIndex(of: "Lycée") { out.insert("Professionnel", at: idx + 1) }
+    else if !out.contains("Professionnel") { out.append("Professionnel") }
+    out.append(otherLabel)
+    return out
+}
+
+private func finalizePrograms(_ list: [ProgramPick]) -> [ProgramPick] {
+    list.filter { $0.slug != otherProgramSlug } + [ProgramPick(slug: otherProgramSlug, name: otherLabel)]
+}
 
 // MARK: - Écran 29, Devenir professeur (live → /api/teacher-applications)
 struct BecomeTeacherScreen: View {
@@ -31,7 +49,7 @@ struct BecomeTeacherScreen: View {
     @State private var fmtOnline = true
     @State private var negotiable = false
     @State private var subjectNames: [String] = ["Maths", "Physique", "Français", "Anglais", "SVT", "Philo", "Hist-Géo"]
-    @State private var levelNames: [String] = ["Primaire", "Collège", "Lycée", "Supérieur", "Université"]
+    @State private var levelNames: [String] = ["Primaire", "Collège", "Lycée", "Professionnel", "Supérieur", "Université"]
     @State private var programItems: [ProgramPick] = [
         ProgramPick(slug: "standard", name: "Programme standard"),
         ProgramPick(slug: "francais", name: "Programme français"),
@@ -39,6 +57,9 @@ struct BecomeTeacherScreen: View {
     @State private var selectedSubjects = Set<String>()
     @State private var selectedLevels: Set<String> = ["Collège", "Lycée"]
     @State private var selectedPrograms: Set<String> = ["standard"]
+    @State private var otherSubject = ""
+    @State private var otherLevel = ""
+    @State private var otherProgram = ""
     @State private var idCard: DocPick?
     @State private var diploma: DocPick?
     @State private var photo: DocPick?
@@ -126,10 +147,22 @@ struct BecomeTeacherScreen: View {
             fieldLabel("E-mail (optionnel)").padding(.top, 10); appField($email, "prof@exemple.com")
             fieldLabel("Matières enseignées").padding(.top, 14)
             chipWrap(subjectNames, selected: $selectedSubjects)
+            if selectedSubjects.contains(otherLabel) {
+                fieldLabel("Précisez la matière").padding(.top, 8)
+                appField($otherSubject, "Ex. Droit, Comptabilité…")
+            }
             fieldLabel("Niveaux").padding(.top, 14)
             chipWrap(levelNames, selected: $selectedLevels)
+            if selectedLevels.contains(otherLabel) {
+                fieldLabel("Précisez le niveau").padding(.top, 8)
+                appField($otherLevel, "Ex. Prépa concours, Adultes…")
+            }
             fieldLabel("Programmes scolaires").padding(.top, 14)
             programChips()
+            if selectedPrograms.contains(otherProgramSlug) {
+                fieldLabel("Précisez le programme").padding(.top, 8)
+                appField($otherProgram, "Ex. Programme IB, Cambridge…")
+            }
             fieldLabel("Quartier / commune").padding(.top, 14)
             pickerField(selection: $location, options: appLocations)
             fieldLabel("Tarif horaire").padding(.top, 10)
@@ -162,11 +195,48 @@ struct BecomeTeacherScreen: View {
     }
 
     private func loadCatalog() async {
-        if let s = try? await ApiClient.shared.subjects(), !s.isEmpty { subjectNames = s.map(\.name) }
-        if let l = try? await ApiClient.shared.levels(), !l.isEmpty { levelNames = l.map(\.name) }
-        if let p = try? await ApiClient.shared.programs(), !p.isEmpty {
-            programItems = p.map { ProgramPick(slug: $0.slug, name: $0.name) }
+        if let s = try? await ApiClient.shared.subjects(), !s.isEmpty {
+            subjectNames = finalizeSubjects(s.map(\.name))
+        } else {
+            subjectNames = finalizeSubjects(subjectNames)
         }
+        if let l = try? await ApiClient.shared.levels(), !l.isEmpty {
+            levelNames = finalizeLevels(l.map(\.name))
+        } else {
+            levelNames = finalizeLevels(levelNames)
+        }
+        if let p = try? await ApiClient.shared.programs(), !p.isEmpty {
+            programItems = finalizePrograms(p.map { ProgramPick(slug: $0.slug, name: $0.name) })
+        } else {
+            programItems = finalizePrograms(programItems)
+        }
+    }
+
+    private func buildSubjectsString() -> String {
+        var parts = selectedSubjects.filter { $0 != otherLabel }.sorted()
+        if selectedSubjects.contains(otherLabel) {
+            let custom = otherSubject.trimmingCharacters(in: .whitespaces)
+            if !custom.isEmpty { parts.append(custom) }
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    private func buildLevelsList() -> [String] {
+        var parts = selectedLevels.filter { $0 != otherLabel }.sorted()
+        if selectedLevels.contains(otherLabel) {
+            let custom = otherLevel.trimmingCharacters(in: .whitespaces)
+            if !custom.isEmpty { parts.append(custom) }
+        }
+        return parts
+    }
+
+    private func buildProgramsList() -> [String] {
+        var parts = selectedPrograms.filter { $0 != otherProgramSlug }.sorted()
+        if selectedPrograms.contains(otherProgramSlug) {
+            let custom = otherProgram.trimmingCharacters(in: .whitespaces)
+            if !custom.isEmpty { parts.append(custom) }
+        }
+        return parts
     }
 
     private func chipWrap(_ items: [String], selected: Binding<Set<String>>) -> some View {
@@ -232,10 +302,16 @@ struct BecomeTeacherScreen: View {
                 err = "Remplissez nom et téléphone."
             } else if selectedSubjects.isEmpty {
                 err = "Sélectionnez au moins une matière."
+            } else if selectedSubjects.contains(otherLabel) && otherSubject.trimmingCharacters(in: .whitespaces).isEmpty {
+                err = "Précisez la matière « Autre »."
             } else if selectedLevels.isEmpty {
                 err = "Sélectionnez au moins un niveau."
+            } else if selectedLevels.contains(otherLabel) && otherLevel.trimmingCharacters(in: .whitespaces).isEmpty {
+                err = "Précisez le niveau « Autre »."
             } else if selectedPrograms.isEmpty {
                 err = "Sélectionnez au moins un programme."
+            } else if selectedPrograms.contains(otherProgramSlug) && otherProgram.trimmingCharacters(in: .whitespaces).isEmpty {
+                err = "Précisez le programme « Autre »."
             } else if !fmtHome && !fmtOnline {
                 err = "Choisissez domicile ou en ligne."
             } else { step += 1 }
@@ -256,14 +332,14 @@ struct BecomeTeacherScreen: View {
         var json: [String: Any] = [
             "fullName": fullName.trimmingCharacters(in: .whitespaces),
             "phone": normalizePhone(phone),
-            "subjects": selectedSubjects.sorted().joined(separator: " · "),
+            "subjects": buildSubjectsString(),
             "location": location,
             "pricePerHour": price,
             "bio": bio.trimmingCharacters(in: .whitespaces),
             "experience": experience,
-            "levels": Array(selectedLevels),
+            "levels": buildLevelsList(),
             "formats": formats.isEmpty ? ["home", "online"] : formats,
-            "programs": Array(selectedPrograms),
+            "programs": buildProgramsList(),
             "negotiable": negotiable,
             "consent": true,
         ]

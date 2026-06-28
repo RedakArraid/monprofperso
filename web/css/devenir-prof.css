@@ -36,6 +36,8 @@ fieldset.field legend { font-weight: 600; font-size: 13px; color: var(--ink); ma
 .chip.selected, .chip:has(input:checked) {
   background: var(--green-soft); border-color: var(--green); color: var(--green);
 }
+.other-field { margin-top: 10px; }
+.other-field[hidden] { display: none !important; }
 .file-btn.selected { border-color: var(--green); border-style: solid; }
 .check-row { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: var(--muted); margin: 12px 0; }
 .check-row input { margin-top: 3px; }

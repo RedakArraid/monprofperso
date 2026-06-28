@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/styles.css?v=20260628l" />
-  <link rel="stylesheet" href="css/devenir-prof.css?v=20260628l" />
+  <link rel="stylesheet" href="css/devenir-prof.css?v=20260628m" />
 </head>
 <body>
   <header class="site-header">
@@ -49,16 +49,28 @@
             <fieldset class="field">
               <legend>Matières enseignées *</legend>
               <div class="chip-grid" id="subjectsGrid"></div>
+              <div class="field other-field" id="otherSubjectWrap" hidden>
+                <label for="otherSubject">Précisez la matière</label>
+                <input id="otherSubject" type="text" placeholder="Ex. Droit, Comptabilité…" />
+              </div>
             </fieldset>
 
             <fieldset class="field">
               <legend>Niveaux *</legend>
               <div class="chip-grid" id="levelsGrid"></div>
+              <div class="field other-field" id="otherLevelWrap" hidden>
+                <label for="otherLevel">Précisez le niveau</label>
+                <input id="otherLevel" type="text" placeholder="Ex. Prépa concours, Adultes…" />
+              </div>
             </fieldset>
 
             <fieldset class="field">
               <legend>Programmes scolaires *</legend>
               <div class="chip-grid" id="programsGrid"></div>
+              <div class="field other-field" id="otherProgramWrap" hidden>
+                <label for="otherProgram">Précisez le programme</label>
+                <input id="otherProgram" type="text" placeholder="Ex. Programme IB, Cambridge…" />
+              </div>
             </fieldset>
 
             <div class="field-row">
@@ -132,6 +144,6 @@
 
   <footer class="footer"><div class="container footer-bottom"><span>© Mon Prof Perso (MP²)</span></div></footer>
   <script src="js/main.js"></script>
-  <script src="js/devenir-prof.js?v=20260628l"></script>
+  <script src="js/devenir-prof.js?v=20260628m"></script>
 </body>
 </html>
