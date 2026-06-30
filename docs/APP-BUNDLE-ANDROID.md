@@ -19,34 +19,40 @@ Complète `docs/PLAY-STORE-ANDROID.md` (fiche store, Data safety, etc.).
 
 ## 2. Création du keystore upload (une fois)
 
-Google Play App Signing : tu signes l'AAB avec une **clé upload** ; Google resigne avec la clé de prod.
+### Script automatique *(recommandé — configure Java + keystore)*
 
 ```bash
+./scripts/setup-android-signing.sh
+```
+
+Le script utilise le **JDK d'Android Studio** sur macOS et crée :
+- `android/secrets/monprofperso-upload.jks`
+- `android/keystore.properties` *(gitignoré)*
+
+> Ne copiez pas les commentaires `# …` sur la même ligne qu'une commande — le shell peut les interpréter comme des arguments (`cp: passe: Not a directory`).
+
+### Manuel (si besoin)
+
+```bash
+export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+export PATH="$JAVA_HOME/bin:$PATH"
+
 cd android
 mkdir -p secrets
 
-keytool -genkey -v \
+keytool -genkeypair -v \
   -keystore secrets/monprofperso-upload.jks \
   -keyalg RSA -keysize 2048 -validity 10000 \
   -alias upload
 ```
 
-| Question keytool | Valeur suggérée |
-|------------------|-----------------|
-| Mot de passe keystore | ⟨secret fort — gestionnaire de mots de passe⟩ |
-| Nom / prénom | ⟨Représentant légal ou raison sociale⟩ |
-| Unité organisationnelle | ⟨ex. Direction technique⟩ |
-| Organisation | ⟨Mon Prof Perso SAS⟩ |
-| Ville | Abidjan |
-| État / province | Lagunes |
-| Code pays | CI |
-
-Puis :
+Puis copier le modèle **sans commentaire sur la ligne** :
 
 ```bash
 cp keystore.properties.example keystore.properties
-# Éditer storePassword, keyPassword, vérifier storeFile et keyAlias
 ```
+
+Éditer `keystore.properties` : `storePassword`, `keyPassword`, vérifier `storeFile` et `keyAlias`.
 
 | Fichier | Versionné Git ? |
 |---------|-----------------|
@@ -57,6 +63,17 @@ cp keystore.properties.example keystore.properties
 ---
 
 ## 3. Générer l'App Bundle
+
+### Prérequis Java (macOS)
+
+Si `Unable to locate a Java Runtime` :
+
+```bash
+export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+export PATH="$JAVA_HOME/bin:$PATH"
+```
+
+Les scripts `./scripts/setup-android-signing.sh` et `./scripts/build-android-bundle.sh` le font automatiquement.
 
 ### Script (recommandé)
 
@@ -191,9 +208,8 @@ Compte test review Google : voir `docs/PLAY-STORE-ANDROID.md` § 7.
 ## Résumé
 
 ```bash
-# Première fois
-cd android && mkdir -p secrets && keytool ... -keystore secrets/monprofperso-upload.jks -alias upload
-cp keystore.properties.example keystore.properties   # éditer les mots de passe
+# Première fois (mot de passe keystore demandé au clavier)
+./scripts/setup-android-signing.sh
 
 # Chaque release
 ./scripts/build-android-bundle.sh
