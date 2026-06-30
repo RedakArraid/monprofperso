@@ -11,6 +11,10 @@ android/.gradle/
 android/build/
 android/app/build/
 android/local.properties
+android/keystore.properties
+android/secrets/
+*.jks
+*.keystore
 android/.idea/
 android/.kotlin/
 android/captures/

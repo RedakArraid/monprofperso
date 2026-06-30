@@ -59,3 +59,14 @@ app/src/main/java/ci/monprofperso/app/
 
 Les écrans sont **statiques/fidèles à la maquette** (pas de back-end) : les boutons
 naviguent mais les données sont celles de la maquette.
+
+## App Bundle (Google Play)
+
+Publication Play Store : **AAB signé** obligatoire.
+
+```bash
+# Voir docs/APP-BUNDLE-ANDROID.md
+./scripts/build-android-bundle.sh
+```
+
+Modèle secrets : `keystore.properties.example` → `keystore.properties` (gitignoré).
