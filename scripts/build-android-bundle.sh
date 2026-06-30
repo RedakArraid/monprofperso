@@ -31,8 +31,8 @@ fi
 
 echo "==> Java : $JAVA_HOME"
 
-echo "==> Build App Bundle (release)"
-./gradlew bundleRelease --no-daemon
+echo "==> Build App Bundle (release, clean)"
+./gradlew clean bundleRelease --no-daemon
 
 if [ ! -f "$OUT" ]; then
   echo "ERREUR: AAB introuvable à $OUT"

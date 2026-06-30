@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ci.monprofperso.app.data.Api
 import ci.monprofperso.app.data.LevelDto
+import ci.monprofperso.app.data.ProgramDto
 import ci.monprofperso.app.data.ResourceDto
 import ci.monprofperso.app.data.SubjectDto
 import ci.monprofperso.app.nav.NavActions

@@ -190,6 +190,8 @@ Compte test review Google : voir `docs/PLAY-STORE-ANDROID.md` § 7.
 | `SDK location not found` | Créer `android/local.properties` : `sdk.dir=...` |
 | Upload rejeté « signed with debug » | Configurer keystore release (§ 2) |
 | `versionCode already used` | Incrémenter `versionCode` dans `build.gradle.kts` |
+| `NoSuchFileException` … `AndroidManifest.xml` | Cache Gradle corrompu → `./gradlew clean bundleRelease` (inclus dans le script) |
+| Build bloqué / 0 % CPU longtemps | Tuer les Gradle zombies : `./gradlew --stop`, relancer le script |
 
 ---
 
