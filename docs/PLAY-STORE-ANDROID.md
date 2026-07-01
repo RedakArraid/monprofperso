@@ -27,10 +27,11 @@ Remplis les champs marqués **⟨…⟩** après immatriculation CEPICI / valida
 | Champ Play Console | Valeur |
 |--------------------|--------|
 | **Nom du package** | `ci.monprofperso.app` |
-| **VersionName** | `1.0` |
-| **VersionCode** | `1` *(incrémenter à chaque upload)* |
+| **VersionName** | `1.0.1` |
+| **VersionCode** | `2` *(incrémenter à chaque upload)* |
 | **minSdk** | 24 *(Android 7.0+)* |
-| **targetSdk** | 34 *(Android 14)* |
+| **targetSdk** | 35 *(Android 15 — exigence Play Console)* |
+| **compileSdk** | 35 |
 | **Langue par défaut de la fiche** | **Français (France)** ou **Français** |
 | **Pays de distribution** | **Côte d'Ivoire** (+ pays CEDEAO si souhaité) |
 | **Format de publication** | **Android App Bundle (AAB)** — obligatoire |

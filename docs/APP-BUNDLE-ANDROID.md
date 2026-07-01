@@ -13,7 +13,7 @@ Complète `docs/PLAY-STORE-ANDROID.md` (fiche store, Data safety, etc.).
 | **Nom du fichier généré** | `app-release.aab` |
 | **Chemin local** | `android/app/build/outputs/bundle/release/app-release.aab` |
 | **Package** | `ci.monprofperso.app` |
-| **Version actuelle** | `1.0` (versionCode **1**) |
+| **Version actuelle** | `1.0.1` (versionCode **2**) |
 
 ---
 
@@ -105,7 +105,9 @@ Lors de **Créer une version** → **App bundles** :
 |-------|-----------------|
 | **Fichier à téléverser** | `app-release.aab` |
 | **Nom du package** | `ci.monprofperso.app` *(auto-détecté)* |
-| **versionCode** | `1` *(incrémenter à chaque nouvelle version)* |
+| **versionCode** | `2` *(incrémenter à chaque nouvelle version)* |
+| **versionName** | `1.0.1` |
+| **targetSdk** | **35** *(Android 15 — exigence Play Console 2025)* |
 | **versionName** | `1.0` |
 | **Play App Signing** | **Activer** à la première upload |
 | **Clé upload** | Exporter certificat PEM si demandé : voir § 5 |
@@ -192,6 +194,8 @@ Compte test review Google : voir `docs/PLAY-STORE-ANDROID.md` § 7.
 | `versionCode already used` | Incrémenter `versionCode` dans `build.gradle.kts` |
 | `NoSuchFileException` … `AndroidManifest.xml` | Cache Gradle corrompu → `./gradlew clean bundleRelease` (inclus dans le script) |
 | Build bloqué / 0 % CPU longtemps | Tuer les Gradle zombies : `./gradlew --stop`, relancer le script |
+| Avertissement symboles natifs Play | `ndk { debugSymbolLevel = "SYMBOL_TABLE" }` dans `defaultConfig` (déjà en place) |
+| Avertissement désobscurcissement | Normal si `isMinifyEnabled = false` — rien à uploader |
 
 ---
 

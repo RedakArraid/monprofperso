@@ -8,7 +8,7 @@ particuliers » (soutien scolaire à domicile / en ligne en Côte d'Ivoire).
 - **Navigation Compose** pour les 37 écrans
 - Polices **Schibsted Grotesk** (titres) + **Hanken Grotesk** (corps), bundlées dans `res/font`
 - Icônes : **Material Icons Extended** (équivalents des Phosphor de la maquette)
-- `minSdk = 24`, `targetSdk = 34`
+- `minSdk = 24`, `targetSdk = 35`, `compileSdk = 35`
 
 ## Ouvrir / compiler
 ✅ **Build vérifié** : `app-debug.apk` produit et lancé sur émulateur (écran Bienvenue

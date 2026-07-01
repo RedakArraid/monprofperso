@@ -15,15 +15,19 @@ val keystoreProperties = Properties().apply {
 
 android {
     namespace = "ci.monprofperso.app"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "ci.monprofperso.app"
         minSdk = 24
-        targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        targetSdk = 35
+        versionCode = 2
+        versionName = "1.0.1"
         vectorDrawables { useSupportLibrary = true }
+        ndk {
+            // Symboles natifs inclus dans l'AAB pour Play Console (crash/ANR).
+            debugSymbolLevel = "SYMBOL_TABLE"
+        }
     }
 
     signingConfigs {

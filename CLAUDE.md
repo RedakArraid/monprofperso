@@ -167,7 +167,7 @@ docker compose down -v   # reset complet (re-seed au prochain up)
 ```
 
 ## Android (`android/`)
-- Kotlin + Jetpack Compose (BOM 2024.09), `compileSdk 34 / minSdk 24 / targetSdk 34`.
+- Kotlin + Jetpack Compose (BOM 2024.09), `compileSdk 35 / minSdk 24 / targetSdk 35`.
 - Namespace / applicationId : `ci.monprofperso.app`.
 - Arbo : `nav/` (NavGraph, NavActions), `data/` (ViewModels + `MonProfPersoApi` Retrofit
   + `ApiModels` + `AppState`), `ui/screens/`, `ui/components/`, `ui/theme/`.
