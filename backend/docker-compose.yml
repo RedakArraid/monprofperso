@@ -74,6 +74,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
       PAYSTACK_SECRET_KEY: ${PAYSTACK_SECRET_KEY:-}
       PAYSTACK_PUBLIC_KEY: ${PAYSTACK_PUBLIC_KEY:-}
+      PAYSTACK_MOCK: ${PAYSTACK_MOCK:-}
       S3_ENDPOINT: ${S3_ENDPOINT:-minio}
       S3_PORT: ${S3_PORT:-9000}
       S3_USE_SSL: ${S3_USE_SSL:-false}
