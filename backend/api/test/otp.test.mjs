@@ -91,3 +91,48 @@ test("POST /api/auth/request-otp e-mail sans adresse -> 400", async () => {
   const { status } = await post("/api/auth/request-otp", { channel: "email" });
   assert.equal(status, 400);
 });
+
+test("POST /api/admin/otp-settings/test -> 401 sans token", async () => {
+  const { status } = await post("/api/admin/otp-settings/test", {
+    channel: "whatsapp",
+    phone: "+2250758421903",
+  });
+  assert.equal(status, 401);
+});
+
+test("POST /api/admin/otp-settings/test WhatsApp sans téléphone -> 400", async () => {
+  const token = await adminToken();
+  const { status, body } = await post(
+    "/api/admin/otp-settings/test",
+    { channel: "whatsapp" },
+    token
+  );
+  assert.equal(status, 400);
+  assert.equal(body.error, "validation_error");
+});
+
+test("POST /api/admin/otp-settings/test e-mail sans adresse -> 400", async () => {
+  const token = await adminToken();
+  const { status, body } = await post(
+    "/api/admin/otp-settings/test",
+    { channel: "email" },
+    token
+  );
+  assert.equal(status, 400);
+  assert.equal(body.error, "validation_error");
+});
+
+test("POST /api/admin/otp-settings/test sans URL OpenWA -> 400", async () => {
+  const token = await adminToken();
+  const { status, body } = await post(
+    "/api/admin/otp-settings/test",
+    {
+      channel: "whatsapp",
+      phone: "+2250758421903",
+      settings: { otp_whatsapp_base_url: "" },
+    },
+    token
+  );
+  assert.equal(status, 400);
+  assert.equal(body.field, "otp_whatsapp_base_url");
+});

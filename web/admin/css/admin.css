@@ -113,10 +113,20 @@ code { background: var(--green-soft); color: var(--green); padding: 1px 6px; bor
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field.full { grid-column: 1 / -1; }
 .field label { font-size: 12.5px; font-weight: 600; color: var(--ink-soft); }
-.check-row { display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 600; }
-.check-row input { width: 18px; height: 18px; accent-color: var(--green); }
-.field-hint { margin: 6px 0 0; font-size: 12px; color: var(--muted); line-height: 1.45; }
-.field input, .field select, .field textarea {
+.field-check { grid-column: 1 / -1; }
+.check-row {
+  display: flex; align-items: flex-start; gap: 10px; cursor: pointer;
+  font-weight: 600; font-size: 13.5px; color: var(--ink);
+}
+.check-row input[type="checkbox"],
+.check-row input[type="radio"] {
+  width: 18px; height: 18px; margin-top: 2px; flex: none;
+  accent-color: var(--green); cursor: pointer;
+}
+.field-hint { margin: 4px 0 0 28px; font-size: 12px; color: var(--muted); line-height: 1.45; }
+.field input:not([type="checkbox"]):not([type="radio"]),
+.field select,
+.field textarea {
   border: 1.5px solid var(--border); border-radius: 11px; padding: 10px 12px; font-size: 14px; outline: none; background: #fff; width: 100%;
 }
 .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--green); }
@@ -139,6 +149,19 @@ code { background: var(--green-soft); color: var(--green); padding: 1px 6px; bor
 .pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 7px; }
 .pill.green { background: var(--green-soft); color: var(--green); }
 .pill.orange { background: var(--orange-soft); color: var(--orange); }
+.otp-status {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  padding: 14px 16px; border-radius: 14px; margin-bottom: 20px;
+  background: var(--green-soft); border: 1px solid #c5ddd2;
+}
+.otp-status.demo { background: var(--orange-soft); border-color: #f0d4bc; }
+.otp-status strong { font-size: 14px; }
+.otp-status .muted { font-size: 13px; color: var(--muted); }
+.test-row {
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;
+  margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border);
+}
+.test-row .field { flex: 1; min-width: 200px; margin: 0; }
 .section-head { display: flex; align-items: center; justify-content: space-between; margin: 6px 0 14px; }
 .section-head h3 { font-size: 18px; }
 .count { font-size: 12px; font-weight: 700; color: var(--green); background: var(--green-soft); padding: 3px 9px; border-radius: 9px; }

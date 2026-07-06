@@ -959,8 +959,8 @@ async function renderSocial(root) {
  * Vue : OTP & messagerie (WhatsApp OpenWA + SMTP)
  * ===================================================================== */
 function boolField(id, label, hint) {
-  return `<div class="field full">
-    <label class="check-row">
+  return `<div class="field field-check">
+    <label class="check-row" for="${id}">
       <input type="checkbox" id="${id}">
       <span>${esc(label)}</span>
     </label>
@@ -968,23 +968,66 @@ function boolField(id, label, hint) {
   </div>`;
 }
 
+function otpStatusBanner(s) {
+  const demo = s.otp_demo_mode === "true" || s.otp_demo_mode === "1" || s.otp_enabled !== "true";
+  const wa = s.otp_whatsapp_enabled === "true" && s.otp_whatsapp_base_url?.trim();
+  const mail = s.otp_smtp_enabled === "true" && s.otp_smtp_host?.trim();
+  const pills = [];
+  if (demo) pills.push('<span class="pill orange">Mode démo</span>');
+  else pills.push('<span class="pill green">OTP réel</span>');
+  if (wa) pills.push('<span class="pill green">WhatsApp</span>');
+  if (mail) pills.push('<span class="pill green">E-mail</span>');
+  if (!wa && !mail) pills.push('<span class="pill orange">Aucun canal configuré</span>');
+  return `<div class="otp-status${demo ? " demo" : ""}">
+    <strong>${demo ? "Mode démo actif" : "OTP réel activé"}</strong>
+    <span class="muted">${demo ? "Tout code est accepté sans envoi." : "Les codes sont vérifiés et envoyés."}</span>
+    ${pills.join(" ")}
+  </div>`;
+}
+
+function collectOtpForm() {
+  const boolVal = (id) => {
+    const el = $(id);
+    return el?.checked ? "true" : "false";
+  };
+  return {
+    otp_enabled: boolVal("#otp_enabled"),
+    otp_demo_mode: boolVal("#otp_demo_mode"),
+    otp_code_ttl_minutes: $("#otp_code_ttl_minutes")?.value.trim() ?? "",
+    otp_default_channel: $("#otp_default_channel")?.value ?? "whatsapp",
+    otp_whatsapp_enabled: boolVal("#otp_whatsapp_enabled"),
+    otp_whatsapp_base_url: $("#otp_whatsapp_base_url")?.value.trim() ?? "",
+    otp_whatsapp_api_key: $("#otp_whatsapp_api_key")?.value ?? "",
+    otp_smtp_enabled: boolVal("#otp_smtp_enabled"),
+    otp_smtp_host: $("#otp_smtp_host")?.value.trim() ?? "",
+    otp_smtp_port: $("#otp_smtp_port")?.value.trim() ?? "",
+    otp_smtp_secure: boolVal("#otp_smtp_secure"),
+    otp_smtp_user: $("#otp_smtp_user")?.value.trim() ?? "",
+    otp_smtp_pass: $("#otp_smtp_pass")?.value ?? "",
+    otp_smtp_from: $("#otp_smtp_from")?.value.trim() ?? "",
+  };
+}
+
 async function renderOtp(root) {
-  const s = await api("/api/admin/otp-settings");
+  const [s, pub] = await Promise.all([
+    api("/api/admin/otp-settings"),
+    api("/api/settings").catch(() => ({})),
+  ]);
   const setCheck = (id, on) => { const el = $(id); if (el) el.checked = on === "true" || on === "1"; };
   root.innerHTML = `
+    ${otpStatusBanner(s)}
     <div class="card">
-      <h3>OTP &amp; messagerie</h3>
-      <p class="card-sub">Configurez l'envoi des codes de vérification par WhatsApp (instance OpenWA)
-      ou par e-mail (SMTP). En mode démo, tout code est accepté sans envoi réel.</p>
+      <h3>Paramètres généraux</h3>
+      <p class="card-sub">Activez l'OTP réel uniquement après avoir testé WhatsApp et/ou SMTP ci-dessous.</p>
       <div class="form-grid">
         ${boolField("otp_enabled", "Activer l'OTP réel", "Désactivé = mode démo (comportement actuel des apps).")}
         ${boolField("otp_demo_mode", "Mode démo (accepter tout code)", "Utile pour les tests ; désactivez en production.")}
         <div class="field">
-          <label>Durée de validité (minutes)</label>
+          <label for="otp_code_ttl_minutes">Durée de validité (minutes)</label>
           <input id="otp_code_ttl_minutes" type="number" min="1" max="60" value="${esc(s.otp_code_ttl_minutes || "10")}">
         </div>
         <div class="field">
-          <label>Canal par défaut</label>
+          <label for="otp_default_channel">Canal par défaut</label>
           <select id="otp_default_channel">
             <option value="whatsapp">WhatsApp</option>
             <option value="email">E-mail</option>
@@ -999,13 +1042,20 @@ async function renderOtp(root) {
       <div class="form-grid">
         ${boolField("otp_whatsapp_enabled", "Activer WhatsApp")}
         <div class="field full">
-          <label>URL de base OpenWA</label>
+          <label for="otp_whatsapp_base_url">URL de base OpenWA</label>
           <input id="otp_whatsapp_base_url" value="${esc(s.otp_whatsapp_base_url || "")}" placeholder="http://localhost:3000">
         </div>
         <div class="field full">
-          <label>Clé API / Bearer (optionnel)</label>
+          <label for="otp_whatsapp_api_key">Clé API / Bearer (optionnel)</label>
           <input id="otp_whatsapp_api_key" type="password" value="${esc(s.otp_whatsapp_api_key || "")}" placeholder="Laisser vide pour ne pas changer">
         </div>
+      </div>
+      <div class="test-row">
+        <div class="field">
+          <label for="test_whatsapp_phone">Numéro de test</label>
+          <input id="test_whatsapp_phone" type="tel" placeholder="+2250700000000" value="${esc(pub.contact_phone || "")}">
+        </div>
+        <button type="button" class="btn btn-ghost" id="testWhatsapp">Tester WhatsApp</button>
       </div>
     </div>
     <div class="card">
@@ -1013,28 +1063,37 @@ async function renderOtp(root) {
       <div class="form-grid">
         ${boolField("otp_smtp_enabled", "Activer l'e-mail")}
         <div class="field">
-          <label>Serveur SMTP</label>
+          <label for="otp_smtp_host">Serveur SMTP</label>
           <input id="otp_smtp_host" value="${esc(s.otp_smtp_host || "")}" placeholder="smtp.example.com">
         </div>
         <div class="field">
-          <label>Port</label>
+          <label for="otp_smtp_port">Port</label>
           <input id="otp_smtp_port" value="${esc(s.otp_smtp_port || "587")}">
         </div>
         ${boolField("otp_smtp_secure", "Connexion TLS directe (port 465)")}
         <div class="field">
-          <label>Utilisateur SMTP</label>
+          <label for="otp_smtp_user">Utilisateur SMTP</label>
           <input id="otp_smtp_user" value="${esc(s.otp_smtp_user || "")}">
         </div>
         <div class="field">
-          <label>Mot de passe SMTP</label>
+          <label for="otp_smtp_pass">Mot de passe SMTP</label>
           <input id="otp_smtp_pass" type="password" value="${esc(s.otp_smtp_pass || "")}" placeholder="Laisser vide pour ne pas changer">
         </div>
         <div class="field full">
-          <label>Expéditeur (From)</label>
+          <label for="otp_smtp_from">Expéditeur (From)</label>
           <input id="otp_smtp_from" value="${esc(s.otp_smtp_from || "")}" placeholder="Mon Prof Perso &lt;noreply@monprofperso.com&gt;">
         </div>
       </div>
-      <div class="form-actions"><button class="btn btn-primary" id="saveOtp">Enregistrer</button></div>
+      <div class="test-row">
+        <div class="field">
+          <label for="test_smtp_email">Adresse e-mail de test</label>
+          <input id="test_smtp_email" type="email" placeholder="vous@example.com" value="${esc(pub.contact_email || "")}">
+        </div>
+        <button type="button" class="btn btn-ghost" id="testSmtp">Tester l'e-mail</button>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn btn-primary" id="saveOtp">Enregistrer la configuration</button>
     </div>`;
 
   setCheck("#otp_enabled", s.otp_enabled);
@@ -1044,27 +1103,34 @@ async function renderOtp(root) {
   setCheck("#otp_smtp_secure", s.otp_smtp_secure);
   $("#otp_default_channel").value = s.otp_default_channel === "email" ? "email" : "whatsapp";
 
-  const boolVal = (id) => ($(id).checked ? "true" : "false");
+  async function runTest(btn, channel, destinationId, label) {
+    const dest = $(destinationId)?.value.trim();
+    if (!dest) { toast(`Indiquez ${label} pour le test.`, true); return; }
+    const prev = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "Test en cours…";
+    try {
+      const body = { channel, settings: collectOtpForm() };
+      if (channel === "whatsapp") body.phone = normalizePhone(dest);
+      else body.email = dest;
+      const r = await api("/api/admin/otp-settings/test", { method: "POST", body });
+      toast(r.message || "Test réussi");
+    } catch (e) {
+      toast(e.message || "Échec du test", true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = prev;
+    }
+  }
+
+  $("#testWhatsapp").addEventListener("click", () =>
+    runTest($("#testWhatsapp"), "whatsapp", "#test_whatsapp_phone", "un numéro"));
+  $("#testSmtp").addEventListener("click", () =>
+    runTest($("#testSmtp"), "email", "#test_smtp_email", "une adresse e-mail"));
 
   $("#saveOtp").addEventListener("click", async () => {
-    const body = {
-      otp_enabled: boolVal("#otp_enabled"),
-      otp_demo_mode: boolVal("#otp_demo_mode"),
-      otp_code_ttl_minutes: $("#otp_code_ttl_minutes").value.trim(),
-      otp_default_channel: $("#otp_default_channel").value,
-      otp_whatsapp_enabled: boolVal("#otp_whatsapp_enabled"),
-      otp_whatsapp_base_url: $("#otp_whatsapp_base_url").value.trim(),
-      otp_whatsapp_api_key: $("#otp_whatsapp_api_key").value,
-      otp_smtp_enabled: boolVal("#otp_smtp_enabled"),
-      otp_smtp_host: $("#otp_smtp_host").value.trim(),
-      otp_smtp_port: $("#otp_smtp_port").value.trim(),
-      otp_smtp_secure: boolVal("#otp_smtp_secure"),
-      otp_smtp_user: $("#otp_smtp_user").value.trim(),
-      otp_smtp_pass: $("#otp_smtp_pass").value,
-      otp_smtp_from: $("#otp_smtp_from").value.trim(),
-    };
     try {
-      await api("/api/admin/otp-settings", { method: "PUT", body });
+      await api("/api/admin/otp-settings", { method: "PUT", body: collectOtpForm() });
       toast("Configuration OTP enregistrée");
       renderOtp(root);
     } catch (e) { toast(e.message, true); }

@@ -211,3 +211,100 @@ export function mergeOtpSettingsBody(
   }
   return updates;
 }
+
+/** Fusionne formulaire admin + config sauvegardée (secrets masqués → valeur en base). */
+export function mergeOtpSettingsForTest(
+  form: Record<string, unknown> | undefined,
+  saved: Record<string, string>
+): Record<string, string> {
+  const merged = { ...saved };
+  const src = form ?? {};
+  for (const key of OTP_SETTING_KEYS) {
+    const raw = src[key];
+    if (raw === undefined || raw === null) continue;
+    if (typeof raw !== "string") continue;
+    const v = raw.trim();
+    if (SECRET_KEYS.has(key)) {
+      if (!v || v === OTP_SECRET_MASK) continue;
+      merged[key] = v;
+      continue;
+    }
+    merged[key] = v;
+  }
+  return merged;
+}
+
+const TEST_WHATSAPP_MSG = "Test Mon Prof Perso — intégration WhatsApp OK.";
+const TEST_EMAIL_SUBJECT = "Test Mon Prof Perso — intégration e-mail";
+const TEST_EMAIL_BODY =
+  "Bonjour,\n\nCeci est un message de test de la configuration SMTP Mon Prof Perso.\n\n— Mon Prof Perso";
+
+export async function testWhatsApp(settings: Record<string, string>, phone: string): Promise<void> {
+  const base = settings.otp_whatsapp_base_url?.trim();
+  if (!base) throw new ValidationError("otp_whatsapp_base_url", "URL OpenWA requise");
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (settings.otp_whatsapp_api_key?.trim()) {
+    headers.Authorization = `Bearer ${settings.otp_whatsapp_api_key.trim()}`;
+  }
+  const res = await fetch(`${base.replace(/\/$/, "")}/sendText`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ args: { to: toWhatsAppId(phone), content: TEST_WHATSAPP_MSG } }),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`OpenWA sendText ${res.status}${detail ? `: ${detail.slice(0, 200)}` : ""}`);
+  }
+}
+
+export async function testSmtp(settings: Record<string, string>, email: string): Promise<void> {
+  const host = settings.otp_smtp_host?.trim();
+  if (!host) throw new ValidationError("otp_smtp_host", "serveur SMTP requis");
+  const port = parseInt(settings.otp_smtp_port || "587", 10) || 587;
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure: isTrue(settings.otp_smtp_secure),
+    auth: settings.otp_smtp_user?.trim()
+      ? { user: settings.otp_smtp_user.trim(), pass: settings.otp_smtp_pass }
+      : undefined,
+  });
+  await transporter.sendMail({
+    from: settings.otp_smtp_from?.trim() || settings.otp_smtp_user?.trim(),
+    to: email,
+    subject: TEST_EMAIL_SUBJECT,
+    text: TEST_EMAIL_BODY,
+  });
+}
+
+export async function runOtpIntegrationTest(opts: {
+  channel: OtpChannel;
+  phone?: string;
+  email?: string;
+  formSettings?: Record<string, unknown>;
+}): Promise<{ ok: true; channel: OtpChannel; destination: string; message: string }> {
+  const saved = await loadOtpSettings();
+  const settings = mergeOtpSettingsForTest(opts.formSettings, saved);
+
+  if (opts.channel === "whatsapp") {
+    const phone = opts.phone?.trim();
+    if (!phone) throw new ValidationError("phone", "téléphone requis pour le test WhatsApp");
+    await testWhatsApp(settings, phone);
+    return {
+      ok: true,
+      channel: "whatsapp",
+      destination: phone,
+      message: "Message de test WhatsApp envoyé.",
+    };
+  }
+
+  const email = opts.email?.trim().toLowerCase();
+  if (!email) throw new ValidationError("email", "e-mail requis pour le test SMTP");
+  await testSmtp(settings, email);
+  return {
+    ok: true,
+    channel: "email",
+    destination: email,
+    message: "E-mail de test envoyé.",
+  };
+}

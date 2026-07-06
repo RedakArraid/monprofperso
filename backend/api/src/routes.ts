@@ -12,6 +12,7 @@ import {
   getOtpChannels,
   mergeOtpSettingsBody,
   saveOtpSettings,
+  runOtpIntegrationTest,
 } from "./otp";
 
 export const api = Router();
@@ -836,6 +837,33 @@ admin.put("/otp-settings", wrap(async (req, res) => {
   const updates = mergeOtpSettingsBody(req.body ?? {}, current);
   await saveOtpSettings(updates, currentUserId(res));
   res.json(maskOtpSettings(await loadOtpSettings()));
+}));
+
+admin.post("/otp-settings/test", wrap(async (req, res) => {
+  const b = req.body ?? {};
+  const channel = optionalEnum(b, "channel", OTP_CHANNELS);
+  if (!channel) throw new ValidationError("channel", "channel requis (whatsapp ou email)");
+  const phone = optionalPhone(b);
+  const email = optionalEmail(b);
+  const formSettings =
+    b.settings && typeof b.settings === "object" && !Array.isArray(b.settings)
+      ? (b.settings as Record<string, unknown>)
+      : undefined;
+  try {
+    const result = await runOtpIntegrationTest({
+      channel: channel as "whatsapp" | "email",
+      phone,
+      email,
+      formSettings,
+    });
+    res.json(result);
+  } catch (e: any) {
+    if (e instanceof ValidationError) throw e;
+    res.status(502).json({
+      error: "provider_error",
+      message: String(e?.message ?? "échec de l'envoi de test").slice(0, 300),
+    });
+  }
 }));
 
 // --- Professeurs : création / modification / suppression ---
