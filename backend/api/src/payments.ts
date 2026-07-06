@@ -28,14 +28,11 @@ function normalizeCiPhone(phone: string): string {
   return digits;
 }
 
-/** Paystack CI : orange, mtn, moov — Wave non supporté hors mock. */
+/** Paystack CI : orange, mtn, wave (cf. support Paystack). */
 function toPaystackProvider(provider: PaymentProvider): string {
-  if (provider === "wave") {
-    if (isMockMode()) return "wave";
-    throw new ValidationError("provider", "Wave non disponible via Paystack pour le moment");
+  if (provider === "orange" || provider === "mtn" || provider === "wave") {
+    return provider;
   }
-  if (provider === "orange") return "orange";
-  if (provider === "mtn") return "mtn";
   throw new ValidationError("provider", "fournisseur invalide (orange, mtn, wave)");
 }
 
