@@ -9,6 +9,8 @@ export const OTP_SETTING_KEYS = [
   "otp_whatsapp_enabled",
   "otp_whatsapp_base_url",
   "otp_whatsapp_api_key",
+  "otp_whatsapp_session_id",
+  "otp_whatsapp_session_in_path",
   "otp_smtp_enabled",
   "otp_smtp_host",
   "otp_smtp_port",
@@ -42,6 +44,41 @@ function generateCode(length = 6): string {
 
 function toWhatsAppId(phone: string): string {
   return `${phone.replace(/\D/g, "")}@c.us`;
+}
+
+/** OpenWA EASY API — URL POST sendText (cf. docs.openwa.dev middleware). */
+export function openWaSendTextUrl(settings: Record<string, string>): string {
+  const base = settings.otp_whatsapp_base_url.trim().replace(/\/$/, "");
+  const sessionId = settings.otp_whatsapp_session_id?.trim();
+  if (isTrue(settings.otp_whatsapp_session_in_path) && sessionId) {
+    return `${base}/${encodeURIComponent(sessionId)}/sendText`;
+  }
+  return `${base}/sendText`;
+}
+
+/** OpenWA attend la clé API en Authorization (souvent sans préfixe Bearer). */
+function openWaAuthHeaders(apiKey: string | undefined): Record<string, string> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const key = apiKey?.trim();
+  if (key) headers.Authorization = key;
+  return headers;
+}
+
+async function postOpenWaSendText(
+  settings: Record<string, string>,
+  to: string,
+  content: string
+): Promise<void> {
+  const url = openWaSendTextUrl(settings);
+  const res = await fetch(url, {
+    method: "POST",
+    headers: openWaAuthHeaders(settings.otp_whatsapp_api_key),
+    body: JSON.stringify({ args: { to: toWhatsAppId(to), content } }),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`OpenWA sendText ${res.status}${detail ? `: ${detail.slice(0, 200)}` : ""}`);
+  }
 }
 
 export async function loadOtpSettings(): Promise<Record<string, string>> {
@@ -92,21 +129,8 @@ export async function getOtpChannels() {
 }
 
 async function sendWhatsApp(settings: Record<string, string>, phone: string, code: string, ttl: number) {
-  const base = settings.otp_whatsapp_base_url.trim().replace(/\/$/, "");
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (settings.otp_whatsapp_api_key.trim()) {
-    headers.Authorization = `Bearer ${settings.otp_whatsapp_api_key.trim()}`;
-  }
   const content = `Votre code Mon Prof Perso : ${code}. Valide ${ttl} minute${ttl > 1 ? "s" : ""}. Ne le partagez pas.`;
-  const res = await fetch(`${base}/sendText`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ args: { to: toWhatsAppId(phone), content } }),
-  });
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`OpenWA sendText ${res.status}${detail ? `: ${detail.slice(0, 200)}` : ""}`);
-  }
+  await postOpenWaSendText(settings, phone, content);
 }
 
 async function sendEmail(settings: Record<string, string>, email: string, code: string, ttl: number) {
@@ -240,21 +264,13 @@ const TEST_EMAIL_BODY =
   "Bonjour,\n\nCeci est un message de test de la configuration SMTP Mon Prof Perso.\n\n— Mon Prof Perso";
 
 export async function testWhatsApp(settings: Record<string, string>, phone: string): Promise<void> {
-  const base = settings.otp_whatsapp_base_url?.trim();
-  if (!base) throw new ValidationError("otp_whatsapp_base_url", "URL OpenWA requise");
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (settings.otp_whatsapp_api_key?.trim()) {
-    headers.Authorization = `Bearer ${settings.otp_whatsapp_api_key.trim()}`;
+  if (!settings.otp_whatsapp_base_url?.trim()) {
+    throw new ValidationError("otp_whatsapp_base_url", "URL OpenWA requise");
   }
-  const res = await fetch(`${base.replace(/\/$/, "")}/sendText`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ args: { to: toWhatsAppId(phone), content: TEST_WHATSAPP_MSG } }),
-  });
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`OpenWA sendText ${res.status}${detail ? `: ${detail.slice(0, 200)}` : ""}`);
+  if (isTrue(settings.otp_whatsapp_session_in_path) && !settings.otp_whatsapp_session_id?.trim()) {
+    throw new ValidationError("otp_whatsapp_session_id", "session ID requis (chemin /{sessionId}/sendText)");
   }
+  await postOpenWaSendText(settings, phone, TEST_WHATSAPP_MSG);
 }
 
 export async function testSmtp(settings: Record<string, string>, email: string): Promise<void> {

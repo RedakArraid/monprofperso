@@ -534,6 +534,7 @@ private val OTP_BOOL_KEYS = listOf(
     "otp_enabled" to "Activer l'OTP réel",
     "otp_demo_mode" to "Mode démo (accepter tout code)",
     "otp_whatsapp_enabled" to "Activer WhatsApp",
+    "otp_whatsapp_session_in_path" to "Session ID dans l'URL OpenWA",
     "otp_smtp_enabled" to "Activer l'e-mail",
     "otp_smtp_secure" to "Connexion TLS directe (port 465)",
 )
@@ -581,6 +582,7 @@ fun AdminOtpScreen(nav: NavActions) {
             listOf(
                 "otp_code_ttl_minutes" to "Durée validité (min)",
                 "otp_whatsapp_base_url" to "URL OpenWA",
+                "otp_whatsapp_session_id" to "Session ID OpenWA",
                 "otp_whatsapp_api_key" to "Clé API OpenWA",
                 "otp_smtp_host" to "Serveur SMTP",
                 "otp_smtp_port" to "Port SMTP",

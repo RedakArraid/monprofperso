@@ -593,6 +593,7 @@ private let otpBoolKeys: [(key: String, label: String)] = [
     ("otp_enabled", "Activer l'OTP réel"),
     ("otp_demo_mode", "Mode démo (accepter tout code)"),
     ("otp_whatsapp_enabled", "Activer WhatsApp"),
+    ("otp_whatsapp_session_in_path", "Session ID dans l'URL OpenWA"),
     ("otp_smtp_enabled", "Activer l'e-mail"),
     ("otp_smtp_secure", "Connexion TLS directe (port 465)"),
 ]
@@ -625,6 +626,7 @@ struct AdminOtpScreen: View {
 
                     otpField("otp_code_ttl_minutes", label: "Durée validité (min)")
                     otpField("otp_whatsapp_base_url", label: "URL OpenWA")
+                    otpField("otp_whatsapp_session_id", label: "Session ID OpenWA")
                     otpField("otp_whatsapp_api_key", label: "Clé API OpenWA", secure: true)
                     otpField("otp_smtp_host", label: "Serveur SMTP")
                     otpField("otp_smtp_port", label: "Port SMTP")

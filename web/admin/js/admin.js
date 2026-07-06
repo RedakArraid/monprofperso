@@ -998,6 +998,8 @@ function collectOtpForm() {
     otp_whatsapp_enabled: boolVal("#otp_whatsapp_enabled"),
     otp_whatsapp_base_url: $("#otp_whatsapp_base_url")?.value.trim() ?? "",
     otp_whatsapp_api_key: $("#otp_whatsapp_api_key")?.value ?? "",
+    otp_whatsapp_session_id: $("#otp_whatsapp_session_id")?.value.trim() ?? "",
+    otp_whatsapp_session_in_path: boolVal("#otp_whatsapp_session_in_path"),
     otp_smtp_enabled: boolVal("#otp_smtp_enabled"),
     otp_smtp_host: $("#otp_smtp_host")?.value.trim() ?? "",
     otp_smtp_port: $("#otp_smtp_port")?.value.trim() ?? "",
@@ -1038,16 +1040,22 @@ async function renderOtp(root) {
     <div class="card">
       <h3>WhatsApp (OpenWA)</h3>
       <p class="card-sub">URL de base de votre instance OpenWA (ex. <code>http://openwa:3000</code>).
-      L'API appelle <code>POST /sendText</code> avec le format OpenWA standard.</p>
+      Avec session ID dans le chemin : <code>POST /{sessionId}/sendText</code> (recommandé OpenWA).
+      Sans session : <code>POST /sendText</code>.</p>
       <div class="form-grid">
         ${boolField("otp_whatsapp_enabled", "Activer WhatsApp")}
         <div class="field full">
           <label for="otp_whatsapp_base_url">URL de base OpenWA</label>
           <input id="otp_whatsapp_base_url" value="${esc(s.otp_whatsapp_base_url || "")}" placeholder="http://localhost:3000">
         </div>
+        <div class="field">
+          <label for="otp_whatsapp_session_id">Session ID OpenWA</label>
+          <input id="otp_whatsapp_session_id" value="${esc(s.otp_whatsapp_session_id || "")}" placeholder="session ou monprofperso">
+        </div>
+        ${boolField("otp_whatsapp_session_in_path", "Session ID dans l'URL (/{sessionId}/sendText)", "Coché = mode middleware OpenWA avec --use-session-id-in-path.")}
         <div class="field full">
-          <label for="otp_whatsapp_api_key">Clé API / Bearer (optionnel)</label>
-          <input id="otp_whatsapp_api_key" type="password" value="${esc(s.otp_whatsapp_api_key || "")}" placeholder="Laisser vide pour ne pas changer">
+          <label for="otp_whatsapp_api_key">Clé API (Authorization)</label>
+          <input id="otp_whatsapp_api_key" type="password" value="${esc(s.otp_whatsapp_api_key || "")}" placeholder="Clé -k de wa-automate (laisser vide pour ne pas changer)">
         </div>
       </div>
       <div class="test-row">
@@ -1099,6 +1107,7 @@ async function renderOtp(root) {
   setCheck("#otp_enabled", s.otp_enabled);
   setCheck("#otp_demo_mode", s.otp_demo_mode);
   setCheck("#otp_whatsapp_enabled", s.otp_whatsapp_enabled);
+  setCheck("#otp_whatsapp_session_in_path", s.otp_whatsapp_session_in_path !== "false");
   setCheck("#otp_smtp_enabled", s.otp_smtp_enabled);
   setCheck("#otp_smtp_secure", s.otp_smtp_secure);
   $("#otp_default_channel").value = s.otp_default_channel === "email" ? "email" : "whatsapp";
