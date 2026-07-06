@@ -14,6 +14,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.CheckBox
+import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.ui.platform.LocalContext
@@ -522,6 +524,116 @@ fun AdminSocialScreen(nav: NavActions) {
             }
             Spacer(Modifier.height(20.dp))
         }
+    }
+}
+
+/* ====================================================================== *
+ * ÉCRAN ADMIN, OTP & MESSAGERIE (OpenWA + SMTP)
+ * ====================================================================== */
+private val OTP_BOOL_KEYS = listOf(
+    "otp_enabled" to "Activer l'OTP réel",
+    "otp_demo_mode" to "Mode démo (accepter tout code)",
+    "otp_whatsapp_enabled" to "Activer WhatsApp",
+    "otp_smtp_enabled" to "Activer l'e-mail",
+    "otp_smtp_secure" to "Connexion TLS directe (port 465)",
+)
+
+@Composable
+fun AdminOtpScreen(nav: NavActions) {
+    val scope = rememberCoroutineScope()
+    val values = remember { mutableStateMapOf<String, String>() }
+    var message by remember { mutableStateOf<String?>(null) }
+    var loaded by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        runCatching { Api.service.otpSettings() }.onSuccess { s ->
+            s.forEach { (k, v) -> values[k] = v }
+            loaded = true
+        }.onFailure { loaded = true }
+    }
+
+    fun isOn(key: String) = values[key] == "true" || values[key] == "1"
+    fun toggle(key: String) { values[key] = if (isOn(key)) "false" else "true" }
+
+    AkScreen(applyBottomInset = false) {
+        TopBar("OTP & messagerie", subtitle = "Espace administrateur", onBack = { nav.back() })
+        Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 22.dp).padding(top = 8.dp)) {
+            Text(
+                "Codes par WhatsApp (OpenWA) ou e-mail (SMTP). En mode démo, aucun envoi réel.",
+                fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted,
+            )
+            Spacer(Modifier.height(16.dp))
+            OTP_BOOL_KEYS.forEach { (key, label) ->
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { toggle(key) }
+                        .padding(vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        if (isOn(key)) Icons.Filled.CheckBox else Icons.Filled.CheckBoxOutlineBlank,
+                        null, tint = AkColors.Green, modifier = Modifier.size(22.dp),
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text(label, fontFamily = Hanken, fontSize = 13.5.sp, color = AkColors.Ink)
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            listOf(
+                "otp_code_ttl_minutes" to "Durée validité (min)",
+                "otp_whatsapp_base_url" to "URL OpenWA",
+                "otp_whatsapp_api_key" to "Clé API OpenWA",
+                "otp_smtp_host" to "Serveur SMTP",
+                "otp_smtp_port" to "Port SMTP",
+                "otp_smtp_user" to "Utilisateur SMTP",
+                "otp_smtp_pass" to "Mot de passe SMTP",
+                "otp_smtp_from" to "Expéditeur (From)",
+            ).forEach { (key, label) ->
+                Text(label, fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted)
+                Spacer(Modifier.height(6.dp))
+                AdminField(
+                    value = values[key] ?: "",
+                    onValueChange = { values[key] = it },
+                    placeholder = "",
+                )
+                Spacer(Modifier.height(12.dp))
+            }
+            Text("Canal par défaut", fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted)
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SegTabOtp("WhatsApp", values["otp_default_channel"] != "email", Modifier.weight(1f)) {
+                    values["otp_default_channel"] = "whatsapp"
+                }
+                SegTabOtp("E-mail", values["otp_default_channel"] == "email", Modifier.weight(1f)) {
+                    values["otp_default_channel"] = "email"
+                }
+            }
+            Spacer(Modifier.height(18.dp))
+            AddButton(enabled = loaded) {
+                scope.launch {
+                    runCatching { Api.service.updateOtpSettings(values.toMap()) }
+                        .onSuccess { message = "Configuration OTP enregistrée" }
+                        .onFailure { message = "Échec de l'enregistrement" }
+                }
+            }
+            message?.let {
+                Spacer(Modifier.height(16.dp))
+                Text(it, fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 12.5.sp, color = AkColors.Green)
+            }
+            Spacer(Modifier.height(20.dp))
+        }
+    }
+}
+
+@Composable
+private fun SegTabOtp(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Box(
+        modifier.clip(RoundedCornerShape(12.dp)).background(if (selected) AkColors.Green else AkColors.White)
+            .then(if (selected) Modifier else Modifier.border(1.dp, AkColors.Border, RoundedCornerShape(12.dp)))
+            .clickable { onClick() }.padding(vertical = 11.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, fontFamily = Hanken, fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
+            fontSize = 13.sp, color = if (selected) AkColors.White else AkColors.InkSoft)
     }
 }
 

@@ -25,7 +25,7 @@ enum Route: Hashable {
     // K, Reçus, aide, réglages & parrainage
     case helpFaq, settings, referral, emptyState, resources, legal
     // L, Espace administrateur
-    case adminCatalog, adminResources, adminLegal, adminSocial
+    case adminCatalog, adminResources, adminLegal, adminSocial, adminOtp
     // M, Visualiseur PDF in-app (URL + titre)
     case pdfViewer(url: String, title: String)
 }
@@ -68,6 +68,17 @@ final class Router: ObservableObject {
     @Published var bkProposedFrequency: String? = nil
     @Published var bkHasProposal = false
     @Published var bkReference = "AKW-2058"
+
+    // MARK: Session OTP (inscription / connexion)
+    @Published var authPhone = "0758421903"
+    @Published var authEmail = ""
+    @Published var authFullName = "Aya Koné"
+    @Published var authOtpChannel = "whatsapp"
+    @Published var otpDemo = true
+    @Published var otpCodeLength = 6
+    @Published var otpTtlMinutes = 10
+    @Published var otpWhatsappEnabled = false
+    @Published var otpEmailEnabled = false
 
     func startBooking(_ t: TeacherDTO) {
         bkTeacherId = t.id

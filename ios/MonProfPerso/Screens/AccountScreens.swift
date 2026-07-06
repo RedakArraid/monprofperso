@@ -229,6 +229,8 @@ struct AccountScreen: View {
                             accountRow("checkmark.shield.fill", "Gérer les documents légaux", badge: "Admin", bf: Ak.green, bb: Ak.greenSoft) { router.go(.adminLegal) }
                             rowDivider()
                             accountRow("square.and.arrow.up.fill", "Réseaux sociaux & contact", badge: "Admin", bf: Ak.green, bb: Ak.greenSoft) { router.go(.adminSocial) }
+                            rowDivider()
+                            accountRow("envelope.badge.fill", "OTP & messagerie", badge: "Admin", bf: Ak.green, bb: Ak.greenSoft) { router.go(.adminOtp) }
                         }
                     }.background(.white).clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: 18).stroke(Ak.border, lineWidth: 1)).padding(.top, 20)

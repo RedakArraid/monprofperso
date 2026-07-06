@@ -1,9 +1,18 @@
 import { Router } from "express";
 import { pool } from "./db";
-import { ValidationError, optionalString, optionalPhone, optionalEnum, optionalNumber, requiredString, requiredEnum } from "./validate";
+import { ValidationError, optionalString, optionalPhone, optionalEmail, optionalEnum, optionalNumber, requiredString, requiredEnum } from "./validate";
 import { optionalAuth, currentUserId, signJwt, requireAdmin, DEMO_USER } from "./auth";
 import { putFile, getFileStream, removeFile } from "./storage";
 import { registerTeacherApplicationRoutes } from "./teacherApplications";
+import {
+  createAndSendOtp,
+  verifyOtpCode,
+  loadOtpSettings,
+  maskOtpSettings,
+  getOtpChannels,
+  mergeOtpSettingsBody,
+  saveOtpSettings,
+} from "./otp";
 
 export const api = Router();
 
@@ -65,11 +74,59 @@ api.post("/auth/signup", wrap(async (req, res) => {
 
 api.post("/auth/verify-otp", wrap(async (req, res) => {
   const phone = optionalPhone(req.body);
+  const email = optionalEmail(req.body);
+  const code = optionalString(req.body, "code", { max: 10 });
+  const channels = await getOtpChannels();
+  const destination = email ?? phone;
+
+  if (!channels.demo) {
+    if (!destination) {
+      throw new ValidationError("phone", "téléphone ou e-mail requis");
+    }
+    if (!code?.trim()) {
+      throw new ValidationError("code", "code requis");
+    }
+    const ok = await verifyOtpCode(destination, code);
+    if (!ok) {
+      res.status(401).json({ error: "invalid_otp", message: "Code invalide ou expiré" });
+      return;
+    }
+  }
+
   const r = phone
     ? await pool.query("SELECT * FROM users WHERE phone=$1", [phone])
     : { rows: [] as any[] };
   const user = r.rows[0] ?? (await pool.query("SELECT * FROM users WHERE id=$1", [DEMO_USER])).rows[0];
-  res.json({ token: signJwt(user.id, user.role), verified: true });
+  res.json({ token: signJwt(user.id, user.role), verified: true, user });
+}));
+
+const OTP_CHANNELS = ["whatsapp", "email"] as const;
+
+api.get("/auth/otp-channels", wrap(async (_req, res) => {
+  res.json(await getOtpChannels());
+}));
+
+api.post("/auth/request-otp", wrap(async (req, res) => {
+  const phone = optionalPhone(req.body);
+  const email = optionalEmail(req.body);
+  const channels = await getOtpChannels();
+  const channel = (optionalEnum(req.body, "channel", OTP_CHANNELS) ?? channels.defaultChannel) as
+    | "whatsapp"
+    | "email";
+
+  if (channel === "email" && !email) {
+    throw new ValidationError("email", "e-mail requis pour l'envoi par mail");
+  }
+  if (channel === "whatsapp" && !phone) {
+    throw new ValidationError("phone", "téléphone requis pour WhatsApp");
+  }
+
+  const result = await createAndSendOtp({ phone, email, channel });
+  res.json({
+    ...result,
+    channel,
+    destination: channel === "email" ? email : phone,
+  });
 }));
 
 api.get("/me", wrap(async (_req, res) => {
@@ -767,6 +824,18 @@ admin.put("/settings", wrap(async (req, res) => {
   for (const k of SETTING_KEYS) out[k] = "";
   for (const row of r.rows) if (SETTING_KEYS.includes(row.key as any)) out[row.key] = row.value;
   res.json(out);
+}));
+
+// --- OTP : WhatsApp (OpenWA) + e-mail (SMTP) ---
+admin.get("/otp-settings", wrap(async (_req, res) => {
+  res.json(maskOtpSettings(await loadOtpSettings()));
+}));
+
+admin.put("/otp-settings", wrap(async (req, res) => {
+  const current = await loadOtpSettings();
+  const updates = mergeOtpSettingsBody(req.body ?? {}, current);
+  await saveOtpSettings(updates, currentUserId(res));
+  res.json(maskOtpSettings(await loadOtpSettings()));
 }));
 
 // --- Professeurs : création / modification / suppression ---

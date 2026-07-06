@@ -22,6 +22,17 @@ object AppState {
     var pdfUrl by mutableStateOf("")
     var pdfTitle by mutableStateOf("Document")
 
+    // --- Session OTP (inscription / connexion) ---
+    var authPhone by mutableStateOf("0758421903")
+    var authEmail by mutableStateOf("")
+    var authFullName by mutableStateOf("Aya Koné")
+    var authOtpChannel by mutableStateOf("whatsapp")
+    var otpDemo by mutableStateOf(true)
+    var otpCodeLength by mutableIntStateOf(6)
+    var otpTtlMinutes by mutableIntStateOf(10)
+    var otpWhatsappEnabled by mutableStateOf(false)
+    var otpEmailEnabled by mutableStateOf(false)
+
     // --- Brouillon de réservation (rempli depuis la fiche prof, lu par Réservation → Paiement → Confirmé) ---
     var bkTeacherId by mutableIntStateOf(1)
     var bkTeacherName by mutableStateOf("Koffi N'Guessan")

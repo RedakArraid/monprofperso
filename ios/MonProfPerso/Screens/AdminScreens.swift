@@ -585,3 +585,128 @@ struct AdminSocialScreen: View {
 private extension String {
     var trimmed: String { trimmingCharacters(in: .whitespacesAndNewlines) }
 }
+
+/* ====================================================================== *
+ * ÉCRAN ADMIN, OTP & MESSAGERIE (OpenWA + SMTP)
+ * ====================================================================== */
+private let otpBoolKeys: [(key: String, label: String)] = [
+    ("otp_enabled", "Activer l'OTP réel"),
+    ("otp_demo_mode", "Mode démo (accepter tout code)"),
+    ("otp_whatsapp_enabled", "Activer WhatsApp"),
+    ("otp_smtp_enabled", "Activer l'e-mail"),
+    ("otp_smtp_secure", "Connexion TLS directe (port 465)"),
+]
+
+struct AdminOtpScreen: View {
+    @EnvironmentObject var router: Router
+    @State private var values: [String: String] = [:]
+    @State private var loaded = false
+    @State private var message: String? = nil
+
+    var body: some View {
+        AkScreen {
+            TopBar(title: "OTP & messagerie", subtitle: "Espace administrateur", onBack: { router.back() })
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Codes par WhatsApp (OpenWA) ou e-mail (SMTP). En mode démo, aucun envoi réel.")
+                        .font(AkFont.regular(12.5)).foregroundColor(Ak.muted).padding(.bottom, 16)
+
+                    ForEach(otpBoolKeys, id: \.key) { f in
+                        HStack(spacing: 10) {
+                            Image(systemName: isOn(f.key) ? "checkmark.square.fill" : "square")
+                                .foregroundColor(Ak.green)
+                            Text(f.label).font(AkFont.regular(13.5)).foregroundColor(Ak.ink)
+                            Spacer()
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture { toggle(f.key) }
+                        .padding(.vertical, 8)
+                    }
+
+                    otpField("otp_code_ttl_minutes", label: "Durée validité (min)")
+                    otpField("otp_whatsapp_base_url", label: "URL OpenWA")
+                    otpField("otp_whatsapp_api_key", label: "Clé API OpenWA", secure: true)
+                    otpField("otp_smtp_host", label: "Serveur SMTP")
+                    otpField("otp_smtp_port", label: "Port SMTP")
+                    otpField("otp_smtp_user", label: "Utilisateur SMTP")
+                    otpField("otp_smtp_pass", label: "Mot de passe SMTP", secure: true)
+                    otpField("otp_smtp_from", label: "Expéditeur (From)")
+
+                    Text("Canal par défaut").font(AkFont.regular(12.5)).foregroundColor(Ak.muted).padding(.top, 8)
+                    HStack(spacing: 10) {
+                        otpSeg("WhatsApp", on: values["otp_default_channel"] != "email") { values["otp_default_channel"] = "whatsapp" }
+                        otpSeg("E-mail", on: values["otp_default_channel"] == "email") { values["otp_default_channel"] = "email" }
+                    }.padding(.top, 8)
+
+                    HStack { Spacer(); addButton(enabled: loaded, action: save) }.padding(.top, 18)
+                    if let message {
+                        Text(message).font(AkFont.semibold(12.5)).foregroundColor(Ak.green).padding(.top, 16)
+                    }
+                    Spacer(minLength: 20)
+                }
+                .padding(.horizontal, 22).padding(.top, 8)
+            }
+        }
+        .task { await reload() }
+    }
+
+    private func isOn(_ key: String) -> Bool { values[key] == "true" || values[key] == "1" }
+    private func toggle(_ key: String) { values[key] = isOn(key) ? "false" : "true" }
+
+    private func reload() async {
+        if let s = try? await ApiClient.shared.otpSettings() { values = s }
+        loaded = true
+    }
+
+    private func save() {
+        Task { @MainActor in
+            do { _ = try await ApiClient.shared.updateOtpSettings(values); message = "Configuration OTP enregistrée" }
+            catch { message = "Échec de l'enregistrement" }
+        }
+    }
+
+    private func otpField(_ key: String, label: String, secure: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label).font(AkFont.regular(12.5)).foregroundColor(Ak.muted)
+            Group {
+                if secure {
+                    SecureField("", text: binding(key))
+                } else {
+                    TextField("", text: binding(key))
+                }
+            }
+            .font(AkFont.regular(14)).foregroundColor(Ak.ink).tint(Ak.green)
+            .padding(.horizontal, 14).padding(.vertical, 13)
+            .background(.white).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Ak.border, lineWidth: 1))
+        }.padding(.top, 12)
+    }
+
+    private func binding(_ key: String) -> Binding<String> {
+        Binding(get: { values[key] ?? "" }, set: { values[key] = $0 })
+    }
+
+    private func otpSeg(_ label: String, on: Bool, action: @escaping () -> Void) -> some View {
+        Text(label)
+            .font(AkFont.semibold(13))
+            .foregroundColor(on ? .white : Ak.inkSoft)
+            .frame(maxWidth: .infinity).padding(.vertical, 11)
+            .background(on ? Ak.green : .white)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Ak.border, lineWidth: on ? 0 : 1))
+            .contentShape(Rectangle()).onTapGesture(perform: action)
+    }
+
+    private func addButton(enabled: Bool, action: @escaping () -> Void) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: "checkmark").font(.system(size: 13, weight: .bold))
+            Text("Enregistrer").font(AkFont.bold(13))
+        }
+        .foregroundColor(.white)
+        .padding(.horizontal, 16).padding(.vertical, 11)
+        .background(enabled ? Ak.green : Ak.border)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .contentShape(Rectangle())
+        .onTapGesture { if enabled { action() } }
+    }
+}

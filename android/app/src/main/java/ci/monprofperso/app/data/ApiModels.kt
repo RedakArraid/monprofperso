@@ -200,7 +200,24 @@ data class UserDto(
 
 data class AuthResponse(val token: String, val user: UserDto)
 
-data class VerifyResponse(val token: String, val verified: Boolean)
+data class VerifyResponse(val token: String, val verified: Boolean, val user: UserDto? = null)
+
+data class OtpChannelsDto(
+    val demo: Boolean,
+    val whatsapp: Boolean,
+    val email: Boolean,
+    val defaultChannel: String,
+    val codeLength: Int,
+    val ttlMinutes: Int,
+)
+
+data class RequestOtpResponse(
+    val sent: Boolean,
+    val demo: Boolean,
+    val expiresInMinutes: Int,
+    val channel: String? = null,
+    val destination: String? = null,
+)
 
 data class TeacherApplicationResultDto(
     val id: Int,

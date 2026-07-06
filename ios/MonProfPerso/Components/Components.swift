@@ -281,7 +281,11 @@ struct FieldDisplay: View {
 
 /// Champ téléphone avec drapeau ivoirien + indicatif.
 struct PhoneField: View {
-    var value: String = "07 58 42 19 03"
+    @Binding var value: String
+    init(value: Binding<String>) { _value = value }
+    init(value: String = "0758421903") {
+        _value = .constant(value)
+    }
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Numéro de téléphone").font(AkFont.semibold(12)).foregroundColor(Ak.muted)
@@ -297,8 +301,14 @@ struct PhoneField: View {
                 }
                 .padding(.horizontal, 9).padding(.vertical, 6)
                 .background(Ak.cardField).clipShape(RoundedRectangle(cornerRadius: 9))
-                Text(value).font(AkFont.medium(14.5)).foregroundColor(Ak.ink)
-                Spacer()
+                TextField("", text: $value)
+                    .keyboardType(.phonePad)
+                    .font(AkFont.medium(14.5))
+                    .foregroundColor(Ak.ink)
+                    .onChange(of: value) { _, v in
+                        let d = v.filter(\.isNumber)
+                        if d != v || d.count > 10 { value = String(d.prefix(10)) }
+                    }
             }
             .padding(.horizontal, 14).padding(.vertical, 11)
             .background(.white)

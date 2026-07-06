@@ -28,6 +28,18 @@ export function optionalString(
   return v;
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** E-mail optionnel : si présent, format basique requis. */
+export function optionalEmail(body: any, field = "email"): string | undefined {
+  const v = optionalString(body, field, { max: 254 });
+  if (v === undefined) return undefined;
+  const trimmed = v.trim().toLowerCase();
+  if (trimmed === "") return undefined;
+  if (!EMAIL_RE.test(trimmed)) throw new ValidationError(field, `${field} invalide`);
+  return trimmed;
+}
+
 /** Téléphone optionnel : si présent, doit respecter le format. */
 export function optionalPhone(body: any, field = "phone"): string | undefined {
   const v = optionalString(body, field, { max: 20 });

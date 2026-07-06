@@ -147,8 +147,20 @@ interface MonProfPersoApi {
     @POST("api/auth/signup")
     suspend fun signup(@Body body: Map<String, String>): AuthResponse
 
+    @GET("api/auth/otp-channels")
+    suspend fun otpChannels(): OtpChannelsDto
+
+    @POST("api/auth/request-otp")
+    suspend fun requestOtp(@Body body: Map<String, String>): RequestOtpResponse
+
     @POST("api/auth/verify-otp")
     suspend fun verifyOtp(@Body body: Map<String, String>): VerifyResponse
+
+    @GET("api/admin/otp-settings")
+    suspend fun otpSettings(): Map<String, String>
+
+    @retrofit2.http.PUT("api/admin/otp-settings")
+    suspend fun updateOtpSettings(@Body body: Map<String, String>): Map<String, String>
 
     @POST("api/teacher-applications")
     suspend fun submitTeacherApplication(@Body body: Map<String, @JvmSuppressWildcards Any?>): TeacherApplicationResultDto

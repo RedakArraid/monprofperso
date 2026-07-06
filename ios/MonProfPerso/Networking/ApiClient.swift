@@ -174,7 +174,24 @@ enum ApiError: Error { case badStatus(Int) }
 
 struct UserDTO: Codable { let id: Int; let role: String }
 struct AuthResponse: Codable { let token: String; let user: UserDTO }
-struct VerifyResponse: Codable { let token: String; let verified: Bool }
+struct VerifyResponse: Codable { let token: String; let verified: Bool; let user: UserDTO? }
+
+struct OtpChannelsDTO: Codable {
+    let demo: Bool
+    let whatsapp: Bool
+    let email: Bool
+    let defaultChannel: String
+    let codeLength: Int
+    let ttlMinutes: Int
+}
+
+struct RequestOtpResponse: Codable {
+    let sent: Bool
+    let demo: Bool
+    let expiresInMinutes: Int
+    let channel: String?
+    let destination: String?
+}
 
 struct TeacherApplicationResultDTO: Codable {
     let id: Int
@@ -219,6 +236,37 @@ struct ApiClient {
     // Tolérant aux pannes : en cas d'échec, l'app continue en mode démo (repli serveur).
     private static let apiRoles = ["parent", "student", "teacher"]
 
+    static func normalizePhone(_ local: String) -> String {
+        let digits = local.filter(\.isNumber)
+        if digits.hasPrefix("225") { return "+\(digits)" }
+        return "+225\(digits)"
+    }
+
+    static func maskPhone(_ e164: String) -> String {
+        let d = e164.filter(\.isNumber)
+        let local = d.hasPrefix("225") ? String(d.dropFirst(3)) : d
+        guard local.count >= 8 else { return e164 }
+        let a = local.prefix(2)
+        let b = local.dropFirst(2).prefix(2)
+        let last = local.suffix(2)
+        return "+225 \(a) \(b) ** ** \(last)"
+    }
+
+    func refreshOtpChannels(router: Router) async {
+        if let c: OtpChannelsDTO = try? await get("api/auth/otp-channels") {
+            await MainActor.run {
+                router.otpDemo = c.demo
+                router.otpCodeLength = c.codeLength
+                router.otpTtlMinutes = c.ttlMinutes
+                router.otpWhatsappEnabled = c.whatsapp
+                router.otpEmailEnabled = c.email
+                if c.defaultChannel == "email" || c.defaultChannel == "whatsapp" {
+                    router.authOtpChannel = c.defaultChannel
+                }
+            }
+        }
+    }
+
     /// Renvoie le rôle réel du compte (`parent|student|teacher|admin`) si la connexion réussit.
     @discardableResult
     func login(phone: String = ApiConfig.demoPhone) async -> String? {
@@ -231,20 +279,43 @@ struct ApiClient {
 
     @discardableResult
     func signup(fullName: String, phone: String = ApiConfig.demoPhone, roleIndex: Int,
-                consent: Bool = true, parentalConsent: Bool = false) async -> String? {
+                consent: Bool = true, parentalConsent: Bool = false, demo: Bool = true) async -> String? {
         let role = Self.apiRoles[min(max(roleIndex, 0), 2)]
         if let data = try? await request("api/auth/signup", method: "POST",
                                          json: ["fullName": fullName, "phone": phone, "role": role,
                                                 "consent": consent, "parentalConsent": parentalConsent]),
            let r = try? JSONDecoder().decode(AuthResponse.self, from: data) {
-            TokenStore.token = r.token; TokenStore.role = r.user.role; return r.user.role
+            if demo {
+                TokenStore.token = r.token; TokenStore.role = r.user.role
+                return r.user.role
+            }
+            return r.user.role
         }
         return nil
     }
 
-    func verifyOtp(phone: String = ApiConfig.demoPhone) async {
-        if let data = try? await request("api/auth/verify-otp", method: "POST", json: ["phone": phone]),
-           let r = try? JSONDecoder().decode(VerifyResponse.self, from: data) { TokenStore.token = r.token }
+    func requestOtp(phone: String, channel: String, email: String? = nil) async -> RequestOtpResponse? {
+        var json: [String: Any] = ["phone": phone, "channel": channel]
+        if let email, !email.isEmpty { json["email"] = email }
+        guard let data = try? await request("api/auth/request-otp", method: "POST", json: json) else { return nil }
+        return try? JSONDecoder().decode(RequestOtpResponse.self, from: data)
+    }
+
+    @discardableResult
+    func verifyOtp(phone: String, code: String, email: String? = nil) async -> Bool {
+        var json: [String: Any] = ["phone": phone, "code": code]
+        if let email, !email.isEmpty { json["email"] = email }
+        guard let data = try? await request("api/auth/verify-otp", method: "POST", json: json),
+              let r = try? JSONDecoder().decode(VerifyResponse.self, from: data) else { return false }
+        TokenStore.token = r.token
+        if let role = r.user?.role { TokenStore.role = role }
+        return true
+    }
+
+    func otpSettings() async throws -> [String: String] { try await get("api/admin/otp-settings") }
+    func updateOtpSettings(_ values: [String: String]) async throws -> [String: String] {
+        let data = try await request("api/admin/otp-settings", method: "PUT", json: values as [String: Any])
+        return try JSONDecoder().decode([String: String].self, from: data)
     }
 
     // MARK: Candidatures professeur

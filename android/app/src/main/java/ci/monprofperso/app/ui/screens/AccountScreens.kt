@@ -288,6 +288,8 @@ fun AccountScreen(nav: NavActions) {
                     AccountRow(Icons.Filled.Gavel, "Gérer les documents légaux", badge = "Admin", badgeFg = AkColors.Green, badgeBg = AkColors.GreenSoft) { nav.go(Routes.AdminLegal) }
                     RowDivider()
                     AccountRow(Icons.Filled.Share, "Réseaux sociaux & contact", badge = "Admin", badgeFg = AkColors.Green, badgeBg = AkColors.GreenSoft) { nav.go(Routes.AdminSocial) }
+                    RowDivider()
+                    AccountRow(Icons.Filled.Email, "OTP & messagerie", badge = "Admin", badgeFg = AkColors.Green, badgeBg = AkColors.GreenSoft) { nav.go(Routes.AdminOtp) }
                 }
             }
             Spacer(Modifier.height(14.dp))

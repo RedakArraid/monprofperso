@@ -194,6 +194,7 @@ const VIEWS = {
   resources: { title: "Ressources pédagogiques", render: renderResources },
   legal: { title: "Documents légaux", render: renderLegal },
   social: { title: "Réseaux sociaux & contact", render: renderSocial },
+  otp: { title: "OTP & messagerie", render: renderOtp },
 };
 
 function setSidebarOpen(open) {
@@ -950,6 +951,122 @@ async function renderSocial(root) {
     try {
       await api("/api/admin/settings", { method: "PUT", body });
       toast("Paramètres enregistrés");
+    } catch (e) { toast(e.message, true); }
+  });
+}
+
+/* =====================================================================
+ * Vue : OTP & messagerie (WhatsApp OpenWA + SMTP)
+ * ===================================================================== */
+function boolField(id, label, hint) {
+  return `<div class="field full">
+    <label class="check-row">
+      <input type="checkbox" id="${id}">
+      <span>${esc(label)}</span>
+    </label>
+    ${hint ? `<p class="field-hint">${esc(hint)}</p>` : ""}
+  </div>`;
+}
+
+async function renderOtp(root) {
+  const s = await api("/api/admin/otp-settings");
+  const setCheck = (id, on) => { const el = $(id); if (el) el.checked = on === "true" || on === "1"; };
+  root.innerHTML = `
+    <div class="card">
+      <h3>OTP &amp; messagerie</h3>
+      <p class="card-sub">Configurez l'envoi des codes de vérification par WhatsApp (instance OpenWA)
+      ou par e-mail (SMTP). En mode démo, tout code est accepté sans envoi réel.</p>
+      <div class="form-grid">
+        ${boolField("otp_enabled", "Activer l'OTP réel", "Désactivé = mode démo (comportement actuel des apps).")}
+        ${boolField("otp_demo_mode", "Mode démo (accepter tout code)", "Utile pour les tests ; désactivez en production.")}
+        <div class="field">
+          <label>Durée de validité (minutes)</label>
+          <input id="otp_code_ttl_minutes" type="number" min="1" max="60" value="${esc(s.otp_code_ttl_minutes || "10")}">
+        </div>
+        <div class="field">
+          <label>Canal par défaut</label>
+          <select id="otp_default_channel">
+            <option value="whatsapp">WhatsApp</option>
+            <option value="email">E-mail</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>WhatsApp (OpenWA)</h3>
+      <p class="card-sub">URL de base de votre instance OpenWA (ex. <code>http://openwa:3000</code>).
+      L'API appelle <code>POST /sendText</code> avec le format OpenWA standard.</p>
+      <div class="form-grid">
+        ${boolField("otp_whatsapp_enabled", "Activer WhatsApp")}
+        <div class="field full">
+          <label>URL de base OpenWA</label>
+          <input id="otp_whatsapp_base_url" value="${esc(s.otp_whatsapp_base_url || "")}" placeholder="http://localhost:3000">
+        </div>
+        <div class="field full">
+          <label>Clé API / Bearer (optionnel)</label>
+          <input id="otp_whatsapp_api_key" type="password" value="${esc(s.otp_whatsapp_api_key || "")}" placeholder="Laisser vide pour ne pas changer">
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>E-mail (SMTP)</h3>
+      <div class="form-grid">
+        ${boolField("otp_smtp_enabled", "Activer l'e-mail")}
+        <div class="field">
+          <label>Serveur SMTP</label>
+          <input id="otp_smtp_host" value="${esc(s.otp_smtp_host || "")}" placeholder="smtp.example.com">
+        </div>
+        <div class="field">
+          <label>Port</label>
+          <input id="otp_smtp_port" value="${esc(s.otp_smtp_port || "587")}">
+        </div>
+        ${boolField("otp_smtp_secure", "Connexion TLS directe (port 465)")}
+        <div class="field">
+          <label>Utilisateur SMTP</label>
+          <input id="otp_smtp_user" value="${esc(s.otp_smtp_user || "")}">
+        </div>
+        <div class="field">
+          <label>Mot de passe SMTP</label>
+          <input id="otp_smtp_pass" type="password" value="${esc(s.otp_smtp_pass || "")}" placeholder="Laisser vide pour ne pas changer">
+        </div>
+        <div class="field full">
+          <label>Expéditeur (From)</label>
+          <input id="otp_smtp_from" value="${esc(s.otp_smtp_from || "")}" placeholder="Mon Prof Perso &lt;noreply@monprofperso.com&gt;">
+        </div>
+      </div>
+      <div class="form-actions"><button class="btn btn-primary" id="saveOtp">Enregistrer</button></div>
+    </div>`;
+
+  setCheck("#otp_enabled", s.otp_enabled);
+  setCheck("#otp_demo_mode", s.otp_demo_mode);
+  setCheck("#otp_whatsapp_enabled", s.otp_whatsapp_enabled);
+  setCheck("#otp_smtp_enabled", s.otp_smtp_enabled);
+  setCheck("#otp_smtp_secure", s.otp_smtp_secure);
+  $("#otp_default_channel").value = s.otp_default_channel === "email" ? "email" : "whatsapp";
+
+  const boolVal = (id) => ($(id).checked ? "true" : "false");
+
+  $("#saveOtp").addEventListener("click", async () => {
+    const body = {
+      otp_enabled: boolVal("#otp_enabled"),
+      otp_demo_mode: boolVal("#otp_demo_mode"),
+      otp_code_ttl_minutes: $("#otp_code_ttl_minutes").value.trim(),
+      otp_default_channel: $("#otp_default_channel").value,
+      otp_whatsapp_enabled: boolVal("#otp_whatsapp_enabled"),
+      otp_whatsapp_base_url: $("#otp_whatsapp_base_url").value.trim(),
+      otp_whatsapp_api_key: $("#otp_whatsapp_api_key").value,
+      otp_smtp_enabled: boolVal("#otp_smtp_enabled"),
+      otp_smtp_host: $("#otp_smtp_host").value.trim(),
+      otp_smtp_port: $("#otp_smtp_port").value.trim(),
+      otp_smtp_secure: boolVal("#otp_smtp_secure"),
+      otp_smtp_user: $("#otp_smtp_user").value.trim(),
+      otp_smtp_pass: $("#otp_smtp_pass").value,
+      otp_smtp_from: $("#otp_smtp_from").value.trim(),
+    };
+    try {
+      await api("/api/admin/otp-settings", { method: "PUT", body });
+      toast("Configuration OTP enregistrée");
+      renderOtp(root);
     } catch (e) { toast(e.message, true); }
   });
 }

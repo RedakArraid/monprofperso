@@ -85,8 +85,11 @@ struct SignupScreen: View {
     @EnvironmentObject var router: Router
     @State private var consent = false
     @State private var parentalConsent = false
+    @State private var channel = "whatsapp"
     private var isStudent: Bool { router.role == 1 }
     private var canSubmit: Bool { consent && (!isStudent || parentalConsent) }
+    private var showChannel: Bool { router.otpWhatsappEnabled && router.otpEmailEnabled && !router.otpDemo }
+    private var showEmail: Bool { channel == "email" && (router.otpEmailEnabled || router.otpDemo) }
 
     var body: some View {
         AkScreen {
@@ -100,8 +103,10 @@ struct SignupScreen: View {
                              : "Trouvez le bon prof pour votre enfant en quelques minutes.")
                             .font(AkFont.regular(13.5)).foregroundColor(Ak.muted)
                     }
-                    FieldDisplay(label: "Nom & prénoms", value: "Aya Koné", leadingIcon: "person")
-                    PhoneField()
+                    FieldDisplay(label: "Nom & prénoms", value: router.authFullName, leadingIcon: "person")
+                    PhoneField(value: $router.authPhone)
+                    if showChannel { otpChannelPicker }
+                    if showEmail { emailField }
                     FieldDisplay(label: "Mot de passe", value: "••••••••", leadingIcon: "lock.fill", trailingIcon: "eye.slash.fill")
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
@@ -109,7 +114,6 @@ struct SignupScreen: View {
                             Spacer()
                             Text("Modifier").font(AkFont.bold(12)).foregroundColor(Ak.green).onTapGesture { router.back() }
                         }
-                        // Rôle choisi à l'accueil, affiché, pas redemandé.
                         HStack(spacing: 9) {
                             Image(systemName: "checkmark.circle.fill").font(.system(size: 18)).foregroundColor(Ak.green)
                             Text(roleLabels[router.role]).font(AkFont.bold(14)).foregroundColor(Ak.ink)
@@ -127,8 +131,15 @@ struct SignupScreen: View {
                 PrimaryButton(label: "Créer mon compte", color: canSubmit ? Ak.green : Ak.border) {
                     guard canSubmit else { return }
                     Task { @MainActor in
-                        router.authRole = await ApiClient.shared.signup(fullName: "Aya Koné", roleIndex: router.role,
-                                                                        consent: consent, parentalConsent: parentalConsent)
+                        await ApiClient.shared.refreshOtpChannels(router: router)
+                        let e164 = ApiClient.normalizePhone(router.authPhone)
+                        router.authOtpChannel = channel
+                        router.authRole = await ApiClient.shared.signup(
+                            fullName: router.authFullName, phone: e164, roleIndex: router.role,
+                            consent: consent, parentalConsent: parentalConsent, demo: router.otpDemo
+                        )
+                        await ApiClient.shared.requestOtp(phone: e164, channel: channel,
+                                                          email: router.authEmail.isEmpty ? nil : router.authEmail)
                         router.go(.otp)
                     }
                 }
@@ -138,7 +149,7 @@ struct SignupScreen: View {
                 }
             }.padding(.horizontal, 24).padding(.top, 12).padding(.bottom, 12)
         }
-        // Les liens CGU/confidentialité ouvrent le PDF dans le visualiseur in-app.
+        .task { await ApiClient.shared.refreshOtpChannels(router: router); channel = router.authOtpChannel }
         .environment(\.openURL, OpenURLAction { url in
             if url.path.contains("/api/legal/") {
                 let title = url.path.contains("/cgu/") ? "Conditions d'utilisation" : "Politique de confidentialité"
@@ -149,8 +160,28 @@ struct SignupScreen: View {
         })
     }
 
-    /// Case CGU avec liens « Conditions d'utilisation » / « politique de confidentialité »
-    /// cliquables (ouvrent le PDF publié via /legal/:slug/file).
+    private var otpChannelPicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Recevoir le code par").font(AkFont.semibold(12)).foregroundColor(Ak.muted)
+            HStack(spacing: 10) {
+                otpSegBtn("WhatsApp", on: channel == "whatsapp") { channel = "whatsapp" }
+                otpSegBtn("E-mail", on: channel == "email") { channel = "email" }
+            }
+        }
+    }
+
+    private var emailField: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Adresse e-mail").font(AkFont.semibold(12)).foregroundColor(Ak.muted)
+            TextField("", text: $router.authEmail)
+                .keyboardType(.emailAddress).textInputAutocapitalization(.never)
+                .font(AkFont.regular(14.5)).foregroundColor(Ak.ink)
+                .padding(.horizontal, 14).padding(.vertical, 14)
+                .background(.white).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Ak.border, lineWidth: 1))
+        }
+    }
+
     private func consentCheckboxLinked(checked: Bool, toggle: @escaping () -> Void) -> some View {
         let cgu = ApiConfig.baseURL.appendingPathComponent("api/legal/cgu/file").absoluteString
         let priv = ApiConfig.baseURL.appendingPathComponent("api/legal/confidentialite/file").absoluteString
@@ -170,7 +201,6 @@ struct SignupScreen: View {
         }
     }
 
-    /// Case à cocher de consentement (CGU / parental), conforme au design Akwaba.
     private func consentCheckbox(checked: Bool, label: String, toggle: @escaping () -> Void) -> some View {
         HStack(alignment: .top, spacing: 9) {
             Image(systemName: checked ? "checkmark" : "")
@@ -188,6 +218,10 @@ struct SignupScreen: View {
 // MARK: - Écran 3, Connexion
 struct LoginScreen: View {
     @EnvironmentObject var router: Router
+    @State private var channel = "whatsapp"
+    private var showChannel: Bool { router.otpWhatsappEnabled && router.otpEmailEnabled && !router.otpDemo }
+    private var showEmail: Bool { channel == "email" && (router.otpEmailEnabled || router.otpDemo) }
+
     var body: some View {
         AkScreen {
             ScrollView {
@@ -198,16 +232,27 @@ struct LoginScreen: View {
                     Text("Content de vous revoir").font(AkFont.schibstedExtra(24)).foregroundColor(Ak.ink).padding(.top, 14)
                     Text("Connectez-vous pour continuer").font(AkFont.regular(13.5)).foregroundColor(Ak.muted)
                     VStack(spacing: 14) {
-                        PhoneField()
+                        PhoneField(value: $router.authPhone)
+                        if showChannel { otpChannelPicker }
+                        if showEmail { emailField }
                         FieldDisplay(label: "Mot de passe", value: "••••••••", leadingIcon: "lock.fill", trailingIcon: "eye.fill")
                     }.padding(.top, 30)
                     Text("Mot de passe oublié ?").font(AkFont.bold(12.5)).foregroundColor(Ak.green)
                         .frame(maxWidth: .infinity, alignment: .trailing).padding(.top, 12)
-                        .onTapGesture { router.go(.otp) }
+                        .onTapGesture { goOtp() }
                     PrimaryButton(label: "Se connecter", color: Ak.green, trailingSystemIcon: nil) {
                         Task { @MainActor in
-                            router.authRole = await ApiClient.shared.login()
-                            router.enterApp()
+                            await ApiClient.shared.refreshOtpChannels(router: router)
+                            let e164 = ApiClient.normalizePhone(router.authPhone)
+                            router.authOtpChannel = channel
+                            if router.otpDemo {
+                                router.authRole = await ApiClient.shared.login(phone: e164)
+                                router.enterApp()
+                            } else {
+                                await ApiClient.shared.requestOtp(phone: e164, channel: channel,
+                                                                email: router.authEmail.isEmpty ? nil : router.authEmail)
+                                router.go(.otp)
+                            }
                         }
                     }.padding(.top, 20)
                     HStack(spacing: 12) {
@@ -235,7 +280,42 @@ struct LoginScreen: View {
                     }
             }.padding(.bottom, 12)
         }
+        .task { await ApiClient.shared.refreshOtpChannels(router: router); channel = router.authOtpChannel }
     }
+
+    private var otpChannelPicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Recevoir le code par").font(AkFont.semibold(12)).foregroundColor(Ak.muted)
+            HStack(spacing: 10) {
+                otpSegBtn("WhatsApp", on: channel == "whatsapp") { channel = "whatsapp" }
+                otpSegBtn("E-mail", on: channel == "email") { channel = "email" }
+            }
+        }
+    }
+
+    private var emailField: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Adresse e-mail").font(AkFont.semibold(12)).foregroundColor(Ak.muted)
+            TextField("", text: $router.authEmail)
+                .keyboardType(.emailAddress).textInputAutocapitalization(.never)
+                .font(AkFont.regular(14.5)).foregroundColor(Ak.ink)
+                .padding(.horizontal, 14).padding(.vertical, 14)
+                .background(.white).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Ak.border, lineWidth: 1))
+        }
+    }
+
+    private func goOtp() {
+        Task { @MainActor in
+            await ApiClient.shared.refreshOtpChannels(router: router)
+            let e164 = ApiClient.normalizePhone(router.authPhone)
+            router.authOtpChannel = channel
+            await ApiClient.shared.requestOtp(phone: e164, channel: channel,
+                                            email: router.authEmail.isEmpty ? nil : router.authEmail)
+            router.go(.otp)
+        }
+    }
+
     func social(_ label: String, _ icon: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: icon).font(.system(size: 16))
@@ -250,6 +330,24 @@ struct LoginScreen: View {
 // MARK: - Écran 4, Vérification (OTP)
 struct OtpScreen: View {
     @EnvironmentObject var router: Router
+    @State private var code = ""
+    @State private var error: String?
+    @State private var resendSec = 0
+    @State private var sending = false
+
+    private var phoneE164: String { ApiClient.normalizePhone(router.authPhone) }
+    private var codeLen: Int { min(max(router.otpCodeLength, 4), 8) }
+    private var channelLabel: String { router.authOtpChannel == "email" ? "e-mail" : "WhatsApp" }
+    private var subtitle: String {
+        if router.otpDemo {
+            return "Mode démo : saisissez n'importe quel code à \(codeLen) chiffres."
+        }
+        if router.authOtpChannel == "email" {
+            return "Nous avons envoyé un code à \(codeLen) chiffres par e-mail à \(router.authEmail)."
+        }
+        return "Nous avons envoyé un code à \(codeLen) chiffres par \(channelLabel) au \(ApiClient.maskPhone(phoneE164))."
+    }
+
     var body: some View {
         AkScreen {
             TopBar(title: "", onBack: { router.back() })
@@ -258,26 +356,79 @@ struct OtpScreen: View {
                     .frame(width: 64, height: 64).background(Ak.greenSoft)
                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 Text("Entrez le code").font(AkFont.schibstedExtra(25)).foregroundColor(Ak.ink).padding(.top, 18)
-                Text("Nous avons envoyé un code à 4 chiffres par SMS au +225 07 58 ** ** 03.")
-                    .font(AkFont.regular(13.5)).foregroundColor(Ak.muted).lineSpacing(3).padding(.top, 8)
-                HStack(spacing: 12) {
-                    otpBox("5"); otpBox("8"); otpBox("", active: true); otpBox("")
+                Text(subtitle).font(AkFont.regular(13.5)).foregroundColor(Ak.muted).lineSpacing(3).padding(.top, 8)
+                HStack(spacing: 10) {
+                    ForEach(0..<codeLen, id: \.self) { i in
+                        otpBox(i < code.count ? String(code[code.index(code.startIndex, offsetBy: i)]) : "", active: code.count == i)
+                    }
                 }.padding(.top, 28)
+                TextField("", text: $code)
+                    .keyboardType(.numberPad)
+                    .opacity(0.01).frame(height: 1)
+                    .onChange(of: code) { _, v in
+                        let d = v.filter(\.isNumber)
+                        code = String(d.prefix(codeLen))
+                        error = nil
+                    }
+                if let error {
+                    Text(error).font(AkFont.regular(12.5)).foregroundColor(Ak.orange).padding(.top, 12)
+                }
                 HStack(spacing: 4) {
                     Text("Vous n'avez rien reçu ?").font(AkFont.regular(13)).foregroundColor(Ak.muted)
-                    Text("Renvoyer dans 0:47").font(AkFont.regular(13)).foregroundColor(Ak.faint)
+                    if resendSec > 0 {
+                        Text("Renvoyer dans 0:\(String(format: "%02d", resendSec))").font(AkFont.regular(13)).foregroundColor(Ak.faint)
+                    } else {
+                        Text(sending ? "Envoi…" : "Renvoyer")
+                            .font(AkFont.bold(13)).foregroundColor(Ak.green)
+                            .onTapGesture { if !sending { resend() } }
+                    }
                 }.frame(maxWidth: .infinity).padding(.top, 24)
             }.padding(.horizontal, 28).padding(.top, 16)
             Spacer()
             PrimaryButton(label: "Vérifier", color: Ak.green) {
                 Task { @MainActor in
-                    await ApiClient.shared.verifyOtp()
-                    router.enterApp()
+                    if !router.otpDemo && code.count < codeLen {
+                        error = "Saisissez le code à \(codeLen) chiffres."
+                        return
+                    }
+                    let ok = await ApiClient.shared.verifyOtp(
+                        phone: phoneE164,
+                        code: code,
+                        email: router.authEmail.isEmpty ? nil : router.authEmail
+                    )
+                    if ok {
+                        router.authRole = TokenStore.role
+                        router.enterApp()
+                    } else {
+                        error = "Code invalide ou expiré."
+                    }
                 }
             }
-                .padding(.horizontal, 28).padding(.bottom, 12)
+            .padding(.horizontal, 28).padding(.bottom, 12)
+        }
+        .task {
+            await ApiClient.shared.refreshOtpChannels(router: router)
+            resendSec = router.otpTtlMinutes * 60
+            sending = true
+            await ApiClient.shared.requestOtp(phone: phoneE164, channel: router.authOtpChannel,
+                                            email: router.authEmail.isEmpty ? nil : router.authEmail)
+            sending = false
+        }
+        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
+            if resendSec > 0 { resendSec -= 1 }
         }
     }
+
+    private func resend() {
+        Task { @MainActor in
+            sending = true
+            await ApiClient.shared.requestOtp(phone: phoneE164, channel: router.authOtpChannel,
+                                            email: router.authEmail.isEmpty ? nil : router.authEmail)
+            sending = false
+            resendSec = router.otpTtlMinutes * 60
+        }
+    }
+
     func otpBox(_ digit: String, active: Bool = false) -> some View {
         ZStack {
             if active { Rectangle().fill(Ak.green).frame(width: 2, height: 28) }
@@ -287,4 +438,16 @@ struct OtpScreen: View {
         .background(.white).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(active ? Ak.green : Ak.border, lineWidth: active ? 2 : 1.5))
     }
+}
+
+// MARK: - Helpers OTP auth
+private func otpSegBtn(_ label: String, on: Bool, action: @escaping () -> Void) -> some View {
+    Text(label)
+        .font(AkFont.semibold(13))
+        .foregroundColor(on ? .white : Ak.inkSoft)
+        .frame(maxWidth: .infinity).padding(.vertical, 11)
+        .background(on ? Ak.green : .white)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Ak.border, lineWidth: on ? 0 : 1))
+        .contentShape(Rectangle()).onTapGesture(perform: action)
 }
