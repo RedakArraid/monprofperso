@@ -112,6 +112,28 @@ struct CourseDTO: Codable, Identifiable {
     let counter_price: Int?
     let counter_frequency: String?
     let negotiation_status: String?
+    let payment_status: String?
+}
+
+struct BookingResult: Codable {
+    let reference: String
+    let course: CourseDTO
+}
+
+struct ChargeMobileResponse: Codable {
+    let paymentId: Int
+    let status: String
+    let message: String?
+    let reference: String?
+}
+
+struct PaymentStatusResponse: Codable {
+    let paymentId: Int
+    let status: String
+    let amount: Int?
+    let provider: String?
+    let coursePaymentStatus: String?
+    let paid: Bool
 }
 
 struct UnreadDTO: Codable { let count: Int }
@@ -337,12 +359,39 @@ struct ApiClient {
     func courses(status: String? = nil) async throws -> [CourseDTO] {
         try await get("api/courses" + (status.map { "?status=\($0)" } ?? ""))
     }
-    /// Crée une réservation (peut porter une proposition de négociation) ; renvoie la référence.
-    @discardableResult
-    func createBooking(_ body: [String: Any]) async throws -> String {
+    /// Crée une réservation ; renvoie référence + cours (payment_status pending).
+    func createBooking(_ body: [String: Any]) async throws -> BookingResult {
         let data = try await request("api/bookings", method: "POST", json: body)
-        struct R: Codable { let reference: String? }
-        return (try? JSONDecoder().decode(R.self, from: data))?.reference ?? ""
+        return try JSONDecoder().decode(BookingResult.self, from: data)
+    }
+
+    func chargeMobile(courseId: Int, provider: String, phone: String) async throws -> ChargeMobileResponse {
+        let data = try await request("api/payments/charge-mobile", method: "POST", json: [
+            "courseId": courseId, "provider": provider, "phone": phone,
+        ])
+        return try JSONDecoder().decode(ChargeMobileResponse.self, from: data)
+    }
+
+    func submitPaymentOtp(paymentId: Int, otp: String) async throws -> ChargeMobileResponse {
+        let data = try await request("api/payments/submit-otp", method: "POST", json: [
+            "paymentId": paymentId, "otp": otp,
+        ])
+        return try JSONDecoder().decode(ChargeMobileResponse.self, from: data)
+    }
+
+    func paymentStatus(_ paymentId: Int) async throws -> PaymentStatusResponse {
+        try await get("api/payments/\(paymentId)/status")
+    }
+
+    func pollUntilPaid(paymentId: Int) async -> Bool {
+        for _ in 0..<24 {
+            if let st = try? await paymentStatus(paymentId) {
+                if st.paid { return true }
+                if st.status == "failed" { return false }
+            }
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+        }
+        return (try? await paymentStatus(paymentId))?.paid ?? false
     }
     func progress() async throws -> ProgressDTO { try await get("api/progress") }
     func notifications() async throws -> [NotificationDTO] { try await get("api/notifications") }

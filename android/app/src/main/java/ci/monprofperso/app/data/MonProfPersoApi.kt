@@ -90,7 +90,16 @@ interface MonProfPersoApi {
     suspend fun courses(@Query("status") status: String? = null): List<CourseDto>
 
     @POST("api/bookings")
-    suspend fun book(@Body body: Map<String, @JvmSuppressWildcards Any?>): Map<String, Any?>
+    suspend fun book(@Body body: Map<String, @JvmSuppressWildcards Any?>): BookingResponse
+
+    @POST("api/payments/charge-mobile")
+    suspend fun chargeMobile(@Body body: Map<String, @JvmSuppressWildcards Any?>): ChargeMobileResponse
+
+    @POST("api/payments/submit-otp")
+    suspend fun submitPaymentOtp(@Body body: Map<String, @JvmSuppressWildcards Any?>): ChargeMobileResponse
+
+    @GET("api/payments/{id}/status")
+    suspend fun paymentStatus(@Path("id") id: Int): PaymentStatusResponse
 
     @GET("api/notifications")
     suspend fun notifications(): List<NotificationDto>

@@ -92,6 +92,28 @@ data class CourseDto(
     @SerializedName("counter_price") val counterPrice: Int? = null,
     @SerializedName("counter_frequency") val counterFrequency: String? = null,
     @SerializedName("negotiation_status") val negotiationStatus: String = "none",
+    @SerializedName("payment_status") val paymentStatus: String? = null,
+)
+
+data class BookingResponse(
+    val reference: String,
+    val course: CourseDto,
+)
+
+data class ChargeMobileResponse(
+    val paymentId: Int,
+    val status: String,
+    val message: String? = null,
+    val reference: String? = null,
+)
+
+data class PaymentStatusResponse(
+    val paymentId: Int,
+    val status: String,
+    val amount: Int? = null,
+    val provider: String? = null,
+    @SerializedName("coursePaymentStatus") val coursePaymentStatus: String? = null,
+    val paid: Boolean,
 )
 
 data class UnreadDto(val count: Int)

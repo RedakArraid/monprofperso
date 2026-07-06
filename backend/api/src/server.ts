@@ -6,10 +6,29 @@ import { api } from "./routes";
 import { pool, waitForDb } from "./db";
 import { requestLogger, notFound, errorHandler } from "./http";
 import { ensureBucket } from "./storage";
+import { handlePaystackWebhook } from "./payments";
 
 const app = express();
 app.use(cors());
 app.use(requestLogger);
+
+// Webhook Paystack : corps brut pour vérification HMAC SHA512.
+app.post(
+  "/api/payments/paystack/webhook",
+  express.raw({ type: "application/json", limit: "1mb" }),
+  async (req, res) => {
+    try {
+      const raw = Buffer.isBuffer(req.body) ? req.body : Buffer.from(String(req.body ?? ""));
+      await handlePaystackWebhook(raw, req.headers["x-paystack-signature"] as string | undefined);
+      res.status(200).json({ ok: true });
+    } catch (e: any) {
+      const code = e?.statusCode === 401 ? 401 : 500;
+      if (code === 500) console.error("[POST /api/payments/paystack/webhook]", e);
+      res.status(code).json({ error: code === 401 ? "invalid_signature" : "webhook_error" });
+    }
+  }
+);
+
 // Limite relevée pour accepter les fichiers de ressources encodés en base64.
 app.use(express.json({ limit: "15mb" }));
 

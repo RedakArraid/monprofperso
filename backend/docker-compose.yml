@@ -72,6 +72,8 @@ services:
       PGPASSWORD: ${POSTGRES_PASSWORD:-monprofperso}
       PGDATABASE: ${POSTGRES_DB:-monprofperso}
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+      PAYSTACK_SECRET_KEY: ${PAYSTACK_SECRET_KEY:-}
+      PAYSTACK_PUBLIC_KEY: ${PAYSTACK_PUBLIC_KEY:-}
       S3_ENDPOINT: ${S3_ENDPOINT:-minio}
       S3_PORT: ${S3_PORT:-9000}
       S3_USE_SSL: ${S3_USE_SSL:-false}

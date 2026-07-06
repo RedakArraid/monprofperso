@@ -14,6 +14,13 @@ import {
   saveOtpSettings,
   runOtpIntegrationTest,
 } from "./otp";
+import {
+  initiateMobileCharge,
+  submitPaymentOtp,
+  getPaymentStatus,
+  handlePaystackWebhook,
+  PAYMENT_PROVIDERS,
+} from "./payments";
 
 export const api = Router();
 
@@ -310,9 +317,9 @@ api.post("/bookings", wrap(async (req, res) => {
   const hasProposal = proposedPrice !== undefined || proposedFrequency !== undefined;
   const negotiationStatus = hasProposal ? "proposed" : "none";
   const r = await pool.query(
-    `INSERT INTO courses (user_id,teacher_id,teacher_name,subject,level,day_label,day_num,time,duration,format,location,price,status,badge,accepted,
+    `INSERT INTO courses (user_id,teacher_id,teacher_name,subject,level,day_label,day_num,time,duration,format,location,price,status,badge,accepted,payment_status,
                           negotiable,proposed_price,proposed_frequency,negotiation_status)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'upcoming',$13,FALSE,$14,$15,$16,$17) RETURNING *`,
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'upcoming',$13,FALSE,'pending',$14,$15,$16,$17) RETURNING *`,
     [currentUserId(res), teacherId ?? 1, teacherName ?? "Koffi N'Guessan", subject ?? "Maths", level ?? "3ᵉ",
      dayLabel ?? "SAM", dayNum ?? "22", time ?? "16h00", duration ?? "1h30",
      format ?? "home", location ?? "À domicile, Cocody", price ?? 6000, "En attente",
@@ -385,6 +392,61 @@ api.get("/wallet", wrap(async (_req, res) => {
     [currentUserId(res)]
   );
   res.json({ accounts: accounts.rows, transactions: tx.rows });
+}));
+
+// ------------------------------------------------------------------ Paiements (Paystack Mobile Money)
+api.post("/payments/charge-mobile", wrap(async (req, res) => {
+  const b = req.body ?? {};
+  const courseId = optionalNumber(b, "courseId", { min: 1 });
+  if (courseId === undefined) throw new ValidationError("courseId", "courseId requis");
+  const provider = optionalEnum(b, "provider", PAYMENT_PROVIDERS);
+  if (!provider) throw new ValidationError("provider", "provider requis (orange, mtn, wave)");
+  const phone = optionalPhone(b);
+  try {
+    const result = await initiateMobileCharge({
+      courseId,
+      provider: provider as (typeof PAYMENT_PROVIDERS)[number],
+      phone: phone ?? "",
+      userId: currentUserId(res),
+    });
+    res.json(result);
+  } catch (e: any) {
+    if (e instanceof ValidationError) throw e;
+    res.status(502).json({
+      error: "payment_error",
+      message: String(e?.message ?? "échec du paiement").slice(0, 300),
+    });
+  }
+}));
+
+api.post("/payments/submit-otp", wrap(async (req, res) => {
+  const b = req.body ?? {};
+  const paymentId = optionalNumber(b, "paymentId", { min: 1 });
+  if (paymentId === undefined) throw new ValidationError("paymentId", "paymentId requis");
+  const otp = optionalString(b, "otp", { max: 10 });
+  if (!otp) throw new ValidationError("otp", "code OTP requis");
+  try {
+    const result = await submitPaymentOtp({
+      paymentId,
+      otp,
+      userId: currentUserId(res),
+    });
+    res.json(result);
+  } catch (e: any) {
+    if (e instanceof ValidationError) throw e;
+    res.status(502).json({
+      error: "payment_error",
+      message: String(e?.message ?? "échec validation OTP").slice(0, 300),
+    });
+  }
+}));
+
+api.get("/payments/:id/status", wrap(async (req, res) => {
+  const paymentId = Number(req.params.id);
+  if (!Number.isFinite(paymentId) || paymentId < 1) {
+    throw new ValidationError("paymentId", "identifiant invalide");
+  }
+  res.json(await getPaymentStatus(paymentId, currentUserId(res)));
 }));
 
 // ----------------------------------------------------------------- Cours groupe

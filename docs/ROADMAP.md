@@ -45,7 +45,9 @@ Maillon faible : auth/paiement simulés. À traiter avant toute nouvelle feature
       comptes Mobile Money de `/wallet` (`payment_accounts`, user-scoped) et `program`
       des groupes (`group_programs`, par groupe). Migration `1700000004000`.
       Reste pour plus tard : scoper l'espace prof par compte (cf. multi-utilisateur).
-- [ ] Paiement Mobile Money réel (Orange Money / MTN MoMo / Wave) + portefeuille.
+- [~] Paiement Mobile Money réel (Orange Money / MTN MoMo / Wave) + portefeuille.
+      MVP Paystack : `payments` + charge-mobile/OTP/webhook, écran Paiement Android/iOS.
+      Reste : escrow prof, abonnements, remboursements.
 - [~] Multi-utilisateur réel (parents / élèves / profs ; rôles déjà dans `users`).
       Entamé : `users.teacher_id` relie un compte prof à sa fiche `teachers`, l'espace
       prof (`/teacher/*`) est scopé sur le professeur connecté (migration `1700000005000`,

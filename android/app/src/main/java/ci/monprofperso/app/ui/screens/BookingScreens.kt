@@ -18,6 +18,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import ci.monprofperso.app.data.Api
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -225,16 +229,84 @@ fun PaymentScreen(nav: NavActions) {
     val scope = rememberCoroutineScope()
     var method by remember { mutableIntStateOf(0) }
     var sending by remember { mutableStateOf(false) }
+    var showOtp by remember { mutableStateOf(false) }
+    var otpPaymentId by remember { mutableIntStateOf(0) }
+    var otpCode by remember { mutableStateOf("") }
+    var payError by remember { mutableStateOf<String?>(null) }
     val priceLabel = "%,d F".format(app.bkPrice).replace(',', ' ')
     val lieu = if (app.bkFormat == "online") "En ligne" else "À domicile · ${app.bkLocation}"
+
+    fun paymentPhone(): String {
+        val raw = app.authPhone.trim()
+        return if (raw.startsWith("+")) raw else "+225$raw"
+    }
+
+    fun providerForMethod() = when (method) {
+        1 -> "wave"
+        2 -> "mtn"
+        else -> "orange"
+    }
+
+    suspend fun pollUntilPaid(paymentId: Int): Boolean {
+        repeat(24) {
+            val st = runCatching { Api.service.paymentStatus(paymentId) }.getOrNull()
+            if (st?.paid == true) return true
+            if (st?.status == "failed") return false
+            delay(2500)
+        }
+        return runCatching { Api.service.paymentStatus(paymentId).paid }.getOrDefault(false)
+    }
+
+    if (showOtp) {
+        AlertDialog(
+            onDismissRequest = { if (!sending) showOtp = false },
+            title = { Text("Code de confirmation", fontFamily = Schibsted, fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text("Saisissez le code reçu sur votre téléphone.", fontFamily = Hanken, fontSize = 13.sp)
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = otpCode,
+                        onValueChange = { if (it.length <= 6) otpCode = it.filter { c -> c.isDigit() } },
+                        singleLine = true,
+                        placeholder = { Text("000000") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = otpCode.length >= 4 && !sending,
+                    onClick = {
+                        sending = true
+                        scope.launch {
+                            val r = runCatching {
+                                Api.service.submitPaymentOtp(mapOf("paymentId" to otpPaymentId, "otp" to otpCode))
+                            }
+                            sending = false
+                            r.onSuccess { res ->
+                                if (res.status == "success" || pollUntilPaid(otpPaymentId)) {
+                                    showOtp = false
+                                    nav.go(Routes.Confirmed)
+                                } else payError = res.message ?: "Code refusé"
+                            }.onFailure { payError = it.message ?: "Code refusé" }
+                        }
+                    },
+                ) { Text("Valider") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showOtp = false }) { Text("Annuler") }
+            },
+        )
+    }
+
     AkScreen {
         TopBar("Paiement", onBack = { nav.back() })
         Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 22.dp).padding(top = 16.dp)) {
-            // récap
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(AkColors.White).border(1.dp, AkColors.Border, RoundedCornerShape(18.dp)).padding(16.dp)) {
                 Text("RÉCAPITULATIF", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = AkColors.Faint)
                 Row(Modifier.padding(top = 11.dp), verticalAlignment = Alignment.CenterVertically) {
-                    InitialsAvatar("KN", size = 42, radius = 12, fontSize = 15)
+                    InitialsAvatar(app.bkTeacherInitials, size = 42, radius = 12, fontSize = 15)
                     Spacer(Modifier.width(11.dp))
                     Column {
                         Text("Cours de ${app.bkSubject} · ${app.bkLevel}", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AkColors.Ink)
@@ -251,11 +323,15 @@ fun PaymentScreen(nav: NavActions) {
                 RecapRow("Lieu", lieu, last = true)
             }
             SubLabel2("Moyen de paiement")
-            PaymentMethod(Color(0xFFF2761A), Icons.Filled.PhoneAndroid, "Orange Money", "07 ** ** ** 42", selected = method == 0) { method = 0 }
+            PaymentMethod(Color(0xFFF2761A), Icons.Filled.PhoneAndroid, "Orange Money", paymentPhone(), selected = method == 0) { method = 0 }
             Spacer(Modifier.height(10.dp))
             PaymentMethod(Color(0xFF1D9BD8), Icons.Filled.Waves, "Wave", "Sans frais", selected = method == 1) { method = 1 }
             Spacer(Modifier.height(10.dp))
-            PaymentMethod(Color(0xFFF5C518), Icons.Filled.PhoneAndroid, "MTN MoMo", "05 ** ** ** 11", selected = method == 2, iconTint = AkColors.Ink) { method = 2 }
+            PaymentMethod(Color(0xFFF5C518), Icons.Filled.PhoneAndroid, "MTN MoMo", "Sans frais", selected = method == 2, iconTint = AkColors.Ink) { method = 2 }
+            payError?.let {
+                Spacer(Modifier.height(12.dp))
+                Text(it, fontFamily = Hanken, fontSize = 12.sp, color = Color(0xFFB42318))
+            }
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Lock, null, tint = AkColors.Green, modifier = Modifier.size(14.dp))
@@ -274,26 +350,56 @@ fun PaymentScreen(nav: NavActions) {
                 if (sending) return@PrimaryButton
                 sending = true
                 scope.launch {
-                    val body = buildMap<String, Any?> {
-                        put("teacherId", app.bkTeacherId)
-                        put("teacherName", app.bkTeacherName)
-                        put("subject", app.bkSubject)
-                        put("level", app.bkLevel)
-                        put("dayLabel", app.bkDayLabel)
-                        put("dayNum", app.bkDayNum)
-                        put("time", app.bkTime)
-                        put("duration", app.bkDuration)
-                        put("format", app.bkFormat)
-                        if (app.bkFormat == "home") put("location", "À domicile, ${app.bkLocation}")
-                        put("price", app.bkPrice)
-                        if (app.bkHasProposal) {
-                            app.bkProposedPrice?.let { put("proposedPrice", it) }
-                            app.bkProposedFrequency?.let { put("proposedFrequency", it) }
+                    try {
+                        val body = buildMap<String, Any?> {
+                            put("teacherId", app.bkTeacherId)
+                            put("teacherName", app.bkTeacherName)
+                            put("subject", app.bkSubject)
+                            put("level", app.bkLevel)
+                            put("dayLabel", app.bkDayLabel)
+                            put("dayNum", app.bkDayNum)
+                            put("time", app.bkTime)
+                            put("duration", app.bkDuration)
+                            put("format", app.bkFormat)
+                            if (app.bkFormat == "home") put("location", "À domicile, ${app.bkLocation}")
+                            put("price", app.bkPrice)
+                            if (app.bkHasProposal) {
+                                app.bkProposedPrice?.let { put("proposedPrice", it) }
+                                app.bkProposedFrequency?.let { put("proposedFrequency", it) }
+                            }
                         }
+                        val booking = runCatching { Api.service.book(body) }.getOrElse {
+                            payError = it.message ?: "Réservation impossible"
+                            return@launch
+                        }
+                        app.bkReference = booking.reference
+                        val charge = runCatching {
+                            Api.service.chargeMobile(
+                                mapOf(
+                                    "courseId" to booking.course.id,
+                                    "provider" to providerForMethod(),
+                                    "phone" to paymentPhone(),
+                                )
+                            )
+                        }.getOrElse {
+                            payError = it.message ?: "Paiement impossible"
+                            return@launch
+                        }
+                        when (charge.status) {
+                            "success" -> nav.go(Routes.Confirmed)
+                            "otp_required" -> {
+                                otpPaymentId = charge.paymentId
+                                otpCode = ""
+                                showOtp = true
+                            }
+                            else -> {
+                                if (pollUntilPaid(charge.paymentId)) nav.go(Routes.Confirmed)
+                                else payError = charge.message ?: "Paiement en attente ou refusé"
+                            }
+                        }
+                    } finally {
+                        sending = false
                     }
-                    val ref = runCatching { Api.service.book(body) }.getOrNull()?.get("reference") as? String
-                    app.bkReference = ref ?: "AKW-${2000}"
-                    nav.go(Routes.Confirmed)
                 }
             })
         }

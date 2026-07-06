@@ -148,6 +148,24 @@ struct PaymentScreen: View {
     @EnvironmentObject var router: Router
     @State private var method = 0
     @State private var sending = false
+    @State private var showOtp = false
+    @State private var otpPaymentId = 0
+    @State private var otpCode = ""
+    @State private var payError: String?
+
+    private var paymentPhone: String {
+        let raw = router.authPhone.trimmingCharacters(in: .whitespaces)
+        return raw.hasPrefix("+") ? raw : "+225\(raw)"
+    }
+
+    private func providerForMethod() -> String {
+        switch method {
+        case 1: return "wave"
+        case 2: return "mtn"
+        default: return "orange"
+        }
+    }
+
     var body: some View {
         let lieu = router.bkFormat == "online" ? "En ligne" : "À domicile · \(router.bkLocation)"
         return AkScreen {
@@ -175,9 +193,12 @@ struct PaymentScreen: View {
                     }.akCard(radius: 18, padding: 16)
 
                     subLabel("Moyen de paiement")
-                    method0(Ak.orangeMoney, "iphone", "Orange Money", "07 ** ** ** 42", 0)
+                    method0(Ak.orangeMoney, "iphone", "Orange Money", paymentPhone, 0)
                     method0(Ak.wave, "waveform", "Wave", "Sans frais", 1).padding(.top, 10)
-                    method0(Ak.mtn, "iphone", "MTN MoMo", "05 ** ** ** 11", 2, tint: Ak.ink).padding(.top, 10)
+                    method0(Ak.mtn, "iphone", "MTN MoMo", "Sans frais", 2, tint: Ak.ink).padding(.top, 10)
+                    if let payError {
+                        Text(payError).font(AkFont.regular(12)).foregroundColor(Color(hex: 0xB42318)).padding(.top, 12)
+                    }
                     HStack(spacing: 8) {
                         Image(systemName: "lock.fill").font(.system(size: 12)).foregroundColor(Ak.green)
                         Text("Paiement 100% sécurisé · argent libéré après le cours").font(AkFont.regular(12)).foregroundColor(Ak.muted)
@@ -190,7 +211,9 @@ struct PaymentScreen: View {
                 PrimaryButton(label: sending ? "Validation…" : "Payer \(router.bkPrice.formattedFCFA) FCFA", color: Ak.green, trailingSystemIcon: "lock.fill") {
                     guard !sending else { return }
                     sending = true
+                    payError = nil
                     Task { @MainActor in
+                        defer { sending = false }
                         var body: [String: Any] = [
                             "teacherId": router.bkTeacherId, "teacherName": router.bkTeacherName,
                             "subject": router.bkSubject, "level": router.bkLevel,
@@ -203,13 +226,58 @@ struct PaymentScreen: View {
                             if let pp = router.bkProposedPrice { body["proposedPrice"] = pp }
                             if let pf = router.bkProposedFrequency { body["proposedFrequency"] = pf }
                         }
-                        let ref = (try? await ApiClient.shared.createBooking(body)) ?? ""
-                        router.bkReference = ref.isEmpty ? "AKW-2000" : ref
-                        sending = false
-                        router.go(.confirmed)
+                        do {
+                            let booking = try await ApiClient.shared.createBooking(body)
+                            router.bkReference = booking.reference
+                            let charge = try await ApiClient.shared.chargeMobile(
+                                courseId: booking.course.id,
+                                provider: providerForMethod(),
+                                phone: paymentPhone
+                            )
+                            switch charge.status {
+                            case "success":
+                                router.go(.confirmed)
+                            case "otp_required":
+                                otpPaymentId = charge.paymentId
+                                otpCode = ""
+                                showOtp = true
+                            default:
+                                if await ApiClient.shared.pollUntilPaid(paymentId: charge.paymentId) {
+                                    router.go(.confirmed)
+                                } else {
+                                    payError = charge.message ?? "Paiement en attente ou refusé"
+                                }
+                            }
+                        } catch {
+                            payError = error.localizedDescription
+                        }
                     }
                 }
             }.padding(.horizontal, 22).padding(.top, 14).padding(.bottom, 12).background(.white)
+        }
+        .alert("Code de confirmation", isPresented: $showOtp) {
+            TextField("000000", text: $otpCode)
+                .keyboardType(.numberPad)
+            Button("Valider") {
+                Task { @MainActor in
+                    sending = true
+                    defer { sending = false }
+                    do {
+                        let res = try await ApiClient.shared.submitPaymentOtp(paymentId: otpPaymentId, otp: otpCode)
+                        if res.status == "success" || await ApiClient.shared.pollUntilPaid(paymentId: otpPaymentId) {
+                            showOtp = false
+                            router.go(.confirmed)
+                        } else {
+                            payError = res.message ?? "Code refusé"
+                        }
+                    } catch {
+                        payError = error.localizedDescription
+                    }
+                }
+            }
+            Button("Annuler", role: .cancel) { showOtp = false }
+        } message: {
+            Text("Saisissez le code reçu sur votre téléphone.")
         }
     }
     func subLabel(_ t: String) -> some View { Text(t).font(AkFont.schibstedBold(14.5)).foregroundColor(Ak.ink).padding(.top, 18).padding(.bottom, 11) }

@@ -30,7 +30,11 @@ curl http://localhost:8099/health      # {"status":"ok",...}
 | GET  | `/api/teachers?format=&level=` | liste profs |
 | GET  | `/api/teachers/:id` | profil + avis |
 | GET  | `/api/courses?status=upcoming\|done` | mes cours |
-| POST | `/api/bookings` | réserver un cours |
+| POST | `/api/bookings` | réserver un cours (`payment_status: pending`) |
+| POST | `/api/payments/charge-mobile` | paiement Mobile Money (Paystack) |
+| POST | `/api/payments/submit-otp` | valider OTP Mobile Money |
+| GET  | `/api/payments/:id/status` | état du paiement |
+| POST | `/api/payments/paystack/webhook` | webhook Paystack |
 | GET  | `/api/notifications` | notifications |
 | GET  | `/api/wallet` | comptes + transactions |
 | GET  | `/api/groups` · `/api/groups/:id` | cours en groupe |
@@ -50,7 +54,7 @@ Ces valeurs sont centralisées dans `ApiConfig` (Android) et `ApiConfig` (iOS).
 Runner natif Node (aucune dépendance). La stack doit tourner :
 ```bash
 docker compose up -d
-cd api && npm test                       # tout (30 tests), défaut http://localhost:8099
+cd api && npm test                       # tout (76 tests), défaut http://localhost:8099
 npm run test:e2e                         # parcours e2e uniquement
 API_URL=http://autre-hote:8099 npm test  # cible personnalisée
 ```
