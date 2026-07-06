@@ -9,9 +9,7 @@ export const OTP_SETTING_KEYS = [
   "otp_whatsapp_enabled",
   "otp_whatsapp_base_url",
   "otp_whatsapp_api_key",
-  "otp_whatsapp_provider",
   "otp_whatsapp_session_id",
-  "otp_whatsapp_session_in_path",
   "otp_smtp_enabled",
   "otp_smtp_host",
   "otp_smtp_port",
@@ -47,56 +45,23 @@ function toWhatsAppId(phone: string): string {
   return `${phone.replace(/\D/g, "")}@c.us`;
 }
 
-const WHATSAPP_PROVIDERS = ["gateway", "wa-automate"] as const;
-type WhatsAppProvider = (typeof WHATSAPP_PROVIDERS)[number];
-
-function whatsAppProvider(settings: Record<string, string>): WhatsAppProvider {
-  const p = settings.otp_whatsapp_provider?.trim();
-  return p === "wa-automate" ? "wa-automate" : "gateway";
-}
-
 function normalizeWhatsAppBaseUrl(base: string): string {
   return base.trim().replace(/\/$/, "");
 }
 
-/**
- * URL d'envoi WhatsApp :
- * - gateway (rmyndharis/OpenWA) : POST /api/sessions/{sessionId}/messages/send-text
- * - wa-automate (legacy @open-wa) : POST /sendText ou /{sessionId}/sendText
- */
+/** OpenWA Gateway — POST /api/sessions/{sessionId}/messages/send-text */
 export function openWaSendTextUrl(settings: Record<string, string>): string {
   const base = normalizeWhatsAppBaseUrl(settings.otp_whatsapp_base_url);
   const sessionId = settings.otp_whatsapp_session_id?.trim();
-
-  if (whatsAppProvider(settings) === "gateway") {
-    const apiBase = base.endsWith("/api") ? base : `${base}/api`;
-    return `${apiBase}/sessions/${encodeURIComponent(sessionId!)}/messages/send-text`;
-  }
-
-  if (isTrue(settings.otp_whatsapp_session_in_path) && sessionId) {
-    return `${base}/${encodeURIComponent(sessionId)}/sendText`;
-  }
-  return `${base}/sendText`;
+  const apiBase = base.endsWith("/api") ? base : `${base}/api`;
+  return `${apiBase}/sessions/${encodeURIComponent(sessionId!)}/messages/send-text`;
 }
 
-function whatsAppAuthHeaders(settings: Record<string, string>): Record<string, string> {
+function whatsAppAuthHeaders(apiKey: string | undefined): Record<string, string> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  const key = settings.otp_whatsapp_api_key?.trim();
-  if (!key) return headers;
-  if (whatsAppProvider(settings) === "gateway") {
-    headers["X-API-Key"] = key;
-  } else {
-    headers.Authorization = key;
-  }
+  const key = apiKey?.trim();
+  if (key) headers["X-API-Key"] = key;
   return headers;
-}
-
-function whatsAppSendBody(settings: Record<string, string>, to: string, content: string): string {
-  const chatId = toWhatsAppId(to);
-  if (whatsAppProvider(settings) === "gateway") {
-    return JSON.stringify({ chatId, text: content });
-  }
-  return JSON.stringify({ args: { to: chatId, content } });
 }
 
 const WHATSAPP_FETCH_MS = 15_000;
@@ -112,8 +77,8 @@ async function postOpenWaSendText(
   try {
     const res = await fetch(url, {
       method: "POST",
-      headers: whatsAppAuthHeaders(settings),
-      body: whatsAppSendBody(settings, to, content),
+      headers: whatsAppAuthHeaders(settings.otp_whatsapp_api_key),
+      body: JSON.stringify({ chatId: toWhatsAppId(to), text: content }),
       signal: ac.signal,
     });
     if (!res.ok) {
@@ -319,16 +284,8 @@ export async function testWhatsApp(settings: Record<string, string>, phone: stri
   if (!settings.otp_whatsapp_base_url?.trim()) {
     throw new ValidationError("otp_whatsapp_base_url", "URL OpenWA requise");
   }
-  const provider = whatsAppProvider(settings);
-  if (provider === "gateway" && !settings.otp_whatsapp_session_id?.trim()) {
+  if (!settings.otp_whatsapp_session_id?.trim()) {
     throw new ValidationError("otp_whatsapp_session_id", "session ID requis (nom de session OpenWA)");
-  }
-  if (
-    provider === "wa-automate" &&
-    isTrue(settings.otp_whatsapp_session_in_path) &&
-    !settings.otp_whatsapp_session_id?.trim()
-  ) {
-    throw new ValidationError("otp_whatsapp_session_id", "session ID requis (chemin /{sessionId}/sendText)");
   }
   await postOpenWaSendText(settings, phone, TEST_WHATSAPP_MSG);
 }

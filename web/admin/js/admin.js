@@ -998,9 +998,7 @@ function collectOtpForm() {
     otp_whatsapp_enabled: boolVal("#otp_whatsapp_enabled"),
     otp_whatsapp_base_url: $("#otp_whatsapp_base_url")?.value.trim() ?? "",
     otp_whatsapp_api_key: $("#otp_whatsapp_api_key")?.value ?? "",
-    otp_whatsapp_provider: $("#otp_whatsapp_provider")?.value === "wa-automate" ? "wa-automate" : "gateway",
     otp_whatsapp_session_id: $("#otp_whatsapp_session_id")?.value.trim() ?? "",
-    otp_whatsapp_session_in_path: boolVal("#otp_whatsapp_session_in_path"),
     otp_smtp_enabled: boolVal("#otp_smtp_enabled"),
     otp_smtp_host: $("#otp_smtp_host")?.value.trim() ?? "",
     otp_smtp_port: $("#otp_smtp_port")?.value.trim() ?? "",
@@ -1039,35 +1037,25 @@ async function renderOtp(root) {
       </div>
     </div>
     <div class="card">
-      <h3>WhatsApp (OpenWA)</h3>
-      <p class="card-sub">Compatible <strong>OpenWA Gateway</strong> (<a href="https://github.com/rmyndharis/OpenWA" target="_blank" rel="noopener">rmyndharis/OpenWA</a>, port 2785)
-      et l'ancien <strong>wa-automate</strong> (@open-wa, legacy).</p>
+      <h3>WhatsApp (OpenWA Gateway)</h3>
+      <p class="card-sub"><a href="https://github.com/rmyndharis/OpenWA" target="_blank" rel="noopener">OpenWA Gateway</a>
+      — port 2785, envoi via <code>POST /api/sessions/{sessionId}/messages/send-text</code>.</p>
       <div class="form-grid">
         ${boolField("otp_whatsapp_enabled", "Activer WhatsApp")}
-        <div class="field">
-          <label for="otp_whatsapp_provider">Fournisseur</label>
-          <select id="otp_whatsapp_provider">
-            <option value="gateway" ${(s.otp_whatsapp_provider || "gateway") !== "wa-automate" ? "selected" : ""}>OpenWA Gateway (recommandé)</option>
-            <option value="wa-automate" ${s.otp_whatsapp_provider === "wa-automate" ? "selected" : ""}>wa-automate legacy (@open-wa)</option>
-          </select>
-        </div>
         <div class="field full">
           <label for="otp_whatsapp_base_url">URL de base</label>
           <input id="otp_whatsapp_base_url" value="${esc(s.otp_whatsapp_base_url || "")}" placeholder="http://openwa:2785">
-          <p class="field-hint">Gateway : racine du serveur (ex. <code>http://IP:2785</code>). Legacy : URL EASY API wa-automate.</p>
+          <p class="field-hint">Racine du serveur OpenWA (ex. <code>http://IP:2785</code>, sans <code>/api</code>).</p>
         </div>
         <div class="field">
           <label for="otp_whatsapp_session_id">Session ID</label>
           <input id="otp_whatsapp_session_id" value="${esc(s.otp_whatsapp_session_id || "")}" placeholder="my-bot">
-          <p class="field-hint">Gateway : ID de session créée dans le dashboard OpenWA (doit être démarrée + QR scanné).</p>
-        </div>
-        <div class="field wa-automate-only">
-          ${boolField("otp_whatsapp_session_in_path", "Session ID dans l'URL (legacy)", "Uniquement wa-automate : <code>/{sessionId}/sendText</code>.")}
+          <p class="field-hint">Session créée dans le dashboard OpenWA (démarrée + QR scanné).</p>
         </div>
         <div class="field full">
           <label for="otp_whatsapp_api_key">Clé API</label>
-          <input id="otp_whatsapp_api_key" type="password" value="${esc(s.otp_whatsapp_api_key || "")}" placeholder="owa_k1_… (Gateway) ou clé -k (legacy)">
-          <p class="field-hint">Gateway : en-tête <code>X-API-Key</code>. Legacy : en-tête <code>Authorization</code>.</p>
+          <input id="otp_whatsapp_api_key" type="password" value="${esc(s.otp_whatsapp_api_key || "")}" placeholder="owa_k1_…">
+          <p class="field-hint">En-tête <code>X-API-Key</code> (rôle OPERATOR minimum).</p>
         </div>
       </div>
       <div class="test-row">
@@ -1119,16 +1107,6 @@ async function renderOtp(root) {
   setCheck("#otp_enabled", s.otp_enabled);
   setCheck("#otp_demo_mode", s.otp_demo_mode);
   setCheck("#otp_whatsapp_enabled", s.otp_whatsapp_enabled);
-  setCheck("#otp_whatsapp_session_in_path", s.otp_whatsapp_session_in_path !== "false");
-  const providerSel = $("#otp_whatsapp_provider");
-  const toggleLegacy = () => {
-    const legacy = providerSel?.value === "wa-automate";
-    root.querySelectorAll(".wa-automate-only").forEach((el) => {
-      el.style.display = legacy ? "" : "none";
-    });
-  };
-  providerSel?.addEventListener("change", toggleLegacy);
-  toggleLegacy();
   setCheck("#otp_smtp_enabled", s.otp_smtp_enabled);
   setCheck("#otp_smtp_secure", s.otp_smtp_secure);
   $("#otp_default_channel").value = s.otp_default_channel === "email" ? "email" : "whatsapp";
