@@ -582,6 +582,7 @@ fun AdminOtpScreen(nav: NavActions) {
             listOf(
                 "otp_code_ttl_minutes" to "Durée validité (min)",
                 "otp_whatsapp_base_url" to "URL OpenWA",
+                "otp_whatsapp_provider" to "Fournisseur (gateway ou wa-automate)",
                 "otp_whatsapp_session_id" to "Session ID OpenWA",
                 "otp_whatsapp_api_key" to "Clé API OpenWA",
                 "otp_smtp_host" to "Serveur SMTP",

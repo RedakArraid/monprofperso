@@ -626,6 +626,7 @@ struct AdminOtpScreen: View {
 
                     otpField("otp_code_ttl_minutes", label: "Durée validité (min)")
                     otpField("otp_whatsapp_base_url", label: "URL OpenWA")
+                    otpField("otp_whatsapp_provider", label: "Fournisseur (gateway/wa-automate)")
                     otpField("otp_whatsapp_session_id", label: "Session ID OpenWA")
                     otpField("otp_whatsapp_api_key", label: "Clé API OpenWA", secure: true)
                     otpField("otp_smtp_host", label: "Serveur SMTP")

@@ -9,6 +9,7 @@ export const OTP_SETTING_KEYS = [
   "otp_whatsapp_enabled",
   "otp_whatsapp_base_url",
   "otp_whatsapp_api_key",
+  "otp_whatsapp_provider",
   "otp_whatsapp_session_id",
   "otp_whatsapp_session_in_path",
   "otp_smtp_enabled",
@@ -46,23 +47,59 @@ function toWhatsAppId(phone: string): string {
   return `${phone.replace(/\D/g, "")}@c.us`;
 }
 
-/** OpenWA EASY API — URL POST sendText (cf. docs.openwa.dev middleware). */
+const WHATSAPP_PROVIDERS = ["gateway", "wa-automate"] as const;
+type WhatsAppProvider = (typeof WHATSAPP_PROVIDERS)[number];
+
+function whatsAppProvider(settings: Record<string, string>): WhatsAppProvider {
+  const p = settings.otp_whatsapp_provider?.trim();
+  return p === "wa-automate" ? "wa-automate" : "gateway";
+}
+
+function normalizeWhatsAppBaseUrl(base: string): string {
+  return base.trim().replace(/\/$/, "");
+}
+
+/**
+ * URL d'envoi WhatsApp :
+ * - gateway (rmyndharis/OpenWA) : POST /api/sessions/{sessionId}/messages/send-text
+ * - wa-automate (legacy @open-wa) : POST /sendText ou /{sessionId}/sendText
+ */
 export function openWaSendTextUrl(settings: Record<string, string>): string {
-  const base = settings.otp_whatsapp_base_url.trim().replace(/\/$/, "");
+  const base = normalizeWhatsAppBaseUrl(settings.otp_whatsapp_base_url);
   const sessionId = settings.otp_whatsapp_session_id?.trim();
+
+  if (whatsAppProvider(settings) === "gateway") {
+    const apiBase = base.endsWith("/api") ? base : `${base}/api`;
+    return `${apiBase}/sessions/${encodeURIComponent(sessionId!)}/messages/send-text`;
+  }
+
   if (isTrue(settings.otp_whatsapp_session_in_path) && sessionId) {
     return `${base}/${encodeURIComponent(sessionId)}/sendText`;
   }
   return `${base}/sendText`;
 }
 
-/** OpenWA attend la clé API en Authorization (souvent sans préfixe Bearer). */
-function openWaAuthHeaders(apiKey: string | undefined): Record<string, string> {
+function whatsAppAuthHeaders(settings: Record<string, string>): Record<string, string> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  const key = apiKey?.trim();
-  if (key) headers.Authorization = key;
+  const key = settings.otp_whatsapp_api_key?.trim();
+  if (!key) return headers;
+  if (whatsAppProvider(settings) === "gateway") {
+    headers["X-API-Key"] = key;
+  } else {
+    headers.Authorization = key;
+  }
   return headers;
 }
+
+function whatsAppSendBody(settings: Record<string, string>, to: string, content: string): string {
+  const chatId = toWhatsAppId(to);
+  if (whatsAppProvider(settings) === "gateway") {
+    return JSON.stringify({ chatId, text: content });
+  }
+  return JSON.stringify({ args: { to: chatId, content } });
+}
+
+const WHATSAPP_FETCH_MS = 15_000;
 
 async function postOpenWaSendText(
   settings: Record<string, string>,
@@ -70,14 +107,29 @@ async function postOpenWaSendText(
   content: string
 ): Promise<void> {
   const url = openWaSendTextUrl(settings);
-  const res = await fetch(url, {
-    method: "POST",
-    headers: openWaAuthHeaders(settings.otp_whatsapp_api_key),
-    body: JSON.stringify({ args: { to: toWhatsAppId(to), content } }),
-  });
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`OpenWA sendText ${res.status}${detail ? `: ${detail.slice(0, 200)}` : ""}`);
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), WHATSAPP_FETCH_MS);
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: whatsAppAuthHeaders(settings),
+      body: whatsAppSendBody(settings, to, content),
+      signal: ac.signal,
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new Error(`OpenWA ${res.status}${detail ? `: ${detail.slice(0, 200)}` : ""}`);
+    }
+  } catch (e: unknown) {
+    if (e instanceof Error && e.name === "AbortError") {
+      throw new Error(`OpenWA timeout (${WHATSAPP_FETCH_MS / 1000}s) — URL injoignable : ${url}`);
+    }
+    if (e instanceof TypeError) {
+      throw new Error(`OpenWA injoignable (${url}) : ${e.message}`);
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -267,7 +319,15 @@ export async function testWhatsApp(settings: Record<string, string>, phone: stri
   if (!settings.otp_whatsapp_base_url?.trim()) {
     throw new ValidationError("otp_whatsapp_base_url", "URL OpenWA requise");
   }
-  if (isTrue(settings.otp_whatsapp_session_in_path) && !settings.otp_whatsapp_session_id?.trim()) {
+  const provider = whatsAppProvider(settings);
+  if (provider === "gateway" && !settings.otp_whatsapp_session_id?.trim()) {
+    throw new ValidationError("otp_whatsapp_session_id", "session ID requis (nom de session OpenWA)");
+  }
+  if (
+    provider === "wa-automate" &&
+    isTrue(settings.otp_whatsapp_session_in_path) &&
+    !settings.otp_whatsapp_session_id?.trim()
+  ) {
     throw new ValidationError("otp_whatsapp_session_id", "session ID requis (chemin /{sessionId}/sendText)");
   }
   await postOpenWaSendText(settings, phone, TEST_WHATSAPP_MSG);

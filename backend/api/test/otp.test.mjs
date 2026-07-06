@@ -137,7 +137,7 @@ test("POST /api/admin/otp-settings/test sans URL OpenWA -> 400", async () => {
   assert.equal(body.field, "otp_whatsapp_base_url");
 });
 
-test("POST /api/admin/otp-settings/test WhatsApp session dans URL sans ID -> 400", async () => {
+test("POST /api/admin/otp-settings/test WhatsApp wa-automate session sans ID -> 400", async () => {
   const token = await adminToken();
   const { status, body } = await post(
     "/api/admin/otp-settings/test",
@@ -145,8 +145,28 @@ test("POST /api/admin/otp-settings/test WhatsApp session dans URL sans ID -> 400
       channel: "whatsapp",
       phone: "+2250758421903",
       settings: {
+        otp_whatsapp_provider: "wa-automate",
         otp_whatsapp_base_url: "http://localhost:3000",
         otp_whatsapp_session_in_path: "true",
+        otp_whatsapp_session_id: "",
+      },
+    },
+    token
+  );
+  assert.equal(status, 400);
+  assert.equal(body.field, "otp_whatsapp_session_id");
+});
+
+test("POST /api/admin/otp-settings/test WhatsApp gateway sans session ID -> 400", async () => {
+  const token = await adminToken();
+  const { status, body } = await post(
+    "/api/admin/otp-settings/test",
+    {
+      channel: "whatsapp",
+      phone: "+2250758421903",
+      settings: {
+        otp_whatsapp_provider: "gateway",
+        otp_whatsapp_base_url: "http://localhost:2785",
         otp_whatsapp_session_id: "",
       },
     },
