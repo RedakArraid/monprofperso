@@ -973,16 +973,11 @@ function otpStatusBanner(s) {
   const wa = s.otp_whatsapp_enabled === "true" && s.otp_whatsapp_base_url?.trim();
   const mail = s.otp_smtp_enabled === "true" && s.otp_smtp_host?.trim();
   const pills = [];
-  if (demo) pills.push('<span class="pill orange">Mode démo</span>');
-  else pills.push('<span class="pill green">OTP réel</span>');
+  if (demo) pills.push('<span class="pill orange">Démo</span>');
+  else pills.push('<span class="pill green">OTP actif</span>');
   if (wa) pills.push('<span class="pill green">WhatsApp</span>');
   if (mail) pills.push('<span class="pill green">E-mail</span>');
-  if (!wa && !mail) pills.push('<span class="pill orange">Aucun canal configuré</span>');
-  return `<div class="otp-status${demo ? " demo" : ""}">
-    <strong>${demo ? "Mode démo actif" : "OTP réel activé"}</strong>
-    <span class="muted">${demo ? "Tout code est accepté sans envoi." : "Les codes sont vérifiés et envoyés."}</span>
-    ${pills.join(" ")}
-  </div>`;
+  return `<div class="otp-status${demo ? " demo" : ""}">${pills.join(" ")}</div>`;
 }
 
 function collectOtpForm() {
@@ -1018,13 +1013,12 @@ async function renderOtp(root) {
   root.innerHTML = `
     ${otpStatusBanner(s)}
     <div class="card">
-      <h3>Paramètres généraux</h3>
-      <p class="card-sub">Activez l'OTP réel uniquement après avoir testé WhatsApp et/ou SMTP ci-dessous.</p>
+      <h3>Général</h3>
       <div class="form-grid">
-        ${boolField("otp_enabled", "Activer l'OTP réel", "Désactivé = mode démo (comportement actuel des apps).")}
-        ${boolField("otp_demo_mode", "Mode démo (accepter tout code)", "Utile pour les tests ; désactivez en production.")}
+        ${boolField("otp_enabled", "OTP réel")}
+        ${boolField("otp_demo_mode", "Mode démo")}
         <div class="field">
-          <label for="otp_code_ttl_minutes">Durée de validité (minutes)</label>
+          <label for="otp_code_ttl_minutes">Validité (min)</label>
           <input id="otp_code_ttl_minutes" type="number" min="1" max="60" value="${esc(s.otp_code_ttl_minutes || "10")}">
         </div>
         <div class="field">
@@ -1037,71 +1031,66 @@ async function renderOtp(root) {
       </div>
     </div>
     <div class="card">
-      <h3>WhatsApp (OpenWA Gateway)</h3>
-      <p class="card-sub"><a href="https://github.com/rmyndharis/OpenWA" target="_blank" rel="noopener">OpenWA Gateway</a>
-      — port 2785, envoi via <code>POST /api/sessions/{sessionId}/messages/send-text</code>.</p>
+      <h3>WhatsApp</h3>
       <div class="form-grid">
-        ${boolField("otp_whatsapp_enabled", "Activer WhatsApp")}
+        ${boolField("otp_whatsapp_enabled", "Activer")}
         <div class="field full">
-          <label for="otp_whatsapp_base_url">URL de base</label>
+          <label for="otp_whatsapp_base_url">URL</label>
           <input id="otp_whatsapp_base_url" value="${esc(s.otp_whatsapp_base_url || "")}" placeholder="http://openwa:2785">
-          <p class="field-hint">Racine du serveur OpenWA (ex. <code>http://IP:2785</code>, sans <code>/api</code>).</p>
         </div>
         <div class="field">
-          <label for="otp_whatsapp_session_id">Session ID</label>
-          <input id="otp_whatsapp_session_id" value="${esc(s.otp_whatsapp_session_id || "")}" placeholder="my-bot">
-          <p class="field-hint">Session créée dans le dashboard OpenWA (démarrée + QR scanné).</p>
+          <label for="otp_whatsapp_session_id">Session</label>
+          <input id="otp_whatsapp_session_id" value="${esc(s.otp_whatsapp_session_id || "")}" placeholder="monprofperso">
         </div>
         <div class="field full">
           <label for="otp_whatsapp_api_key">Clé API</label>
-          <input id="otp_whatsapp_api_key" type="password" value="${esc(s.otp_whatsapp_api_key || "")}" placeholder="owa_k1_…">
-          <p class="field-hint">En-tête <code>X-API-Key</code> (rôle OPERATOR minimum).</p>
+          <input id="otp_whatsapp_api_key" type="password" value="${esc(s.otp_whatsapp_api_key || "")}" placeholder="Laisser vide pour ne pas changer">
         </div>
       </div>
       <div class="test-row">
         <div class="field">
-          <label for="test_whatsapp_phone">Numéro de test</label>
+          <label for="test_whatsapp_phone">Test</label>
           <input id="test_whatsapp_phone" type="tel" placeholder="+2250700000000" value="${esc(pub.contact_phone || "")}">
         </div>
-        <button type="button" class="btn btn-ghost" id="testWhatsapp">Tester WhatsApp</button>
+        <button type="button" class="btn btn-ghost" id="testWhatsapp">Tester</button>
       </div>
     </div>
     <div class="card">
-      <h3>E-mail (SMTP)</h3>
+      <h3>E-mail</h3>
       <div class="form-grid">
-        ${boolField("otp_smtp_enabled", "Activer l'e-mail")}
+        ${boolField("otp_smtp_enabled", "Activer")}
         <div class="field">
-          <label for="otp_smtp_host">Serveur SMTP</label>
+          <label for="otp_smtp_host">Serveur</label>
           <input id="otp_smtp_host" value="${esc(s.otp_smtp_host || "")}" placeholder="smtp.example.com">
         </div>
         <div class="field">
           <label for="otp_smtp_port">Port</label>
           <input id="otp_smtp_port" value="${esc(s.otp_smtp_port || "587")}">
         </div>
-        ${boolField("otp_smtp_secure", "Connexion TLS directe (port 465)")}
+        ${boolField("otp_smtp_secure", "TLS (465)")}
         <div class="field">
-          <label for="otp_smtp_user">Utilisateur SMTP</label>
+          <label for="otp_smtp_user">Utilisateur</label>
           <input id="otp_smtp_user" value="${esc(s.otp_smtp_user || "")}">
         </div>
         <div class="field">
-          <label for="otp_smtp_pass">Mot de passe SMTP</label>
+          <label for="otp_smtp_pass">Mot de passe</label>
           <input id="otp_smtp_pass" type="password" value="${esc(s.otp_smtp_pass || "")}" placeholder="Laisser vide pour ne pas changer">
         </div>
         <div class="field full">
-          <label for="otp_smtp_from">Expéditeur (From)</label>
-          <input id="otp_smtp_from" value="${esc(s.otp_smtp_from || "")}" placeholder="Mon Prof Perso &lt;noreply@monprofperso.com&gt;">
+          <label for="otp_smtp_from">Expéditeur</label>
+          <input id="otp_smtp_from" value="${esc(s.otp_smtp_from || "")}" placeholder="noreply@monprofperso.com">
         </div>
       </div>
       <div class="test-row">
         <div class="field">
-          <label for="test_smtp_email">Adresse e-mail de test</label>
+          <label for="test_smtp_email">Test</label>
           <input id="test_smtp_email" type="email" placeholder="vous@example.com" value="${esc(pub.contact_email || "")}">
         </div>
-        <button type="button" class="btn btn-ghost" id="testSmtp">Tester l'e-mail</button>
+        <button type="button" class="btn btn-ghost" id="testSmtp">Tester</button>
       </div>
     </div>
     <div class="form-actions">
-      <button type="button" class="btn btn-primary" id="saveOtp">Enregistrer la configuration</button>
+      <button type="button" class="btn btn-primary" id="saveOtp">Enregistrer</button>
     </div>`;
 
   setCheck("#otp_enabled", s.otp_enabled);
