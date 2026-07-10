@@ -4,6 +4,7 @@ import { ValidationError, optionalString, optionalPhone, optionalEmail, optional
 import { optionalAuth, currentUserId, signJwt, requireAdmin, DEMO_USER } from "./auth";
 import { putFile, getFileStream, removeFile } from "./storage";
 import { registerTeacherApplicationRoutes } from "./teacherApplications";
+import { registerTeacherProfileRoutes, computeProfileCompletion } from "./teacherProfile";
 import {
   createAndSendOtp,
   verifyOtpCode,
@@ -511,7 +512,7 @@ async function currentTeacherId(res: any): Promise<number> {
 api.get("/teacher/dashboard", wrap(async (_req, res) => {
   const teacherId = await currentTeacherId(res);
   const p = (await pool.query("SELECT * FROM teacher_profiles WHERE teacher_id=$1", [teacherId])).rows[0];
-  const t = (await pool.query("SELECT name, negotiable FROM teachers WHERE id=$1", [teacherId])).rows[0];
+  const t = (await pool.query("SELECT name, negotiable, location, price_per_hour, experience, subjects, levels, formats, programs FROM teachers WHERE id=$1", [teacherId])).rows[0];
   if (!p || !t) { res.status(404).json({ error: "not_found" }); return; }
   const pending = (await pool.query(
     `SELECT ((SELECT count(*) FROM teacher_requests WHERE teacher_id=$1)
@@ -527,6 +528,13 @@ api.get("/teacher/dashboard", wrap(async (_req, res) => {
     ],
     pendingRequests: pending,
     negotiable: t.negotiable,
+    profileCompletion: computeProfileCompletion(
+      t,
+      (await pool.query(
+        "SELECT * FROM teacher_applications WHERE teacher_id=$1 ORDER BY created_at DESC LIMIT 1",
+        [teacherId],
+      )).rows[0] ?? null,
+    ),
   });
 }));
 
@@ -658,6 +666,8 @@ api.get("/teacher/earnings", wrap(async (_req, res) => {
     payouts,
   });
 }));
+
+registerTeacherProfileRoutes(api, { wrap, currentTeacherId, currentUserId });
 
 // ============================================================================ *
 // ESPACE ADMINISTRATION (réservé au rôle `admin`)

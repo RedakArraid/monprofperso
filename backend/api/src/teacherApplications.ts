@@ -162,22 +162,13 @@ export function registerTeacherApplicationRoutes(
       optionalString(b, "photoMimeType", { max: 100 }) ?? "image/jpeg",
       "applications/photos",
     );
-    if (!idCard.storageKey && !idCard.content) {
-      throw new ValidationError("idCardBase64", "pièce d'identité requise");
-    }
-    if (!diploma.storageKey && !diploma.content) {
-      throw new ValidationError("diplomaBase64", "diplôme ou attestation requis");
-    }
-    if (!photo.storageKey && !photo.content) {
-      throw new ValidationError("photoBase64", "photo de profil requise");
-    }
-
     const email = optionalString(b, "email", { max: 120 });
     const location = optionalString(b, "location", { max: 120 }) ?? "Abidjan";
     const pricePerHour = optionalNumber(b, "pricePerHour", { min: 0, max: 1_000_000 });
     const bio = optionalString(b, "bio", { max: 2000 });
     const experience = optionalString(b, "experience", { max: 40 });
     const levels = strArray(b, "levels") ?? [];
+    if (!levels.length) throw new ValidationError("levels", "au moins un niveau requis");
     const formats = strArray(b, "formats") ?? ["home", "online"];
     const programs = strArray(b, "programs") ?? ["standard"];
     const negotiable = b.negotiable === true || b.negotiable === "true";

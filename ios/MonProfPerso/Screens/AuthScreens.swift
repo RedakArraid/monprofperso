@@ -365,7 +365,7 @@ struct OtpScreen: View {
                 TextField("", text: $code)
                     .keyboardType(.numberPad)
                     .opacity(0.01).frame(height: 1)
-                    .onChange(of: code) { _, v in
+                    .onChange(of: code) { v in
                         let d = v.filter(\.isNumber)
                         code = String(d.prefix(codeLen))
                         error = nil

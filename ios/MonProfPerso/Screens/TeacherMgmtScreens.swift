@@ -11,11 +11,11 @@ private func normalizePhone(_ raw: String) -> String {
     return p
 }
 
+private let otherLabel = "Autre"
+private let otherProgramSlug = "__autre__"
 private let appLocations = ["Cocody", "Plateau", "Yopougon", "Marcory", "Treichville", "Abobo", "Adjamé", "Koumassi", "Port-Bouët", "Bingerville", "Anyama", "Autre (Abidjan)"]
 private let appExperiences = ["Débutant", "1 à 3 ans", "3 à 5 ans", "5 à 10 ans", "10 ans et +", "Enseignant certifié"]
 private let appPrices = [2500, 3000, 4000, 5000, 6000, 8000, 10000, 12000]
-private let otherLabel = "Autre"
-private let otherProgramSlug = "__autre__"
 
 private func finalizeSubjects(_ list: [String]) -> [String] {
     list.filter { $0 != otherLabel } + [otherLabel]
@@ -40,34 +40,16 @@ struct BecomeTeacherScreen: View {
     @State private var fullName = ""
     @State private var phone = ""
     @State private var email = ""
-    @State private var location = "Cocody"
-    @State private var price = 4000
-    @State private var experience = "3 à 5 ans"
-    @State private var bio = ""
     @State private var consent = false
-    @State private var fmtHome = true
-    @State private var fmtOnline = true
-    @State private var negotiable = false
     @State private var subjectNames: [String] = ["Maths", "Physique", "Français", "Anglais", "SVT", "Philo", "Hist-Géo"]
     @State private var levelNames: [String] = ["Primaire", "Collège", "Lycée", "Professionnel", "Supérieur", "Université"]
-    @State private var programItems: [ProgramPick] = [
-        ProgramPick(slug: "standard", name: "Programme standard"),
-        ProgramPick(slug: "francais", name: "Programme français"),
-    ]
     @State private var selectedSubjects = Set<String>()
     @State private var selectedLevels: Set<String> = ["Collège", "Lycée"]
-    @State private var selectedPrograms: Set<String> = ["standard"]
     @State private var otherSubject = ""
     @State private var otherLevel = ""
-    @State private var otherProgram = ""
-    @State private var idCard: DocPick?
-    @State private var diploma: DocPick?
-    @State private var photo: DocPick?
     @State private var err: String?
     @State private var done = false
     @State private var loading = false
-    @State private var pickKind = ""
-    @State private var showImporter = false
 
     var body: some View {
         AkScreen {
@@ -86,11 +68,11 @@ struct BecomeTeacherScreen: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
                         HStack(spacing: 8) {
-                            ForEach(0..<3, id: \.self) { i in
+                            ForEach(0..<2, id: \.self) { i in
                                 Capsule().fill(i <= step ? Ak.green : Color(hex: 0xEAE5DC)).frame(height: 5)
                             }
                         }
-                        Text("Étape \(step + 1) / 3 · \(stepTitle)").font(AkFont.regular(12)).foregroundColor(Ak.muted).padding(.top, 7)
+                        Text("Étape \(step + 1) / 2 · \(stepTitle)").font(AkFont.regular(12)).foregroundColor(Ak.muted).padding(.top, 7)
                         stepContent.padding(.top, 14)
                         if let err { Text(err).font(AkFont.regular(13)).foregroundColor(Ak.danger).padding(.top, 12) }
                     }.padding(.horizontal, 22).padding(.top, 14)
@@ -108,34 +90,14 @@ struct BecomeTeacherScreen: View {
             }
         }
         .task { await loadCatalog() }
-        .fileImporter(isPresented: $showImporter, allowedContentTypes: allowedTypes, allowsMultipleSelection: false) { result in
-            guard case .success(let urls) = result, let url = urls.first else { return }
-            guard url.startAccessingSecurityScopedResource() else { return }
-            defer { url.stopAccessingSecurityScopedResource() }
-            guard let data = try? Data(contentsOf: url) else { return }
-            let name = url.lastPathComponent
-            let mime = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
-            let pick = DocPick(name: name, mime: mime, b64: data.base64EncodedString())
-            switch pickKind {
-            case "id": idCard = pick
-            case "dip": diploma = pick
-            case "photo": photo = pick
-            default: break
-            }
-        }
     }
 
     private var stepTitle: String {
-        switch step { case 0: return "Votre profil"; case 1: return "Consentement"; default: return "Vos documents" }
+        step == 0 ? "Votre profil" : "Consentement"
     }
 
     private var primaryLabel: String {
-        if step < 2 { return "Suivant" }
-        return loading ? "Envoi…" : "Envoyer ma candidature"
-    }
-
-    private var allowedTypes: [UTType] {
-        pickKind == "photo" ? [.image] : [.pdf, .image]
+        step == 0 ? "Suivant" : (loading ? "Envoi…" : "Envoyer ma candidature")
     }
 
     @ViewBuilder private var stepContent: some View {
@@ -157,40 +119,15 @@ struct BecomeTeacherScreen: View {
                 fieldLabel("Précisez le niveau").padding(.top, 8)
                 appField($otherLevel, "Ex. Prépa concours, Adultes…")
             }
-            fieldLabel("Programmes scolaires").padding(.top, 14)
-            programChips()
-            if selectedPrograms.contains(otherProgramSlug) {
-                fieldLabel("Précisez le programme").padding(.top, 8)
-                appField($otherProgram, "Ex. Programme IB, Cambridge…")
-            }
-            fieldLabel("Quartier / commune").padding(.top, 14)
-            pickerField(selection: $location, options: appLocations)
-            fieldLabel("Tarif horaire").padding(.top, 10)
-            pickerField(selection: $price, options: appPrices, label: { "\($0.formatted(.number.grouping(.automatic))) F / h" })
-            fieldLabel("Expérience").padding(.top, 10)
-            pickerField(selection: $experience, options: appExperiences)
-            fieldLabel("Modalités").padding(.top, 12)
-            Toggle("Cours à domicile", isOn: $fmtHome).font(AkFont.regular(13))
-            Toggle("Cours en ligne", isOn: $fmtOnline).font(AkFont.regular(13))
-            Toggle("Tarif négociable", isOn: $negotiable).font(AkFont.regular(13))
-            fieldLabel("Présentation (optionnel)").padding(.top, 10)
-            appField($bio, "Votre parcours…", lines: 3)
         case 1:
             Text("Confidentialité").font(AkFont.schibstedExtra(20)).foregroundColor(Ak.ink)
-            Text("Pour rassurer les parents, chaque professeur est vérifié avant d'apparaître sur Mon Prof Perso.")
+            Text("Pour rassurer les parents, chaque professeur est vérifié avant d'apparaître sur Mon Prof Perso. Vous compléterez votre profil (documents, tarifs…) dans votre espace après validation.")
                 .font(AkFont.regular(13)).foregroundColor(Ak.muted).padding(.top, 6)
-            HStack(alignment: .top, spacing: 9) {
-                Image(systemName: "checkmark.shield.fill").font(.system(size: 16)).foregroundColor(Ak.green)
-                Text("Vos documents sont confidentiels et vérifiés sous 24 à 48 h.").font(AkFont.regular(12.5)).foregroundColor(Color(hex: 0x3F6B59)).lineSpacing(3)
-            }.padding(.horizontal, 14).padding(.vertical, 13).background(Ak.greenSoft).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous)).padding(.top, 16)
             Toggle(isOn: $consent) {
                 Text("J'accepte les CGU et la politique de confidentialité.").font(AkFont.regular(13)).foregroundColor(Ak.ink)
             }.padding(.top, 14)
         default:
-            Text("Vérifions votre profil").font(AkFont.schibstedExtra(20)).foregroundColor(Ak.ink)
-            docRow("person.text.rectangle.fill", "Pièce d'identité (CNI)", idCard?.name ?? "Obligatoire", done: idCard != nil) { pickKind = "id"; showImporter = true }.padding(.top, 12)
-            docRow("rosette", "Diplôme / attestation", diploma?.name ?? "Obligatoire", done: diploma != nil) { pickKind = "dip"; showImporter = true }.padding(.top, 10)
-            docRow("camera.fill", "Photo de profil", photo?.name ?? "Obligatoire", done: photo != nil) { pickKind = "photo"; showImporter = true }.padding(.top, 10)
+            EmptyView()
         }
     }
 
@@ -204,11 +141,6 @@ struct BecomeTeacherScreen: View {
             levelNames = finalizeLevels(l.map(\.name))
         } else {
             levelNames = finalizeLevels(levelNames)
-        }
-        if let p = try? await ApiClient.shared.programs(), !p.isEmpty {
-            programItems = finalizePrograms(p.map { ProgramPick(slug: $0.slug, name: $0.name) })
-        } else {
-            programItems = finalizePrograms(programItems)
         }
     }
 
@@ -230,15 +162,6 @@ struct BecomeTeacherScreen: View {
         return parts
     }
 
-    private func buildProgramsList() -> [String] {
-        var parts = selectedPrograms.filter { $0 != otherProgramSlug }.sorted()
-        if selectedPrograms.contains(otherProgramSlug) {
-            let custom = otherProgram.trimmingCharacters(in: .whitespaces)
-            if !custom.isEmpty { parts.append(custom) }
-        }
-        return parts
-    }
-
     private func chipWrap(_ items: [String], selected: Binding<Set<String>>) -> some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 8)], spacing: 8) {
             ForEach(items, id: \.self) { item in
@@ -253,32 +176,6 @@ struct BecomeTeacherScreen: View {
                     }
             }
         }.padding(.top, 8)
-    }
-
-    private func programChips() -> some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 8)], spacing: 8) {
-            ForEach(programItems) { p in
-                let on = selectedPrograms.contains(p.slug)
-                Text(p.name).font(AkFont.bold(12)).foregroundColor(on ? Ak.green : Ak.inkSoft)
-                    .padding(.horizontal, 12).padding(.vertical, 9)
-                    .background(on ? Ak.greenSoft : .white)
-                    .clipShape(Capsule())
-                    .overlay(Capsule().stroke(on ? Ak.green : Ak.border, lineWidth: 1))
-                    .onTapGesture {
-                        if on { selectedPrograms.remove(p.slug) } else { selectedPrograms.insert(p.slug) }
-                    }
-            }
-        }.padding(.top, 8)
-    }
-
-    private func pickerField<T: Hashable>(selection: Binding<T>, options: [T], label: ((T) -> String)? = nil) -> some View {
-        Picker("", selection: selection) {
-            ForEach(options, id: \.self) { opt in
-                Text(label?(opt) ?? String(describing: opt)).tag(opt)
-            }
-        }.pickerStyle(.menu).frame(maxWidth: .infinity, alignment: .leading)
-            .padding(12).background(.white).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Ak.border, lineWidth: 1))
     }
 
     private func fieldLabel(_ text: String) -> some View {
@@ -308,19 +205,170 @@ struct BecomeTeacherScreen: View {
                 err = "Sélectionnez au moins un niveau."
             } else if selectedLevels.contains(otherLabel) && otherLevel.trimmingCharacters(in: .whitespaces).isEmpty {
                 err = "Précisez le niveau « Autre »."
-            } else if selectedPrograms.isEmpty {
-                err = "Sélectionnez au moins un programme."
-            } else if selectedPrograms.contains(otherProgramSlug) && otherProgram.trimmingCharacters(in: .whitespaces).isEmpty {
-                err = "Précisez le programme « Autre »."
-            } else if !fmtHome && !fmtOnline {
-                err = "Choisissez domicile ou en ligne."
             } else { step += 1 }
         case 1:
-            if !consent { err = "Acceptez les conditions." } else { step += 1 }
+            if !consent { err = "Acceptez les conditions." } else { Task { await submit() } }
         default:
-            if idCard == nil || diploma == nil || photo == nil {
-                err = "Ajoutez les trois documents."
-            } else { Task { await submit() } }
+            break
+        }
+    }
+
+    private func submit() async {
+        loading = true; err = nil
+        var json: [String: Any] = [
+            "fullName": fullName.trimmingCharacters(in: .whitespaces),
+            "phone": normalizePhone(phone),
+            "subjects": buildSubjectsString(),
+            "levels": buildLevelsList(),
+            "consent": true,
+        ]
+        let em = email.trimmingCharacters(in: .whitespaces)
+        if !em.isEmpty { json["email"] = em }
+        do {
+            _ = try await ApiClient.shared.submitTeacherApplication(json)
+            done = true
+        } catch {
+            err = "Envoi impossible (\(error))"
+        }
+        loading = false
+    }
+}
+
+// MARK: - Compléter mon profil (espace professeur)
+struct CompleteTeacherProfileScreen: View {
+    @EnvironmentObject var router: Router
+    @State private var step = 0
+    @State private var location = "Cocody"
+    @State private var price = 4000
+    @State private var experience = ""
+    @State private var bio = ""
+    @State private var fmtHome = true
+    @State private var fmtOnline = true
+    @State private var negotiable = false
+    @State private var subjectsLine = ""
+    @State private var levelsLine = ""
+    @State private var programItems: [ProgramPick] = [
+        ProgramPick(slug: "standard", name: "Programme standard"),
+        ProgramPick(slug: "francais", name: "Programme français"),
+    ]
+    @State private var selectedPrograms: Set<String> = ["standard"]
+    @State private var otherProgram = ""
+    @State private var idCard: DocPick?
+    @State private var diploma: DocPick?
+    @State private var photo: DocPick?
+    @State private var hasIdCard = false
+    @State private var hasDiploma = false
+    @State private var hasPhoto = false
+    @State private var err: String?
+    @State private var done = false
+    @State private var loading = false
+    @State private var pickKind = ""
+    @State private var showImporter = false
+
+    var body: some View {
+        AkScreen {
+            TopBar(title: "Compléter mon profil", onBack: { if !done { router.back() } })
+            if done {
+                VStack(spacing: 16) {
+                    Spacer()
+                    Image(systemName: "checkmark.circle.fill").font(.system(size: 48)).foregroundColor(Ak.green)
+                    Text("Profil enregistré").font(AkFont.schibstedExtra(22)).foregroundColor(Ak.ink)
+                    Text("Votre profil sera visible après vérification par l'équipe.").font(AkFont.regular(14)).foregroundColor(Ak.muted).multilineTextAlignment(.center)
+                    Spacer()
+                    PrimaryButton(label: "Retour", trailingSystemIcon: nil) { router.back() }
+                }.padding(22)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack(spacing: 8) { ForEach(0..<2, id: \.self) { i in Capsule().fill(i <= step ? Ak.green : Color(hex: 0xEAE5DC)).frame(height: 5) } }
+                        Text("Étape \(step + 1) / 2 · \(step == 0 ? "Infos pro" : "Documents")").font(AkFont.regular(12)).foregroundColor(Ak.muted).padding(.top, 7)
+                        stepContent.padding(.top, 14)
+                        if let err { Text(err).font(AkFont.regular(13)).foregroundColor(Ak.danger).padding(.top, 12) }
+                    }.padding(.horizontal, 22).padding(.top, 14)
+                }
+                HStack(spacing: 10) {
+                    if step > 0 {
+                        Text("Retour").font(AkFont.bold(15.5)).foregroundColor(Ak.ink).frame(maxWidth: .infinity).padding(.vertical, 16)
+                            .overlay(RoundedRectangle(cornerRadius: 15).stroke(Ak.border, lineWidth: 1)).onTapGesture { step -= 1 }
+                    }
+                    PrimaryButton(label: step == 0 ? "Suivant" : (loading ? "Envoi…" : "Enregistrer"), trailingSystemIcon: nil) { nextStep() }.frame(maxWidth: .infinity)
+                }.padding(.horizontal, 22).padding(.vertical, 14).background(.white)
+            }
+        }
+        .task { await loadProfile() }
+        .fileImporter(isPresented: $showImporter, allowedContentTypes: pickKind == "photo" ? [.image] : [.pdf, .image], allowsMultipleSelection: false) { result in
+            guard case .success(let urls) = result, let url = urls.first, url.startAccessingSecurityScopedResource() else { return }
+            defer { url.stopAccessingSecurityScopedResource() }
+            guard let data = try? Data(contentsOf: url) else { return }
+            let pick = DocPick(name: url.lastPathComponent, mime: UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream", b64: data.base64EncodedString())
+            switch pickKind { case "id": idCard = pick; case "dip": diploma = pick; case "photo": photo = pick; default: break }
+        }
+    }
+
+    @ViewBuilder private var stepContent: some View {
+        if step == 0 {
+            Text("Finalisez votre profil public").font(AkFont.schibstedExtra(20)).foregroundColor(Ak.ink)
+            if !subjectsLine.isEmpty { fieldLabel("Matières").padding(.top, 12); Text(subjectsLine).font(AkFont.regular(13)).foregroundColor(Ak.ink) }
+            if !levelsLine.isEmpty { fieldLabel("Niveaux").padding(.top, 10); Text(levelsLine).font(AkFont.regular(13)).foregroundColor(Ak.ink) }
+            fieldLabel("Quartier / commune").padding(.top, 14)
+            pickerField(selection: $location, options: appLocations)
+            fieldLabel("Tarif horaire").padding(.top, 10)
+            pickerField(selection: $price, options: appPrices, label: { "\($0.formatted(.number.grouping(.automatic))) F / h" })
+            fieldLabel("Expérience").padding(.top, 10)
+            pickerField(selection: Binding(get: { experience.isEmpty ? appExperiences[2] : experience }, set: { experience = $0 }), options: appExperiences)
+            fieldLabel("Programmes scolaires").padding(.top, 14)
+            programChips()
+            if selectedPrograms.contains(otherProgramSlug) { fieldLabel("Précisez le programme").padding(.top, 8); appField($otherProgram, "Ex. Programme IB…") }
+            fieldLabel("Modalités").padding(.top, 12)
+            Toggle("Cours à domicile", isOn: $fmtHome).font(AkFont.regular(13))
+            Toggle("Cours en ligne", isOn: $fmtOnline).font(AkFont.regular(13))
+            Toggle("Tarif négociable", isOn: $negotiable).font(AkFont.regular(13))
+            fieldLabel("Présentation").padding(.top, 10)
+            appField($bio, "Votre parcours…", lines: 3)
+        } else {
+            Text("Vérifions votre profil").font(AkFont.schibstedExtra(20)).foregroundColor(Ak.ink)
+            Text("Ces documents restent confidentiels.").font(AkFont.regular(13)).foregroundColor(Ak.muted).padding(.top, 6)
+            profileDocRow("person.text.rectangle.fill", "Pièce d'identité (CNI)", idCard?.name ?? (hasIdCard ? "Déjà envoyé" : "Obligatoire"), done: idCard != nil || hasIdCard) { pickKind = "id"; showImporter = true }.padding(.top, 12)
+            profileDocRow("rosette", "Diplôme / attestation", diploma?.name ?? (hasDiploma ? "Déjà envoyé" : "Obligatoire"), done: diploma != nil || hasDiploma) { pickKind = "dip"; showImporter = true }.padding(.top, 10)
+            profileDocRow("camera.fill", "Photo de profil", photo?.name ?? (hasPhoto ? "Déjà envoyée" : "Obligatoire"), done: photo != nil || hasPhoto) { pickKind = "photo"; showImporter = true }.padding(.top, 10)
+        }
+    }
+
+    private func loadProfile() async {
+        if let p = try? await ApiClient.shared.teacherProfile() {
+            subjectsLine = p.subjects; levelsLine = p.levels.joined(separator: " · ")
+            location = p.location.isEmpty ? "Cocody" : p.location
+            price = p.pricePerHour ?? 4000; experience = p.experience ?? ""; bio = p.bio ?? ""
+            fmtHome = p.formats.contains("home"); fmtOnline = p.formats.contains("online"); negotiable = p.negotiable
+            selectedPrograms = Set(p.programs.isEmpty ? ["standard"] : p.programs)
+            hasIdCard = p.hasIdCard; hasDiploma = p.hasDiploma; hasPhoto = p.hasPhoto
+        }
+        if let progs = try? await ApiClient.shared.programs(), !progs.isEmpty {
+            programItems = finalizePrograms(progs.map { ProgramPick(slug: $0.slug, name: $0.name) })
+        }
+    }
+
+    private func buildProgramsList() -> [String] {
+        var parts = selectedPrograms.filter { $0 != otherProgramSlug }.sorted()
+        if selectedPrograms.contains(otherProgramSlug) {
+            let c = otherProgram.trimmingCharacters(in: .whitespaces)
+            if !c.isEmpty { parts.append(c) }
+        }
+        return parts
+    }
+
+    private func nextStep() {
+        guard !loading else { return }
+        err = nil
+        if step == 0 {
+            if experience.trimmingCharacters(in: .whitespaces).isEmpty { err = "Indiquez votre expérience." }
+            else if selectedPrograms.isEmpty { err = "Sélectionnez au moins un programme." }
+            else if selectedPrograms.contains(otherProgramSlug) && otherProgram.trimmingCharacters(in: .whitespaces).isEmpty { err = "Précisez le programme « Autre »." }
+            else if !fmtHome && !fmtOnline { err = "Choisissez domicile ou en ligne." }
+            else { step += 1 }
+        } else {
+            if !hasIdCard && idCard == nil || !hasDiploma && diploma == nil || !hasPhoto && photo == nil { err = "Ajoutez les documents manquants." }
+            else { Task { await submit() } }
         }
     }
 
@@ -330,40 +378,46 @@ struct BecomeTeacherScreen: View {
         if fmtHome { formats.append("home") }
         if fmtOnline { formats.append("online") }
         var json: [String: Any] = [
-            "fullName": fullName.trimmingCharacters(in: .whitespaces),
-            "phone": normalizePhone(phone),
-            "subjects": buildSubjectsString(),
-            "location": location,
-            "pricePerHour": price,
-            "bio": bio.trimmingCharacters(in: .whitespaces),
-            "experience": experience,
-            "levels": buildLevelsList(),
+            "location": location, "pricePerHour": price, "experience": experience,
             "formats": formats.isEmpty ? ["home", "online"] : formats,
-            "programs": buildProgramsList(),
-            "negotiable": negotiable,
-            "consent": true,
+            "programs": buildProgramsList(), "negotiable": negotiable,
         ]
-        let em = email.trimmingCharacters(in: .whitespaces)
-        if !em.isEmpty { json["email"] = em }
-        if let idCard {
-            json["idCardBase64"] = idCard.b64; json["idCardFileName"] = idCard.name; json["idCardMimeType"] = idCard.mime
-        }
-        if let diploma {
-            json["diplomaBase64"] = diploma.b64; json["diplomaFileName"] = diploma.name; json["diplomaMimeType"] = diploma.mime
-        }
-        if let photo {
-            json["photoBase64"] = photo.b64; json["photoFileName"] = photo.name; json["photoMimeType"] = photo.mime
-        }
-        do {
-            _ = try await ApiClient.shared.submitTeacherApplication(json)
-            done = true
-        } catch {
-            err = "Envoi impossible (\(error))"
-        }
+        if !bio.trimmingCharacters(in: .whitespaces).isEmpty { json["bio"] = bio.trimmingCharacters(in: .whitespaces) }
+        if let idCard { json["idCardBase64"] = idCard.b64; json["idCardFileName"] = idCard.name; json["idCardMimeType"] = idCard.mime }
+        if let diploma { json["diplomaBase64"] = diploma.b64; json["diplomaFileName"] = diploma.name; json["diplomaMimeType"] = diploma.mime }
+        if let photo { json["photoBase64"] = photo.b64; json["photoFileName"] = photo.name; json["photoMimeType"] = photo.mime }
+        do { _ = try await ApiClient.shared.updateTeacherProfile(json); done = true }
+        catch { err = "Enregistrement impossible" }
         loading = false
     }
 
-    func docRow(_ icon: String, _ title: String, _ status: String, done: Bool, onAdd: @escaping () -> Void) -> some View {
+    private func programChips() -> some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 8)], spacing: 8) {
+            ForEach(programItems) { p in
+                let on = selectedPrograms.contains(p.slug)
+                Text(p.name).font(AkFont.bold(12)).foregroundColor(on ? Ak.green : Ak.inkSoft)
+                    .padding(.horizontal, 12).padding(.vertical, 9).background(on ? Ak.greenSoft : .white).clipShape(Capsule())
+                    .overlay(Capsule().stroke(on ? Ak.green : Ak.border, lineWidth: 1))
+                    .onTapGesture { if on { selectedPrograms.remove(p.slug) } else { selectedPrograms.insert(p.slug) } }
+            }
+        }.padding(.top, 8)
+    }
+
+    private func pickerField<T: Hashable>(selection: Binding<T>, options: [T], label: ((T) -> String)? = nil) -> some View {
+        Picker("", selection: selection) { ForEach(options, id: \.self) { opt in Text(label?(opt) ?? String(describing: opt)).tag(opt) } }
+            .pickerStyle(.menu).frame(maxWidth: .infinity, alignment: .leading).padding(12).background(.white)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 14).stroke(Ak.border, lineWidth: 1))
+    }
+
+    private func fieldLabel(_ text: String) -> some View { Text(text).font(AkFont.semibold(12)).foregroundColor(Ak.muted) }
+
+    private func appField(_ text: Binding<String>, _ placeholder: String, lines: Int = 1) -> some View {
+        TextField(placeholder, text: text, axis: lines > 1 ? .vertical : .horizontal).lineLimit(lines > 1 ? lines...lines : 1...1)
+            .font(AkFont.regular(14)).padding(14).background(.white).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Ak.border, lineWidth: 1))
+    }
+
+    private func profileDocRow(_ icon: String, _ title: String, _ status: String, done: Bool, onAdd: @escaping () -> Void) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon).font(.system(size: 19)).foregroundColor(done ? Ak.green : Ak.faint)
                 .frame(width: 40, height: 40).background(done ? Ak.greenSoft : Ak.cardField).clipShape(RoundedRectangle(cornerRadius: 11))
@@ -372,11 +426,10 @@ struct BecomeTeacherScreen: View {
                 Text(status).font(AkFont.semibold(11.5)).foregroundColor(done ? Ak.online : Ak.faint)
             }
             Spacer()
-            if done { Image(systemName: "checkmark.circle.fill").font(.system(size: 21)).foregroundColor(Ak.online) }
-            else { Text("Ajouter").font(AkFont.bold(12)).foregroundColor(Ak.green).padding(.horizontal, 12).padding(.vertical, 7).background(Ak.greenSoft).clipShape(RoundedRectangle(cornerRadius: 10)) }
+            Text(done ? "Remplacer" : "Ajouter").font(AkFont.bold(12)).foregroundColor(Ak.green).padding(.horizontal, 12).padding(.vertical, 7).background(Ak.greenSoft).clipShape(RoundedRectangle(cornerRadius: 10))
         }.padding(14).background(.white).clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 15).stroke(done ? Ak.border : Color(hex: 0xC9C2B5), style: StrokeStyle(lineWidth: done ? 1 : 1.5, dash: done ? [] : [5])))
-        .onTapGesture { if !done { onAdd() } }
+        .onTapGesture { onAdd() }
     }
 }
 

@@ -64,6 +64,7 @@ struct RootView: View {
         case .groupDetail:            GroupDetailScreen()
         case .agenda:                 AgendaScreen()
         case .becomeTeacher:          BecomeTeacherScreen()
+        case .completeTeacherProfile: CompleteTeacherProfileScreen()
         case .withdraw:               WithdrawScreen()
         case .manageCourse:           ManageCourseScreen()
         case .progressReport:         ProgressReportScreen()

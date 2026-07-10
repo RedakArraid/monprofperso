@@ -42,7 +42,7 @@ struct ResourcesScreen: View {
 
     private var items: [ResourceDTO] {
         (all ?? []).filter { r in
-            (typeFilter == nil || r.type == typeFilter) && (offline || matchesProgram(r, programFilter))
+            (typeFilter == nil || r.type == typeFilter) && matchesProgram(r, filter: programFilter)
         }
     }
 

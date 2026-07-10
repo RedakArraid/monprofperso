@@ -45,6 +45,38 @@ function applicationBody(phone) {
   };
 }
 
+function simpleApplicationBody(phone) {
+  return {
+    fullName: "Test Candidat Simple",
+    phone,
+    subjects: "Maths · Français",
+    levels: ["Collège", "Lycée"],
+    consent: true,
+  };
+}
+
+test("candidature : soumission simple sans documents", async () => {
+  const phone = `+22507${String(Date.now()).slice(-8)}`;
+  const created = await api("/api/teacher-applications", {
+    method: "POST",
+    json: simpleApplicationBody(phone),
+  });
+  assert.equal(created.status, 201);
+  assert.equal(created.body.status, "pending");
+
+  const status = await api(`/api/teacher-applications/status?phone=${encodeURIComponent(phone)}`);
+  assert.equal(status.body.status, "pending");
+});
+
+test("candidature : niveau requis", async () => {
+  const phone = `+22507${String(Date.now()).slice(-8)}`;
+  const r = await api("/api/teacher-applications", {
+    method: "POST",
+    json: { fullName: "Sans niveau", phone, subjects: "Maths", consent: true },
+  });
+  assert.equal(r.status, 400);
+});
+
 test("candidature : statut none sans dossier", async () => {
   const phone = `+22507${String(Date.now()).slice(-8)}`;
   const r = await api(`/api/teacher-applications/status?phone=${encodeURIComponent(phone)}`);

@@ -46,6 +46,7 @@ object Routes {
     const val Agenda = "agenda"
     // I, Côté professeur (gestion)
     const val BecomeTeacher = "become_teacher"
+    const val CompleteTeacherProfile = "complete_teacher_profile"
     const val Withdraw = "withdraw"
     // J, Gérer un cours & suivi détaillé
     const val ManageCourse = "manage_course"
@@ -110,6 +111,7 @@ fun MonProfPersoNavGraph() {
         composable(Routes.Agenda) { AgendaScreen(actions) }
 
         composable(Routes.BecomeTeacher) { BecomeTeacherScreen(actions) }
+        composable(Routes.CompleteTeacherProfile) { CompleteTeacherProfileScreen(actions) }
         composable(Routes.Withdraw) { WithdrawScreen(actions) }
 
         composable(Routes.ManageCourse) { ManageCourseScreen(actions) }

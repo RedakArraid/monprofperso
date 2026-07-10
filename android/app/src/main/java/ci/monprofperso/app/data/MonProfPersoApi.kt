@@ -129,6 +129,12 @@ interface MonProfPersoApi {
     @GET("api/teacher/earnings")
     suspend fun teacherEarnings(): TeacherEarningsDto
 
+    @GET("api/teacher/profile")
+    suspend fun teacherProfile(): TeacherProfileDto
+
+    @retrofit2.http.PUT("api/teacher/profile")
+    suspend fun updateTeacherProfile(@Body body: Map<String, @JvmSuppressWildcards Any?>): TeacherProfileDto
+
     @POST("api/teacher/requests/{id}/accept")
     suspend fun acceptRequest(@Path("id") id: Int): Response<Unit>
 

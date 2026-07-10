@@ -305,7 +305,7 @@ struct PhoneField: View {
                     .keyboardType(.phonePad)
                     .font(AkFont.medium(14.5))
                     .foregroundColor(Ak.ink)
-                    .onChange(of: value) { _, v in
+                    .onChange(of: value) { v in
                         let d = v.filter(\.isNumber)
                         if d != v || d.count > 10 { value = String(d.prefix(10)) }
                     }
@@ -319,6 +319,10 @@ struct PhoneField: View {
 }
 
 // MARK: - Modificateurs utilitaires
+
+extension String {
+    var trimmed: String { trimmingCharacters(in: .whitespacesAndNewlines) }
+}
 
 extension View {
     /// Carte blanche avec bord doux.

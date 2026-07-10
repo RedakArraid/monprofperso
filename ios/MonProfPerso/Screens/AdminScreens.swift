@@ -582,10 +582,6 @@ struct AdminSocialScreen: View {
     }
 }
 
-private extension String {
-    var trimmed: String { trimmingCharacters(in: .whitespacesAndNewlines) }
-}
-
 /* ====================================================================== *
  * ÉCRAN ADMIN, OTP & MESSAGERIE (OpenWA + SMTP)
  * ====================================================================== */

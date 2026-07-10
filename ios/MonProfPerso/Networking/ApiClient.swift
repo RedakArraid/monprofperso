@@ -2,9 +2,9 @@ import Foundation
 
 /// URL de base de l'API MonProfPerso commune (mêmes endpoints que côté Android).
 enum ApiConfig {
-    // Production VPS (Traefik + Let's Encrypt).
-    static let baseURL = URL(string: "https://api.monprofperso.com")!
-    // Dev simulateur : URL(string: "http://localhost:8099")!
+    // Dev simulateur + API locale (docker compose up).
+    static let baseURL = URL(string: "http://localhost:8099")!
+    // Production VPS : URL(string: "https://api.monprofperso.com")!
     /// Numéro de démonstration (= utilisateur seed « Aya Koné »).
     static let demoPhone = "+2250758421903"
     /// Numéro de l'administrateur de démonstration (seed).
@@ -162,6 +162,17 @@ struct StatDTO: Codable, Identifiable { let value, label: String; var id: String
 struct TeacherDashboardDTO: Codable {
     let name: String; let revenue: Int; let trend: String; let stats: [StatDTO]; let pendingRequests: Int
     let negotiable: Bool?
+    let profileCompletion: ProfileCompletionDTO?
+}
+struct ProfileCompletionDTO: Codable {
+    let percent: Int; let complete: Bool; let missing: [String]
+}
+struct TeacherProfileDTO: Codable {
+    let name: String; let subjects: String; let email: String?
+    let location: String; let pricePerHour: Int?; let experience: String?; let bio: String?
+    let levels: [String]; let formats: [String]; let programs: [String]
+    let negotiable: Bool; let hasIdCard: Bool; let hasDiploma: Bool; let hasPhoto: Bool
+    let completion: ProfileCompletionDTO
 }
 struct TeacherRequestDTO: Codable, Identifiable {
     let courseId: Int?
@@ -402,6 +413,11 @@ struct ApiClient {
     func teacherDashboard() async throws -> TeacherDashboardDTO { try await get("api/teacher/dashboard") }
     func teacherRequests() async throws -> [TeacherRequestDTO] { try await get("api/teacher/requests") }
     func teacherEarnings() async throws -> TeacherEarningsDTO { try await get("api/teacher/earnings") }
+    func teacherProfile() async throws -> TeacherProfileDTO { try await get("api/teacher/profile") }
+    func updateTeacherProfile(_ json: [String: Any]) async throws -> TeacherProfileDTO {
+        let data = try await request("api/teacher/profile", method: "PUT", json: json)
+        return try JSONDecoder().decode(TeacherProfileDTO.self, from: data)
+    }
     func acceptRequest(courseId: Int) async throws { _ = try await request("api/teacher/requests/\(courseId)/accept", method: "POST") }
     func refuseRequest(courseId: Int) async throws { _ = try await request("api/teacher/requests/\(courseId)/refuse", method: "POST") }
     /// Contre-proposition du prof (tarif et/ou fréquence).
@@ -488,9 +504,9 @@ struct ApiClient {
 
 enum Fallback {
     static let teachers: [TeacherDTO] = [
-        .init(id: 1, initials: "KN", name: "Koffi N'Guessan", subjects: "Maths · Physique-Chimie · 8 ans d'exp.", rating: 4.9, reviews_count: 128, location: "Cocody", price_per_hour: 4000, distance_km: 2.4, accent: "green", verified: true, special_bepc: true, formats: ["home","online"], experience: nil, students: nil, bac_success: nil, bio: nil, levels: nil, reviews: nil),
-        .init(id: 2, initials: "ID", name: "Ibrahim Diallo", subjects: "Maths · Statistiques · 5 ans d'exp.", rating: 4.7, reviews_count: 210, location: "Yopougon", price_per_hour: 3000, distance_km: 5.1, accent: "orange", verified: true, special_bepc: false, formats: ["home","online"], experience: nil, students: nil, bac_success: nil, bio: nil, levels: nil, reviews: nil),
-        .init(id: 3, initials: "AY", name: "Adjoua Yao", subjects: "Maths · SVT · 6 ans d'exp.", rating: 4.9, reviews_count: 88, location: "Cocody", price_per_hour: 4000, distance_km: 1.8, accent: "green", verified: true, special_bepc: false, formats: ["home"], experience: nil, students: nil, bac_success: nil, bio: nil, levels: nil, reviews: nil),
+        .init(id: 1, initials: "KN", name: "Koffi N'Guessan", subjects: "Maths · Physique-Chimie · 8 ans d'exp.", rating: 4.9, reviews_count: 128, location: "Cocody", price_per_hour: 4000, distance_km: 2.4, accent: "green", verified: true, special_bepc: true, formats: ["home","online"], experience: nil, students: nil, bac_success: nil, bio: nil, levels: nil, programs: nil, negotiable: nil, reviews: nil),
+        .init(id: 2, initials: "ID", name: "Ibrahim Diallo", subjects: "Maths · Statistiques · 5 ans d'exp.", rating: 4.7, reviews_count: 210, location: "Yopougon", price_per_hour: 3000, distance_km: 5.1, accent: "orange", verified: true, special_bepc: false, formats: ["home","online"], experience: nil, students: nil, bac_success: nil, bio: nil, levels: nil, programs: nil, negotiable: nil, reviews: nil),
+        .init(id: 3, initials: "AY", name: "Adjoua Yao", subjects: "Maths · SVT · 6 ans d'exp.", rating: 4.9, reviews_count: 88, location: "Cocody", price_per_hour: 4000, distance_km: 1.8, accent: "green", verified: true, special_bepc: false, formats: ["home"], experience: nil, students: nil, bac_success: nil, bio: nil, levels: nil, programs: nil, negotiable: nil, reviews: nil),
     ]
 }
 
@@ -508,10 +524,10 @@ extension Fallback {
     static let teacherDashboard = TeacherDashboardDTO(
         name: "Koffi N'Guessan", revenue: 184000, trend: "+12%",
         stats: [.init(value: "14", label: "cours / semaine"), .init(value: "4,9", label: "note moyenne"), .init(value: "3", label: "nouveaux élèves")],
-        pendingRequests: 3)
+        pendingRequests: 3, negotiable: false, profileCompletion: nil)
     static let teacherRequests: [TeacherRequestDTO] = [
-        .init(courseId: nil, initials: "FB", accent: "green", name: "Fatou Bamba", ago: "il y a 1 h", price: 6000, student: "Awa · 2nde", subject: "Mathématiques", slot: "Sam. 28 juin · 15h00", format: "À domicile · Marcory"),
-        .init(courseId: nil, initials: "YK", accent: "orange", name: "Yao Kouamé", ago: "il y a 3 h", price: 4000, student: "Junior · 3ᵉ", subject: "Physique-Chimie", slot: "Dim. 29 juin · 10h00", format: "En ligne"),
+        .init(courseId: nil, initials: "FB", accent: "green", name: "Fatou Bamba", ago: "il y a 1 h", price: 6000, student: "Awa · 2nde", subject: "Mathématiques", slot: "Sam. 28 juin · 15h00", format: "À domicile · Marcory", negotiable: nil, proposedPrice: nil, proposedFrequency: nil, counterPrice: nil, counterFrequency: nil, negotiationStatus: nil),
+        .init(courseId: nil, initials: "YK", accent: "orange", name: "Yao Kouamé", ago: "il y a 3 h", price: 4000, student: "Junior · 3ᵉ", subject: "Physique-Chimie", slot: "Dim. 29 juin · 10h00", format: "En ligne", negotiable: nil, proposedPrice: nil, proposedFrequency: nil, counterPrice: nil, counterFrequency: nil, negotiationStatus: nil),
     ]
     static let teacherEarnings = TeacherEarningsDTO(
         total: 184000, trend: "+12%",
@@ -525,9 +541,9 @@ extension Fallback {
         .init(id: 3, type: "homework", subject_slug: "francais", level: "1ere", program: "francais", title: "Devoir, Commentaire de texte", description: "Sujet type BAC à rendre.", file_name: nil, mime_type: nil, size_bytes: nil, created_at: nil),
     ]
     static let courses: [CourseDTO] = [
-        .init(id: 1, teacher_name: "Koffi N'Guessan", subject: "Maths", level: "3ᵉ", day_label: "SAM", day_num: "22", time: "16h00", duration: "1h30", format: "home", location: "À domicile, Cocody", price: 6000, status: "upcoming", badge: "Dans 2 jours"),
-        .init(id: 2, teacher_name: "Mariam Touré", subject: "Anglais", level: "3ᵉ", day_label: "LUN", day_num: "24", time: "17h00", duration: "1h", format: "online", location: nil, price: 4500, status: "upcoming", badge: nil),
-        .init(id: 3, teacher_name: "Koffi N'Guessan", subject: "Maths", level: "3ᵉ", day_label: "VEN", day_num: "14", time: "15h00", duration: "1h30", format: "home", location: "À domicile, Cocody", price: 6000, status: "done", badge: nil),
+        .init(id: 1, teacher_name: "Koffi N'Guessan", subject: "Maths", level: "3ᵉ", day_label: "SAM", day_num: "22", time: "16h00", duration: "1h30", format: "home", location: "À domicile, Cocody", price: 6000, status: "upcoming", badge: "Dans 2 jours", negotiable: nil, proposed_price: nil, proposed_frequency: nil, counter_price: nil, counter_frequency: nil, negotiation_status: nil, payment_status: nil),
+        .init(id: 2, teacher_name: "Mariam Touré", subject: "Anglais", level: "3ᵉ", day_label: "LUN", day_num: "24", time: "17h00", duration: "1h", format: "online", location: nil, price: 4500, status: "upcoming", badge: nil, negotiable: nil, proposed_price: nil, proposed_frequency: nil, counter_price: nil, counter_frequency: nil, negotiation_status: nil, payment_status: nil),
+        .init(id: 3, teacher_name: "Koffi N'Guessan", subject: "Maths", level: "3ᵉ", day_label: "VEN", day_num: "14", time: "15h00", duration: "1h30", format: "home", location: "À domicile, Cocody", price: 6000, status: "done", badge: nil, negotiable: nil, proposed_price: nil, proposed_frequency: nil, counter_price: nil, counter_frequency: nil, negotiation_status: nil, payment_status: nil),
     ]
     static let progress = ProgressDTO(
         student: "Kouadio, 3ᵉ", average: "13,2", trend: "+1,4",
@@ -543,7 +559,7 @@ extension Fallback {
         location: "Cocody", price_per_hour: 4000, distance_km: 2.4, accent: "green", verified: true, special_bepc: true,
         formats: ["home", "online"], experience: "8 ans", students: "340+", bac_success: "94%",
         bio: "Professeur certifié, ancien du Lycée Classique d'Abidjan. J'accompagne les élèves de la 3ᵉ à la Terminale avec une méthode claire, des fiches et beaucoup d'exercices types examen. Patient et à l'écoute.",
-        levels: ["Collège", "Lycée", "Prépa BEPC", "Prépa BAC"],
+        levels: ["Collège", "Lycée", "Prépa BEPC", "Prépa BAC"], programs: ["standard"], negotiable: false,
         reviews: [.init(author_initials: "FB", author_name: "Fatou B.", rating: 5, time_ago: "il y a 2 semaines", text: "Ma fille est passée de 9 à 14 en maths en un trimestre. Très pédagogue et toujours ponctuel. Je recommande vivement !")])
 }
 

@@ -88,6 +88,19 @@ fun TeacherDashboardScreen(nav: NavActions) {
                 stats.take(3).forEach { s -> MiniStat(s.value, s.label, Modifier.weight(1f)) }
             }
             Spacer(Modifier.height(14.dp))
+            val incomplete = dash?.profileCompletion?.let { !it.complete } == true
+            val profilePct = dash?.profileCompletion?.percent
+            if (incomplete && profilePct != null) {
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(AkColors.GreenSoft).clickable { nav.go(Routes.CompleteTeacherProfile) }.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Profil à compléter · $profilePct %", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AkColors.Ink)
+                        Text("Tarifs, documents et présentation", fontFamily = Hanken, fontSize = 12.sp, color = Color(0xFF3F6B59))
+                    }
+                    Text("Compléter", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = AkColors.White,
+                        modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(AkColors.Green).padding(horizontal = 13.dp, vertical = 8.dp))
+                }
+                Spacer(Modifier.height(14.dp))
+            }
             // pending alert
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(AkColors.OrangeSoft).clickable { nav.go(Routes.CourseRequests) }.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(AkColors.Orange), contentAlignment = Alignment.Center) {

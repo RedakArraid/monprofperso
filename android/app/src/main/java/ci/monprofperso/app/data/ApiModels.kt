@@ -179,6 +179,31 @@ data class TeacherDashboardDto(
     val stats: List<StatDto>,
     val pendingRequests: Int,
     val negotiable: Boolean = false,
+    val profileCompletion: ProfileCompletionDto? = null,
+)
+
+data class ProfileCompletionDto(
+    val percent: Int,
+    val complete: Boolean,
+    val missing: List<String>,
+)
+
+data class TeacherProfileDto(
+    val name: String,
+    val subjects: String,
+    val email: String?,
+    val location: String,
+    val pricePerHour: Int?,
+    val experience: String?,
+    val bio: String?,
+    val levels: List<String>,
+    val formats: List<String>,
+    val programs: List<String>,
+    val negotiable: Boolean,
+    val hasIdCard: Boolean,
+    val hasDiploma: Boolean,
+    val hasPhoto: Boolean,
+    val completion: ProfileCompletionDto,
 )
 
 data class TeacherRequestDto(

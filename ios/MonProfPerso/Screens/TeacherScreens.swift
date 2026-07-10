@@ -36,6 +36,18 @@ struct TeacherDashboardScreen: View {
 
                     HStack(spacing: 10) { ForEach(dash.stats.prefix(3)) { s in miniStat(s.value, s.label) } }.padding(.top, 14)
 
+                    if let pc = dash.profileCompletion, !pc.complete {
+                        HStack(spacing: 13) {
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text("Profil à compléter · \(pc.percent) %").font(AkFont.bold(14)).foregroundColor(Ak.ink)
+                                Text("Tarifs, documents et présentation").font(AkFont.regular(12)).foregroundColor(Color(hex: 0x3F6B59))
+                            }
+                            Spacer()
+                            Text("Compléter").font(AkFont.bold(12)).foregroundColor(.white).padding(.horizontal, 13).padding(.vertical, 8).background(Ak.green).clipShape(RoundedRectangle(cornerRadius: 10))
+                        }.padding(15).background(Ak.greenSoft).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous)).padding(.top, 14)
+                        .contentShape(Rectangle()).onTapGesture { router.go(.completeTeacherProfile) }
+                    }
+
                     HStack(spacing: 13) {
                         Image(systemName: "tray.fill").font(.system(size: 20)).foregroundColor(.white).frame(width: 42, height: 42).background(Ak.orange).clipShape(RoundedRectangle(cornerRadius: 12))
                         VStack(alignment: .leading, spacing: 0) {

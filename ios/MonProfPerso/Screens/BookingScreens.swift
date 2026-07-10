@@ -264,7 +264,10 @@ struct PaymentScreen: View {
                     defer { sending = false }
                     do {
                         let res = try await ApiClient.shared.submitPaymentOtp(paymentId: otpPaymentId, otp: otpCode)
-                        if res.status == "success" || await ApiClient.shared.pollUntilPaid(paymentId: otpPaymentId) {
+                        let paid = res.status == "success"
+                            ? true
+                            : await ApiClient.shared.pollUntilPaid(paymentId: otpPaymentId)
+                        if paid {
                             showOtp = false
                             router.go(.confirmed)
                         } else {

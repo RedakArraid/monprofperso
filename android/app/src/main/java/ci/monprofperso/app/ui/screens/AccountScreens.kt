@@ -229,6 +229,16 @@ fun AccountScreen(nav: NavActions) {
             if (isTeacher) {
                 Text("Mon profil", fontFamily = Schibsted, fontWeight = FontWeight.Bold, fontSize = 14.5.sp, color = AkColors.Ink)
                 Spacer(Modifier.height(11.dp))
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(AkColors.White).border(1.dp, AkColors.Border, RoundedCornerShape(15.dp)).clickable { nav.go(Routes.CompleteTeacherProfile) }.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Edit, null, tint = AkColors.Green, modifier = Modifier.size(22.dp))
+                    Spacer(Modifier.width(13.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Compléter mon profil", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AkColors.Ink)
+                        Text("Tarifs, documents, présentation", fontFamily = Hanken, fontSize = 12.sp, color = AkColors.Muted)
+                    }
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = AkColors.Faint, modifier = Modifier.size(17.dp))
+                }
+                Spacer(Modifier.height(9.dp))
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(AkColors.White).border(1.dp, AkColors.Border, RoundedCornerShape(15.dp)).clickable { nav.go(Routes.TeacherProfile) }.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
                     InitialsAvatar("KN", size = 44, radius = 13, fontSize = 15, verified = true)
                     Spacer(Modifier.width(13.dp))

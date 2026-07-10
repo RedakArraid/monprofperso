@@ -171,6 +171,15 @@ struct AccountScreen: View {
                     if isTeacher {
                         Text("Mon profil").font(AkFont.schibstedBold(14.5)).foregroundColor(Ak.ink).padding(.top, 20)
                         HStack(spacing: 13) {
+                            Image(systemName: "square.and.pencil").font(.system(size: 18)).foregroundColor(Ak.green).frame(width: 28)
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text("Compléter mon profil").font(AkFont.bold(14)).foregroundColor(Ak.ink)
+                                Text("Tarifs, documents, présentation").font(AkFont.regular(12)).foregroundColor(Ak.muted)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.system(size: 13)).foregroundColor(Ak.faint)
+                        }.akCard(radius: 15).padding(.top, 11).onTapGesture { router.go(.completeTeacherProfile) }
+                        HStack(spacing: 13) {
                             InitialsAvatar(initials: "KN", size: 44, radius: 13, fontSize: 15, verified: true)
                             VStack(alignment: .leading, spacing: 0) {
                                 Text("Voir mon profil public").font(AkFont.bold(14)).foregroundColor(Ak.ink)
