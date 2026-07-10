@@ -88,16 +88,15 @@ docs/       Présentation .docx + assets, ROADMAP.md, COMPLIANCE.md (légal CI :
   `requiredString`/`requiredEnum` pour les écritures admin (champs obligatoires).
 - Endpoints publics/user : `/health`, `/api/auth/{login,signup,verify-otp}`, `/api/me`,
   `/api/subjects`, `/api/levels`, `/api/programs` (programmes scolaires standard/français),
+  `/api/children`, `/api/needs` (+ `POST /api/needs/:id/accept-price`),
   `/api/teachers[?format=&level=]`, `/api/teachers/:id`,
-  `/api/courses[?status=upcoming|done]`, `/api/bookings` (accepte `proposedPrice`/`proposedFrequency`
-  pour une **offre à négocier**), `/api/courses/:id/negotiation/{accept,refuse}` (le client
-  accepte/refuse la contre-proposition du prof),
+  `/api/courses[?status=upcoming|done]`, `/api/bookings` (legacy réservation directe),
   `/api/notifications`, `/api/notifications/unread` (compteur non lu),
   `/api/notifications/read` (POST, « tout lire »),
   `/api/wallet`, `/api/groups[/:id]`, `/api/subscription/{plans,mine}`,
-  `/api/progress`, `/api/teacher/{dashboard,requests,earnings}`,
-  `/api/teacher/requests/:id/{accept,refuse,counter}` (le prof valide/refuse/**contre-propose**),
-  `/api/teacher/negotiable` (POST, le prof active « à négocier » sur ses offres),
+  `/api/progress`, `/api/teacher/{dashboard,requests,earnings,opportunities}`,
+  `/api/teacher/opportunities/:id/accept` (gains nets affichés au prof),
+  `/api/teacher/requests/:id/{accept,refuse}` (legacy),
   `/api/referral`,
   `/api/resources[?type=&subject=&level=&program=]`, `/api/files/:id`,
   `/api/legal`, `/api/legal/:slug/file` (documents légaux publics),
@@ -112,7 +111,8 @@ docs/       Présentation .docx + assets, ROADMAP.md, COMPLIANCE.md (légal CI :
   `POST/PUT/DELETE /api/admin/groups[/:id]` (cours de groupe),
   `GET /api/admin/teacher-applications[/:id]`, `GET .../:id/files/:kind` (`id_card|diploma|photo`),
   `POST .../:id/{approve,reject}` (candidatures profs), et
-  `PUT /api/admin/settings` (réseaux sociaux + contact). Permet d'ajouter matières (musique, langues
+  `PUT /api/admin/settings` (réseaux sociaux + contact + **commission_pct** 15 % par défaut).
+ `GET/PUT /api/admin/needs[/:id/price]` (tarifer un besoin parent). Permet d'ajouter matières (musique, langues
   hors FR/EN…), niveaux (supérieur/universitaire…), ressources pédagogiques
   (cours/devoirs/exercices) avec fichier (uploadé en base64, stocké sur MinIO/S3 ;
   repli `BYTEA`, voir « Stockage fichiers »), et de gérer les **documents légaux**

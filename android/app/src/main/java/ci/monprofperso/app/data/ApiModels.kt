@@ -179,6 +179,7 @@ data class TeacherDashboardDto(
     val stats: List<StatDto>,
     val pendingRequests: Int,
     val negotiable: Boolean = false,
+    val needsConfirmed: Boolean = true,
     val profileCompletion: ProfileCompletionDto? = null,
 )
 
@@ -208,6 +209,7 @@ data class TeacherProfileDto(
 
 data class TeacherRequestDto(
     @SerializedName("courseId") val courseId: Int?,
+    @SerializedName("needId") val needId: Int? = null,
     val initials: String,
     val accent: String,
     val name: String,
@@ -217,12 +219,42 @@ data class TeacherRequestDto(
     val subject: String?,
     val slot: String?,
     val format: String?,
-    val negotiable: Boolean = false,
-    @SerializedName("proposedPrice") val proposedPrice: Int? = null,
-    @SerializedName("proposedFrequency") val proposedFrequency: String? = null,
-    @SerializedName("counterPrice") val counterPrice: Int? = null,
-    @SerializedName("counterFrequency") val counterFrequency: String? = null,
-    @SerializedName("negotiationStatus") val negotiationStatus: String = "none",
+    @SerializedName("netHourly") val netHourly: Int? = null,
+    val frequency: String? = null,
+    val duration: String? = null,
+    @SerializedName("startDate") val startDate: String? = null,
+    @SerializedName("isOpportunity") val isOpportunity: Boolean = false,
+    @SerializedName("availabilityWeek") val availabilityWeek: Boolean = true,
+    @SerializedName("availabilityWeekend") val availabilityWeekend: Boolean = false,
+    @SerializedName("availabilityHolidays") val availabilityHolidays: Boolean = false,
+)
+
+data class ChildDto(
+    val id: Int,
+    val name: String,
+    val level: String,
+    val gender: String? = null,
+    val school: String? = null,
+    val program: String = "standard",
+)
+
+data class NeedDto(
+    val id: Int,
+    val reference: String,
+    @SerializedName("childId") val childId: Int? = null,
+    val child: ChildDto? = null,
+    val subject: String,
+    val level: String,
+    val format: String,
+    val location: String? = null,
+    val frequency: String? = null,
+    val duration: String? = null,
+    val description: String? = null,
+    @SerializedName("parentPrice") val parentPrice: Int? = null,
+    @SerializedName("netTeacherAmount") val netTeacherAmount: Int? = null,
+    @SerializedName("netTeacherHourly") val netTeacherHourly: Int? = null,
+    val status: String,
+    @SerializedName("startDate") val startDate: String? = null,
 )
 
 data class EarningWeekDto(val label: String, val f: Double)

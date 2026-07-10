@@ -141,20 +141,21 @@ interface MonProfPersoApi {
     @POST("api/teacher/requests/{id}/refuse")
     suspend fun refuseRequest(@Path("id") id: Int): Response<Unit>
 
-    // Contre-proposition du prof (tarif et/ou fréquence).
-    @POST("api/teacher/requests/{id}/counter")
-    suspend fun counterRequest(@Path("id") id: Int, @Body body: Map<String, @JvmSuppressWildcards Any?>): Response<Unit>
+    // --- Besoins parents (parcours sans négociation) ---
+    @GET("api/children")
+    suspend fun children(): List<ChildDto>
 
-    // Le prof active/désactive « à négocier » sur ses offres.
-    @POST("api/teacher/negotiable")
-    suspend fun setNegotiable(@Body body: Map<String, Boolean>): Map<String, Any?>
+    @POST("api/children")
+    suspend fun createChild(@Body body: Map<String, @JvmSuppressWildcards Any?>): ChildDto
 
-    // Le client accepte / refuse la contre-proposition du prof.
-    @POST("api/courses/{id}/negotiation/accept")
-    suspend fun acceptNegotiation(@Path("id") id: Int): Response<Unit>
+    @GET("api/needs")
+    suspend fun needs(): List<NeedDto>
 
-    @POST("api/courses/{id}/negotiation/refuse")
-    suspend fun refuseNegotiation(@Path("id") id: Int): Response<Unit>
+    @POST("api/needs")
+    suspend fun createNeed(@Body body: Map<String, @JvmSuppressWildcards Any?>): NeedDto
+
+    @POST("api/needs/{id}/accept-price")
+    suspend fun acceptNeedPrice(@Path("id") id: Int): NeedDto
 
     @POST("api/auth/login")
     suspend fun login(@Body body: Map<String, String>): AuthResponse

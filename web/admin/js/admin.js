@@ -188,6 +188,7 @@ async function boot() {
 const VIEWS = {
   dashboard: { title: "Tableau de bord", render: renderDashboard },
   applications: { title: "Candidatures profs", render: renderApplications },
+  needs: { title: "Besoins parents", render: renderNeeds },
   teachers: { title: "Professeurs", render: renderTeachers },
   groups: { title: "Cours de groupe", render: renderGroups },
   catalog: { title: "Matières & niveaux", render: renderCatalog },
@@ -249,6 +250,7 @@ async function renderDashboard(root) {
   const pendingApps = applications.length;
   const cards = [
     ["Candidatures en attente", pendingApps, "applications"],
+    ["Besoins à tarifer", (await api("/api/admin/needs?status=submitted")).length, "needs"],
     ["Professeurs", teachers.length, "teachers"],
     ["Cours de groupe", groups.length, "groups"],
     ["Matières", subjects.length, "catalog"],
@@ -374,6 +376,91 @@ async function openApplication(id) {
 }
 
 /* =====================================================================
+ * Vue : Besoins parents (tarification fixe, sans négociation)
+ * ===================================================================== */
+const NEED_STATUS_LABEL = {
+  submitted: "En attente de tarif",
+  priced: "Tarif proposé (parent)",
+  published: "Publié aux profs",
+  matched: "Prof trouvé",
+  cancelled: "Annulé",
+};
+
+async function renderNeeds(root) {
+  const status = root.dataset.filter || "submitted";
+  const needs = asList(await api("/api/admin/needs" + (status ? "?status=" + encodeURIComponent(status) : "")));
+  root.innerHTML = `
+    <div class="card">
+      <h3>Besoins parents</h3>
+      <p class="card-sub">Les parents décrivent le besoin ; vous fixez le tarif parent.
+      Le prof voit uniquement le <strong>gain net</strong> (après commission).</p>
+      <div class="chip-row" style="margin-bottom:14px">
+        ${["submitted", "priced", "published", "matched", ""].map((s) => `
+          <button type="button" class="btn btn-ghost btn-sm${status === s ? " active" : ""}" data-filter="${s}">
+            ${s ? esc(NEED_STATUS_LABEL[s] || s) : "Tous"}
+          </button>`).join("")}
+      </div>
+      <div class="list">
+        ${needs.length ? needs.map(needRow).join("") : `<p class="muted">Aucun besoin.</p>`}
+      </div>
+    </div>`;
+  root.dataset.filter = status;
+  root.querySelectorAll("[data-filter]").forEach((b) => {
+    b.addEventListener("click", () => { root.dataset.filter = b.dataset.filter; renderNeeds(root); });
+  });
+  root.querySelectorAll("[data-price]").forEach((btn) => {
+    btn.addEventListener("click", () => openNeedPrice(btn.dataset.price));
+  });
+}
+
+function needRow(n) {
+  const child = n.childName ? esc(n.childName) + " · " + esc(n.level) : esc(n.level);
+  const net = n.netTeacherAmount != null ? fcfa(n.netTeacherAmount) + " F nets / séance" : "—";
+  const parentP = n.parentPrice != null ? fcfa(n.parentPrice) + " F parent" : "—";
+  return `<div class="row">
+    <div class="row-main">
+      <div class="row-title">${esc(n.subject)} · ${child}</div>
+      <div class="row-meta">${esc(NEED_STATUS_LABEL[n.status] || n.status)} · ${esc(n.reference || "")}
+        · ${esc(n.location || (n.format === "online" ? "En ligne" : "À domicile"))}</div>
+      <div class="row-meta">${parentP}${n.netTeacherAmount != null ? " → prof " + net : ""}</div>
+      ${n.description ? `<div class="row-meta">${esc(n.description)}</div>` : ""}
+    </div>
+    <div class="row-actions">
+      ${n.status === "submitted" ? `<button type="button" class="btn btn-primary btn-sm" data-price="${n.id}">Proposer un tarif</button>` : ""}
+    </div>
+  </div>`;
+}
+
+function openNeedPrice(id) {
+  modal("Proposer un tarif", `
+    <p class="muted">Le parent paiera ce montant par séance. Le prof verra le gain net (commission déduite).</p>
+    <div class="form-grid">
+      <div class="field"><label>Tarif parent (F / séance)</label><input id="np_price" type="number" min="1000" step="500" placeholder="10000"></div>
+      <div class="field"><label>Fréquence</label><input id="np_freq" placeholder="1 fois/sem"></div>
+      <div class="field"><label>Début souhaité</label><input id="np_start" type="date"></div>
+    </div>
+    <div class="form-actions"><button type="button" class="btn btn-primary" id="np_save">Envoyer au parent</button></div>
+  `, (back, close) => {
+    back.querySelector("#np_save").addEventListener("click", async () => {
+      const parentPrice = Number(back.querySelector("#np_price").value);
+      if (!parentPrice || parentPrice < 1000) { toast("Tarif invalide", true); return; }
+      try {
+        await api("/api/admin/needs/" + id + "/price", {
+          method: "PUT",
+          body: {
+            parentPrice,
+            frequency: back.querySelector("#np_freq").value.trim() || undefined,
+            startDate: back.querySelector("#np_start").value || undefined,
+          },
+        });
+        toast("Tarif proposé au parent");
+        close(); navigate("needs");
+      } catch (e) { toast(e.message, true); }
+    });
+  });
+}
+
+/* =====================================================================
  * Vue : Professeurs
  * ===================================================================== */
 async function renderTeachers(root) {
@@ -390,6 +477,17 @@ async function renderTeachers(root) {
   $("#addT").addEventListener("click", () => teacherForm());
   root.querySelectorAll("[data-edit]").forEach((b) =>
     b.addEventListener("click", () => teacherForm(teachers.find((t) => String(t.id) === b.dataset.edit))));
+  root.querySelectorAll("[data-confirm]").forEach((b) =>
+    b.addEventListener("click", async () => {
+      const t = teachers.find((x) => String(x.id) === b.dataset.confirm);
+      const confirmed = !t?.needs_confirmed;
+      await api("/api/admin/teachers/" + b.dataset.confirm + "/confirm-needs", {
+        method: "POST",
+        body: { confirmed },
+      });
+      toast(confirmed ? "Accès aux offres confirmé" : "Accès aux offres révoqué");
+      navigate("teachers");
+    }));
   root.querySelectorAll("[data-del]").forEach((b) =>
     b.addEventListener("click", () => confirmDelete("ce professeur", async () => {
       await api("/api/admin/teachers/" + b.dataset.del, { method: "DELETE" });
@@ -398,16 +496,18 @@ async function renderTeachers(root) {
 }
 
 function teacherRow(t) {
+  const needsOk = t.needs_confirmed;
   return `<div class="row">
     <span class="dot ${t.accent === "orange" ? "orange" : "green"}"></span>
     <div class="row-main">
       <div class="row-title">${esc(t.name)}
         ${t.verified ? `<span class="pill green">vérifié</span>` : ""}
         ${t.special_bepc ? `<span class="pill orange">BEPC</span>` : ""}
-        ${t.negotiable ? `<span class="pill orange">à négocier</span>` : ""}</div>
+        ${needsOk ? `<span class="pill green">offres actives</span>` : `<span class="pill orange">tests en cours</span>`}</div>
       <div class="row-meta">${esc(t.subjects)} · ${esc(t.location)} · ${fcfa(t.price_per_hour)} F/h · ★ ${t.rating}</div>
     </div>
     <div class="row-actions">
+      <button class="btn btn-ghost btn-sm" data-confirm="${t.id}">${needsOk ? "Révoquer offres" : "Confirmer offres"}</button>
       <button class="btn btn-ghost btn-sm" data-edit="${t.id}">Modifier</button>
       <button class="btn btn-danger btn-sm" data-del="${t.id}">Suppr.</button>
     </div>
@@ -927,6 +1027,7 @@ const SOCIAL_FIELDS = [
   ["social_youtube", "YouTube", "https://youtube.com/@…"],
   ["contact_email", "E-mail de contact", "contact@monprofperso.com"],
   ["contact_phone", "Téléphone de contact", "+225 07 00 00 00 01"],
+  ["commission_pct", "Commission plateforme (%)", "15"],
 ];
 
 async function renderSocial(root) {

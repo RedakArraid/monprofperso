@@ -286,7 +286,7 @@ export function registerTeacherApplicationRoutes(
     const subjects = optionalString(b, "subjects", { max: 200 }) ?? app.subjects;
     const location = optionalString(b, "location", { max: 120 }) ?? app.location;
     const pricePerHour = optionalNumber(b, "pricePerHour", { min: 0, max: 1_000_000 })
-      ?? app.price_per_hour ?? 4000;
+      ?? app.price_per_hour ?? 0;
     const bio = optionalString(b, "bio", { max: 2000 }) ?? app.bio;
     const experience = optionalString(b, "experience", { max: 40 }) ?? app.experience;
     const levels = strArray(b, "levels") ?? app.levels ?? [];
@@ -303,8 +303,8 @@ export function registerTeacherApplicationRoutes(
 
       const teacherIns = await client.query(
         `INSERT INTO teachers (initials, name, subjects, rating, reviews_count, location, price_per_hour,
-           experience, bio, levels, formats, programs, accent, verified, special_bepc, negotiable)
-         VALUES ($1,$2,$3,5.0,0,$4,$5,$6,$7,$8,$9,$10,'green',TRUE,FALSE,$11)
+           experience, bio, levels, formats, programs, accent, verified, special_bepc, negotiable, needs_confirmed)
+         VALUES ($1,$2,$3,5.0,0,$4,$5,$6,$7,$8,$9,$10,'green',TRUE,FALSE,$11,FALSE)
          RETURNING id`,
         [initials, name, subjects, location, pricePerHour, experience ?? null, bio ?? null,
          levels, formats, programs, negotiable],

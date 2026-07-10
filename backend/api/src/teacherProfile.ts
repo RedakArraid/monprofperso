@@ -44,10 +44,7 @@ function hasFile(row: any, prefix: string) {
 export function computeProfileCompletion(teacher: any, app: any | null) {
   const checks: { key: string; ok: boolean }[] = [
     { key: "location", ok: Boolean(teacher.location?.trim()) },
-    { key: "price", ok: Number(teacher.price_per_hour) > 0 },
-    { key: "experience", ok: Boolean(teacher.experience?.trim()) },
     { key: "programs", ok: Array.isArray(teacher.programs) && teacher.programs.length > 0 },
-    { key: "formats", ok: Array.isArray(teacher.formats) && teacher.formats.length > 0 },
     { key: "subjects", ok: Boolean(teacher.subjects?.trim()) },
     { key: "levels", ok: Array.isArray(teacher.levels) && teacher.levels.length > 0 },
     { key: "id_card", ok: app ? hasFile(app, "id_card") : false },

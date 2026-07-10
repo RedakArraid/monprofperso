@@ -41,6 +41,16 @@ struct HomeScreen: View {
                         .overlay(RoundedRectangle(cornerRadius: 15).stroke(Ak.border, lineWidth: 1))
                     }.buttonStyle(.plain).padding(.top, 16)
 
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Exprimer un besoin").font(AkFont.bold(14)).foregroundColor(Ak.ink)
+                            Text("On clarifie, on fixe un tarif, un prof accepte").font(AkFont.regular(12)).foregroundColor(Ak.muted)
+                        }
+                        Spacer()
+                        Image(systemName: "arrow.right").foregroundColor(Ak.orange)
+                    }.padding(16).background(Ak.orangeSoft).clipShape(RoundedRectangle(cornerRadius: 15)).padding(.top, 12)
+                    .onTapGesture { router.go(.expressNeed) }
+
                     // promo
                     VStack(alignment: .leading, spacing: 0) {
                         Pill(text: "SESSION 2026", fg: Ak.green, bg: Ak.orangeLight)
@@ -288,12 +298,6 @@ struct TeacherProfileScreen: View {
                         Text("Programmes").font(AkFont.bold(12)).foregroundColor(Ak.muted).padding(.top, 10)
                         HStack(spacing: 7) { ForEach(progs, id: \.self) { neutralTag(programLabel($0)) } }.padding(.top, 7)
                     }
-                    if t.negotiable == true {
-                        HStack(spacing: 8) {
-                            Image(systemName: "hand.raised.fill").font(.system(size: 13)).foregroundColor(Ak.orange)
-                            Text("Tarif & fréquence à négocier").font(AkFont.bold(12.5)).foregroundColor(Ak.orange)
-                        }.padding(.horizontal, 12).padding(.vertical, 8).background(Ak.orangeSoft).clipShape(RoundedRectangle(cornerRadius: 10)).padding(.top, 12)
-                    }
                     SectionHeader(title: "Avis des parents").padding(.top, 18)
                     VStack(alignment: .leading, spacing: 0) {
                         HStack(spacing: 10) {
@@ -325,7 +329,7 @@ struct TeacherProfileScreen: View {
                             Text(t.priceLabel).font(AkFont.schibstedExtra(21)).foregroundColor(Ak.ink)
                             Text("/h").font(AkFont.semibold(13)).foregroundColor(Ak.faint)
                         }
-                        Text(t.negotiable == true ? "Tarif à négocier" : "1ᵉʳ cours d'essai -50%").font(AkFont.regular(11.5)).foregroundColor(Ak.muted)
+                        Text(t.negotiable == true ? "Tarif sur devis" : "1ᵉʳ cours d'essai -50%").font(AkFont.regular(11.5)).foregroundColor(Ak.muted)
                     }
                     PrimaryButton(label: "Réserver un cours") { router.startBooking(t); router.go(.booking) }
                 }

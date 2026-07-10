@@ -5,6 +5,7 @@ import { optionalAuth, currentUserId, signJwt, requireAdmin, DEMO_USER } from ".
 import { putFile, getFileStream, removeFile } from "./storage";
 import { registerTeacherApplicationRoutes } from "./teacherApplications";
 import { registerTeacherProfileRoutes, computeProfileCompletion } from "./teacherProfile";
+import { registerNeedsRoutes, registerAdminNeedsRoutes, acceptNeedForTeacher } from "./needs";
 import {
   createAndSendOtp,
   verifyOtpCode,
@@ -168,6 +169,7 @@ api.get("/programs", wrap(async (_req, res) => {
 const SETTING_KEYS = [
   "social_facebook", "social_instagram", "social_tiktok", "social_whatsapp",
   "social_linkedin", "social_x", "social_youtube", "contact_email", "contact_phone",
+  "commission_pct",
 ] as const;
 
 // Paramètres publics : objet { clé: valeur } (valeurs vides comprises).
@@ -272,7 +274,7 @@ api.get("/teachers", wrap(async (req, res) => {
   if (level)  { params.push(level);  where.push(`$${params.length} = ANY(levels)`); }
   const sql = `SELECT id, initials, name, subjects, rating, reviews_count, location,
                       price_per_hour, distance_km, accent, verified, special_bepc, formats,
-                      programs, negotiable
+                      programs, negotiable, needs_confirmed
                FROM teachers ${where.length ? "WHERE " + where.join(" AND ") : ""} ORDER BY rating DESC`;
   const r = await pool.query(sql, params);
   res.json(r.rows);
@@ -312,47 +314,17 @@ api.post("/bookings", wrap(async (req, res) => {
   const time = optionalString(b, "time", { max: 20 });
   const duration = optionalString(b, "duration", { max: 20 });
   const location = optionalString(b, "location", { max: 200 });
-  // Négociation (offre « à négocier ») : le client propose un tarif et/ou une fréquence.
-  const proposedPrice = optionalNumber(b, "proposedPrice", { min: 0, max: 1_000_000 });
-  const proposedFrequency = optionalString(b, "proposedFrequency", { max: 60 });
-  const hasProposal = proposedPrice !== undefined || proposedFrequency !== undefined;
-  const negotiationStatus = hasProposal ? "proposed" : "none";
   const r = await pool.query(
-    `INSERT INTO courses (user_id,teacher_id,teacher_name,subject,level,day_label,day_num,time,duration,format,location,price,status,badge,accepted,payment_status,
-                          negotiable,proposed_price,proposed_frequency,negotiation_status)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'upcoming',$13,FALSE,'pending',$14,$15,$16,$17) RETURNING *`,
+    `INSERT INTO courses (user_id,teacher_id,teacher_name,subject,level,day_label,day_num,time,duration,format,location,price,status,badge,accepted,payment_status)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'upcoming',$13,FALSE,'pending') RETURNING *`,
     [currentUserId(res), teacherId ?? 1, teacherName ?? "Koffi N'Guessan", subject ?? "Maths", level ?? "3ᵉ",
      dayLabel ?? "SAM", dayNum ?? "22", time ?? "16h00", duration ?? "1h30",
-     format ?? "home", location ?? "À domicile, Cocody", price ?? 6000, "En attente",
-     hasProposal, proposedPrice ?? null, proposedFrequency ?? null, negotiationStatus]
+     format ?? "home", location ?? "À domicile, Cocody", price ?? 6000, "En attente"]
   );
   res.status(201).json({ reference: "AKW-" + (2000 + r.rows[0].id), course: r.rows[0] });
 }));
 
-// Le client accepte la contre-proposition du prof (tarif + fréquence retenus).
-api.post("/courses/:id/negotiation/accept", wrap(async (req, res) => {
-  const r = await pool.query(
-    `UPDATE courses
-        SET price = COALESCE(counter_price, price),
-            accepted = TRUE, badge = 'Confirmé', negotiation_status = 'accepted'
-      WHERE id = $1 AND user_id = $2 AND negotiation_status = 'countered'
-      RETURNING id, teacher_id`,
-    [req.params.id, currentUserId(res)]
-  );
-  if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
-  res.json({ ok: true, courseId: r.rows[0].id });
-}));
-
-// Le client refuse la contre-proposition du prof (la demande est abandonnée).
-api.post("/courses/:id/negotiation/refuse", wrap(async (req, res) => {
-  const r = await pool.query(
-    `UPDATE courses SET status = 'refused', badge = 'Refusé', negotiation_status = 'refused'
-      WHERE id = $1 AND user_id = $2 AND negotiation_status = 'countered' RETURNING id`,
-    [req.params.id, currentUserId(res)]
-  );
-  if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
-  res.json({ ok: true, courseId: r.rows[0].id });
-}));
+registerNeedsRoutes(api);
 
 // ----------------------------------------------------------------- Notifications
 api.get("/notifications", wrap(async (_req, res) => {
@@ -512,12 +484,20 @@ async function currentTeacherId(res: any): Promise<number> {
 api.get("/teacher/dashboard", wrap(async (_req, res) => {
   const teacherId = await currentTeacherId(res);
   const p = (await pool.query("SELECT * FROM teacher_profiles WHERE teacher_id=$1", [teacherId])).rows[0];
-  const t = (await pool.query("SELECT name, negotiable, location, price_per_hour, experience, subjects, levels, formats, programs FROM teachers WHERE id=$1", [teacherId])).rows[0];
+  const t = (await pool.query(
+    "SELECT name, negotiable, location, price_per_hour, experience, subjects, levels, formats, programs, needs_confirmed FROM teachers WHERE id=$1",
+    [teacherId],
+  )).rows[0];
   if (!p || !t) { res.status(404).json({ error: "not_found" }); return; }
-  const pending = (await pool.query(
-    `SELECT ((SELECT count(*) FROM teacher_requests WHERE teacher_id=$1)
-           + (SELECT count(*) FROM courses WHERE teacher_id=$1 AND accepted=FALSE AND status='upcoming'))::int AS n`,
-    [teacherId]
+  const needsConfirmed = Boolean(t.needs_confirmed);
+  const oppCount = needsConfirmed
+    ? (await pool.query(
+        "SELECT count(*)::int AS n FROM course_needs WHERE status = 'published' AND teacher_id IS NULL",
+      )).rows[0].n
+    : 0;
+  const legacyCount = (await pool.query(
+    "SELECT count(*)::int AS n FROM courses WHERE teacher_id = $1 AND accepted = FALSE AND status = 'upcoming'",
+    [teacherId],
   )).rows[0].n;
   res.json({
     name: t.name, revenue: p.revenue, trend: p.trend,
@@ -526,8 +506,8 @@ api.get("/teacher/dashboard", wrap(async (_req, res) => {
       { value: p.rating_label, label: "note moyenne" },
       { value: p.new_students, label: "nouveaux élèves" },
     ],
-    pendingRequests: pending,
-    negotiable: t.negotiable,
+    pendingRequests: oppCount + legacyCount,
+    needsConfirmed,
     profileCompletion: computeProfileCompletion(
       t,
       (await pool.query(
@@ -538,43 +518,63 @@ api.get("/teacher/dashboard", wrap(async (_req, res) => {
   });
 }));
 
-// Le prof active/désactive l'option « à négocier » sur ses offres.
-api.post("/teacher/negotiable", wrap(async (req, res) => {
-  const teacherId = await currentTeacherId(res);
-  const negotiable = req.body?.negotiable === true || req.body?.negotiable === "true";
-  const r = await pool.query(
-    "UPDATE teachers SET negotiable=$2 WHERE id=$1 RETURNING negotiable", [teacherId, negotiable]
-  );
-  if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
-  res.json({ ok: true, negotiable: r.rows[0].negotiable });
-}));
-
 api.get("/teacher/requests", wrap(async (_req, res) => {
   const teacherId = await currentTeacherId(res);
-  // Vraies réservations en attente de validation (parents -> ce prof).
+  const needsConfirmed = Boolean((await pool.query(
+    "SELECT needs_confirmed FROM teachers WHERE id=$1",
+    [teacherId],
+  )).rows[0]?.needs_confirmed);
+  // Offres publiées (besoins parents) — gains nets affichés au prof.
+  const opportunities = needsConfirmed
+    ? await pool.query(
+    `SELECT n.id AS "needId", n.id AS "courseId", c.name AS student, n.subject, n.level,
+            n.location, n.format, n.frequency, n.duration,
+            n.net_teacher_amount AS price, n.net_teacher_hourly AS "netHourly",
+            n.start_date AS "startDate", n.availability_week AS "availabilityWeek",
+            n.availability_weekend AS "availabilityWeekend",
+            n.availability_holidays AS "availabilityHolidays",
+            'nouveau' AS ago,
+            COALESCE(n.location, CASE n.format WHEN 'online' THEN 'En ligne' ELSE 'À domicile' END) AS slot
+     FROM course_needs n
+     LEFT JOIN children c ON c.id = n.child_id
+     WHERE n.status = 'published' AND n.teacher_id IS NULL
+     ORDER BY n.id DESC`,
+  )
+    : { rows: [] as any[] };
+  // Réservations legacy encore en attente pour ce prof.
   const live = await pool.query(
-    `SELECT c.id AS "courseId", u.initials, 'green' AS accent, u.full_name AS name,
+    `SELECT c.id AS "courseId", NULL::int AS "needId", u.initials, 'green' AS accent, u.full_name AS name,
             'nouveau' AS ago, c.price, c.level AS student, c.subject,
             (c.day_label || ' ' || c.day_num || ' · ' || c.time) AS slot,
             CASE c.format WHEN 'online' THEN 'En ligne'
-                          ELSE COALESCE(c.location, 'À domicile') END AS format,
-            c.negotiable, c.proposed_price AS "proposedPrice", c.proposed_frequency AS "proposedFrequency",
-            c.counter_price AS "counterPrice", c.counter_frequency AS "counterFrequency",
-            c.negotiation_status AS "negotiationStatus"
+                          ELSE COALESCE(c.location, 'À domicile') END AS format
      FROM courses c JOIN users u ON u.id = c.user_id
      WHERE c.teacher_id = $1 AND c.accepted = FALSE AND c.status = 'upcoming'
      ORDER BY c.id DESC`,
     [teacherId]
   );
-  // Demandes de démonstration (sans cours réel rattaché : courseId nul).
-  const seeded = await pool.query(
-    `SELECT NULL::int AS "courseId", initials, accent, name, ago, price, student, subject, slot, format,
-            FALSE AS negotiable, NULL::int AS "proposedPrice", NULL::text AS "proposedFrequency",
-            NULL::int AS "counterPrice", NULL::text AS "counterFrequency", 'none' AS "negotiationStatus"
-     FROM teacher_requests WHERE teacher_id=$1 ORDER BY ord, id`,
-    [teacherId]
-  );
-  res.json([...live.rows, ...seeded.rows]);
+  const mapOpp = (row: any) => ({
+    courseId: row.courseId ?? row.needId,
+    needId: row.needId ?? null,
+    initials: row.initials ?? "BE",
+    accent: row.accent ?? "green",
+    name: row.name ?? row.location ?? row.slot ?? "Offre",
+    ago: row.ago ?? "nouveau",
+    price: row.price,
+    netHourly: row.netHourly ?? null,
+    student: row.student ?? row.level,
+    subject: row.subject,
+    slot: row.slot,
+    format: row.format,
+    frequency: row.frequency ?? null,
+    duration: row.duration ?? null,
+    startDate: row.startDate ?? null,
+    availabilityWeek: row.availabilityWeek ?? true,
+    availabilityWeekend: row.availabilityWeekend ?? false,
+    availabilityHolidays: row.availabilityHolidays ?? false,
+    isOpportunity: row.needId != null,
+  });
+  res.json([...opportunities.rows.map(mapOpp), ...live.rows.map(mapOpp)]);
 }));
 
 // Notifie le parent (auteur de la réservation) qu'une décision a été prise.
@@ -586,16 +586,33 @@ async function notifyParent(userId: number, icon: string, accent: string, text: 
   );
 }
 
-// Validation d'une demande réelle : le prof accepte la réservation d'un parent.
+// Validation d'une demande : offre besoin parent ou réservation legacy.
 api.post("/teacher/requests/:id/accept", wrap(async (req, res) => {
   const teacherId = await currentTeacherId(res);
-  // Si le client avait proposé un tarif (négociation), le prof l'accepte tel quel.
+  const needId = Number(req.params.id);
+  const needCheck = await pool.query(
+    "SELECT id FROM course_needs WHERE id=$1 AND status='published' AND teacher_id IS NULL",
+    [needId],
+  );
+  if (needCheck.rows[0]) {
+    const confirmed = (await pool.query(
+      "SELECT needs_confirmed FROM teachers WHERE id=$1",
+      [teacherId],
+    )).rows[0]?.needs_confirmed;
+    if (!confirmed) {
+      res.status(403).json({
+        error: "needs_not_confirmed",
+        message: "Votre accès aux offres sera activé après validation par l'équipe.",
+      });
+      return;
+    }
+    const result = await acceptNeedForTeacher(needId, teacherId);
+    if (!result) { res.status(404).json({ error: "not_found" }); return; }
+    res.json({ ok: true, ...result });
+    return;
+  }
   const r = await pool.query(
-    `UPDATE courses
-        SET accepted = TRUE, badge = 'Confirmé',
-            price = CASE WHEN negotiation_status = 'proposed' AND proposed_price IS NOT NULL
-                         THEN proposed_price ELSE price END,
-            negotiation_status = CASE WHEN negotiation_status = 'none' THEN 'none' ELSE 'accepted' END
+    `UPDATE courses SET accepted = TRUE, badge = 'Confirmé'
       WHERE id = $1 AND teacher_id = $2 AND accepted = FALSE RETURNING id, user_id, subject`,
     [req.params.id, teacherId]
   );
@@ -603,29 +620,6 @@ api.post("/teacher/requests/:id/accept", wrap(async (req, res) => {
   if (!c) { res.status(404).json({ error: "not_found" }); return; }
   await notifyParent(c.user_id, "seal", "green",
     `Votre demande de cours${c.subject ? ` de ${c.subject}` : ""} a été acceptée`);
-  res.json({ ok: true, courseId: c.id });
-}));
-
-// Contre-proposition du prof : nouveau tarif et/ou fréquence soumis au client.
-api.post("/teacher/requests/:id/counter", wrap(async (req, res) => {
-  const teacherId = await currentTeacherId(res);
-  const price = optionalNumber(req.body, "price", { min: 0, max: 1_000_000 });
-  const frequency = optionalString(req.body, "frequency", { max: 60 });
-  if (price === undefined && frequency === undefined) {
-    res.status(400).json({ error: "validation_error", message: "tarif ou fréquence requis" });
-    return;
-  }
-  const r = await pool.query(
-    `UPDATE courses
-        SET counter_price = $3, counter_frequency = $4, negotiable = TRUE, negotiation_status = 'countered'
-      WHERE id = $1 AND teacher_id = $2 AND accepted = FALSE AND status = 'upcoming'
-      RETURNING id, user_id, subject`,
-    [req.params.id, teacherId, price ?? null, frequency ?? null]
-  );
-  const c = r.rows[0];
-  if (!c) { res.status(404).json({ error: "not_found" }); return; }
-  await notifyParent(c.user_id, "wallet", "orange",
-    `Le professeur vous fait une contre-proposition${c.subject ? ` pour ${c.subject}` : ""}`);
   res.json({ ok: true, courseId: c.id });
 }));
 
@@ -1028,6 +1022,17 @@ admin.delete("/teachers/:id", wrap(async (req, res) => {
   res.status(204).end();
 }));
 
+admin.post("/teachers/:id/confirm-needs", wrap(async (req, res) => {
+  const b = req.body ?? {};
+  const confirmed = b.confirmed === false || b.confirmed === "false" ? false : true;
+  const r = await pool.query(
+    "UPDATE teachers SET needs_confirmed=$2 WHERE id=$1 RETURNING id, needs_confirmed",
+    [req.params.id, confirmed],
+  );
+  if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
+  res.json({ id: r.rows[0].id, needsConfirmed: Boolean(r.rows[0].needs_confirmed) });
+}));
+
 // --- Cours de groupe (ateliers, prépa BEPC/BAC collectifs) ---
 admin.post("/groups", wrap(async (req, res) => {
   const b = req.body ?? {};
@@ -1086,6 +1091,7 @@ admin.delete("/groups/:id", wrap(async (req, res) => {
   res.status(204).end();
 }));
 
+registerAdminNeedsRoutes(admin);
 registerTeacherApplicationRoutes(api, admin, { wrap, serveFile, consentVersion: CONSENT_VERSION });
 
 api.use("/admin", admin);

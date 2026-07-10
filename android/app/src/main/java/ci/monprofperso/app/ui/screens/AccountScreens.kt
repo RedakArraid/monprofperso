@@ -251,7 +251,7 @@ fun AccountScreen(nav: NavActions) {
             } else {
                 Text("Mes enfants", fontFamily = Schibsted, fontWeight = FontWeight.Bold, fontSize = 14.5.sp, color = AkColors.Ink)
                 Spacer(Modifier.height(11.dp))
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(AkColors.White).border(1.dp, AkColors.Border, RoundedCornerShape(15.dp)).clickable { nav.go(Routes.Progress) }.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(AkColors.White).border(1.dp, AkColors.Border, RoundedCornerShape(15.dp)).clickable { nav.go(Routes.MyChildren) }.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
                     InitialsAvatar("KO", size = 44, radius = 13, fontSize = 15, bg = AkColors.OrangeSoft, fg = AkColors.Orange)
                     Spacer(Modifier.width(13.dp))
                     Column(Modifier.weight(1f)) {
@@ -261,9 +261,13 @@ fun AccountScreen(nav: NavActions) {
                     Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = AkColors.Faint, modifier = Modifier.size(17.dp))
                 }
                 Spacer(Modifier.height(9.dp))
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).border(1.5.dp, Color(0xFFC9C2B5), RoundedCornerShape(15.dp)).clickable { nav.go(Routes.Settings) }.padding(12.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).border(1.5.dp, Color(0xFFC9C2B5), RoundedCornerShape(15.dp)).clickable { nav.go(Routes.ExpressNeed) }.padding(12.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Filled.Add, null, tint = AkColors.Green, modifier = Modifier.size(16.dp))
-                    Text("  Ajouter un enfant", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AkColors.Green)
+                    Text("  Exprimer un besoin", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AkColors.Green)
+                }
+                Spacer(Modifier.height(9.dp))
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).border(1.5.dp, AkColors.Border, RoundedCornerShape(15.dp)).clickable { nav.go(Routes.MyNeeds) }.padding(12.dp), horizontalArrangement = Arrangement.Center) {
+                    Text("Mes demandes de cours", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AkColors.Green)
                 }
             }
             Spacer(Modifier.height(20.dp))

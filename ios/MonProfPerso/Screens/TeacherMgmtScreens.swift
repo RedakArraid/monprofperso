@@ -239,12 +239,7 @@ struct CompleteTeacherProfileScreen: View {
     @EnvironmentObject var router: Router
     @State private var step = 0
     @State private var location = "Cocody"
-    @State private var price = 4000
-    @State private var experience = ""
     @State private var bio = ""
-    @State private var fmtHome = true
-    @State private var fmtOnline = true
-    @State private var negotiable = false
     @State private var subjectsLine = ""
     @State private var levelsLine = ""
     @State private var programItems: [ProgramPick] = [
@@ -312,17 +307,9 @@ struct CompleteTeacherProfileScreen: View {
             if !levelsLine.isEmpty { fieldLabel("Niveaux").padding(.top, 10); Text(levelsLine).font(AkFont.regular(13)).foregroundColor(Ak.ink) }
             fieldLabel("Quartier / commune").padding(.top, 14)
             pickerField(selection: $location, options: appLocations)
-            fieldLabel("Tarif horaire").padding(.top, 10)
-            pickerField(selection: $price, options: appPrices, label: { "\($0.formatted(.number.grouping(.automatic))) F / h" })
-            fieldLabel("Expérience").padding(.top, 10)
-            pickerField(selection: Binding(get: { experience.isEmpty ? appExperiences[2] : experience }, set: { experience = $0 }), options: appExperiences)
             fieldLabel("Programmes scolaires").padding(.top, 14)
             programChips()
             if selectedPrograms.contains(otherProgramSlug) { fieldLabel("Précisez le programme").padding(.top, 8); appField($otherProgram, "Ex. Programme IB…") }
-            fieldLabel("Modalités").padding(.top, 12)
-            Toggle("Cours à domicile", isOn: $fmtHome).font(AkFont.regular(13))
-            Toggle("Cours en ligne", isOn: $fmtOnline).font(AkFont.regular(13))
-            Toggle("Tarif négociable", isOn: $negotiable).font(AkFont.regular(13))
             fieldLabel("Présentation").padding(.top, 10)
             appField($bio, "Votre parcours…", lines: 3)
         } else {
@@ -338,8 +325,7 @@ struct CompleteTeacherProfileScreen: View {
         if let p = try? await ApiClient.shared.teacherProfile() {
             subjectsLine = p.subjects; levelsLine = p.levels.joined(separator: " · ")
             location = p.location.isEmpty ? "Cocody" : p.location
-            price = p.pricePerHour ?? 4000; experience = p.experience ?? ""; bio = p.bio ?? ""
-            fmtHome = p.formats.contains("home"); fmtOnline = p.formats.contains("online"); negotiable = p.negotiable
+            bio = p.bio ?? ""
             selectedPrograms = Set(p.programs.isEmpty ? ["standard"] : p.programs)
             hasIdCard = p.hasIdCard; hasDiploma = p.hasDiploma; hasPhoto = p.hasPhoto
         }
@@ -361,10 +347,8 @@ struct CompleteTeacherProfileScreen: View {
         guard !loading else { return }
         err = nil
         if step == 0 {
-            if experience.trimmingCharacters(in: .whitespaces).isEmpty { err = "Indiquez votre expérience." }
-            else if selectedPrograms.isEmpty { err = "Sélectionnez au moins un programme." }
+            if selectedPrograms.isEmpty { err = "Sélectionnez au moins un programme." }
             else if selectedPrograms.contains(otherProgramSlug) && otherProgram.trimmingCharacters(in: .whitespaces).isEmpty { err = "Précisez le programme « Autre »." }
-            else if !fmtHome && !fmtOnline { err = "Choisissez domicile ou en ligne." }
             else { step += 1 }
         } else {
             if !hasIdCard && idCard == nil || !hasDiploma && diploma == nil || !hasPhoto && photo == nil { err = "Ajoutez les documents manquants." }
@@ -374,13 +358,9 @@ struct CompleteTeacherProfileScreen: View {
 
     private func submit() async {
         loading = true; err = nil
-        var formats: [String] = []
-        if fmtHome { formats.append("home") }
-        if fmtOnline { formats.append("online") }
         var json: [String: Any] = [
-            "location": location, "pricePerHour": price, "experience": experience,
-            "formats": formats.isEmpty ? ["home", "online"] : formats,
-            "programs": buildProgramsList(), "negotiable": negotiable,
+            "location": location,
+            "programs": buildProgramsList(),
         ]
         if !bio.trimmingCharacters(in: .whitespaces).isEmpty { json["bio"] = bio.trimmingCharacters(in: .whitespaces) }
         if let idCard { json["idCardBase64"] = idCard.b64; json["idCardFileName"] = idCard.name; json["idCardMimeType"] = idCard.mime }

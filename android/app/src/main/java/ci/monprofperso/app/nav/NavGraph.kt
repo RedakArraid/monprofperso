@@ -60,6 +60,9 @@ object Routes {
     const val Resources = "resources"
     const val Legal = "legal"
     const val PdfViewer = "pdf_viewer"
+    const val MyChildren = "my_children"
+    const val ExpressNeed = "express_need"
+    const val MyNeeds = "my_needs"
     // L, Espace administrateur
     const val AdminCatalog = "admin_catalog"
     const val AdminResources = "admin_resources"
@@ -111,6 +114,9 @@ fun MonProfPersoNavGraph() {
         composable(Routes.Agenda) { AgendaScreen(actions) }
 
         composable(Routes.BecomeTeacher) { BecomeTeacherScreen(actions) }
+        composable(Routes.MyChildren) { MyChildrenScreen(actions) }
+        composable(Routes.ExpressNeed) { ExpressNeedScreen(actions) }
+        composable(Routes.MyNeeds) { MyNeedsScreen(actions) }
         composable(Routes.CompleteTeacherProfile) { CompleteTeacherProfileScreen(actions) }
         composable(Routes.Withdraw) { WithdrawScreen(actions) }
 

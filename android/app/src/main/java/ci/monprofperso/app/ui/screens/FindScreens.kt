@@ -87,6 +87,19 @@ fun HomeScreen(nav: NavActions, vm: ci.monprofperso.app.data.HomeViewModel = and
                 Spacer(Modifier.width(10.dp))
                 Text("Rechercher une matière, un prof…", fontFamily = Hanken, fontSize = 14.5.sp, color = AkColors.Faint)
             }
+            // besoin parent
+            Spacer(Modifier.height(12.dp))
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(AkColors.OrangeSoft)
+                    .clickable { nav.go(Routes.ExpressNeed) }.padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("Exprimer un besoin", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AkColors.Ink)
+                    Text("On clarifie le besoin, on fixe un tarif, un prof accepte", fontFamily = Hanken, fontSize = 12.sp, color = AkColors.Muted)
+                }
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = AkColors.Orange, modifier = Modifier.size(18.dp))
+            }
             // promo banner
             Spacer(Modifier.height(16.dp))
             Column(

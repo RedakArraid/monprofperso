@@ -117,6 +117,12 @@ test("candidature : soumission, conflit pending, approve admin", async () => {
   assert.ok(approved.body.teacherId);
   assert.ok(approved.body.userId);
 
+  const teacherDash = await api("/api/teacher/dashboard", {
+    token: (await api("/api/auth/login", { method: "POST", json: { phone } })).body.token,
+  });
+  assert.equal(teacherDash.status, 200);
+  assert.equal(teacherDash.body.needsConfirmed, false);
+
   const after = await api(`/api/teacher-applications/status?phone=${encodeURIComponent(phone)}`);
   assert.equal(after.body.status, "approved");
 });

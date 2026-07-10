@@ -198,13 +198,18 @@ struct AccountScreen: View {
                             }
                             Spacer()
                             Image(systemName: "chevron.right").font(.system(size: 13)).foregroundColor(Ak.faint)
-                        }.akCard(radius: 15).padding(.top, 11).onTapGesture { router.go(.progress) }
+                        }.akCard(radius: 15).padding(.top, 11).onTapGesture { router.go(.myChildren) }
                         HStack(spacing: 0) {
                             Image(systemName: "plus").font(.system(size: 14, weight: .bold)).foregroundColor(Ak.green)
-                            Text("  Ajouter un enfant").font(AkFont.bold(13)).foregroundColor(Ak.green)
+                            Text("  Exprimer un besoin").font(AkFont.bold(13)).foregroundColor(Ak.green)
                         }.frame(maxWidth: .infinity).padding(12)
                         .overlay(RoundedRectangle(cornerRadius: 15).stroke(Color(hex: 0xC9C2B5), style: StrokeStyle(lineWidth: 1.5, dash: [5]))).padding(.top, 9)
-                        .contentShape(Rectangle()).onTapGesture { router.go(.settings) }
+                        .contentShape(Rectangle()).onTapGesture { router.go(.expressNeed) }
+                        HStack(spacing: 0) {
+                            Text("Mes demandes de cours").font(AkFont.bold(13)).foregroundColor(Ak.green)
+                        }.frame(maxWidth: .infinity).padding(12)
+                        .overlay(RoundedRectangle(cornerRadius: 15).stroke(Ak.border, lineWidth: 1)).padding(.top, 9)
+                        .contentShape(Rectangle()).onTapGesture { router.go(.myNeeds) }
                     }
 
                     VStack(spacing: 0) {

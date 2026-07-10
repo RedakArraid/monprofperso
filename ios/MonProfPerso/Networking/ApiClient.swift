@@ -162,6 +162,7 @@ struct StatDTO: Codable, Identifiable { let value, label: String; var id: String
 struct TeacherDashboardDTO: Codable {
     let name: String; let revenue: Int; let trend: String; let stats: [StatDTO]; let pendingRequests: Int
     let negotiable: Bool?
+    let needsConfirmed: Bool?
     let profileCompletion: ProfileCompletionDTO?
 }
 struct ProfileCompletionDTO: Codable {
@@ -176,16 +177,25 @@ struct TeacherProfileDTO: Codable {
 }
 struct TeacherRequestDTO: Codable, Identifiable {
     let courseId: Int?
+    let needId: Int?
     let initials, accent, name, ago: String
     let price: Int
     let student, subject, slot, format: String?
-    let negotiable: Bool?
-    let proposedPrice: Int?
-    let proposedFrequency: String?
-    let counterPrice: Int?
-    let counterFrequency: String?
-    let negotiationStatus: String?
-    var id: String { courseId.map(String.init) ?? "\(name)-\(slot ?? "")" }
+    let netHourly: Int?
+    let frequency, duration, startDate: String?
+    let isOpportunity: Bool?
+    let availabilityWeek, availabilityWeekend, availabilityHolidays: Bool?
+    var id: String { courseId.map(String.init) ?? needId.map(String.init) ?? "\(name)-\(slot ?? "")" }
+}
+struct ChildDTO: Codable, Identifiable {
+    let id: Int; let name, level: String
+    let gender, school, program: String?
+}
+struct NeedDTO: Codable, Identifiable {
+    let id: Int; let reference, subject, level, format, status: String
+    let childId: Int?; let location, frequency, duration, description: String?
+    let parentPrice, netTeacherAmount, netTeacherHourly: Int?
+    let startDate: String?
 }
 struct EarningWeekDTO: Codable, Identifiable { let label: String; let f: Double; var id: String { label } }
 struct PayoutDTO: Codable, Identifiable { let provider, date: String; let amount: Int; let color: String; var id: String { provider + date } }
@@ -420,23 +430,22 @@ struct ApiClient {
     }
     func acceptRequest(courseId: Int) async throws { _ = try await request("api/teacher/requests/\(courseId)/accept", method: "POST") }
     func refuseRequest(courseId: Int) async throws { _ = try await request("api/teacher/requests/\(courseId)/refuse", method: "POST") }
-    /// Contre-proposition du prof (tarif et/ou fréquence).
-    func counterRequest(courseId: Int, price: Int?, frequency: String?) async throws {
-        var json: [String: Any] = [:]
-        if let price { json["price"] = price }
-        if let frequency, !frequency.isEmpty { json["frequency"] = frequency }
-        _ = try await request("api/teacher/requests/\(courseId)/counter", method: "POST", json: json)
+
+    // MARK: Besoins parents
+    func children() async throws -> [ChildDTO] { try await get("api/children") }
+    func createChild(_ json: [String: Any]) async throws -> ChildDTO {
+        let data = try await request("api/children", method: "POST", json: json)
+        return try JSONDecoder().decode(ChildDTO.self, from: data)
     }
-    /// Le prof active/désactive « à négocier » sur ses offres.
-    @discardableResult
-    func setNegotiable(_ negotiable: Bool) async throws -> Bool {
-        let data = try await request("api/teacher/negotiable", method: "POST", json: ["negotiable": negotiable])
-        struct R: Codable { let negotiable: Bool }
-        return (try? JSONDecoder().decode(R.self, from: data))?.negotiable ?? negotiable
+    func needs() async throws -> [NeedDTO] { try await get("api/needs") }
+    func createNeed(_ json: [String: Any]) async throws -> NeedDTO {
+        let data = try await request("api/needs", method: "POST", json: json)
+        return try JSONDecoder().decode(NeedDTO.self, from: data)
     }
-    /// Le client accepte / refuse la contre-proposition du prof.
-    func acceptNegotiation(courseId: Int) async throws { _ = try await request("api/courses/\(courseId)/negotiation/accept", method: "POST") }
-    func refuseNegotiation(courseId: Int) async throws { _ = try await request("api/courses/\(courseId)/negotiation/refuse", method: "POST") }
+    func acceptNeedPrice(id: Int) async throws -> NeedDTO {
+        let data = try await request("api/needs/\(id)/accept-price", method: "POST")
+        return try JSONDecoder().decode(NeedDTO.self, from: data)
+    }
 
     // MARK: Espace admin (rôle admin requis ; le token Bearer est ajouté à chaque requête).
     func createSubject(slug: String, name: String, accent: String, icon: String = "more") async throws -> SubjectDTO {
@@ -526,8 +535,7 @@ extension Fallback {
         stats: [.init(value: "14", label: "cours / semaine"), .init(value: "4,9", label: "note moyenne"), .init(value: "3", label: "nouveaux élèves")],
         pendingRequests: 3, negotiable: false, profileCompletion: nil)
     static let teacherRequests: [TeacherRequestDTO] = [
-        .init(courseId: nil, initials: "FB", accent: "green", name: "Fatou Bamba", ago: "il y a 1 h", price: 6000, student: "Awa · 2nde", subject: "Mathématiques", slot: "Sam. 28 juin · 15h00", format: "À domicile · Marcory", negotiable: nil, proposedPrice: nil, proposedFrequency: nil, counterPrice: nil, counterFrequency: nil, negotiationStatus: nil),
-        .init(courseId: nil, initials: "YK", accent: "orange", name: "Yao Kouamé", ago: "il y a 3 h", price: 4000, student: "Junior · 3ᵉ", subject: "Physique-Chimie", slot: "Dim. 29 juin · 10h00", format: "En ligne", negotiable: nil, proposedPrice: nil, proposedFrequency: nil, counterPrice: nil, counterFrequency: nil, negotiationStatus: nil),
+        .init(courseId: 1, needId: 1, initials: "CO", accent: "green", name: "Cocody", ago: "nouveau", price: 8500, student: "Kouadio · 3eme", subject: "Maths", slot: "Cocody", format: "À domicile", netHourly: 4250, frequency: "1 fois/sem", duration: "2h00", startDate: nil, isOpportunity: true, availabilityWeek: true, availabilityWeekend: false, availabilityHolidays: false),
     ]
     static let teacherEarnings = TeacherEarningsDTO(
         total: 184000, trend: "+12%",

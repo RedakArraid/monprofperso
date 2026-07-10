@@ -104,15 +104,12 @@ test("GET /api/groups/:id -> programme propre à chaque groupe (DB)", async () =
   assert.notDeepEqual(a, b, "deux groupes distincts ont des programmes distincts");
 });
 
-test("GET /api/teacher/dashboard + requests : demandes de démo stables (DB)", async () => {
-  // Note : les autres fichiers de tests s'exécutent en parallèle et créent des
-  // réservations pour le prof de démo ; on n'assérte donc que des invariants stables.
+test("GET /api/teacher/dashboard + requests : offres et réservations", async () => {
   const dash = (await get("/api/teacher/dashboard")).body;
   const requests = (await get("/api/teacher/requests")).body;
   assert.equal(typeof dash.pendingRequests, "number");
-  const seeded = requests.filter((r) => r.courseId === null);
-  assert.equal(seeded.length, 2, "les 2 demandes de démo du prof 1 sont renvoyées");
-  assert.ok(dash.pendingRequests >= seeded.length, "le compteur inclut au moins les demandes de démo");
+  assert.ok(Array.isArray(requests));
+  assert.ok(requests.every((r) => r.courseId != null), "chaque entrée a un identifiant courseId/needId");
 });
 
 test("GET /api/subscription/mine -> abonnement de l'utilisateur (DB)", async () => {

@@ -20,6 +20,7 @@ enum Route: Hashable {
     case groupCourses, groupDetail, agenda
     // I, Côté professeur (gestion)
     case becomeTeacher, completeTeacherProfile, withdraw
+    case myChildren, expressNeed, myNeeds
     // J, Gérer un cours & suivi détaillé
     case manageCourse, progressReport, receipt
     // K, Reçus, aide, réglages & parrainage
