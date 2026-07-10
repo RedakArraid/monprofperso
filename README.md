@@ -53,8 +53,8 @@ Mêmes couleurs (vert `#0E5A43`, orange `#E8722A`, crème `#ECE7DE`), mêmes pol
 **Schibsted Grotesk** + **Hanken Grotesk** (bundlées dans les deux apps), icônes
 Material (Android) / SF Symbols (iOS).
 
-## Workflow dev → staging → prod
-Développement local sur **`dev`**, tests sur **staging** (VPS), production sur **`prod`**.
+## Workflow dev → staging → main
+Développement local sur **`dev`**, tests sur **staging** (VPS), production sur **`main`**.
 
 ```bash
 # 1. Après push sur dev :

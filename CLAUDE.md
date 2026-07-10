@@ -78,7 +78,7 @@ docs/       Présentation .docx + assets, ROADMAP.md, COMPLIANCE.md (légal CI :
   au total**. Suivi dans la table `pgmigrations`.
   Créer une migration : `npm run migrate create <nom>` (puis éditer le `.sql`).
 - **Ports (custom, pour éviter les collisions)** : API **8099**, Postgres **5544**,
-  Adminer **8098**, MinIO API **9000** / console **8097**, page vitrine web **8095**
+  Adminer **8098**, MinIO API hôte **9002** (conteneur 9000) / console **9003**, page vitrine web **8095**
   (service `web`, nginx servant `../web`). Configurables via `backend/.env`
   (voir `.env.example`).
 - **Secrets / config** : identifiants DB et ports dans `backend/.env` (non versionné,
@@ -213,13 +213,13 @@ Remote : `github.com/RedakArraid/monprofperso`. **Trois branches au long cours**
 - **`dev`**, intégration : développement **local** (`docker compose up` dans `backend/`).
 - **`staging`**, pré-production : merge depuis `dev`, déployée sur le VPS
   (`staging.monprofperso.com`, dossier `/root/monprofperso-staging`).
-- **`prod`**, production : merge depuis `staging` ; déployée sur le VPS
+- **`main`**, production : merge depuis `staging` ; déployée sur le VPS
   (`monprofperso.com`, dossier `/root/monprofperso`).
 
 **Rituel** (détail : `docs/WORKFLOW.md`) :
 1. Coder en local sur `dev`, push `origin dev`.
 2. `./scripts/release-staging.sh` → merge dev→staging, deploy VPS staging, tester.
-3. `./scripts/release-prod.sh --yes` → merge staging→prod, deploy VPS prod.
+3. `./scripts/release-prod.sh --yes` → merge staging→main, deploy VPS prod.
 
 Scripts : `scripts/release-staging.sh`, `scripts/release-prod.sh`, `scripts/smoke.sh`.
-`main` reste l'historique de référence. Ne jamais déployer prod depuis `dev`.
+Ne jamais déployer la production depuis `dev`.

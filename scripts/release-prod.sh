@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Rituel local : staging → prod (merge + push + déploiement VPS).
+# Rituel local : staging → main (merge + push + déploiement VPS).
 # À lancer uniquement après validation sur staging.
 set -euo pipefail
 
@@ -18,15 +18,15 @@ git fetch origin
 git checkout staging
 git pull --ff-only origin staging
 
-echo "==> 2/4, Merger staging → prod"
-git checkout prod
-git pull --ff-only origin prod
+echo "==> 2/4, Merger staging → main"
+git checkout main
+git pull --ff-only origin main
 git merge staging --no-edit
 
-echo "==> 3/4, Pousser prod"
-git push origin prod
+echo "==> 3/4, Pousser main"
+git push origin main
 
-echo "==> 4/4, Déployer sur le VPS (branche prod)"
+echo "==> 4/4, Déployer sur le VPS (branche main)"
 ssh "$SSH_HOST" "bash -s" < "$ROOT/scripts/deploy-prod.sh"
 
 echo ""

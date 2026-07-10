@@ -1,14 +1,14 @@
 # Rituel de développement, Mon Prof Perso
 
-Trois branches longues sur GitHub : **`dev`** → **`staging`** → **`prod`**.
+Trois branches longues sur GitHub : **`dev`** → **`staging`** → **`main`** (production).
 
 | Environnement | Branche | Où | URL |
 |---------------|---------|-----|-----|
 | **Local** | `dev` | Machine dev + `docker compose up` | `http://localhost:8095` (web), `http://localhost:8099` (API) |
 | **Staging** | `staging` | VPS `/root/monprofperso-staging` | https://staging.monprofperso.com |
-| **Production** | `prod` | VPS `/root/monprofperso` | https://monprofperso.com |
+| **Production** | `main` | VPS `/root/monprofperso` | https://monprofperso.com |
 
-Ne jamais pousser directement sur `prod` sans passer par `staging`.
+Ne jamais pousser directement sur `main` sans passer par `staging`.
 
 ---
 
@@ -74,9 +74,9 @@ Uniquement si staging est validé :
 
 Ce script :
 1. Met à jour `staging`
-2. Merge **`staging` → `prod`**
-3. Push `prod` sur GitHub
-4. SSH sur le VPS → pull `prod` → `docker compose` prod
+2. Merge **`staging` → `main`**
+3. Push `main` sur GitHub
+4. SSH sur le VPS → pull `main` → `docker compose` prod
 
 **Vérifier :**
 
@@ -124,9 +124,9 @@ Puis depuis la machine dev :
 | Script | Où | Rôle |
 |--------|-----|------|
 | `scripts/release-staging.sh` | Local | dev → staging + deploy VPS |
-| `scripts/release-prod.sh --yes` | Local | staging → prod + deploy VPS |
+| `scripts/release-prod.sh --yes` | Local | staging → main + deploy VPS |
 | `scripts/deploy-staging.sh` | VPS (ou via SSH) | Pull staging + compose up |
-| `scripts/deploy-prod.sh` | VPS (ou via SSH) | Pull prod + compose up |
+| `scripts/deploy-prod.sh` | VPS (ou via SSH) | Pull main + compose up |
 | `scripts/smoke.sh <url>` | Local ou VPS | Health + login admin |
 | `deploy-monprofperso.sh` | VPS | Alias → `deploy-prod.sh` |
 
@@ -136,5 +136,4 @@ Puis depuis la machine dev :
 
 - **`dev`** : intégration quotidienne, peut être instable.
 - **`staging`** : pré-prod, base de données **séparée** (`monprofperso_staging`).
-- **`prod`** : stable, déployée uniquement depuis `staging`.
-- **`main`** : historique de référence, pas utilisée pour le déploiement.
+- **`main`** : production stable, déployée uniquement depuis `staging`.

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Déploiement PRODUCTION sur VPS Contabo (branche prod).
+# Déploiement PRODUCTION sur VPS Contabo (branche main).
 set -euo pipefail
 
 APP_DIR="${APP_DIR:-/root/monprofperso}"
 COMPOSE="docker compose -f backend/docker-compose.prod.yml --env-file backend/.env.production"
-BRANCH="prod"
+BRANCH="main"
 
 cd "$APP_DIR"
 
