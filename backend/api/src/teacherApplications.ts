@@ -17,7 +17,7 @@ const APP_STATUS = ["pending", "approved", "rejected"] as const;
 const FILE_KINDS = ["id_card", "diploma", "photo"] as const;
 type FileKind = (typeof FILE_KINDS)[number];
 
-const APP_LIST_COLS = `id, full_name, phone, email, subjects, location, price_per_hour,
+const APP_LIST_COLS = `id, full_name, phone, email, subjects, levels, location, price_per_hour,
   status, rejection_reason, created_at, reviewed_at,
   (id_card_storage_key IS NOT NULL OR id_card_content IS NOT NULL) AS "hasIdCard",
   (diploma_storage_key IS NOT NULL OR diploma_content IS NOT NULL) AS "hasDiploma",
@@ -295,6 +295,7 @@ export function registerTeacherApplicationRoutes(
     const negotiable = b.negotiable === undefined
       ? Boolean(app.negotiable)
       : (b.negotiable === true || b.negotiable === "true");
+    const confirmNeeds = b.confirmNeeds === true || b.confirmNeeds === "true";
     const initials = name.split(" ").map((s: string) => s[0]).join("").slice(0, 2).toUpperCase();
 
     const client = await pool.connect();
@@ -304,10 +305,10 @@ export function registerTeacherApplicationRoutes(
       const teacherIns = await client.query(
         `INSERT INTO teachers (initials, name, subjects, rating, reviews_count, location, price_per_hour,
            experience, bio, levels, formats, programs, accent, verified, special_bepc, negotiable, needs_confirmed)
-         VALUES ($1,$2,$3,5.0,0,$4,$5,$6,$7,$8,$9,$10,'green',TRUE,FALSE,$11,FALSE)
+         VALUES ($1,$2,$3,5.0,0,$4,$5,$6,$7,$8,$9,$10,'green',TRUE,FALSE,$11,$12)
          RETURNING id`,
         [initials, name, subjects, location, pricePerHour, experience ?? null, bio ?? null,
-         levels, formats, programs, negotiable],
+         levels, formats, programs, negotiable, confirmNeeds],
       );
       const teacherId = teacherIns.rows[0].id;
 

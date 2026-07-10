@@ -963,14 +963,15 @@ admin.post("/teachers", wrap(async (req, res) => {
   const verified = b.verified === false || b.verified === "false" ? false : true;
   const specialBepc = b.specialBepc === true || b.specialBepc === "true";
   const negotiable = b.negotiable === true || b.negotiable === "true";
+  const needsConfirmed = b.needsConfirmed === true || b.needsConfirmed === "true";
   const initials = name.split(" ").map((s: string) => s[0]).join("").slice(0, 2).toUpperCase();
   const r = await pool.query(
     `INSERT INTO teachers (initials,name,subjects,rating,reviews_count,location,price_per_hour,
-        experience,students,bac_success,bio,levels,formats,programs,distance_km,accent,verified,special_bepc,negotiable)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING *`,
+        experience,students,bac_success,bio,levels,formats,programs,distance_km,accent,verified,special_bepc,negotiable,needs_confirmed)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20) RETURNING *`,
     [initials, name, subjects, rating, reviewsCount, location, pricePerHour,
      experience ?? null, students ?? null, bacSuccess ?? null, bio ?? null,
-     levels, formats, programs, distanceKm ?? null, accent, verified, specialBepc, negotiable]
+     levels, formats, programs, distanceKm ?? null, accent, verified, specialBepc, negotiable, needsConfirmed]
   );
   res.status(201).json(r.rows[0]);
 }));
@@ -995,6 +996,9 @@ admin.put("/teachers/:id", wrap(async (req, res) => {
   const verified = b.verified === undefined ? undefined : (b.verified === true || b.verified === "true");
   const specialBepc = b.specialBepc === undefined ? undefined : (b.specialBepc === true || b.specialBepc === "true");
   const negotiable = b.negotiable === undefined ? undefined : (b.negotiable === true || b.negotiable === "true");
+  const needsConfirmed = b.needsConfirmed === undefined
+    ? undefined
+    : (b.needsConfirmed === true || b.needsConfirmed === "true");
   const r = await pool.query(
     `UPDATE teachers SET
         name = COALESCE($2,name), subjects = COALESCE($3,subjects), location = COALESCE($4,location),
@@ -1005,12 +1009,13 @@ admin.put("/teachers/:id", wrap(async (req, res) => {
         levels = COALESCE($13,levels), formats = COALESCE($14,formats),
         distance_km = COALESCE($15,distance_km), verified = COALESCE($16,verified),
         special_bepc = COALESCE($17,special_bepc),
-        programs = COALESCE($18,programs), negotiable = COALESCE($19,negotiable)
+        programs = COALESCE($18,programs), negotiable = COALESCE($19,negotiable),
+        needs_confirmed = COALESCE($20, needs_confirmed)
      WHERE id = $1 RETURNING *`,
     [req.params.id, name ?? null, subjects ?? null, location ?? null, pricePerHour ?? null,
      rating ?? null, reviewsCount ?? null, accent ?? null, experience ?? null, students ?? null,
      bacSuccess ?? null, bio ?? null, levels ?? null, formats ?? null, distanceKm ?? null,
-     verified ?? null, specialBepc ?? null, programs ?? null, negotiable ?? null]
+     verified ?? null, specialBepc ?? null, programs ?? null, negotiable ?? null, needsConfirmed ?? null]
   );
   if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
   res.json(r.rows[0]);

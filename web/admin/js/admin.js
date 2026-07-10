@@ -266,8 +266,8 @@ async function renderDashboard(root) {
     </div>
     <div class="card">
       <h3>Bienvenue 👋</h3>
-      <p class="card-sub">Gérez ici toute la plateforme : professeurs, cours de groupe,
-      catalogue, ressources pédagogiques, documents légaux (CGU…) et réseaux sociaux.</p>
+      <p class="card-sub">Gérez candidatures, besoins parents (tarification fixe), professeurs,
+      cours de groupe, catalogue, ressources, documents légaux et paramètres plateforme.</p>
     </div>`;
   root.querySelectorAll("[data-go]").forEach((c) =>
     c.addEventListener("click", () => navigate(c.dataset.go)));
@@ -302,12 +302,12 @@ async function renderApplications(root) {
 function applicationRow(a) {
   const st = APP_STATUS_LABEL[a.status] || a.status;
   const pill = a.status === "pending" ? "orange" : a.status === "approved" ? "green" : "";
+  const levels = (a.levels || []).join(", ") || "—";
   return `<div class="row">
     <span class="dot ${a.status === "pending" ? "orange" : a.status === "approved" ? "green" : ""}"></span>
     <div class="row-main">
       <div class="row-title">${esc(a.full_name)} <span class="pill ${pill}">${esc(st)}</span></div>
-      <div class="row-meta">${esc(a.phone)} · ${esc(a.subjects)} · ${esc(a.location || "Abidjan")}
-        ${a.price_per_hour ? " · " + fcfa(a.price_per_hour) + " F/h" : ""}</div>
+      <div class="row-meta">${esc(a.phone)} · ${esc(a.subjects)} · ${esc(levels)}</div>
     </div>
     <div class="row-actions">
       <button type="button" class="btn btn-ghost btn-sm" data-open="${a.id}">Voir</button>
@@ -322,24 +322,30 @@ async function openApplication(id) {
     ["diploma", "Diplôme / attestation", a.hasDiploma],
     ["photo", "Photo de profil", a.hasPhoto],
   ];
+  const hasAnyDoc = docs.some(([, , ok]) => ok);
   modal(`Candidature · ${a.full_name}`, `
     <p class="muted" style="margin-bottom:12px">${esc(a.phone)}${a.email ? " · " + esc(a.email) : ""}</p>
     <p><strong>Matières :</strong> ${esc(a.subjects)}</p>
-    <p><strong>Lieu :</strong> ${esc(a.location)} · <strong>Prix :</strong> ${a.price_per_hour ? fcfa(a.price_per_hour) + " F/h" : "—"}</p>
     <p><strong>Niveaux :</strong> ${esc((a.levels || []).join(", ") || "—")}</p>
-    <p><strong>Formats :</strong> ${esc((a.formats || []).join(", ") || "—")}</p>
-    ${a.bio ? `<p><strong>Bio :</strong> ${esc(a.bio)}</p>` : ""}
-    ${a.experience ? `<p><strong>Expérience :</strong> ${esc(a.experience)}</p>` : ""}
     ${a.rejection_reason ? `<p style="color:var(--orange)"><strong>Motif refus :</strong> ${esc(a.rejection_reason)}</p>` : ""}
     <hr class="divider">
-    <p><strong>Documents</strong></p>
+    <p class="muted" style="font-size:13px">Les documents et le profil détaillé sont complétés par le professeur dans son espace après validation.</p>
+    ${hasAnyDoc ? `
+    <p style="margin-top:10px"><strong>Documents joints (optionnel à l'inscription)</strong></p>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 16px">
       ${docs.map(([k, lbl, ok]) => ok
         ? `<button type="button" class="btn btn-ghost btn-sm" data-dl="${a.id}" data-kind="${k}">${esc(lbl)}</button>`
-        : `<span class="muted">${esc(lbl)} (manquant)</span>`).join("")}
-    </div>
+        : `<span class="muted">${esc(lbl)} (non fourni)</span>`).join("")}
+    </div>` : ""}
     ${a.status === "pending" ? `
-      <div class="field full"><label>Motif de refus (si refus)</label><textarea id="rejReason" placeholder="Ex. diplôme illisible…"></textarea></div>
+      <div class="field field-check">
+        <label class="check-row" for="confirmNeeds">
+          <input type="checkbox" id="confirmNeeds">
+          <span>Confirmer l'accès aux offres (tests validés)</span>
+        </label>
+        <p class="field-hint">Par défaut, le prof ne voit pas les besoins parents tant que vous ne l'avez pas confirmé.</p>
+      </div>
+      <div class="field full"><label>Motif de refus (si refus)</label><textarea id="rejReason" placeholder="Ex. informations incohérentes…"></textarea></div>
       <div class="form-actions">
         <button type="button" class="btn btn-primary" id="approveApp">Accepter et créer le prof</button>
         <button type="button" class="btn btn-danger" id="rejectApp">Refuser</button>
@@ -357,8 +363,12 @@ async function openApplication(id) {
     approve?.addEventListener("click", async () => {
       approve.disabled = true;
       try {
-        await api("/api/admin/teacher-applications/" + id + "/approve", { method: "POST", body: {} });
-        toast("Professeur créé et candidature acceptée");
+        const confirmNeeds = back.querySelector("#confirmNeeds")?.checked === true;
+        await api("/api/admin/teacher-applications/" + id + "/approve", {
+          method: "POST",
+          body: { confirmNeeds },
+        });
+        toast(confirmNeeds ? "Professeur créé — accès aux offres activé" : "Professeur créé — en attente de tests");
         close(); navigate("applications");
       } catch (e) { toast(e.message, true); approve.disabled = false; }
     });
@@ -411,6 +421,9 @@ async function renderNeeds(root) {
   root.querySelectorAll("[data-price]").forEach((btn) => {
     btn.addEventListener("click", () => openNeedPrice(btn.dataset.price));
   });
+  root.querySelectorAll("[data-need]").forEach((btn) => {
+    btn.addEventListener("click", () => openNeedDetail(needs.find((n) => String(n.id) === btn.dataset.need)));
+  });
 }
 
 function needRow(n) {
@@ -426,21 +439,43 @@ function needRow(n) {
       ${n.description ? `<div class="row-meta">${esc(n.description)}</div>` : ""}
     </div>
     <div class="row-actions">
-      ${n.status === "submitted" ? `<button type="button" class="btn btn-primary btn-sm" data-price="${n.id}">Proposer un tarif</button>` : ""}
+      ${n.status === "submitted" ? `<button type="button" class="btn btn-primary btn-sm" data-price="${n.id}">Proposer un tarif</button>` : `<button type="button" class="btn btn-ghost btn-sm" data-need="${n.id}">Détail</button>`}
     </div>
   </div>`;
 }
 
 function openNeedPrice(id) {
   modal("Proposer un tarif", `
-    <p class="muted">Le parent paiera ce montant par séance. Le prof verra le gain net (commission déduite).</p>
+    <p class="muted">Le parent paiera ce montant par séance. Le prof verra uniquement le gain net (commission déduite).</p>
     <div class="form-grid">
-      <div class="field"><label>Tarif parent (F / séance)</label><input id="np_price" type="number" min="1000" step="500" placeholder="10000"></div>
+      <div class="field"><label>Tarif parent (F / séance) *</label><input id="np_price" type="number" min="1000" step="500" placeholder="10000"></div>
       <div class="field"><label>Fréquence</label><input id="np_freq" placeholder="1 fois/sem"></div>
       <div class="field"><label>Début souhaité</label><input id="np_start" type="date"></div>
     </div>
+    <p class="muted" id="np_preview" style="margin-top:8px;font-size:13px">Gain prof estimé : —</p>
     <div class="form-actions"><button type="button" class="btn btn-primary" id="np_save">Envoyer au parent</button></div>
-  `, (back, close) => {
+  `, async (back, close) => {
+    let commissionPct = 15;
+    try {
+      const settings = await api("/api/settings");
+      const v = parseFloat(settings.commission_pct);
+      if (Number.isFinite(v)) commissionPct = v;
+    } catch (_) { /* défaut 15 % */ }
+
+    const priceInput = back.querySelector("#np_price");
+    const preview = back.querySelector("#np_preview");
+    const updatePreview = () => {
+      const p = Number(priceInput?.value);
+      if (!p || p < 1000) {
+        preview.textContent = `Gain prof estimé (commission ${commissionPct} %) : —`;
+        return;
+      }
+      const net = Math.round(p * (1 - commissionPct / 100));
+      preview.textContent = `Gain prof estimé (commission ${commissionPct} %) : ${fcfa(net)} F nets / séance`;
+    };
+    priceInput?.addEventListener("input", updatePreview);
+    updatePreview();
+
     back.querySelector("#np_save").addEventListener("click", async () => {
       const parentPrice = Number(back.querySelector("#np_price").value);
       if (!parentPrice || parentPrice < 1000) { toast("Tarif invalide", true); return; }
@@ -457,6 +492,26 @@ function openNeedPrice(id) {
         close(); navigate("needs");
       } catch (e) { toast(e.message, true); }
     });
+  });
+}
+
+function openNeedDetail(n) {
+  if (!n) return;
+  const child = n.childName ? `${n.childName} · ${n.level}` : n.level;
+  modal(`Besoin ${esc(n.reference || n.id)}`, `
+    <p><strong>Statut :</strong> ${esc(NEED_STATUS_LABEL[n.status] || n.status)}</p>
+    <p><strong>Parent :</strong> ${esc(n.parentName || "—")}${n.parentPhone ? " · " + esc(n.parentPhone) : ""}</p>
+    <p><strong>Élève :</strong> ${esc(child || "—")}</p>
+    <p><strong>Matière :</strong> ${esc(n.subject)} · <strong>Format :</strong> ${esc(n.format === "online" ? "En ligne" : "À domicile")}</p>
+    <p><strong>Lieu :</strong> ${esc(n.location || "—")}</p>
+    <p><strong>Fréquence :</strong> ${esc(n.frequency || "—")} · <strong>Durée :</strong> ${esc(n.duration || "—")}</p>
+    ${n.description ? `<p><strong>Description :</strong> ${esc(n.description)}</p>` : ""}
+    ${n.parentPrice != null ? `<p><strong>Tarif parent :</strong> ${fcfa(n.parentPrice)} F / séance</p>` : ""}
+    ${n.netTeacherAmount != null ? `<p><strong>Gain prof (net) :</strong> ${fcfa(n.netTeacherAmount)} F / séance${n.netTeacherHourly != null ? " · " + fcfa(n.netTeacherHourly) + " F/h" : ""}</p>` : ""}
+    ${n.startDate ? `<p><strong>Début :</strong> ${esc(n.startDate)}</p>` : ""}
+    <div class="form-actions"><button type="button" class="btn btn-ghost" id="needClose">Fermer</button></div>
+  `, (back, close) => {
+    back.querySelector("#needClose")?.addEventListener("click", close);
   });
 }
 
@@ -504,7 +559,7 @@ function teacherRow(t) {
         ${t.verified ? `<span class="pill green">vérifié</span>` : ""}
         ${t.special_bepc ? `<span class="pill orange">BEPC</span>` : ""}
         ${needsOk ? `<span class="pill green">offres actives</span>` : `<span class="pill orange">tests en cours</span>`}</div>
-      <div class="row-meta">${esc(t.subjects)} · ${esc(t.location)} · ${fcfa(t.price_per_hour)} F/h · ★ ${t.rating}</div>
+      <div class="row-meta">${esc(t.subjects)} · ${esc(t.location || "Abidjan")} · ★ ${t.rating}</div>
     </div>
     <div class="row-actions">
       <button class="btn btn-ghost btn-sm" data-confirm="${t.id}">${needsOk ? "Révoquer offres" : "Confirmer offres"}</button>
@@ -522,21 +577,27 @@ function teacherForm(t) {
     <div class="form-grid">
       <div class="field full"><label>Nom complet *</label><input id="f_name" value="${esc(t.name || "")}" placeholder="Koffi N'Guessan"></div>
       <div class="field full"><label>Matières *</label><input id="f_subjects" value="${esc(t.subjects || "")}" placeholder="Maths · Physique-Chimie"></div>
+      <div class="field full"><label>Niveaux (séparés par des virgules)</label><input id="f_levels" value="${esc((t.levels || []).join(", "))}" placeholder="Collège, Lycée"></div>
+      <div class="field"><label>Programmes (slugs)</label><input id="f_programs" value="${esc((t.programs || ["standard"]).join(", "))}" placeholder="standard, francais"></div>
       <div class="field"><label>Quartier / Ville</label><input id="f_location" value="${esc(t.location || "")}" placeholder="Cocody"></div>
-      <div class="field"><label>Prix / heure (F)</label><input id="f_price" type="number" value="${t.price_per_hour ?? 4000}"></div>
+      <div class="field field-check full">
+        <label class="check-row" for="f_needs_confirmed">
+          <input type="checkbox" id="f_needs_confirmed"${t.needs_confirmed ? " checked" : ""}>
+          <span>Accès aux offres (besoins parents) confirmé</span>
+        </label>
+        <p class="field-hint">À activer après validation des tests. Les tarifs des cours passent par l'admin (besoins parents).</p>
+      </div>
+      <div class="field full" style="grid-column:1/-1"><p class="muted" style="font-size:12px;margin:4px 0 0"><strong>Profil public (optionnel)</strong> — affichage catalogue / vitrine</p></div>
+      <div class="field"><label>Prix indicatif / h (F)</label><input id="f_price" type="number" value="${t.price_per_hour ?? 0}" placeholder="0"></div>
+      <div class="field"><label>Expérience</label><input id="f_exp" value="${esc(t.experience || "")}" placeholder="8 ans"></div>
+      <div class="field"><label>Formats</label>
+        <select id="f_formats"><option value="home,online"${fmt.length === 2 ? " selected" : ""}>Domicile + En ligne</option><option value="home"${fmt.length === 1 && fmt[0] === "home" ? " selected" : ""}>Domicile</option><option value="online"${fmt.length === 1 && fmt[0] === "online" ? " selected" : ""}>En ligne</option></select></div>
       <div class="field"><label>Note (0-5)</label><input id="f_rating" type="number" step="0.1" min="0" max="5" value="${t.rating ?? 5}"></div>
       <div class="field"><label>Nb d'avis</label><input id="f_reviews" type="number" value="${t.reviews_count ?? 0}"></div>
-      <div class="field"><label>Expérience</label><input id="f_exp" value="${esc(t.experience || "")}" placeholder="8 ans"></div>
       <div class="field"><label>Élèves</label><input id="f_students" value="${esc(t.students || "")}" placeholder="340+"></div>
       <div class="field"><label>Réussite BAC</label><input id="f_bac" value="${esc(t.bac_success || "")}" placeholder="94%"></div>
       <div class="field"><label>Couleur</label>
         <select id="f_accent"><option value="green"${t.accent !== "orange" ? " selected" : ""}>Vert</option><option value="orange"${t.accent === "orange" ? " selected" : ""}>Orange</option></select></div>
-      <div class="field full"><label>Niveaux (séparés par des virgules)</label><input id="f_levels" value="${esc((t.levels || []).join(", "))}" placeholder="Collège, Lycée, Prépa BAC"></div>
-      <div class="field"><label>Programmes (slugs séparés par des virgules)</label><input id="f_programs" value="${esc((t.programs || ["standard"]).join(", "))}" placeholder="standard, francais"></div>
-      <div class="field"><label>Offres à négocier</label>
-        <select id="f_negotiable"><option value="no"${t.negotiable ? "" : " selected"}>Non</option><option value="yes"${t.negotiable ? " selected" : ""}>Oui, tarif &amp; fréquence négociables</option></select></div>
-      <div class="field"><label>Formats</label>
-        <select id="f_formats"><option value="home,online"${fmt.length === 2 ? " selected" : ""}>Domicile + En ligne</option><option value="home"${fmt.length === 1 && fmt[0] === "home" ? " selected" : ""}>Domicile</option><option value="online"${fmt.length === 1 && fmt[0] === "online" ? " selected" : ""}>En ligne</option></select></div>
       <div class="field"><label>Options</label>
         <select id="f_flags">
           <option value="vb"${t.verified !== false && t.special_bepc ? " selected" : ""}>Vérifié + spécialiste BEPC</option>
@@ -570,7 +631,8 @@ function teacherForm(t) {
         bio: $("#f_bio", back).value.trim() || undefined,
         verified: flags !== "n",
         specialBepc: flags === "vb",
-        negotiable: $("#f_negotiable", back).value === "yes",
+        needsConfirmed: $("#f_needs_confirmed", back).checked,
+        negotiable: false,
       };
       if (!body.name || !body.subjects) { toast("Nom et matières sont requis", true); return; }
       try {
@@ -1027,7 +1089,7 @@ const SOCIAL_FIELDS = [
   ["social_youtube", "YouTube", "https://youtube.com/@…"],
   ["contact_email", "E-mail de contact", "contact@monprofperso.com"],
   ["contact_phone", "Téléphone de contact", "+225 07 00 00 00 01"],
-  ["commission_pct", "Commission plateforme (%)", "15"],
+  ["commission_pct", "Commission plateforme sur les besoins (%)", "15"],
 ];
 
 async function renderSocial(root) {
@@ -1036,12 +1098,15 @@ async function renderSocial(root) {
     <div class="card">
       <h3>Réseaux sociaux &amp; contact</h3>
       <p class="card-sub">Ces liens s'affichent sur le site vitrine et dans les applications.
-      Laissez un champ vide pour le masquer.</p>
+      La commission s'applique aux tarifs des <strong>besoins parents</strong> (gain net affiché au prof).
+      Laissez un champ réseau vide pour le masquer.</p>
       <div class="form-grid">
         ${SOCIAL_FIELDS.map(([key, label, ph]) => `
-          <div class="field${key.startsWith("contact") ? "" : " full"}">
+          <div class="field${key.startsWith("contact") || key === "commission_pct" ? "" : " full"}">
             <label>${esc(label)}</label>
-            <input id="set_${key}" value="${esc(settings[key] || "")}" placeholder="${esc(ph)}">
+            <input id="set_${key}" value="${esc(settings[key] || "")}" placeholder="${esc(ph)}"
+              ${key === "commission_pct" ? 'type="number" min="0" max="50" step="0.5"' : ""}>
+            ${key === "commission_pct" ? '<p class="field-hint">Ex. 15 → parent 10 000 F, prof voit 8 500 F nets.</p>' : ""}
           </div>`).join("")}
       </div>
       <div class="form-actions"><button class="btn btn-primary" id="saveSet">Enregistrer</button></div>

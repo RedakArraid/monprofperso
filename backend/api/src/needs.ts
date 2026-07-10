@@ -71,6 +71,7 @@ function mapNeed(row: any, child?: any) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     parentName: row.parent_name ?? null,
+    parentPhone: row.parent_phone ?? null,
     childName: row.child_name ?? child?.name ?? null,
     childGender: row.child_gender ?? child?.gender ?? null,
   };
