@@ -2,6 +2,9 @@ import { Router } from "express";
 import { pool } from "./db";
 import { ValidationError, optionalString, optionalNumber, optionalEnum, optionalPhone, requiredString, requiredEnum } from "./validate";
 import { currentUserId } from "./auth";
+import { putFile } from "./storage";
+
+type ServeFile = (res: any, row: any) => Promise<void>;
 
 const NEED_STATUSES = ["submitted", "priced", "published", "matched", "cancelled"] as const;
 const FORMATS = ["home", "online"] as const;
@@ -75,6 +78,10 @@ function mapNeed(row: any, child?: any) {
     childName: row.child_name ?? child?.name ?? null,
     childGender: row.child_gender ?? child?.gender ?? null,
     source: row.source ?? "app",
+    documentName: row.document_name ?? null,
+    recommendedTeacherId: row.recommended_teacher_id ?? null,
+    recommendedTeacherName: row.recommended_teacher_name ?? null,
+    recommendedNote: row.recommended_note ?? null,
   };
 }
 
@@ -103,10 +110,12 @@ function mapOpportunity(row: any) {
 
 async function loadNeed(id: number) {
   const r = await pool.query(
-    `SELECT n.*, u.full_name AS parent_name, c.name AS child_name, c.gender AS child_gender
+    `SELECT n.*, u.full_name AS parent_name, c.name AS child_name, c.gender AS child_gender,
+            t.name AS recommended_teacher_name
        FROM course_needs n
        LEFT JOIN users u ON u.id = n.user_id
        LEFT JOIN children c ON c.id = n.child_id
+       LEFT JOIN teachers t ON t.id = n.recommended_teacher_id
       WHERE n.id = $1`,
     [id],
   );
@@ -185,8 +194,8 @@ export async function acceptNeedForTeacher(needId: number, teacherId: number): P
   }
 }
 
-export function registerNeedsRoutes(api: Router, deps: { consentVersion: string }): void {
-  const { consentVersion } = deps;
+export function registerNeedsRoutes(api: Router, deps: { consentVersion: string; serveFile: ServeFile }): void {
+  const { consentVersion, serveFile } = deps;
 
   // --- Enfants (parent) ---
   api.get("/children", wrap(async (_req, res) => {
@@ -238,9 +247,11 @@ export function registerNeedsRoutes(api: Router, deps: { consentVersion: string 
   // --- Besoins (parent) ---
   api.get("/needs", wrap(async (_req, res) => {
     const r = await pool.query(
-      `SELECT n.*, c.name AS child_name, c.gender AS child_gender
+      `SELECT n.*, c.name AS child_name, c.gender AS child_gender,
+              t.name AS recommended_teacher_name
          FROM course_needs n
          LEFT JOIN children c ON c.id = n.child_id
+         LEFT JOIN teachers t ON t.id = n.recommended_teacher_id
         WHERE n.user_id = $1
         ORDER BY n.id DESC`,
       [currentUserId(res)],
@@ -270,18 +281,49 @@ export function registerNeedsRoutes(api: Router, deps: { consentVersion: string 
       if (!c.rows[0]) throw new ValidationError("childId", "enfant introuvable");
     }
 
+    const documentBase64 = optionalString(b, "documentBase64", { max: 12_000_000 });
+    let documentKey: string | null = null;
+    let documentName: string | null = null;
+    let documentMimeType: string | null = null;
+    if (documentBase64) {
+      documentName = optionalString(b, "documentFileName", { max: 200 }) ?? "document.pdf";
+      documentMimeType = optionalString(b, "documentMimeType", { max: 100 }) ?? "application/pdf";
+      const buffer = Buffer.from(documentBase64, "base64");
+      if (buffer.length > 8_000_000) throw new ValidationError("documentBase64", "fichier trop volumineux (max 8 Mo)");
+      documentKey = await putFile(buffer, documentMimeType, documentName, "needs/documents");
+    }
+
     const r = await pool.query(
       `INSERT INTO course_needs (
          user_id, child_id, subject, level, format, location, frequency, duration,
-         availability_week, availability_weekend, availability_holidays, description, status
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'submitted')
+         availability_week, availability_weekend, availability_holidays, description, status,
+         document_key, document_name, document_mime_type
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'submitted',$13,$14,$15)
        RETURNING *`,
       [currentUserId(res), childId ?? null, subject, level, format, location ?? null,
         frequency ?? null, duration ?? null, availabilityWeek, availabilityWeekend,
-        availabilityHolidays, description ?? null],
+        availabilityHolidays, description ?? null,
+        documentKey, documentName, documentMimeType],
     );
     const row = await loadNeed(r.rows[0].id);
     res.status(201).json(mapNeed(row));
+  }));
+
+  // --- Document joint à un besoin (le parent propriétaire uniquement ; côté admin, voir registerAdminNeedsRoutes) ---
+  api.get("/needs/:id/document", wrap(async (req, res) => {
+    const r = await pool.query(
+      "SELECT user_id, document_key, document_name, document_mime_type FROM course_needs WHERE id=$1",
+      [req.params.id],
+    );
+    const row = r.rows[0];
+    if (!row || !row.document_key) { res.status(404).json({ error: "not_found" }); return; }
+    if (row.user_id !== currentUserId(res)) { res.status(403).json({ error: "forbidden" }); return; }
+    await serveFile(res, {
+      file_name: row.document_name,
+      mime_type: row.document_mime_type,
+      storage_key: row.document_key,
+      content: null,
+    });
   }));
 
   // --- Demande de devis publique (site vitrine, sans compte) ---
@@ -389,15 +431,35 @@ export function registerNeedsRoutes(api: Router, deps: { consentVersion: string 
   // --- Admin (monté sur le routeur /admin dans routes.ts) ---
 }
 
-export function registerAdminNeedsRoutes(admin: Router): void {
+export function registerAdminNeedsRoutes(admin: Router, deps: { serveFile: ServeFile }): void {
+  const { serveFile } = deps;
+
+  // --- Admin : document joint à un besoin ---
+  admin.get("/needs/:id/document", wrap(async (req, res) => {
+    const r = await pool.query(
+      "SELECT document_key, document_name, document_mime_type FROM course_needs WHERE id=$1",
+      [req.params.id],
+    );
+    const row = r.rows[0];
+    if (!row || !row.document_key) { res.status(404).json({ error: "not_found" }); return; }
+    await serveFile(res, {
+      file_name: row.document_name,
+      mime_type: row.document_mime_type,
+      storage_key: row.document_key,
+      content: null,
+    });
+  }));
+
   admin.get("/needs", wrap(async (req, res) => {
     const status = typeof req.query.status === "string" ? req.query.status : undefined;
     const params: any[] = [];
     let sql = `SELECT n.*, u.full_name AS parent_name, u.phone AS parent_phone,
-                      c.name AS child_name, c.gender AS child_gender
+                      c.name AS child_name, c.gender AS child_gender,
+                      t.name AS recommended_teacher_name
                  FROM course_needs n
                  JOIN users u ON u.id = n.user_id
-                 LEFT JOIN children c ON c.id = n.child_id`;
+                 LEFT JOIN children c ON c.id = n.child_id
+                 LEFT JOIN teachers t ON t.id = n.recommended_teacher_id`;
     if (status) {
       params.push(status);
       sql += ` WHERE n.status = $${params.length}`;
@@ -411,6 +473,8 @@ export function registerAdminNeedsRoutes(admin: Router): void {
     const parentPrice = requiredNumber(req.body, "parentPrice", { min: 1000, max: 1_000_000 });
     const frequency = optionalString(req.body, "frequency", { max: 60 });
     const startDate = optionalString(req.body, "startDate", { max: 20 });
+    const recommendedTeacherId = optionalNumber(req.body, "recommendedTeacherId", { min: 1 });
+    const recommendedNote = optionalString(req.body, "recommendedNote", { max: 500 });
     const commissionPct = await getCommissionPct();
     const need = await loadNeed(Number(req.params.id));
     if (!need || need.status !== "submitted") {
@@ -426,11 +490,14 @@ export function registerAdminNeedsRoutes(admin: Router): void {
               net_teacher_amount = $4, net_teacher_hourly = $5,
               frequency = COALESCE($6, frequency),
               start_date = COALESCE($7::date, start_date),
+              recommended_teacher_id = COALESCE($9, recommended_teacher_id),
+              recommended_note = COALESCE($10, recommended_note),
               status = 'priced', priced_at = now(), priced_by = $8, updated_at = now()
         WHERE id = $1 AND status = 'submitted'
         RETURNING *`,
       [req.params.id, parentPrice, commissionPct, netTeacherAmount, netTeacherHourly,
-        frequency ?? null, startDate ?? null, currentUserId(res)],
+        frequency ?? null, startDate ?? null, currentUserId(res),
+        recommendedTeacherId ?? null, recommendedNote ?? null],
     );
     if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
 

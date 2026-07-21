@@ -203,12 +203,15 @@
       btn.disabled = true;
       btn.textContent = "Envoi en cours…";
       try {
+        var price = document.getElementById("pricePerHour").value;
         var body = {
           fullName: document.getElementById("fullName").value.trim(),
           phone: normalizePhone(document.getElementById("phone").value),
           email: document.getElementById("email").value.trim() || undefined,
           subjects: collectSubjects(),
           levels: collectLevels(),
+          pricePerHour: price ? Number(price) : undefined,
+          negotiable: document.getElementById("negotiable").checked,
           consent: true,
         };
 
@@ -227,6 +230,58 @@
         btn.disabled = false;
         btn.textContent = "Envoyer ma candidature";
       }
+    });
+  }
+
+  var STATUS_STEPS = ["pending", "interview", "test", "training", "approved"];
+  var STATUS_LABEL = {
+    pending: "Dossier reçu",
+    interview: "Entretien proposé",
+    test: "Test / mise en situation",
+    training: "Formation",
+    approved: "Accès aux offres",
+    rejected: "Candidature refusée",
+  };
+
+  var statusBtn = document.getElementById("statusBtn");
+  var statusResult = document.getElementById("statusResult");
+  if (statusBtn) {
+    statusBtn.addEventListener("click", async function () {
+      var phone = normalizePhone(document.getElementById("statusPhone").value);
+      if (!phone) { statusResult.innerHTML = '<p class="form-err">Indiquez un numéro valide.</p>'; return; }
+      statusBtn.disabled = true;
+      statusBtn.textContent = "Recherche…";
+      try {
+        var res = await fetch(API_BASE + "/api/teacher-applications/status?phone=" + encodeURIComponent(phone));
+        var data = await res.json();
+        if (!res.ok || data.status === "none") {
+          statusResult.innerHTML = '<p class="form-err">Aucune candidature trouvée pour ce numéro.</p>';
+          return;
+        }
+        if (data.status === "rejected") {
+          statusResult.innerHTML = '<p class="form-err">Candidature refusée' + (data.rejectionReason ? " — " + esc(data.rejectionReason) : "") + "</p>";
+          return;
+        }
+        var currentIdx = STATUS_STEPS.indexOf(data.status);
+        var html = '<div class="progress-row" aria-hidden="true">' +
+          STATUS_STEPS.map(function (s, i) { return '<div class="progress-bar"><span' + (i <= currentIdx ? ' class="done"' : "") + '></span></div>'; }).join("") +
+          "</div>" +
+          '<p class="step-kicker">' + esc(STATUS_LABEL[data.status] || data.status) + "</p>";
+        if (data.interviewNotes) html += "<p>Entretien : " + esc(data.interviewNotes) + "</p>";
+        if (data.testNotes) html += "<p>Test : " + esc(data.testNotes) + "</p>";
+        statusResult.innerHTML = html;
+      } catch (ex) {
+        statusResult.innerHTML = '<p class="form-err">Recherche impossible, réessayez.</p>';
+      } finally {
+        statusBtn.disabled = false;
+        statusBtn.textContent = "Voir mon statut";
+      }
+    });
+  }
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
   }
 

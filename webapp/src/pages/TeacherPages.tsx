@@ -161,6 +161,8 @@ export function TeacherProfileEditPage() {
     subjects?: string;
     programs?: string[];
     levels?: string[];
+    pricePerHour?: number;
+    negotiable?: boolean;
     profileCompletion?: { percent: number };
   } | null>("/api/teacher/profile", null);
   const [msg, setMsg] = useState("");
@@ -182,6 +184,7 @@ export function TeacherProfileEditPage() {
                   .map((x) => x.trim())
                   .filter(Boolean);
               try {
+                const price = fd.get("pricePerHour");
                 await api("/api/teacher/profile", {
                   method: "PUT",
                   body: {
@@ -189,6 +192,8 @@ export function TeacherProfileEditPage() {
                     subjects: fd.get("subjects"),
                     programs: split(fd.get("programs")),
                     levels: split(fd.get("levels")),
+                    pricePerHour: price ? Number(price) : undefined,
+                    negotiable: fd.get("negotiable") === "on",
                   },
                 });
                 setMsg("Profil mis à jour");
@@ -225,6 +230,22 @@ export function TeacherProfileEditPage() {
                   className="mt-1"
                 />
               </div>
+              <div>
+                <Label className="text-welcome">Tarif horaire souhaité (F)</Label>
+                <Input
+                  name="pricePerHour"
+                  type="number"
+                  min={0}
+                  step={500}
+                  defaultValue={data?.pricePerHour ?? ""}
+                  key={data?.pricePerHour}
+                  className="mt-1"
+                />
+              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="negotiable" defaultChecked={data?.negotiable ?? false} key={String(data?.negotiable)} />
+                <span>Tarif négociable</span>
+              </label>
             </div>
             {data?.profileCompletion ? (
               <p className="text-sm text-[#666]">Profil complété à {data.profileCompletion.percent}%</p>

@@ -112,6 +112,18 @@ test("candidature : soumission, conflit pending, approve admin", async () => {
   const file = await api(`/api/admin/teacher-applications/${appId}/files/id_card`, { token });
   assert.equal(file.status, 200);
 
+  const interview = await api(`/api/admin/teacher-applications/${appId}/interview`, { method: "POST", token, json: { notes: "RDV lundi" } });
+  assert.equal(interview.status, 200);
+  assert.equal(interview.body.status, "interview");
+
+  const startTest = await api(`/api/admin/teacher-applications/${appId}/start-test`, { method: "POST", token, json: {} });
+  assert.equal(startTest.status, 200);
+  assert.equal(startTest.body.status, "test");
+
+  const testResult = await api(`/api/admin/teacher-applications/${appId}/test-result`, { method: "POST", token, json: { passed: true } });
+  assert.equal(testResult.status, 200);
+  assert.equal(testResult.body.status, "training");
+
   const approved = await api(`/api/admin/teacher-applications/${appId}/approve`, { method: "POST", token, json: {} });
   assert.equal(approved.status, 200);
   assert.ok(approved.body.teacherId);

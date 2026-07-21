@@ -13,7 +13,7 @@ import { currentUserId } from "./auth";
 type ServeFile = (res: any, row: any) => Promise<void>;
 type StrArray = (body: any, field: string) => string[] | undefined;
 
-const APP_STATUS = ["pending", "approved", "rejected"] as const;
+const APP_STATUS = ["pending", "interview", "test", "training", "approved", "rejected"] as const;
 const FILE_KINDS = ["id_card", "diploma", "photo"] as const;
 type FileKind = (typeof FILE_KINDS)[number];
 
@@ -104,7 +104,8 @@ export function registerTeacherApplicationRoutes(
       return;
     }
     const r = await pool.query(
-      `SELECT id, status, rejection_reason, created_at, reviewed_at
+      `SELECT id, status, rejection_reason, created_at, reviewed_at,
+              interview_at, interview_notes, test_result, test_notes
          FROM teacher_applications
         WHERE phone = $1
         ORDER BY created_at DESC
@@ -121,6 +122,10 @@ export function registerTeacherApplicationRoutes(
       rejectionReason: row.rejection_reason,
       createdAt: row.created_at,
       reviewedAt: row.reviewed_at,
+      interviewAt: row.interview_at,
+      interviewNotes: row.interview_notes,
+      testResult: row.test_result,
+      testNotes: row.test_notes,
       id: row.id,
     });
   }));
@@ -226,6 +231,7 @@ export function registerTeacherApplicationRoutes(
     const r = await pool.query(
       `SELECT id, full_name, phone, email, subjects, location, price_per_hour, bio, experience,
               levels, formats, programs, negotiable, status, rejection_reason,
+              interview_at, interview_notes, test_result, test_notes,
               teacher_id, user_id, created_at, reviewed_at, reviewed_by,
               id_card_file_name, diploma_file_name, photo_file_name,
               (id_card_storage_key IS NOT NULL OR id_card_content IS NOT NULL) AS "hasIdCard",
@@ -253,14 +259,71 @@ export function registerTeacherApplicationRoutes(
     await serveFile(res, file);
   }));
 
-  // --- Admin : refuser ---
+  // --- Admin : proposer un entretien (pending → interview) ---
+  admin.post("/teacher-applications/:id/interview", wrap(async (req: any, res: any) => {
+    const b = req.body ?? {};
+    const interviewAt = optionalString(b, "interviewAt", { max: 40 });
+    const notes = optionalString(b, "notes", { max: 1000 });
+    const r = await pool.query(
+      `UPDATE teacher_applications
+          SET status = 'interview', interview_at = $2::timestamptz, interview_notes = $3,
+              reviewed_by = $4, reviewed_at = now()
+        WHERE id = $1 AND status = 'pending'
+        RETURNING id, status, interview_at, interview_notes`,
+      [req.params.id, interviewAt ?? null, notes ?? null, currentUserId(res)],
+    );
+    if (!r.rows[0]) {
+      res.status(404).json({ error: "not_found", message: "candidature introuvable ou déjà traitée" });
+      return;
+    }
+    res.json(r.rows[0]);
+  }));
+
+  // --- Admin : démarrer le test / mise en situation (interview → test) ---
+  admin.post("/teacher-applications/:id/start-test", wrap(async (req: any, res: any) => {
+    const r = await pool.query(
+      `UPDATE teacher_applications
+          SET status = 'test', reviewed_by = $2, reviewed_at = now()
+        WHERE id = $1 AND status = 'interview'
+        RETURNING id, status`,
+      [req.params.id, currentUserId(res)],
+    );
+    if (!r.rows[0]) {
+      res.status(404).json({ error: "not_found", message: "candidature introuvable ou pas encore en entretien" });
+      return;
+    }
+    res.json(r.rows[0]);
+  }));
+
+  // --- Admin : résultat du test (test → training si réussi, sinon rejected) ---
+  admin.post("/teacher-applications/:id/test-result", wrap(async (req: any, res: any) => {
+    const b = req.body ?? {};
+    const passed = b.passed === true || b.passed === "true";
+    const notes = optionalString(b, "notes", { max: 1000 });
+    const r = await pool.query(
+      `UPDATE teacher_applications
+          SET status = $2, test_result = $3, test_notes = $4,
+              rejection_reason = CASE WHEN $2 = 'rejected' THEN COALESCE($4, 'Test non concluant') ELSE rejection_reason END,
+              reviewed_by = $5, reviewed_at = now()
+        WHERE id = $1 AND status = 'test'
+        RETURNING id, status, test_result, test_notes`,
+      [req.params.id, passed ? "training" : "rejected", passed ? "passed" : "failed", notes ?? null, currentUserId(res)],
+    );
+    if (!r.rows[0]) {
+      res.status(404).json({ error: "not_found", message: "candidature introuvable ou pas encore testée" });
+      return;
+    }
+    res.json(r.rows[0]);
+  }));
+
+  // --- Admin : refuser (à tout stade non terminal) ---
   admin.post("/teacher-applications/:id/reject", wrap(async (req: any, res: any) => {
     const reason = requiredString(req.body ?? {}, "reason", { max: 500 });
     const r = await pool.query(
       `UPDATE teacher_applications
           SET status = 'rejected', rejection_reason = $2,
               reviewed_by = $3, reviewed_at = now()
-        WHERE id = $1 AND status = 'pending'
+        WHERE id = $1 AND status IN ('pending', 'interview', 'test', 'training')
         RETURNING id, status, rejection_reason, reviewed_at`,
       [req.params.id, reason, currentUserId(res)],
     );
@@ -271,14 +334,14 @@ export function registerTeacherApplicationRoutes(
     res.json(r.rows[0]);
   }));
 
-  // --- Admin : accepter (crée prof + compte) ---
+  // --- Admin : accepter, fin de formation (crée prof + compte) ---
   admin.post("/teacher-applications/:id/approve", wrap(async (req: any, res: any) => {
     const b = req.body ?? {};
     const appRes = await pool.query("SELECT * FROM teacher_applications WHERE id=$1", [req.params.id]);
     const app = appRes.rows[0];
     if (!app) { res.status(404).json({ error: "not_found" }); return; }
-    if (app.status !== "pending") {
-      res.status(409).json({ error: "conflict", message: "candidature déjà traitée" });
+    if (app.status !== "training") {
+      res.status(409).json({ error: "conflict", message: "la formation doit être terminée avant l'acceptation" });
       return;
     }
 
@@ -333,7 +396,7 @@ export function registerTeacherApplicationRoutes(
         `UPDATE teacher_applications
             SET status = 'approved', teacher_id = $2, user_id = $3,
                 reviewed_by = $4, reviewed_at = now(), rejection_reason = NULL
-          WHERE id = $1 AND status = 'pending'
+          WHERE id = $1 AND status = 'training'
           RETURNING id, status, teacher_id, user_id, reviewed_at`,
         [app.id, teacherId, userId, currentUserId(res)],
       );

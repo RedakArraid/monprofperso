@@ -327,7 +327,7 @@ api.post("/bookings", wrap(async (req, res) => {
   res.status(201).json({ reference: "AKW-" + (2000 + r.rows[0].id), course: r.rows[0] });
 }));
 
-registerNeedsRoutes(api, { consentVersion: CONSENT_VERSION });
+registerNeedsRoutes(api, { consentVersion: CONSENT_VERSION, serveFile });
 
 // ----------------------------------------------------------------- Notifications
 api.get("/notifications", wrap(async (_req, res) => {
@@ -1117,7 +1117,7 @@ admin.delete("/groups/:id", wrap(async (req, res) => {
   res.status(204).end();
 }));
 
-registerAdminNeedsRoutes(admin);
+registerAdminNeedsRoutes(admin, { serveFile });
 registerTeacherApplicationRoutes(api, admin, { wrap, serveFile, consentVersion: CONSENT_VERSION });
 
 api.use("/admin", admin);

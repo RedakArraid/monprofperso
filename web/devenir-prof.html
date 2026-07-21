@@ -71,7 +71,13 @@
           </div>
 
           <div class="form-step" hidden>
-            <p class="devenir-intro" style="margin-bottom:16px">Pour rassurer les familles, chaque professeur est vérifié avant publication. Vous compléterez votre profil (documents, tarifs…) dans votre espace après validation.</p>
+            <p class="devenir-intro" style="margin-bottom:16px">Pour rassurer les familles, chaque professeur est vérifié avant publication : dossier, entretien, test et mise en situation, puis formation avant l'accès aux offres.</p>
+            <div class="field-row">
+              <div class="field"><label for="pricePerHour">Tarif horaire souhaité (F)</label><input id="pricePerHour" type="number" min="0" step="500" placeholder="4000" /></div>
+              <div class="field" style="justify-content:flex-end">
+                <label class="check-row" style="margin:0"><input type="checkbox" id="negotiable" /> Tarif négociable</label>
+              </div>
+            </div>
             <label class="check-row"><input type="checkbox" id="consent" required /> J'accepte les <a href="#" data-legal="cgu">conditions d'utilisation</a> et la <a href="#" data-legal="confidentialite">politique de confidentialité</a>.</label>
             <p id="formErrStep1" class="form-err" hidden></p>
             <div class="form-actions">
@@ -86,6 +92,16 @@
         <h2>Candidature envoyée</h2>
         <p>Merci ! Notre équipe examine votre dossier sous 24 à 48 h. Vous serez contacté sur le numéro indiqué.</p>
         <p style="margin-top:20px"><a class="btn btn-primary" href="index.html">Retour au site</a></p>
+      </div>
+
+      <div class="devenir-card" id="statusCard" style="margin-top:32px">
+        <h2 style="font-size:20px">Suivre ma candidature</h2>
+        <p class="devenir-intro">Entrez votre numéro pour voir où en est votre dossier.</p>
+        <div class="field-row">
+          <div class="field" style="margin-bottom:0"><label for="statusPhone">Téléphone</label><input id="statusPhone" type="tel" placeholder="+2250700000000" /></div>
+          <div class="field" style="justify-content:flex-end;margin-bottom:0"><button type="button" class="btn btn-primary" id="statusBtn">Voir mon statut</button></div>
+        </div>
+        <div id="statusResult" style="margin-top:16px"></div>
       </div>
     </div>
   </main>

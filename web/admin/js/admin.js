@@ -276,7 +276,14 @@ async function renderDashboard(root) {
 /* =====================================================================
  * Vue : Candidatures professeurs
  * ===================================================================== */
-const APP_STATUS_LABEL = { pending: "En attente", approved: "Acceptée", rejected: "Refusée" };
+const APP_STATUS_LABEL = {
+  pending: "En attente",
+  interview: "Entretien proposé",
+  test: "Test en cours",
+  training: "En formation",
+  approved: "Acceptée",
+  rejected: "Refusée",
+};
 
 async function renderApplications(root) {
   const filter = root.dataset.filter || "pending";
@@ -285,7 +292,7 @@ async function renderApplications(root) {
     <div class="section-head">
       <h3>Candidatures <span class="count">${apps.length}</span></h3>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        ${["pending", "approved", "rejected", "all"].map((s) =>
+        ${["pending", "interview", "test", "training", "approved", "rejected", "all"].map((s) =>
           `<button type="button" class="btn btn-sm ${filter === s ? "btn-primary" : "btn-ghost"}" data-filter="${s}">${s === "all" ? "Toutes" : APP_STATUS_LABEL[s]}</button>`
         ).join("")}
       </div>
@@ -299,12 +306,18 @@ async function renderApplications(root) {
     b.addEventListener("click", () => openApplication(Number(b.dataset.open))));
 }
 
+function applicationPill(status) {
+  if (status === "approved") return "green";
+  if (status === "rejected") return "";
+  return "orange"; // pending, interview, test, training : en cours
+}
+
 function applicationRow(a) {
   const st = APP_STATUS_LABEL[a.status] || a.status;
-  const pill = a.status === "pending" ? "orange" : a.status === "approved" ? "green" : "";
+  const pill = applicationPill(a.status);
   const levels = (a.levels || []).join(", ") || "—";
   return `<div class="row">
-    <span class="dot ${a.status === "pending" ? "orange" : a.status === "approved" ? "green" : ""}"></span>
+    <span class="dot ${pill}"></span>
     <div class="row-main">
       <div class="row-title">${esc(a.full_name)} <span class="pill ${pill}">${esc(st)}</span></div>
       <div class="row-meta">${esc(a.phone)} · ${esc(a.subjects)} · ${esc(levels)}</div>
@@ -337,19 +350,37 @@ async function openApplication(id) {
         ? `<button type="button" class="btn btn-ghost btn-sm" data-dl="${a.id}" data-kind="${k}">${esc(lbl)}</button>`
         : `<span class="muted">${esc(lbl)} (non fourni)</span>`).join("")}
     </div>` : ""}
+    ${a.interview_at || a.interview_notes ? `<p><strong>Entretien :</strong> ${a.interview_at ? esc(new Date(a.interview_at).toLocaleString("fr-FR")) : "date à fixer"}${a.interview_notes ? " · " + esc(a.interview_notes) : ""}</p>` : ""}
+    ${a.test_result ? `<p><strong>Test :</strong> ${a.test_result === "passed" ? "Réussi" : "Échoué"}${a.test_notes ? " · " + esc(a.test_notes) : ""}</p>` : ""}
     ${a.status === "pending" ? `
+      <div class="field full"><label>Date d'entretien (optionnel)</label><input id="apInterviewAt" type="datetime-local"></div>
+      <div class="field full"><label>Notes entretien</label><textarea id="apInterviewNotes" placeholder="Créneau proposé, contact…"></textarea></div>
+      <div class="form-actions"><button type="button" class="btn btn-primary" id="proposeInterview">Proposer un entretien</button></div>
+    ` : ""}
+    ${a.status === "interview" ? `
+      <div class="form-actions"><button type="button" class="btn btn-primary" id="startTest">Démarrer le test / mise en situation</button></div>
+    ` : ""}
+    ${a.status === "test" ? `
+      <div class="field field-check">
+        <label class="check-row" for="testPassed"><input type="checkbox" id="testPassed" checked><span>Test réussi</span></label>
+      </div>
+      <div class="field full"><label>Notes (résultat, feedback)</label><textarea id="apTestNotes" placeholder="Ex. bonne pédagogie, à l'aise avec les élèves…"></textarea></div>
+      <div class="form-actions"><button type="button" class="btn btn-primary" id="saveTestResult">Enregistrer le résultat</button></div>
+    ` : ""}
+    ${a.status === "training" ? `
       <div class="field field-check">
         <label class="check-row" for="confirmNeeds">
           <input type="checkbox" id="confirmNeeds">
-          <span>Confirmer l'accès aux offres (tests validés)</span>
+          <span>Confirmer l'accès aux offres (formation terminée)</span>
         </label>
         <p class="field-hint">Par défaut, le prof ne voit pas les besoins parents tant que vous ne l'avez pas confirmé.</p>
       </div>
+      <div class="form-actions"><button type="button" class="btn btn-primary" id="approveApp">Accepter et créer le prof</button></div>
+    ` : ""}
+    ${["pending", "interview", "test", "training"].includes(a.status) ? `
       <div class="field full"><label>Motif de refus (si refus)</label><textarea id="rejReason" placeholder="Ex. informations incohérentes…"></textarea></div>
-      <div class="form-actions">
-        <button type="button" class="btn btn-primary" id="approveApp">Accepter et créer le prof</button>
-        <button type="button" class="btn btn-danger" id="rejectApp">Refuser</button>
-      </div>` : `<p class="muted">Candidature déjà traitée.</p>`}
+      <div class="form-actions"><button type="button" class="btn btn-danger" id="rejectApp">Refuser</button></div>
+    ` : `<p class="muted">Candidature déjà traitée.</p>`}
   `, (back, close) => {
     back.querySelectorAll("[data-dl]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -358,8 +389,45 @@ async function openApplication(id) {
         openAuthFile(`/api/admin/teacher-applications/${appId}/files/${kind}`, `${kind}.pdf`);
       });
     });
+    const proposeInterview = back.querySelector("#proposeInterview");
+    const startTest = back.querySelector("#startTest");
+    const saveTestResult = back.querySelector("#saveTestResult");
     const approve = back.querySelector("#approveApp");
     const reject = back.querySelector("#rejectApp");
+    proposeInterview?.addEventListener("click", async () => {
+      proposeInterview.disabled = true;
+      try {
+        const interviewAt = back.querySelector("#apInterviewAt")?.value || undefined;
+        const notes = back.querySelector("#apInterviewNotes")?.value?.trim() || undefined;
+        await api("/api/admin/teacher-applications/" + id + "/interview", {
+          method: "POST",
+          body: { interviewAt, notes },
+        });
+        toast("Entretien proposé");
+        close(); navigate("applications");
+      } catch (e) { toast(e.message, true); proposeInterview.disabled = false; }
+    });
+    startTest?.addEventListener("click", async () => {
+      startTest.disabled = true;
+      try {
+        await api("/api/admin/teacher-applications/" + id + "/start-test", { method: "POST", body: {} });
+        toast("Test démarré");
+        close(); navigate("applications");
+      } catch (e) { toast(e.message, true); startTest.disabled = false; }
+    });
+    saveTestResult?.addEventListener("click", async () => {
+      saveTestResult.disabled = true;
+      try {
+        const passed = back.querySelector("#testPassed")?.checked === true;
+        const notes = back.querySelector("#apTestNotes")?.value?.trim() || undefined;
+        await api("/api/admin/teacher-applications/" + id + "/test-result", {
+          method: "POST",
+          body: { passed, notes },
+        });
+        toast(passed ? "Test réussi — en formation" : "Test échoué — candidature refusée");
+        close(); navigate("applications");
+      } catch (e) { toast(e.message, true); saveTestResult.disabled = false; }
+    });
     approve?.addEventListener("click", async () => {
       approve.disabled = true;
       try {
@@ -437,6 +505,8 @@ function needRow(n) {
         · ${esc(n.location || (n.format === "online" ? "En ligne" : "À domicile"))}</div>
       <div class="row-meta">${parentP}${n.netTeacherAmount != null ? " → prof " + net : ""}</div>
       ${n.description ? `<div class="row-meta">${esc(n.description)}</div>` : ""}
+      ${n.recommendedTeacherName ? `<div class="row-meta">Recommandé : ${esc(n.recommendedTeacherName)}</div>` : ""}
+      ${n.documentName ? `<div class="row-meta">📎 ${esc(n.documentName)}</div>` : ""}
     </div>
     <div class="row-actions">
       ${n.status === "submitted" ? `<button type="button" class="btn btn-primary btn-sm" data-price="${n.id}">Proposer un tarif</button>` : `<button type="button" class="btn btn-ghost btn-sm" data-need="${n.id}">Détail</button>`}
@@ -451,6 +521,8 @@ function openNeedPrice(id) {
       <div class="field"><label>Tarif parent (F / séance) *</label><input id="np_price" type="number" min="1000" step="500" placeholder="10000"></div>
       <div class="field"><label>Fréquence</label><input id="np_freq" placeholder="1 fois/sem"></div>
       <div class="field"><label>Début souhaité</label><input id="np_start" type="date"></div>
+      <div class="field full"><label>Professeur recommandé (optionnel)</label><select id="np_teacher"><option value="">— Aucun —</option></select></div>
+      <div class="field full"><label>Note sur la recommandation</label><input id="np_note" placeholder="Ex. très bon retour BEPC"></div>
     </div>
     <p class="muted" id="np_preview" style="margin-top:8px;font-size:13px">Gain prof estimé : —</p>
     <div class="form-actions"><button type="button" class="btn btn-primary" id="np_save">Envoyer au parent</button></div>
@@ -461,6 +533,16 @@ function openNeedPrice(id) {
       const v = parseFloat(settings.commission_pct);
       if (Number.isFinite(v)) commissionPct = v;
     } catch (_) { /* défaut 15 % */ }
+
+    try {
+      const teachers = asList(await api("/api/teachers"));
+      const select = back.querySelector("#np_teacher");
+      teachers.forEach((t) => {
+        const opt = document.createElement("option");
+        opt.value = t.id; opt.textContent = t.name + " · " + t.subjects;
+        select.appendChild(opt);
+      });
+    } catch (_) { /* liste indisponible, champ laissé vide */ }
 
     const priceInput = back.querySelector("#np_price");
     const preview = back.querySelector("#np_preview");
@@ -486,6 +568,8 @@ function openNeedPrice(id) {
             parentPrice,
             frequency: back.querySelector("#np_freq").value.trim() || undefined,
             startDate: back.querySelector("#np_start").value || undefined,
+            recommendedTeacherId: Number(back.querySelector("#np_teacher").value) || undefined,
+            recommendedNote: back.querySelector("#np_note").value.trim() || undefined,
           },
         });
         toast("Tarif proposé au parent");
@@ -509,8 +593,13 @@ function openNeedDetail(n) {
     ${n.parentPrice != null ? `<p><strong>Tarif parent :</strong> ${fcfa(n.parentPrice)} F / séance</p>` : ""}
     ${n.netTeacherAmount != null ? `<p><strong>Gain prof (net) :</strong> ${fcfa(n.netTeacherAmount)} F / séance${n.netTeacherHourly != null ? " · " + fcfa(n.netTeacherHourly) + " F/h" : ""}</p>` : ""}
     ${n.startDate ? `<p><strong>Début :</strong> ${esc(n.startDate)}</p>` : ""}
+    ${n.recommendedTeacherName ? `<p><strong>Prof recommandé :</strong> ${esc(n.recommendedTeacherName)}${n.recommendedNote ? " · " + esc(n.recommendedNote) : ""}</p>` : ""}
+    ${n.documentName ? `<div class="form-actions" style="margin-top:0"><button type="button" class="btn btn-ghost btn-sm" id="needDoc">📎 ${esc(n.documentName)}</button></div>` : ""}
     <div class="form-actions"><button type="button" class="btn btn-ghost" id="needClose">Fermer</button></div>
   `, (back, close) => {
+    back.querySelector("#needDoc")?.addEventListener("click", () => {
+      openAuthFile(`/api/admin/needs/${n.id}/document`, n.documentName || "document");
+    });
     back.querySelector("#needClose")?.addEventListener("click", close);
   });
 }

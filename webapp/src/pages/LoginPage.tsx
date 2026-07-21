@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
 import { useEffect, useState } from "react";
 
 type AuthRes = { token: string; user: User };
@@ -21,10 +20,16 @@ export function LoginPage() {
   }, [loading, user]);
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
-  const [role, setRole] = useState("parent");
+  const [role, setRole] = useState("");
+  const [signupStep, setSignupStep] = useState<0 | 1>(0);
   const [consent, setConsent] = useState(false);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+
+  function chooseProfile(r: string) {
+    setRole(r);
+    setSignupStep(1);
+  }
 
   async function onLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -108,7 +113,10 @@ export function LoginPage() {
                 <Button variant={tab === "login" ? "secondary" : "outline"} onClick={() => setTab("login")}>
                   Connexion
                 </Button>
-                <Button variant={tab === "signup" ? "secondary" : "outline"} onClick={() => setTab("signup")}>
+                <Button
+                  variant={tab === "signup" ? "secondary" : "outline"}
+                  onClick={() => { setTab("signup"); setSignupStep(0); }}
+                >
                   Inscription
                 </Button>
               </div>
@@ -126,8 +134,35 @@ export function LoginPage() {
                     Démo parent : <code>+2250758421903</code> · prof : <code>+2250707001234</code>
                   </p>
                 </form>
+              ) : signupStep === 0 ? (
+                <div className="space-y-3">
+                  <Label>Je suis</Label>
+                  <button
+                    type="button"
+                    onClick={() => chooseProfile("parent")}
+                    className="w-full rounded-lg border border-input p-4 text-left transition hover:border-primary hover:bg-accent"
+                  >
+                    <div className="font-semibold">Un parent / responsable</div>
+                    <div className="text-sm text-muted-foreground">Je cherche un prof pour un enfant.</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => chooseProfile("student")}
+                    className="w-full rounded-lg border border-input p-4 text-left transition hover:border-primary hover:bg-accent"
+                  >
+                    <div className="font-semibold">Un élève</div>
+                    <div className="text-sm text-muted-foreground">Je révise pour réussir mes examens.</div>
+                  </button>
+                </div>
               ) : (
                 <form className="space-y-3" onSubmit={onSignup}>
+                  <button
+                    type="button"
+                    onClick={() => setSignupStep(0)}
+                    className="text-sm text-muted-foreground hover:text-foreground"
+                  >
+                    ← Changer de profil ({role === "parent" ? "Parent" : "Élève"})
+                  </button>
                   <div className="space-y-1.5">
                     <Label htmlFor="name">Nom complet</Label>
                     <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Aya Koné" />
@@ -135,13 +170,6 @@ export function LoginPage() {
                   <div className="space-y-1.5">
                     <Label htmlFor="sphone">Téléphone</Label>
                     <Input id="sphone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+22507…" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="role">Je suis</Label>
-                    <Select id="role" value={role} onChange={(e) => setRole(e.target.value)}>
-                      <option value="parent">Parent</option>
-                      <option value="student">Élève</option>
-                    </Select>
                   </div>
                   <label className="flex items-start gap-2 text-sm">
                     <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1" />

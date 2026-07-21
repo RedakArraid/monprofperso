@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { api } from "@/lib/api";
+import { api, apiBase, tokenStore } from "@/lib/api";
 import { fallback } from "@/lib/fallback";
 import { fcfa, needStatusLabel } from "@/lib/utils";
 import { useLive } from "@/hooks/useLive";
@@ -22,7 +22,37 @@ type Need = {
   location?: string;
   status: string;
   parentPrice?: number | null;
+  documentName?: string | null;
+  recommendedTeacherName?: string | null;
+  recommendedNote?: string | null;
 };
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",").pop() || "");
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function openOwnDocument(needId: number, fileName: string) {
+  const t = tokenStore.get();
+  const res = await fetch(`${apiBase()}/api/needs/${needId}/document`, {
+    headers: t ? { Authorization: `Bearer ${t}` } : {},
+  });
+  if (!res.ok) return;
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url, "_blank", "noopener");
+  if (!w) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName || "document";
+    a.click();
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
 
 export function ChildrenPage() {
   const { data, offline, reload } = useLive<Child[]>("/api/children", fallback.children as Child[]);
@@ -116,7 +146,9 @@ export function ExpressNeedPage() {
               e.preventDefault();
               setErr("");
               const fd = new FormData(e.currentTarget);
+              const file = fd.get("document") as File | null;
               try {
+                const documentBase64 = file && file.size ? await fileToBase64(file) : undefined;
                 await api("/api/needs", {
                   method: "POST",
                   body: {
@@ -126,6 +158,9 @@ export function ExpressNeedPage() {
                     format: fd.get("format"),
                     location: fd.get("location"),
                     notes: fd.get("notes"),
+                    documentBase64,
+                    documentFileName: file?.name,
+                    documentMimeType: file?.type || undefined,
                   },
                 });
                 navigate("/mes-besoins");
@@ -171,6 +206,10 @@ export function ExpressNeedPage() {
                 <Label className="text-welcome">Précisions</Label>
                 <Textarea name="notes" />
               </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label className="text-welcome">Document utile (bulletin, etc.) — optionnel</Label>
+                <input name="document" type="file" accept="image/*,application/pdf" className="text-sm" />
+              </div>
             </div>
             {err ? <p className="text-sm text-destructive">{err}</p> : null}
             <Button type="submit" className="mt-3 w-full">
@@ -211,6 +250,17 @@ export function MyNeedsPage() {
               <div className="text-sm">
                 Tarif proposé : <strong>{fcfa(n.parentPrice)} F</strong>
               </div>
+            ) : null}
+            {n.recommendedTeacherName ? (
+              <div className="text-sm">
+                Professeur recommandé : <strong>{n.recommendedTeacherName}</strong>
+                {n.recommendedNote ? ` — ${n.recommendedNote}` : ""}
+              </div>
+            ) : null}
+            {n.documentName ? (
+              <Button size="sm" variant="outline" onClick={() => void openOwnDocument(n.id, n.documentName!)}>
+                Voir mon document
+              </Button>
             ) : null}
             {n.status === "priced" ? (
               <Button
