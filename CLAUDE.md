@@ -21,8 +21,8 @@ web/        Page vitrine (HTML/CSS/JS statique, sans build), présentation,
             téléchargement des apps, réseaux sociaux (chargés depuis `/api/settings`).
             Section « Décrivez votre besoin » (`#besoin`, `js/besoin.js`) : formulaire
             public de demande de devis (façon Completude), sans compte, → `POST
-            /api/needs/public`. Sections « Confiance » (note moyenne réelle calculée
-            depuis `/api/teachers`) et « Tarifs » (forfaits depuis `/api/subscription/plans`).
+            /api/needs/public`. Section « Confiance » (note moyenne réelle calculée
+            depuis `/api/teachers`).
             `web/admin/` = console d'administration web (connexion par numéro admin ;
             gère profs, cours de groupe (dont stages vacances), catalogue, ressources,
             besoins parents, CGU, réseaux sociaux), servie sur `/admin/`. Servir `web/` tel quel.

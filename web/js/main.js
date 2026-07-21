@@ -138,22 +138,4 @@
       }
     })
     .catch(function () {});
-
-  // Forfaits d'abonnement (chemin "devis" en complément de la réservation directe).
-  fetch(API_BASE + "/api/subscription/plans")
-    .then(function (r) { return r.ok ? r.json() : []; })
-    .then(function (plans) {
-      var box = document.getElementById("pricingPlans");
-      if (!box || !plans || !plans.length) return;
-      box.innerHTML = plans.map(function (p) {
-        var price = Number(p.price || 0).toLocaleString("fr-FR") + " F";
-        return '<article class="card reveal in">' +
-          (p.popular ? '<span class="kicker">Le plus choisi</span>' : "") +
-          "<h3>" + p.name + "</h3>" +
-          '<p><strong style="font-size:20px;color:var(--green)">' + price + "</strong> / mois" + (p.suffix ? " " + p.suffix : "") + "</p>" +
-          "<p>" + p.detail + "</p>" +
-          "</article>";
-      }).join("");
-    })
-    .catch(function () {});
 })();
