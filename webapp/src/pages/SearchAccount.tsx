@@ -46,7 +46,7 @@ export function SearchPage() {
         </div>
       </ContentCard>
       {!data.length ? <Empty>Aucun professeur trouvé.</Empty> : null}
-      <PageGrid>
+      <PageGrid cols={4}>
         {data.map((t) => (
           <Link key={t.id} to={`/prof/${t.id}`} className="block h-full">
             <ContentCard className="h-full transition hover:shadow-md">
@@ -76,7 +76,7 @@ export function FiltersPage() {
   const navigate = useNavigate();
   return (
     <AppShell title="Filtres" back="/recherche" active="recherche">
-      <PageStack>
+      <PageStack narrow>
         <ContentCard>
           <SectionHeading>Affiner la recherche</SectionHeading>
           <form
@@ -134,20 +134,20 @@ export function TeacherProfilePage() {
   return (
     <AppShell title="Profil prof" back active="recherche">
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
-      <PageStack>
+      <PageGrid cols={2}>
         <ContentCard>
-          <div className="flex gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row">
             <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-secondary font-display text-2xl font-extrabold text-primary">
               {data.initials || "?"}
             </div>
-            <div>
+            <div className="min-w-0">
               <SectionHeading className="mb-1">{data.name}</SectionHeading>
               <div className="text-[15px] text-[#555]">{data.subjects}</div>
               <div className="mt-2 text-sm text-[#666]">
                 ★ {data.rating} ({data.reviews_count || 0} avis) · {data.location}
               </div>
               <div className="mt-3 text-xl font-bold text-primary">{fcfa(data.price_per_hour)} F/h</div>
-              <Button asChild className="mt-5">
+              <Button asChild className="mt-5 w-full sm:w-auto">
                 <Link
                   to={`/reservation?teacherId=${data.id}&name=${encodeURIComponent(data.name)}&price=${data.price_per_hour || 6000}`}
                 >
@@ -173,7 +173,7 @@ export function TeacherProfilePage() {
             ))}
           </div>
         </ContentCard>
-      </PageStack>
+      </PageGrid>
     </AppShell>
   );
 }
@@ -188,7 +188,7 @@ export function CoursesPage() {
       {!data.length ? (
         <Empty>{isTeacher ? "Aucun élève n'a été trouvé" : "Aucun cours n'a été trouvé"}</Empty>
       ) : (
-        <PageStack>
+        <PageGrid>
           {data.map((c) => (
             <ContentCard key={c.id}>
               <SectionHeading>
@@ -204,7 +204,7 @@ export function CoursesPage() {
               </div>
             </ContentCard>
           ))}
-        </PageStack>
+        </PageGrid>
       )}
     </AppShell>
   );
@@ -215,10 +215,10 @@ export function ProgressPage() {
   return (
     <AppShell title="Progrès" active="progres">
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
-      <PageStack>
+      <PageGrid cols={2}>
         <ContentCard>
           <SectionHeading>Moyenne générale</SectionHeading>
-          <div className="font-display text-5xl font-black text-primary">{data.average}</div>
+          <div className="font-display text-5xl font-black text-primary sm:text-6xl">{data.average}</div>
           <p className="mt-2 text-sm text-[#666]">
             {data.trend} · {data.goal}
           </p>
@@ -242,7 +242,7 @@ export function ProgressPage() {
             ))}
           </div>
         </ContentCard>
-      </PageStack>
+      </PageGrid>
     </AppShell>
   );
 }
@@ -251,14 +251,14 @@ export function AccountPage() {
   const { user, isTeacher, logout } = useAuth();
   return (
     <AppShell title="Mon compte" active="compte">
-      <PageStack>
+      <PageGrid cols={2}>
         <ContentCard>
           <SectionHeading>Mon profil</SectionHeading>
           <div className="text-[18px] font-bold text-[#222]">{user?.full_name || "Utilisateur"}</div>
           <div className="mt-1 text-[#666]">{user?.phone}</div>
           <Button
             variant="destructive"
-            className="mt-5 w-full"
+            className="mt-5 w-full sm:w-auto"
             onClick={() => {
               logout();
               window.location.href = "/connexion.html";
@@ -269,23 +269,29 @@ export function AccountPage() {
         </ContentCard>
         <ContentCard>
           <SectionHeading>Raccourcis</SectionHeading>
-          <MenuRow to="/notifications" label="Notifications" />
-          <MenuRow to="/portefeuille" label="Portefeuille" />
-          <MenuRow to="/mes-besoins" label="Mes besoins" />
-          <MenuRow to="/enfants" label="Mes enfants" />
-          <MenuRow to="/ressources" label={isTeacher ? "Mes documents" : "Ressources"} />
-          <MenuRow to="/abonnement" label="Abonnement" />
-          <MenuRow to="/parrainage" label="Parrainage" />
-          <MenuRow to="/legal" label="Documents légaux" />
-          <MenuRow to="/aide" label={isTeacher ? "Mes contacts" : "Aide"} />
-          <MenuRow to="/parametres" label="Paramètres" />
-          {isTeacher ? (
-            <MenuRow to="/prof-profil" label="Compléter mon profil" />
-          ) : (
-            <MenuRow to="/devenir-prof.html" label="Devenir professeur" external />
-          )}
+          <div className="grid gap-x-6 sm:grid-cols-2">
+            <div>
+              <MenuRow to="/notifications" label="Notifications" />
+              <MenuRow to="/portefeuille" label="Portefeuille" />
+              <MenuRow to="/mes-besoins" label="Mes besoins" />
+              <MenuRow to="/enfants" label="Mes enfants" />
+              <MenuRow to="/ressources" label={isTeacher ? "Mes documents" : "Ressources"} />
+              <MenuRow to="/abonnement" label="Abonnement" />
+            </div>
+            <div>
+              <MenuRow to="/parrainage" label="Parrainage" />
+              <MenuRow to="/legal" label="Documents légaux" />
+              <MenuRow to="/aide" label={isTeacher ? "Mes contacts" : "Aide"} />
+              <MenuRow to="/parametres" label="Paramètres" />
+              {isTeacher ? (
+                <MenuRow to="/prof-profil" label="Compléter mon profil" />
+              ) : (
+                <MenuRow to="/devenir-prof.html" label="Devenir professeur" external />
+              )}
+            </div>
+          </div>
         </ContentCard>
-      </PageStack>
+      </PageGrid>
     </AppShell>
   );
 }

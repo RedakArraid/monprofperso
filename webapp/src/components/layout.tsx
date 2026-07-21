@@ -97,6 +97,9 @@ function NavItemLink({
   );
 }
 
+/** Padding horizontal plein écran, responsive */
+export const shellPad = "px-3 sm:px-4 md:px-6 xl:px-8 2xl:px-10";
+
 export function AppShell({
   title,
   back,
@@ -115,7 +118,7 @@ export function AppShell({
   /** Sous-titre type « Bienvenue Prénom NOM » — Accueil uniquement par défaut (Completude) */
   welcome?: string | false;
   stickyFooter?: ReactNode;
-  /** Contenu pleine largeur (ex. offres 3 colonnes Completude) */
+  /** Contenu bord à bord (ex. offres 3 colonnes Completude) — sans padding main */
   fullBleed?: boolean;
 }) {
   const { isTeacher, user } = useAuth();
@@ -136,13 +139,13 @@ export function AppShell({
           : null;
 
   return (
-    <div className={cn("min-h-dvh bg-background", stickyFooter && "pb-16", fullBleed && "flex flex-col")}>
-      <header className="sticky top-0 z-40 border-b border-[#e8e8e8] bg-white">
-        <div className="mx-auto flex h-14 max-w-[1280px] items-center gap-3 px-3 lg:h-[58px] lg:px-5">
+    <div className={cn("flex min-h-dvh w-full flex-col bg-background", stickyFooter && "pb-16")}>
+      <header className="sticky top-0 z-40 w-full border-b border-[#e8e8e8] bg-white">
+        <div className={cn("flex h-14 w-full items-center gap-2 sm:gap-3 lg:h-[58px]", shellPad)}>
           {!hideNav ? (
             <button
               type="button"
-              className="flex flex-col items-center justify-center px-1 text-primary lg:hidden"
+              className="flex flex-col items-center justify-center px-1 text-primary xl:hidden"
               aria-label="Menu"
               onClick={() => setMenuOpen(true)}
             >
@@ -160,7 +163,7 @@ export function AppShell({
             </Button>
           ) : null}
 
-          <a href="/" className="hidden shrink-0 items-center gap-2 lg:flex">
+          <a href="/" className="hidden shrink-0 items-center gap-2 xl:flex">
             <img src="/assets/mp2-logo.png" alt="" className="h-9 w-9 rounded-lg" />
             <span className="leading-tight">
               <span className="block font-display text-[15px] font-extrabold text-welcome">mon prof perso</span>
@@ -168,16 +171,16 @@ export function AppShell({
             </span>
           </a>
 
-          <h1 className="flex-1 truncate text-center text-base font-semibold text-welcome lg:hidden">{title}</h1>
+          <h1 className="min-w-0 flex-1 truncate text-center text-base font-semibold text-welcome xl:hidden">{title}</h1>
 
           {!hideNav ? (
-            <nav className="hidden min-w-0 flex-1 items-center justify-center gap-0.5 overflow-x-auto px-2 lg:flex">
+            <nav className="hidden min-w-0 flex-1 items-center justify-center gap-0.5 overflow-x-auto overscroll-x-contain px-1 xl:flex">
               {tabs.map((t) => (
                 <NavItemLink key={t.to + t.label} item={t} active={active} variant="top" />
               ))}
             </nav>
           ) : (
-            <div className="hidden flex-1 lg:block" />
+            <div className="hidden flex-1 xl:block" />
           )}
 
           <Link
@@ -191,7 +194,7 @@ export function AppShell({
       </header>
 
       {menuOpen ? (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div className="fixed inset-0 z-50 xl:hidden">
           <button type="button" className="absolute inset-0 bg-black/35" aria-label="Fermer" onClick={() => setMenuOpen(false)} />
           <aside className="absolute inset-y-0 left-0 flex w-[min(320px,88vw)] flex-col bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-[#eee] px-4 py-3">
@@ -222,22 +225,17 @@ export function AppShell({
       ) : null}
 
       {welcomeText ? (
-        <div className="border-b border-[#e8e8e8] bg-white">
-          <div className="mx-auto max-w-[1280px] px-4 py-4 lg:px-5">
-            <p className="font-display text-xl font-bold text-welcome sm:text-2xl">{welcomeText}</p>
+        <div className="w-full border-b border-[#e8e8e8] bg-white">
+          <div className={cn("w-full py-4 sm:py-5", shellPad)}>
+            <p className="font-display text-xl font-bold text-welcome sm:text-2xl lg:text-[28px]">{welcomeText}</p>
           </div>
         </div>
       ) : null}
 
       <main
         className={cn(
-          "w-full",
-          stickyFooter || fullBleed
-            ? "pb-0"
-            : !hideNav
-              ? "mx-auto max-w-[1280px] px-4 py-5 pb-8 lg:px-5 lg:py-6"
-              : "mx-auto max-w-[1280px] px-4 py-5 lg:px-5 lg:py-6",
-          fullBleed && "flex-1",
+          "w-full flex-1",
+          fullBleed ? "pb-0" : cn(shellPad, stickyFooter ? "py-4 pb-6 sm:py-5" : "py-4 pb-8 sm:py-5 lg:py-6"),
         )}
       >
         {children}
@@ -245,7 +243,7 @@ export function AppShell({
 
       {stickyFooter ? (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-primary/20 bg-primary">
-          <div className="mx-auto max-w-[1280px]">{stickyFooter}</div>
+          <div className={cn("w-full", shellPad)}>{stickyFooter}</div>
         </div>
       ) : null}
     </div>
@@ -254,7 +252,7 @@ export function AppShell({
 
 export function ContentCard({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn("rounded-xl bg-white p-5 shadow-[0_1px_4px_rgba(0,0,0,0.08)] sm:p-6", className)}>
+    <div className={cn("h-full rounded-xl bg-white p-4 shadow-[0_1px_4px_rgba(0,0,0,0.08)] sm:p-5 md:p-6", className)}>
       {children}
     </div>
   );
@@ -265,12 +263,39 @@ export function SectionHeading({ children, className }: { children: ReactNode; c
   return <h2 className={cn("mb-4 text-[17px] font-semibold text-welcome sm:text-lg", className)}>{children}</h2>;
 }
 
-export function PageGrid({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("grid gap-5 lg:grid-cols-2", className)}>{children}</div>;
+/** Grille responsive pleine largeur (listes, cartes) */
+export function PageGrid({
+  children,
+  className,
+  cols = 3,
+}: {
+  children: ReactNode;
+  className?: string;
+  /** 2 = accueil / contenu long ; 3–4 = listes */
+  cols?: 2 | 3 | 4;
+}) {
+  const colClass =
+    cols === 2
+      ? "md:grid-cols-2"
+      : cols === 4
+        ? "sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
+        : "sm:grid-cols-2 xl:grid-cols-3";
+  return <div className={cn("grid w-full gap-4 sm:gap-5", colClass, className)}>{children}</div>;
 }
 
-export function PageStack({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("mx-auto flex max-w-3xl flex-col gap-4", className)}>{children}</div>;
+/** Empilement pleine largeur ; `narrow` pour formulaires centrés */
+export function PageStack({
+  children,
+  className,
+  narrow,
+}: {
+  children: ReactNode;
+  className?: string;
+  narrow?: boolean;
+}) {
+  return (
+    <div className={cn("flex w-full flex-col gap-4", narrow && "mx-auto max-w-2xl", className)}>{children}</div>
+  );
 }
 
 export function SectionTitle({ children }: { children: ReactNode }) {

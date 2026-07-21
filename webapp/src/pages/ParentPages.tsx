@@ -27,7 +27,7 @@ export function HomePage() {
         />
       ) : null}
 
-      <PageGrid>
+      <PageGrid cols={2}>
         <ContentCard>
           <h2 className="mb-3 text-[20px] font-bold leading-snug text-[#222] sm:text-[22px]">
             Bonjour{first ? ` ${first}` : ""}, bienvenue sur votre espace Mon Prof Perso !

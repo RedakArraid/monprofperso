@@ -35,7 +35,7 @@ export function TeacherDashboardPage() {
       ) : null}
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
 
-      <PageGrid>
+      <PageGrid cols={2}>
         <ContentCard>
           <h2 className="mb-3 text-[20px] font-bold leading-snug text-[#222] sm:text-[22px]">
             Bonjour, bienvenue sur votre espace professeur Mon Prof Perso !
@@ -129,10 +129,10 @@ export function TeacherEarningsPage() {
       {!hasData ? (
         <Empty>Aucun revenu n&apos;est disponible</Empty>
       ) : (
-        <PageStack>
+        <PageGrid cols={2}>
           <ContentCard>
             <SectionHeading>Total</SectionHeading>
-            <div className="text-4xl font-black text-primary">{fcfa(data.total)} F</div>
+            <div className="text-4xl font-black text-primary sm:text-5xl">{fcfa(data.total)} F</div>
             <p className="mt-1 text-sm text-[#666]">{data.trend}</p>
           </ContentCard>
           <ContentCard>
@@ -149,7 +149,7 @@ export function TeacherEarningsPage() {
               <MenuRow to="/prof-retrait" label="Demander un retrait" />
             </div>
           </ContentCard>
-        </PageStack>
+        </PageGrid>
       )}
     </AppShell>
   );
@@ -168,7 +168,7 @@ export function TeacherProfileEditPage() {
   return (
     <AppShell title="Mon profil" back="/compte" active="compte">
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
-      <PageStack>
+      <PageStack narrow>
         <ContentCard>
           <SectionHeading>Compléter mon profil</SectionHeading>
           <form

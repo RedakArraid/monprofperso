@@ -78,7 +78,7 @@ export function LoginPage() {
   return (
     <div className="relative min-h-dvh overflow-hidden bg-background">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_#e2efe9_0%,_transparent_50%),radial-gradient(ellipse_at_bottom_left,_#fbe9da_0%,_transparent_45%)]" />
-      <div className="relative mx-auto grid min-h-dvh max-w-6xl items-center gap-10 px-4 py-10 lg:grid-cols-2 lg:px-6">
+      <div className="relative mx-auto grid min-h-dvh w-full max-w-[1400px] items-center gap-8 px-4 py-8 sm:px-6 sm:py-10 lg:grid-cols-2 lg:gap-12 lg:px-10 xl:px-14">
         <div className="hidden lg:block">
           <img src="/assets/mp2-logo.png" alt="MP²" className="mb-6 h-16 w-16 rounded-2xl" />
           <h1 className="font-display text-4xl font-black leading-tight text-primary xl:text-5xl">

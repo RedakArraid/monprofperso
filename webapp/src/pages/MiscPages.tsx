@@ -4,6 +4,7 @@ import {
   OfflineBanner,
   Empty,
   PageStack,
+  PageGrid,
   ContentCard,
   SectionHeading,
   InfoRow,
@@ -32,34 +33,32 @@ export function NotificationsPage() {
       {!data.length ? (
         <Empty>Aucune notification n&apos;est disponible</Empty>
       ) : (
-        <PageStack>
-          <ContentCard>
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <SectionHeading className="mb-0">Mes notifications</SectionHeading>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  await api("/api/notifications/read", { method: "POST", body: {} });
-                  void reload();
-                }}
-              >
-                Tout lire
-              </Button>
-            </div>
-            <div className="divide-y divide-[#eee]">
-              {data.map((n, i) => (
-                <div key={i} className="flex gap-3 py-3 first:pt-0 last:pb-0">
-                  <span className={n.unread ? "text-primary" : "text-[#ccc]"}>●</span>
-                  <div>
-                    <div className="text-[15px] text-[#333]">{n.text}</div>
-                    <div className="text-sm text-[#888]">{n.time_ago}</div>
-                  </div>
+        <ContentCard>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <SectionHeading className="mb-0">Mes notifications</SectionHeading>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                await api("/api/notifications/read", { method: "POST", body: {} });
+                void reload();
+              }}
+            >
+              Tout lire
+            </Button>
+          </div>
+          <div className="grid gap-0 divide-y divide-[#eee] md:grid-cols-2 md:gap-x-8 md:divide-y-0">
+            {data.map((n, i) => (
+              <div key={i} className="flex gap-3 border-b border-[#eee] py-3 md:border-b md:py-3">
+                <span className={n.unread ? "text-primary" : "text-[#ccc]"}>●</span>
+                <div>
+                  <div className="text-[15px] text-[#333]">{n.text}</div>
+                  <div className="text-sm text-[#888]">{n.time_ago}</div>
                 </div>
-              ))}
-            </div>
-          </ContentCard>
-        </PageStack>
+              </div>
+            ))}
+          </div>
+        </ContentCard>
       )}
     </AppShell>
   );
@@ -77,18 +76,18 @@ export function WalletPage() {
       {empty ? (
         <Empty>Aucun acompte n&apos;est disponible</Empty>
       ) : (
-        <PageStack>
+        <PageGrid cols={2}>
           {(data.accounts || []).map((a, i) => (
             <ContentCard key={i}>
               <SectionHeading>{a.label || a.provider || "Compte"}</SectionHeading>
               <p className="text-[15px] text-[#444]">{a.number}</p>
             </ContentCard>
           ))}
-          <ContentCard>
+          <ContentCard className={(data.accounts || []).length ? "sm:col-span-2" : undefined}>
             <SectionHeading>Transactions</SectionHeading>
-            <div className="divide-y divide-[#eee]">
+            <div className="grid gap-0 md:grid-cols-2 md:gap-x-8">
               {(data.transactions || []).map((t, i) => (
-                <div key={i} className="flex justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                <div key={i} className="flex justify-between gap-3 border-b border-[#eee] py-3">
                   <div>
                     <div className="text-[15px] font-medium text-[#333]">{t.title || t.label}</div>
                     <div className="text-sm text-[#888]">{t.subtitle}</div>
@@ -98,7 +97,7 @@ export function WalletPage() {
               ))}
             </div>
           </ContentCard>
-        </PageStack>
+        </PageGrid>
       )}
     </AppShell>
   );
@@ -114,10 +113,10 @@ export function GroupsPage() {
   return (
     <AppShell title="Cours en groupe" active="accueil">
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
-      <PageStack>
+      <div className="mb-4">
         <ContentCard>
           <SectionHeading>Filtres</SectionHeading>
-          <div className="flex gap-4 text-[15px]">
+          <div className="flex flex-wrap gap-4 text-[15px]">
             <Link to="/groupes" className={!kind ? "font-bold text-welcome" : "link-green"}>
               Tous
             </Link>
@@ -126,11 +125,13 @@ export function GroupsPage() {
             </Link>
           </div>
         </ContentCard>
-        {!data.length ? (
-          <Empty>Aucun groupe n&apos;a été trouvé</Empty>
-        ) : (
-          data.map((g) => (
-            <Link key={g.id} to={`/groupes/${g.id}`}>
+      </div>
+      {!data.length ? (
+        <Empty>Aucun groupe n&apos;a été trouvé</Empty>
+      ) : (
+        <PageGrid>
+          {data.map((g) => (
+            <Link key={g.id} to={`/groupes/${g.id}`} className="block h-full">
               <ContentCard className="transition hover:shadow-md">
                 <SectionHeading className="mb-1">{g.title}</SectionHeading>
                 <p className="text-[15px] text-[#555]">
@@ -138,9 +139,9 @@ export function GroupsPage() {
                 </p>
               </ContentCard>
             </Link>
-          ))
-        )}
-      </PageStack>
+          ))}
+        </PageGrid>
+      )}
     </AppShell>
   );
 }
@@ -161,7 +162,7 @@ export function GroupDetailPage() {
   return (
     <AppShell title="Détail groupe" back="/groupes" active="accueil">
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
-      <PageStack>
+      <PageStack narrow>
         <ContentCard>
           <SectionHeading>{data.title}</SectionHeading>
           <p className="text-[15px] text-[#555]">{data.detail}</p>
@@ -179,9 +180,9 @@ export function SubscriptionPage() {
   return (
     <AppShell title="Abonnement" back="/compte" active="compte">
       {plans.offline ? <OfflineBanner onRetry={() => void plans.reload()} /> : null}
-      <PageStack>
+      <PageGrid>
         {mine.data?.plan ? (
-          <ContentCard>
+          <ContentCard className="sm:col-span-2 xl:col-span-3">
             <SectionHeading>Votre formule</SectionHeading>
             <p className="text-[15px] text-[#444]">{mine.data.plan}</p>
           </ContentCard>
@@ -197,7 +198,7 @@ export function SubscriptionPage() {
             </strong>
           </ContentCard>
         ))}
-      </PageStack>
+      </PageGrid>
     </AppShell>
   );
 }
@@ -207,16 +208,16 @@ export function ReferralPage() {
   return (
     <AppShell title="Parrainage" back="/compte" active="compte">
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
-      <PageStack>
+      <PageGrid cols={2}>
         <ContentCard>
           <SectionHeading>Votre code</SectionHeading>
-          <div className="font-display text-3xl font-black text-primary">{data.code}</div>
+          <div className="font-display text-3xl font-black text-primary sm:text-4xl">{data.code}</div>
         </ContentCard>
         <ContentCard>
           <InfoRow label="Filleuls">{data.referred || 0}</InfoRow>
           <InfoRow label="Gains">{fcfa(data.earned)} F</InfoRow>
         </ContentCard>
-      </PageStack>
+      </PageGrid>
     </AppShell>
   );
 }
@@ -240,39 +241,43 @@ export function ResourcesPage() {
       {!data.length ? (
         <Empty>Aucun document n&apos;est disponible</Empty>
       ) : (
-        <ContentCard>
-          <SectionHeading>Documents utiles</SectionHeading>
-          <ul className="mb-4 list-disc space-y-1 pl-5 marker:text-primary">
-            {data.slice(0, 3).map((r) => (
-              <li key={`top-${r.id}`}>
-                <a href={`${apiBase()}/api/files/${r.id}`} className="link-green text-[15px]" target="_blank" rel="noreferrer">
-                  {r.title}
-                </a>
-              </li>
+        <div className="space-y-5">
+          <ContentCard>
+            <SectionHeading>Documents utiles</SectionHeading>
+            <ul className="grid list-disc gap-1 pl-5 marker:text-primary sm:grid-cols-2 xl:grid-cols-3">
+              {data.slice(0, 6).map((r) => (
+                <li key={`top-${r.id}`}>
+                  <a href={`${apiBase()}/api/files/${r.id}`} className="link-green text-[15px]" target="_blank" rel="noreferrer">
+                    {r.title}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </ContentCard>
+          <PageGrid>
+            {grouped.map(([level, items]) => (
+              <ContentCard key={level}>
+                <h3 className="mb-3 text-[15px] font-bold text-[#333]">{level}</h3>
+                <ul className="list-none space-y-1 pl-1">
+                  {items.map((r) => (
+                    <li key={r.id} className="flex gap-2">
+                      <span className="mt-2 h-1.5 w-1.5 shrink-0 bg-primary" />
+                      <a
+                        href={`${apiBase()}/api/files/${r.id}`}
+                        className="link-green text-[15px]"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {r.title}
+                        <span className="text-[#888] no-underline"> — {r.type}</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </ContentCard>
             ))}
-          </ul>
-          {grouped.map(([level, items]) => (
-            <div key={level} className="mb-5 last:mb-0">
-              <h3 className="mb-2 text-[15px] font-bold text-[#333]">{level}</h3>
-              <ul className="list-none space-y-1 pl-1">
-                {items.map((r) => (
-                  <li key={r.id} className="flex gap-2">
-                    <span className="mt-2 h-1.5 w-1.5 shrink-0 bg-primary" />
-                    <a
-                      href={`${apiBase()}/api/files/${r.id}`}
-                      className="link-green text-[15px]"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {r.title}
-                      <span className="text-[#888] no-underline"> — {r.type}</span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </ContentCard>
+          </PageGrid>
+        </div>
       )}
     </AppShell>
   );
@@ -286,25 +291,27 @@ export function ContactsPage() {
   return (
     <AppShell title={isTeacher ? "Mes contacts" : "Aide"} active="aide">
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
-      <PageStack>
-        <div className="flex flex-wrap items-baseline justify-between gap-2 px-1">
-          <p className="text-[15px] font-semibold text-welcome underline">Mon support&nbsp;:</p>
-          <span className="text-[15px] text-[#444]">Abidjan · Côte d&apos;Ivoire</span>
+      <PageGrid cols={2}>
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-2 px-1">
+            <p className="text-[15px] font-semibold text-welcome underline">Mon support&nbsp;:</p>
+            <span className="text-[15px] text-[#444]">Abidjan · Côte d&apos;Ivoire</span>
+          </div>
+          <ContentCard>
+            <InfoRow label="Adresse">Abidjan, Côte d&apos;Ivoire</InfoRow>
+            <InfoRow label="Horaires">Du lundi au vendredi de 8h à 18h</InfoRow>
+            <InfoRow label="Téléphone">
+              <a href={`tel:${phone.replace(/\s/g, "")}`} className="link-green">
+                {phone}
+              </a>
+            </InfoRow>
+            <InfoRow label="E-mail">
+              <a href={`mailto:${email}`} className="link-green">
+                {email}
+              </a>
+            </InfoRow>
+          </ContentCard>
         </div>
-        <ContentCard>
-          <InfoRow label="Adresse">Abidjan, Côte d&apos;Ivoire</InfoRow>
-          <InfoRow label="Horaires">Du lundi au vendredi de 8h à 18h</InfoRow>
-          <InfoRow label="Téléphone">
-            <a href={`tel:${phone.replace(/\s/g, "")}`} className="link-green">
-              {phone}
-            </a>
-          </InfoRow>
-          <InfoRow label="E-mail">
-            <a href={`mailto:${email}`} className="link-green">
-              {email}
-            </a>
-          </InfoRow>
-        </ContentCard>
         <ContentCard>
           <SectionHeading>Liens utiles</SectionHeading>
           <DocLink to="/legal">Documents légaux</DocLink>
@@ -320,7 +327,7 @@ export function ContactsPage() {
             </DocLink>
           ) : null}
         </ContentCard>
-      </PageStack>
+      </PageGrid>
     </AppShell>
   );
 }
@@ -331,7 +338,7 @@ export function BookingPage() {
   const [err, setErr] = useState("");
   return (
     <AppShell title="Réservation" back="/recherche" active="recherche">
-      <PageStack>
+      <PageStack narrow>
         <ContentCard>
           <SectionHeading>Réserver un cours</SectionHeading>
           <form
@@ -408,7 +415,7 @@ export function PaymentPage() {
   const [err, setErr] = useState("");
   return (
     <AppShell title="Paiement" back="/reservation">
-      <PageStack>
+      <PageStack narrow>
         <ContentCard>
           <SectionHeading>Montant</SectionHeading>
           <div className="text-2xl font-bold text-primary">{fcfa(Number(price))} F</div>
@@ -472,7 +479,7 @@ export function PaymentOtpPage() {
   const [err, setErr] = useState("");
   return (
     <AppShell title="Code OTP" back="/paiement" hideNav>
-      <PageStack>
+      <PageStack narrow>
         <ContentCard>
           <SectionHeading>Code reçu</SectionHeading>
           <form
@@ -506,7 +513,7 @@ export function PaymentOtpPage() {
 export function ConfirmationPage() {
   return (
     <AppShell title="Confirmé" active="cours" hideNav>
-      <PageStack>
+      <PageStack narrow>
         <ContentCard className="text-center">
           <div className="text-5xl text-primary">✓</div>
           <SectionHeading className="mt-3">Réservation enregistrée</SectionHeading>
@@ -522,7 +529,7 @@ export function ConfirmationPage() {
 export function MockPage({ title, text, active }: { title: string; text: string; active?: string }) {
   return (
     <AppShell title={title} active={active || "compte"}>
-      <PageStack>
+      <PageStack narrow>
         <ContentCard>
           <SectionHeading>{title}</SectionHeading>
           <p className="text-[15px] leading-relaxed text-[#555]">{text}</p>

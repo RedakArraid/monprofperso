@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { AppShell, OfflineBanner, Empty, ContentCard, PageStack, SectionHeading } from "@/components/layout";
+import { AppShell, OfflineBanner, Empty, ContentCard, PageStack, PageGrid, SectionHeading } from "@/components/layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,7 +31,7 @@ export function ChildrenPage() {
   return (
     <AppShell title="Mes enfants" back="/compte" active="compte">
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
-      <PageStack>
+      <div className="grid w-full gap-4 sm:gap-5 lg:grid-cols-[minmax(280px,400px)_1fr]">
         <ContentCard>
           <SectionHeading>Ajouter un enfant</SectionHeading>
           <form
@@ -76,16 +76,20 @@ export function ChildrenPage() {
             </Button>
           </form>
         </ContentCard>
-        {!data.length ? <Empty>Aucun élève n&apos;a été trouvé</Empty> : null}
-        {data.map((c) => (
-          <ContentCard key={c.id}>
-            <SectionHeading className="mb-1">{c.name}</SectionHeading>
-            <div className="text-sm text-[#666]">
-              {c.level} · {c.school}
-            </div>
-          </ContentCard>
-        ))}
-      </PageStack>
+        <div>
+          {!data.length ? <Empty>Aucun élève n&apos;a été trouvé</Empty> : null}
+          <PageGrid>
+            {data.map((c) => (
+              <ContentCard key={c.id}>
+                <SectionHeading className="mb-1">{c.name}</SectionHeading>
+                <div className="text-sm text-[#666]">
+                  {c.level} · {c.school}
+                </div>
+              </ContentCard>
+            ))}
+          </PageGrid>
+        </div>
+      </div>
     </AppShell>
   );
 }
@@ -103,7 +107,7 @@ export function ExpressNeedPage() {
 
   return (
     <AppShell title="Exprimer un besoin" back active="accueil" hideNav>
-      <PageStack>
+      <PageStack narrow>
         <ContentCard>
           <SectionHeading>Décrivez votre besoin</SectionHeading>
           <form
@@ -130,44 +134,46 @@ export function ExpressNeedPage() {
               }
             }}
           >
-            <div className="space-y-1.5">
-              <Label className="text-welcome">Enfant</Label>
-              <Select name="childId" required defaultValue="">
-                <option value="" disabled>
-                  Choisir…
-                </option>
-                {children.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label className="text-welcome">Enfant</Label>
+                <Select name="childId" required defaultValue="">
+                  <option value="" disabled>
+                    Choisir…
                   </option>
-                ))}
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-welcome">Matière</Label>
-              <Input name="subject" required />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-welcome">Niveau</Label>
-              <Input name="level" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-welcome">Format</Label>
-              <Select name="format" defaultValue="home">
-                <option value="home">À domicile</option>
-                <option value="online">En ligne</option>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-welcome">Lieu</Label>
-              <Input name="location" placeholder="Cocody" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-welcome">Précisions</Label>
-              <Textarea name="notes" />
+                  {children.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-welcome">Matière</Label>
+                <Input name="subject" required />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-welcome">Niveau</Label>
+                <Input name="level" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-welcome">Format</Label>
+                <Select name="format" defaultValue="home">
+                  <option value="home">À domicile</option>
+                  <option value="online">En ligne</option>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-welcome">Lieu</Label>
+                <Input name="location" placeholder="Cocody" />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label className="text-welcome">Précisions</Label>
+                <Textarea name="notes" />
+              </div>
             </div>
             {err ? <p className="text-sm text-destructive">{err}</p> : null}
-            <Button type="submit" className="w-full">
+            <Button type="submit" className="mt-3 w-full">
               Envoyer
             </Button>
           </form>
@@ -184,12 +190,14 @@ export function MyNeedsPage() {
   return (
     <AppShell title="Mes besoins" back="/compte" active="compte">
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
-      <PageStack>
-        <Button asChild className="w-full">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <Button asChild>
           <Link to="/exprimer-besoin">Nouveau besoin</Link>
         </Button>
         {msg ? <p className="text-sm font-semibold text-primary">{msg}</p> : null}
-        {!data.length ? <Empty>Aucune demande n&apos;a été trouvée</Empty> : null}
+      </div>
+      {!data.length ? <Empty>Aucune demande n&apos;a été trouvée</Empty> : null}
+      <PageGrid>
         {data.map((n) => (
           <ContentCard key={n.id} className="space-y-2">
             <SectionHeading className="mb-1">
@@ -222,7 +230,7 @@ export function MyNeedsPage() {
             ) : null}
           </ContentCard>
         ))}
-      </PageStack>
+      </PageGrid>
     </AppShell>
   );
 }

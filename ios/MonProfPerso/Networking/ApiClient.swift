@@ -211,7 +211,10 @@ struct TeacherRequestDTO: Codable, Identifiable {
     let frequency, duration, startDate: String?
     let isOpportunity: Bool?
     let availabilityWeek, availabilityWeekend, availabilityHolidays: Bool?
+    let hasCat, hasDog: Bool?
+    let lat, lng: Double?
     var id: String { courseId.map(String.init) ?? needId.map(String.init) ?? "\(name)-\(slot ?? "")" }
+    var offerKey: String { needId.map(String.init) ?? courseId.map(String.init) ?? id }
 }
 struct ChildDTO: Codable, Identifiable {
     let id: Int; let name, level: String
@@ -560,9 +563,9 @@ extension Fallback {
     static let teacherDashboard = TeacherDashboardDTO(
         name: "Koffi N'Guessan", revenue: 184000, trend: "+12%",
         stats: [.init(value: "14", label: "cours / semaine"), .init(value: "4,9", label: "note moyenne"), .init(value: "3", label: "nouveaux élèves")],
-        pendingRequests: 3, negotiable: false, profileCompletion: nil)
+        pendingRequests: 3, negotiable: false, needsConfirmed: true, profileCompletion: nil)
     static let teacherRequests: [TeacherRequestDTO] = [
-        .init(courseId: 1, needId: 1, initials: "CO", accent: "green", name: "Cocody", ago: "nouveau", price: 8500, student: "Kouadio · 3eme", subject: "Maths", slot: "Cocody", format: "À domicile", netHourly: 4250, frequency: "1 fois/sem", duration: "2h00", startDate: nil, isOpportunity: true, availabilityWeek: true, availabilityWeekend: false, availabilityHolidays: false),
+        .init(courseId: 1, needId: 1, initials: "CO", accent: "green", name: "Cocody Angré", ago: "nouveau", price: 8500, student: "Kouadio · 3eme", subject: "Maths", slot: "Cocody Angré", format: "À domicile", netHourly: 4250, frequency: "1 fois/sem", duration: "2h00", startDate: nil, isOpportunity: true, availabilityWeek: true, availabilityWeekend: false, availabilityHolidays: false, hasCat: true, hasDog: false, lat: 5.3895, lng: -3.958),
     ]
     static let teacherEarnings = TeacherEarningsDTO(
         total: 184000, trend: "+12%",

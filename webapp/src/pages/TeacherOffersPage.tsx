@@ -694,7 +694,7 @@ export function TeacherRequestsPage() {
       ) : null}
 
       <div className="flex flex-col lg:flex-row lg:items-start">
-        <aside className="flex w-full shrink-0 flex-col border-b border-[#e8e8e8] bg-[#f7f7f7] lg:sticky lg:top-[58px] lg:h-[calc(100dvh-58px)] lg:w-[280px] lg:border-b-0 lg:border-r xl:w-[300px]">
+        <aside className="flex w-full shrink-0 flex-col border-b border-[#e8e8e8] bg-[#f7f7f7] lg:sticky lg:top-14 lg:h-[calc(100dvh-3.5rem)] lg:w-[min(320px,28vw)] lg:border-b-0 lg:border-r xl:top-[58px] xl:h-[calc(100dvh-58px)] xl:w-[300px]">
           <div className="grid shrink-0 grid-cols-2 border-b border-[#ddd] bg-white">
             <button
               type="button"
@@ -1002,7 +1002,7 @@ export function TeacherRequestsPage() {
           )}
         </section>
 
-        <section className="relative hidden flex-1 lg:sticky lg:top-[58px] lg:block lg:h-[calc(100dvh-58px)]">
+        <section className="relative hidden min-h-[420px] flex-1 lg:sticky lg:top-14 lg:block lg:h-[calc(100dvh-3.5rem)] xl:top-[58px] xl:h-[calc(100dvh-58px)]">
           <CoteIvoireOffersMap
             offers={mapOffers}
             home={homeCoords}

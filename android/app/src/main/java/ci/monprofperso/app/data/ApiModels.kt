@@ -230,6 +230,10 @@ data class TeacherRequestDto(
     @SerializedName("availabilityWeek") val availabilityWeek: Boolean = true,
     @SerializedName("availabilityWeekend") val availabilityWeekend: Boolean = false,
     @SerializedName("availabilityHolidays") val availabilityHolidays: Boolean = false,
+    @SerializedName("hasCat") val hasCat: Boolean = false,
+    @SerializedName("hasDog") val hasDog: Boolean = false,
+    val lat: Double? = null,
+    val lng: Double? = null,
 )
 
 data class ChildDto(

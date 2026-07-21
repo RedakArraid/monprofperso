@@ -207,6 +207,7 @@ fun SignupScreen(nav: NavActions) {
             Spacer(Modifier.height(14.dp))
             FieldDisplay("Mot de passe", "••••••••", leading = Icons.Outlined.Lock, trailing = Icons.Filled.VisibilityOff)
             Spacer(Modifier.height(14.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Je m'inscris en tant que", fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = AkColors.Muted)
                 Text("Modifier", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = AkColors.Green,
                     modifier = Modifier.clickable { nav.back() })
