@@ -72,10 +72,16 @@ function OfferCard({
   r,
   onConsult,
   home,
+  selected,
+  cardRef,
+  onSelect,
 }: {
   r: Req;
   onConsult: () => void;
   home?: [number, number];
+  selected?: boolean;
+  cardRef?: (el: HTMLElement | null) => void;
+  onSelect?: () => void;
 }) {
   const place = (r.name || r.slot || "Abidjan").replace(/,?\s*Côte d'Ivoire/i, "").trim();
   const title = place.toUpperCase() || "ABIDJAN";
@@ -99,7 +105,15 @@ function OfferCard({
   ].filter(Boolean) as string[];
 
   return (
-    <article className="rounded-xl border border-[#e8e8e8] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+    <article
+      ref={cardRef}
+      onClick={onSelect}
+      className={`cursor-pointer rounded-xl border bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] transition-shadow ${
+        selected
+          ? "border-primary ring-2 ring-primary/30 shadow-[0_2px_8px_rgba(14,90,67,0.18)]"
+          : "border-[#e8e8e8] hover:border-primary/40"
+      }`}
+    >
       <div className="flex items-start justify-between gap-2">
         <h3 className="text-[15px] font-bold uppercase tracking-wide text-[#222]">{title}</h3>
         {dist != null ? (
@@ -187,7 +201,10 @@ function OfferCard({
         </div>
         <button
           type="button"
-          onClick={onConsult}
+          onClick={(e) => {
+            e.stopPropagation();
+            onConsult();
+          }}
           className="rounded-md bg-primary px-4 py-2 text-[12px] font-bold uppercase tracking-wide text-white hover:bg-welcome"
         >
           Consulter
@@ -301,6 +318,8 @@ export function TeacherRequestsPage() {
   const [prefs, setPrefs] = useState({ vehicle: false, acceptDogs: true, acceptCats: true });
   const [channels, setChannels] = useState({ sms: true, notif: true });
   const [filters, setFilters] = useState({ option: true, thinking: true, refused: false });
+  const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
+  const cardEls = useRef<Record<string, HTMLElement | null>>({});
 
   // Adresse profil → champ « Mon adresse » (une fois)
   const profileLocApplied = useRef(false);
@@ -325,6 +344,18 @@ export function TeacherRequestsPage() {
     }
     return list;
   }, [data, prefs.acceptCats, prefs.acceptDogs, sort]);
+
+  function offerId(r: Req) {
+    return String(r.needId || r.courseId);
+  }
+
+  // Clic pin carte → scroll + highlight dans la liste
+  useEffect(() => {
+    if (!selectedOfferId) return;
+    const el = cardEls.current[selectedOfferId];
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [selectedOfferId]);
 
   async function act(r: Req, accept: boolean) {
     const id = Number(r.needId || r.courseId);
@@ -518,14 +549,22 @@ export function TeacherRequestsPage() {
                 {!filtered.length ? (
                   <Empty>Aucune offre n&apos;a été trouvée</Empty>
                 ) : (
-                  filtered.map((r) => (
-                    <OfferCard
-                      key={`${r.isOpportunity ? "opp" : "req"}-${r.needId || r.courseId}`}
-                      r={r}
-                      home={homeCoords}
-                      onConsult={() => void act(r, true)}
-                    />
-                  ))
+                  filtered.map((r) => {
+                    const id = offerId(r);
+                    return (
+                      <OfferCard
+                        key={`${r.isOpportunity ? "opp" : "req"}-${id}`}
+                        r={r}
+                        home={homeCoords}
+                        selected={selectedOfferId === id}
+                        cardRef={(el) => {
+                          cardEls.current[id] = el;
+                        }}
+                        onSelect={() => setSelectedOfferId(id)}
+                        onConsult={() => void act(r, true)}
+                      />
+                    );
+                  })
                 )}
               </div>
             </>
@@ -534,11 +573,23 @@ export function TeacherRequestsPage() {
 
         {/* Carte sticky plein hauteur — pas de scroll imbriqué */}
         <section className="relative hidden flex-1 lg:sticky lg:top-[58px] lg:block lg:h-[calc(100dvh-58px)]">
-          <CoteIvoireOffersMap offers={mapOffers} home={homeCoords} className="absolute inset-0 h-full w-full" />
+          <CoteIvoireOffersMap
+            offers={mapOffers}
+            home={homeCoords}
+            selectedId={selectedOfferId}
+            onSelectOffer={setSelectedOfferId}
+            className="absolute inset-0 h-full w-full"
+          />
         </section>
 
         <section className="relative h-[240px] w-full border-t border-[#e8e8e8] bg-[#e8e8e8] lg:hidden">
-          <CoteIvoireOffersMap offers={mapOffers} home={homeCoords} className="absolute inset-0 h-full w-full" />
+          <CoteIvoireOffersMap
+            offers={mapOffers}
+            home={homeCoords}
+            selectedId={selectedOfferId}
+            onSelectOffer={setSelectedOfferId}
+            className="absolute inset-0 h-full w-full"
+          />
         </section>
       </div>
     </AppShell>

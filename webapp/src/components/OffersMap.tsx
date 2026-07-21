@@ -60,13 +60,17 @@ export function distanceKmFromHome(
   return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 100) / 100;
 }
 
-const offerDot = L.divIcon({
-  className: "",
-  html: `<div style="width:16px;height:16px;border-radius:50%;background:#0E5A43;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)"></div>`,
-  iconSize: [16, 16],
-  iconAnchor: [8, 8],
-  popupAnchor: [0, -10],
-});
+function makeOfferDot(selected: boolean) {
+  const size = selected ? 22 : 16;
+  const bg = selected ? "#E8722A" : "#0E5A43";
+  return L.divIcon({
+    className: "",
+    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${bg};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)"></div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -size / 2],
+  });
+}
 
 const homeIcon = L.divIcon({
   className: "",
@@ -83,18 +87,25 @@ export function CoteIvoireOffersMap({
   className,
   home = TEACHER_HOME,
   initialZoom = 12,
+  selectedId = null,
+  onSelectOffer,
 }: {
   offers: MapOffer[];
   className?: string;
   home?: [number, number];
   /** Zoom initial centré sur le domicile prof (Completude) */
   initialZoom?: number;
+  selectedId?: string | null;
+  /** Clic pin → sélectionne l'offre dans la liste */
+  onSelectOffer?: (id: string) => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const homeKey = `${home[0]},${home[1]}`;
   const lastHomeKey = useRef<string>("");
   const didInitialFocus = useRef(false);
+  const onSelectRef = useRef(onSelectOffer);
+  onSelectRef.current = onSelectOffer;
 
   const markers = useMemo(() => {
     return offers
@@ -132,11 +143,16 @@ export function CoteIvoireOffersMap({
     L.marker(home, { icon: homeIcon }).bindPopup("Mon domicile").addTo(layer);
 
     for (const m of markers) {
-      L.marker(m.coords, { icon: offerDot })
-        .bindPopup(
-          `<strong>${m.label}</strong><br/>${m.subject || ""}${m.priceLabel ? `<br/>${m.priceLabel}` : ""}<br/><span style="color:#0E5A43">Côte d'Ivoire</span>`,
-        )
-        .addTo(layer);
+      const selected = selectedId != null && selectedId === m.id;
+      const marker = L.marker(m.coords, { icon: makeOfferDot(selected), zIndexOffset: selected ? 500 : 0 });
+      marker.bindPopup(
+        `<strong>${m.label}</strong><br/>${m.subject || ""}${m.priceLabel ? `<br/>${m.priceLabel}` : ""}<br/><span style="color:#0E5A43">Côte d'Ivoire</span>`,
+      );
+      marker.on("click", () => {
+        onSelectRef.current?.(m.id);
+      });
+      marker.addTo(layer);
+      if (selected) marker.openPopup();
     }
 
     const focusHome = () => {
@@ -144,13 +160,11 @@ export function CoteIvoireOffersMap({
       lastHomeKey.current = homeKey;
     };
 
-    // Recentrer si l'adresse du prof change
     if (lastHomeKey.current !== homeKey) {
       focusHome();
     }
 
     const t1 = setTimeout(() => map.invalidateSize(), 50);
-    // Après layout (colonne carte souvent 0×0 au 1er paint) : focus domicile
     const t2 = setTimeout(() => {
       map.invalidateSize();
       if (!didInitialFocus.current || lastHomeKey.current !== homeKey) {
@@ -164,7 +178,7 @@ export function CoteIvoireOffersMap({
       clearTimeout(t2);
       layer.remove();
     };
-  }, [markers, home, homeKey, initialZoom]);
+  }, [markers, home, homeKey, initialZoom, selectedId]);
 
   useEffect(() => {
     return () => {
