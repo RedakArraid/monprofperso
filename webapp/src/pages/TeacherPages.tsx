@@ -19,6 +19,7 @@ import { fallback } from "@/lib/fallback";
 import { fcfa } from "@/lib/utils";
 import { useLive } from "@/hooks/useLive";
 import { useMemo, useState } from "react";
+import { CoteIvoireOffersMap, formatLieuCi } from "@/components/OffersMap";
 
 type Dash = typeof fallback.teacherDashboard & {
   profileCompletion?: { percent: number; complete: boolean };
@@ -72,13 +73,15 @@ function OfferCard({
     r.startDate != null
       ? String(r.startDate).slice(0, 10).split("-").reverse().join("/")
       : null;
+  const lieu = formatLieuCi(r.slot || r.name, r.format);
 
   return (
     <article className="rounded-[20px] border border-[#e5e5e5] bg-white p-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] sm:p-5">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <div className="text-[14.5px] font-bold uppercase tracking-wide text-[#222]">{title}</div>
-          <div className="mt-0.5 text-[11.5px] text-[#aaa]">{r.ago || "nouveau"}</div>
+          <div className="mt-0.5 text-[11.5px] text-primary">Côte d&apos;Ivoire</div>
+          <div className="text-[11.5px] text-[#aaa]">{r.ago || "nouveau"}</div>
         </div>
         <div className="max-w-[48%] text-right text-[13px] font-extrabold leading-snug text-primary">{priceLabel}</div>
       </div>
@@ -88,7 +91,8 @@ function OfferCard({
         <DetailLine label="Matière" value={r.subject || "—"} />
         {r.frequency ? <DetailLine label="Fréquence" value={r.frequency} /> : null}
         {r.duration ? <DetailLine label="Durée" value={r.duration} /> : null}
-        <DetailLine label="Lieu / format" value={r.format || r.slot || "—"} />
+        <DetailLine label="Lieu / format" value={lieu} />
+        <DetailLine label="Pays" value="Côte d'Ivoire" />
         {start ? <DetailLine label="À partir du" value={start} /> : null}
       </div>
 
@@ -396,18 +400,38 @@ export function TeacherRequestsPage() {
         !filtered.length ? (
           <Empty>Aucune offre n&apos;a été trouvée</Empty>
         ) : (
-          <div className="mx-auto grid w-full max-w-3xl gap-3.5 sm:gap-4 lg:max-w-none lg:grid-cols-2">
-            {filtered.map((r) => {
-              const id = r.needId || r.courseId;
-              return (
-                <OfferCard
-                  key={`${r.isOpportunity ? "opp" : "req"}-${id}`}
-                  r={r}
-                  onAccept={() => void act(r, true)}
-                  onRefuse={() => void act(r, false)}
-                />
-              );
-            })}
+          <div className="space-y-5">
+            <CoteIvoireOffersMap
+              offers={filtered.map((r) => {
+                const id = String(r.needId || r.courseId);
+                const priceLabel =
+                  r.isOpportunity && r.netHourly != null && r.price != null
+                    ? `${fcfa(r.netHourly)} F/h net`
+                    : r.price != null
+                      ? `${fcfa(r.price)} F`
+                      : undefined;
+                return {
+                  id,
+                  label: r.name || r.slot || "Offre",
+                  place: r.slot || r.name || r.format,
+                  subject: r.subject,
+                  priceLabel,
+                };
+              })}
+            />
+            <div className="mx-auto grid w-full max-w-3xl gap-3.5 sm:gap-4 lg:max-w-none lg:grid-cols-2">
+              {filtered.map((r) => {
+                const id = r.needId || r.courseId;
+                return (
+                  <OfferCard
+                    key={`${r.isOpportunity ? "opp" : "req"}-${id}`}
+                    r={r}
+                    onAccept={() => void act(r, true)}
+                    onRefuse={() => void act(r, false)}
+                  />
+                );
+              })}
+            </div>
           </div>
         )
       ) : null}
