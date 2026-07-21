@@ -74,6 +74,12 @@ object FallbackData {
         ),
     )
 
+    val groups = listOf(
+        GroupDto(1, "PRÉPA BAC", "orange", 2000, "Maths & Physique-Chimie", "Terminale D · 8 semaines · Sam & Dim", "KN", "Koffi N'Guessan", "green", 9, 12, 3, "regular", null, null),
+        GroupDto(2, "PRÉPA BEPC", "green", 1500, "Maths intensif", "3ᵉ · 6 semaines · Mer & Sam", "ID", "Ibrahim Diallo", "orange", 6, 10, 4, "regular", null, null),
+        GroupDto(3, "VACANCES", "green", 1500, "Stage de Français", "Collège · 2 semaines · Lun → Ven", null, null, "green", null, null, null, "stage", "2026-08-03", "2026-08-14"),
+    )
+
     val teacherDetail = TeacherDto(
         1, "KN", "Koffi N'Guessan", "Maths · Physique-Chimie", 4.9, 128, "Cocody", 4000, 2.4, "green", true, true,
         formats = listOf("home", "online"), experience = "8 ans", students = "340+", bacSuccess = "94%",

@@ -48,6 +48,25 @@ class CoursesViewModel : ViewModel() {
 }
 
 /* ----------------------------------------------------------------------------
+ * Cours en groupe (dont stages de vacances)
+ * ------------------------------------------------------------------------- */
+class GroupsViewModel : ViewModel() {
+    private val _state = MutableStateFlow<UiState<List<GroupDto>>>(UiState.Loading)
+    val state: StateFlow<UiState<List<GroupDto>>> = _state.asStateFlow()
+    init { load() }
+    fun load() {
+        _state.value = UiState.Loading
+        viewModelScope.launch {
+            _state.value = try {
+                UiState.Success(Api.service.groups(), true)
+            } catch (e: Exception) {
+                UiState.Success(FallbackData.groups, false)
+            }
+        }
+    }
+}
+
+/* ----------------------------------------------------------------------------
  * Suivi des progrès
  * ------------------------------------------------------------------------- */
 class ProgressViewModel : ViewModel() {

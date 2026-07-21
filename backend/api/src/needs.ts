@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { pool } from "./db";
-import { ValidationError, optionalString, optionalNumber, optionalEnum, requiredString, requiredEnum } from "./validate";
+import { ValidationError, optionalString, optionalNumber, optionalEnum, optionalPhone, requiredString, requiredEnum } from "./validate";
 import { currentUserId } from "./auth";
 
 const NEED_STATUSES = ["submitted", "priced", "published", "matched", "cancelled"] as const;
@@ -74,6 +74,7 @@ function mapNeed(row: any, child?: any) {
     parentPhone: row.parent_phone ?? null,
     childName: row.child_name ?? child?.name ?? null,
     childGender: row.child_gender ?? child?.gender ?? null,
+    source: row.source ?? "app",
   };
 }
 
@@ -184,7 +185,9 @@ export async function acceptNeedForTeacher(needId: number, teacherId: number): P
   }
 }
 
-export function registerNeedsRoutes(api: Router): void {
+export function registerNeedsRoutes(api: Router, deps: { consentVersion: string }): void {
+  const { consentVersion } = deps;
+
   // --- Enfants (parent) ---
   api.get("/children", wrap(async (_req, res) => {
     const r = await pool.query(
@@ -279,6 +282,41 @@ export function registerNeedsRoutes(api: Router): void {
     );
     const row = await loadNeed(r.rows[0].id);
     res.status(201).json(mapNeed(row));
+  }));
+
+  // --- Demande de devis publique (site vitrine, sans compte) ---
+  api.post("/needs/public", wrap(async (req, res) => {
+    const b = req.body ?? {};
+    const parentName = requiredString(b, "parentName", { max: 120 });
+    const parentPhone = optionalPhone(b, "parentPhone");
+    if (!parentPhone) throw new ValidationError("parentPhone", "téléphone requis");
+    const subject = requiredString(b, "subject", { max: 80 });
+    const level = requiredString(b, "level", { max: 40 });
+    const format = requiredEnum(b, "format", FORMATS);
+    const location = optionalString(b, "location", { max: 200 });
+    const description = optionalString(b, "description", { max: 2000 });
+    const consent = b.consent === true || b.consent === "true";
+    if (!consent) throw new ValidationError("consent", "consentement requis");
+
+    const initials = parentName.split(" ").map((s) => s[0]).filter(Boolean).join("").slice(0, 2).toUpperCase() || "AK";
+    const userR = await pool.query(
+      `INSERT INTO users (full_name, phone, role, initials, consent_version, consent_at)
+       VALUES ($1,$2,'parent',$3,$4,now())
+       ON CONFLICT (phone) DO UPDATE SET full_name = EXCLUDED.full_name,
+         consent_version = COALESCE(users.consent_version, EXCLUDED.consent_version),
+         consent_at = COALESCE(users.consent_at, EXCLUDED.consent_at)
+       RETURNING id`,
+      [parentName, parentPhone, initials, consentVersion],
+    );
+    const userId = userR.rows[0].id;
+
+    const r = await pool.query(
+      `INSERT INTO course_needs (user_id, subject, level, format, location, description, status, source)
+       VALUES ($1,$2,$3,$4,$5,$6,'submitted','web')
+       RETURNING id`,
+      [userId, subject, level, format, location ?? null, description ?? null],
+    );
+    res.status(201).json({ ok: true, reference: needRef(r.rows[0].id) });
   }));
 
   api.post("/needs/:id/accept-price", wrap(async (req, res) => {

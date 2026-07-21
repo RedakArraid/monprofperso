@@ -1,47 +1,79 @@
 import SwiftUI
 
-// MARK: - Écran 26, Cours en groupe (liste)
-private struct Grp: Identifiable {
-    let id = UUID(); let tag: String; let tagGreen: Bool; let price: String; let title: String; let detail: String
-    let ini: String; let teacherGreen: Bool; let teacher: String; let enrolled: String?; let left: String?; let leftWarn: Bool; let fraction: CGFloat
-}
-
+// MARK: - Écran 26, Cours en groupe (liste, live + repli maquette)
 struct GroupCoursesScreen: View {
     @EnvironmentObject var router: Router
-    private let groups: [Grp] = [
-        .init(tag: "PRÉPA BAC", tagGreen: false, price: "2 000 F", title: "Maths & Physique-Chimie", detail: "Terminale D · 8 semaines · Sam & Dim", ini: "KN", teacherGreen: true, teacher: "Koffi N'Guessan", enrolled: "9 / 12 inscrits", left: "3 places restantes", leftWarn: true, fraction: 0.75),
-        .init(tag: "PRÉPA BEPC", tagGreen: true, price: "1 500 F", title: "Maths intensif", detail: "3ᵉ · 6 semaines · Mer & Sam", ini: "ID", teacherGreen: false, teacher: "Ibrahim Diallo", enrolled: "6 / 10 inscrits", left: "4 places restantes", leftWarn: false, fraction: 0.60),
-        .init(tag: "VACANCES", tagGreen: true, price: "1 500 F", title: "Stage de Français", detail: "Collège · 2 semaines · Lun → Ven", ini: "", teacherGreen: true, teacher: "", enrolled: nil, left: nil, leftWarn: false, fraction: 0),
-    ]
+    @State private var groups: [GroupDTO] = Fallback.groups
+    @State private var isLive = false
+    @State private var attempted = false
+    @State private var filter = 0
+
+    private var filtered: [GroupDTO] {
+        switch filter {
+        case 1: return groups.filter { $0.tag.localizedCaseInsensitiveContains("BEPC") }
+        case 2: return groups.filter { $0.tag.localizedCaseInsensitiveContains("BAC") }
+        case 3: return groups.filter { $0.isStage }
+        default: return groups
+        }
+    }
+
     var body: some View {
         AkScreen {
             TopBar(title: "Cours en groupe", subtitle: "Prépa examens en petit comité", onBack: { router.back() })
-            HStack(spacing: 8) { PillTab(label: "Tous", selected: true); PillTab(label: "BEPC", selected: false); PillTab(label: "BAC", selected: false); PillTab(label: "Vacances", selected: false); Spacer() }
-                .padding(.horizontal, 22).padding(.top, 8)
+            HStack(spacing: 8) {
+                PillTab(label: "Tous", selected: filter == 0).onTapGesture { filter = 0 }
+                PillTab(label: "BEPC", selected: filter == 1).onTapGesture { filter = 1 }
+                PillTab(label: "BAC", selected: filter == 2).onTapGesture { filter = 2 }
+                PillTab(label: "Vacances", selected: filter == 3).onTapGesture { filter = 3 }
+                Spacer()
+            }.padding(.horizontal, 22).padding(.top, 8)
             ScrollView {
-                VStack(spacing: 13) { ForEach(groups) { g in card(g) } }.padding(.horizontal, 22).padding(.top, 16)
+                if attempted && !isLive {
+                    OfflineBanner { Task { await reload() } }.padding(.horizontal, 22).padding(.top, 16)
+                }
+                if filtered.isEmpty {
+                    Text("Aucun cours de groupe pour ce filtre.").font(AkFont.regular(13)).foregroundColor(Ak.faint)
+                        .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 22).padding(.top, 16)
+                }
+                VStack(spacing: 13) { ForEach(filtered) { g in card(g) } }.padding(.horizontal, 22).padding(.top, 16)
             }
         }
+        .task { await reload() }
     }
-    private func card(_ g: Grp) -> some View {
+
+    private func reload() async {
+        if let live = try? await ApiClient.shared.groups() { groups = live; isLive = true } else { isLive = false }
+        attempted = true
+    }
+
+    private func card(_ g: GroupDTO) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Tag(label: g.tag, fg: g.tagGreen ? Ak.green : Ak.orange, bg: g.tagGreen ? Ak.greenSoft : Ak.orangeSoft)
+                Tag(label: g.tag, fg: g.isTagGreen ? Ak.green : Ak.orange, bg: g.isTagGreen ? Ak.greenSoft : Ak.orangeSoft)
                 Spacer()
-                HStack(spacing: 0) { Text(g.price).font(AkFont.schibstedExtra(14)).foregroundColor(Ak.green); Text("/séance").font(AkFont.semibold(11)).foregroundColor(Ak.faint) }
+                HStack(spacing: 0) { Text(g.priceLabel).font(AkFont.schibstedExtra(14)).foregroundColor(Ak.green); Text("/séance").font(AkFont.semibold(11)).foregroundColor(Ak.faint) }
             }
             Text(g.title).font(AkFont.schibstedExtra(16.5)).foregroundColor(Ak.ink).padding(.top, 11)
             Text(g.detail).font(AkFont.regular(12.5)).foregroundColor(Ak.muted).padding(.top, 2)
-            if !g.teacher.isEmpty {
+            if let range = g.dateRangeLabel {
+                Text(range).font(AkFont.semibold(12)).foregroundColor(Ak.orange).padding(.top, 4)
+            }
+            if let teacher = g.teacher_name, !teacher.isEmpty {
                 HStack(spacing: 8) {
-                    InitialsAvatar(initials: g.ini, size: 30, bg: g.teacherGreen ? Ak.greenSoft : Ak.orangeSoft, fg: g.teacherGreen ? Ak.green : Ak.orange, radius: 9, fontSize: 11)
-                    Text("avec \(g.teacher)").font(AkFont.regular(12)).foregroundColor(Ak.textBody)
+                    InitialsAvatar(initials: g.teacher_initials ?? "", size: 30, bg: g.isTeacherGreen ? Ak.greenSoft : Ak.orangeSoft, fg: g.isTeacherGreen ? Ak.green : Ak.orange, radius: 9, fontSize: 11)
+                    Text("avec \(teacher)").font(AkFont.regular(12)).foregroundColor(Ak.textBody)
                 }.padding(.top, 11)
             }
-            if let enrolled = g.enrolled {
+            if let enrolled = g.enrolled, let capacity = g.capacity {
+                let fraction = capacity > 0 ? CGFloat(enrolled) / CGFloat(capacity) : 0
+                let leftWarn = (g.places_left ?? 0) <= 3
                 VStack(spacing: 6) {
-                    HStack { Text(enrolled).font(AkFont.regular(11.5)).foregroundColor(Ak.muted); Spacer(); Text(g.left ?? "").font(AkFont.bold(11.5)).foregroundColor(g.leftWarn ? Ak.orange : Ak.green) }
-                    ProgressBarLine(fraction: g.fraction, height: 6)
+                    HStack {
+                        Text("\(enrolled) / \(capacity) inscrits").font(AkFont.regular(11.5)).foregroundColor(Ak.muted)
+                        Spacer()
+                        Text(g.places_left.map { "\($0) places restantes" } ?? "").font(AkFont.bold(11.5)).foregroundColor(leftWarn ? Ak.orange : Ak.green)
+                    }
+                    ProgressBarLine(fraction: fraction, height: 6)
                 }.padding(.top, 13)
             }
         }.akCard(radius: 20, padding: 16).onTapGesture { router.go(.groupDetail) }

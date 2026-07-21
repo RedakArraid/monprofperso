@@ -670,11 +670,13 @@ async function renderGroups(root) {
 
 function groupRow(g) {
   const places = g.places_left != null ? ` · ${g.places_left} places restantes` : "";
+  const dates = g.start_date && g.end_date ? ` · ${g.start_date} → ${g.end_date}` : "";
+  const kindPill = g.kind === "stage" ? ` <span class="pill orange">Stage vacances</span>` : "";
   return `<div class="row">
     <span class="dot ${g.tag_accent === "orange" ? "orange" : "green"}"></span>
     <div class="row-main">
-      <div class="row-title">${esc(g.title)} <span class="pill ${g.tag_accent === "orange" ? "orange" : "green"}">${esc(g.tag)}</span></div>
-      <div class="row-meta">${esc(g.detail)} · ${fcfa(g.price)} F${g.teacher_name ? " · " + esc(g.teacher_name) : ""}${places}</div>
+      <div class="row-title">${esc(g.title)} <span class="pill ${g.tag_accent === "orange" ? "orange" : "green"}">${esc(g.tag)}</span>${kindPill}</div>
+      <div class="row-meta">${esc(g.detail)} · ${fcfa(g.price)} F${g.teacher_name ? " · " + esc(g.teacher_name) : ""}${places}${dates}</div>
     </div>
     <div class="row-actions">
       <button class="btn btn-ghost btn-sm" data-edit="${g.id}">Modifier</button>
@@ -698,6 +700,10 @@ function groupForm(g) {
       <div class="field"><label>Inscrits</label><input id="g_enrolled" type="number" value="${g.enrolled ?? ""}"></div>
       <div class="field"><label>Capacité</label><input id="g_capacity" type="number" value="${g.capacity ?? ""}"></div>
       <div class="field"><label>Places restantes</label><input id="g_places" type="number" value="${g.places_left ?? ""}"></div>
+      <div class="field"><label>Type</label>
+        <select id="g_kind"><option value="regular"${g.kind !== "stage" ? " selected" : ""}>Cours régulier</option><option value="stage"${g.kind === "stage" ? " selected" : ""}>Stage vacances</option></select></div>
+      <div class="field"><label>Début (stage)</label><input id="g_start" type="date" value="${g.start_date || ""}"></div>
+      <div class="field"><label>Fin (stage)</label><input id="g_end" type="date" value="${g.end_date || ""}"></div>
     </div>
     <div class="form-actions">
       <button class="btn btn-primary" id="save">${isEdit ? "Enregistrer" : "Ajouter"}</button>
@@ -719,6 +725,9 @@ function groupForm(g) {
         enrolled: num("#g_enrolled"),
         capacity: num("#g_capacity"),
         placesLeft: num("#g_places"),
+        kind: $("#g_kind", back).value,
+        startDate: $("#g_start", back).value || undefined,
+        endDate: $("#g_end", back).value || undefined,
       };
       if (!body.tag || !body.title || !body.detail) { toast("Étiquette, titre et détail sont requis", true); return; }
       try {

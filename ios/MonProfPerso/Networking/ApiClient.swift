@@ -115,6 +115,32 @@ struct CourseDTO: Codable, Identifiable {
     let payment_status: String?
 }
 
+struct GroupDTO: Codable, Identifiable {
+    let id: Int
+    let tag: String
+    let tag_accent: String
+    let price: Int
+    let title, detail: String
+    let teacher_initials: String?
+    let teacher_name: String?
+    let teacher_accent: String?
+    let enrolled: Int?
+    let capacity: Int?
+    let places_left: Int?
+    let kind: String
+    let start_date: String?
+    let end_date: String?
+
+    var isTagGreen: Bool { tag_accent != "orange" }
+    var isTeacherGreen: Bool { teacher_accent != "orange" }
+    var isStage: Bool { kind == "stage" }
+    var priceLabel: String { "\(price.formattedFCFA) F" }
+    var dateRangeLabel: String? {
+        guard isStage, let s = start_date, let e = end_date else { return nil }
+        return "\(s) → \(e)"
+    }
+}
+
 struct BookingResult: Codable {
     let reference: String
     let course: CourseDTO
@@ -415,6 +441,7 @@ struct ApiClient {
         return (try? await paymentStatus(paymentId))?.paid ?? false
     }
     func progress() async throws -> ProgressDTO { try await get("api/progress") }
+    func groups() async throws -> [GroupDTO] { try await get("api/groups") }
     func notifications() async throws -> [NotificationDTO] { try await get("api/notifications") }
     func markNotificationsRead() async throws { _ = try await request("api/notifications/read", method: "POST") }
     func unreadCount() async throws -> Int { (try await get("api/notifications/unread") as UnreadDTO).count }
@@ -552,6 +579,11 @@ extension Fallback {
         .init(id: 1, teacher_name: "Koffi N'Guessan", subject: "Maths", level: "3ᵉ", day_label: "SAM", day_num: "22", time: "16h00", duration: "1h30", format: "home", location: "À domicile, Cocody", price: 6000, status: "upcoming", badge: "Dans 2 jours", negotiable: nil, proposed_price: nil, proposed_frequency: nil, counter_price: nil, counter_frequency: nil, negotiation_status: nil, payment_status: nil),
         .init(id: 2, teacher_name: "Mariam Touré", subject: "Anglais", level: "3ᵉ", day_label: "LUN", day_num: "24", time: "17h00", duration: "1h", format: "online", location: nil, price: 4500, status: "upcoming", badge: nil, negotiable: nil, proposed_price: nil, proposed_frequency: nil, counter_price: nil, counter_frequency: nil, negotiation_status: nil, payment_status: nil),
         .init(id: 3, teacher_name: "Koffi N'Guessan", subject: "Maths", level: "3ᵉ", day_label: "VEN", day_num: "14", time: "15h00", duration: "1h30", format: "home", location: "À domicile, Cocody", price: 6000, status: "done", badge: nil, negotiable: nil, proposed_price: nil, proposed_frequency: nil, counter_price: nil, counter_frequency: nil, negotiation_status: nil, payment_status: nil),
+    ]
+    static let groups: [GroupDTO] = [
+        .init(id: 1, tag: "PRÉPA BAC", tag_accent: "orange", price: 2000, title: "Maths & Physique-Chimie", detail: "Terminale D · 8 semaines · Sam & Dim", teacher_initials: "KN", teacher_name: "Koffi N'Guessan", teacher_accent: "green", enrolled: 9, capacity: 12, places_left: 3, kind: "regular", start_date: nil, end_date: nil),
+        .init(id: 2, tag: "PRÉPA BEPC", tag_accent: "green", price: 1500, title: "Maths intensif", detail: "3ᵉ · 6 semaines · Mer & Sam", teacher_initials: "ID", teacher_name: "Ibrahim Diallo", teacher_accent: "orange", enrolled: 6, capacity: 10, places_left: 4, kind: "regular", start_date: nil, end_date: nil),
+        .init(id: 3, tag: "VACANCES", tag_accent: "green", price: 1500, title: "Stage de Français", detail: "Collège · 2 semaines · Lun → Ven", teacher_initials: nil, teacher_name: nil, teacher_accent: "green", enrolled: nil, capacity: nil, places_left: nil, kind: "stage", start_date: "2026-08-03", end_date: "2026-08-14"),
     ]
     static let progress = ProgressDTO(
         student: "Kouadio, 3ᵉ", average: "13,2", trend: "+1,4",

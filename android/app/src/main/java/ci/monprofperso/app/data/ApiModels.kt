@@ -165,6 +165,9 @@ data class GroupDto(
     val enrolled: Int?,
     val capacity: Int?,
     @SerializedName("places_left") val placesLeft: Int?,
+    val kind: String = "regular",
+    @SerializedName("start_date") val startDate: String? = null,
+    @SerializedName("end_date") val endDate: String? = null,
 )
 
 data class PlanDto(val name: String, val detail: String, val price: Int, val popular: Boolean, val suffix: String?)

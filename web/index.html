@@ -19,6 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/styles.css?v=20260628o" />
+  <link rel="stylesheet" href="css/devenir-prof.css?v=20260628m" />
 </head>
 <body>
 
@@ -53,6 +54,8 @@
       <nav class="nav" id="nav">
         <a href="#features">Fonctionnalités</a>
         <a href="#how">Comment ça marche</a>
+        <a href="#besoin">Demander un devis</a>
+        <a href="#tarifs">Tarifs</a>
         <a href="#audience">Pour qui</a>
         <a href="#apercu">Aperçu</a>
         <a href="devenir-prof.html">Devenir professeur</a>
@@ -158,25 +161,118 @@
     <div class="container">
       <div class="section-head reveal">
         <span class="kicker">Comment ça marche</span>
-        <h2>En 3 étapes simples</h2>
+        <h2>Deux façons de trouver votre prof</h2>
       </div>
       <div class="steps">
         <div class="step reveal">
           <span class="step-num">1</span>
-          <h3>Trouvez un prof</h3>
-          <p>Recherchez par matière, niveau et format. Comparez les profils et les avis.</p>
+          <h3>Cherchez vous-même</h3>
+          <p>Dans l'appli, recherchez par matière, niveau et format. Comparez les profils et les avis.</p>
         </div>
         <div class="step reveal">
           <span class="step-num">2</span>
-          <h3>Réservez &amp; payez</h3>
-          <p>Choisissez un créneau et réglez en Mobile Money. Le prof confirme la demande.</p>
+          <h3>Ou décrivez votre besoin</h3>
+          <p>Remplissez le formulaire ci-dessous, sans compte à créer. Notre équipe vous propose un tarif adapté sous 24h.</p>
         </div>
         <div class="step reveal">
           <span class="step-num">3</span>
           <h3>Apprenez &amp; progressez</h3>
-          <p>Suivez les cours, échangez et visualisez les progrès au fil du trimestre.</p>
+          <p>Le prof confirme, vous réglez en Mobile Money, et suivez les progrès au fil du trimestre.</p>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- ============================ CONFIANCE ============================ -->
+  <section class="section" id="confiance">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="kicker">Confiance</span>
+        <h2>Des professeurs passés au crible</h2>
+      </div>
+      <div class="cards cards-3">
+        <article class="card reveal">
+          <div class="card-icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-verified"/></svg></div>
+          <h3>Candidature vérifiée</h3>
+          <p>Pièce d'identité, diplôme et photo contrôlés par notre équipe avant toute mise en ligne du profil.</p>
+        </article>
+        <article class="card reveal">
+          <div class="card-icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-star"/></svg></div>
+          <h3 id="trustRatingTitle">Notés par les familles</h3>
+          <p id="trustRatingText">Chaque cours donne lieu à un avis, visible sur le profil du professeur.</p>
+        </article>
+        <article class="card reveal">
+          <div class="card-icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-trending"/></svg></div>
+          <h3>Suivi dans la durée</h3>
+          <p>Moyennes, objectifs et tendance par matière, pour garder le cap tout au long du trimestre.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ BESOIN ============================ -->
+  <section class="section section-soft" id="besoin">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="kicker">Devis personnalisé</span>
+        <h2>Décrivez votre besoin, recevez un devis</h2>
+        <p>Lieu, classe, matière : notre équipe vous propose un professeur et un tarif adapté, sans engagement.</p>
+      </div>
+      <div class="devenir-card reveal" id="besoinCard" style="max-width:640px;margin:0 auto;">
+        <form id="besoinForm" novalidate>
+          <div class="field-row">
+            <div class="field"><label for="besoinName">Nom complet *</label><input id="besoinName" required placeholder="Aya Koné" autocomplete="name" /></div>
+            <div class="field"><label for="besoinPhone">Téléphone *</label><input id="besoinPhone" type="tel" required placeholder="+2250700000000" autocomplete="tel" /></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label for="besoinSubject">Matière *</label><select id="besoinSubject" required></select></div>
+            <div class="field"><label for="besoinLevel">Classe / niveau *</label><select id="besoinLevel" required></select></div>
+          </div>
+          <fieldset class="field">
+            <legend>Format *</legend>
+            <div class="field-inline-checks">
+              <label class="check-row"><input type="radio" name="besoinFormat" value="home" checked /> À domicile</label>
+              <label class="check-row"><input type="radio" name="besoinFormat" value="online" /> En ligne</label>
+            </div>
+          </fieldset>
+          <div class="field" id="besoinLocationWrap"><label for="besoinLocation">Quartier / commune</label><input id="besoinLocation" type="text" placeholder="Ex. Cocody, Marcory…" /></div>
+          <div class="field"><label for="besoinDescription">Précisions (optionnel)</label><textarea id="besoinDescription" rows="3" placeholder="Fréquence souhaitée, objectifs, disponibilités…"></textarea></div>
+          <label class="check-row"><input type="checkbox" id="besoinConsent" required /> J'accepte les <a href="#" data-legal="cgu">conditions d'utilisation</a> et la <a href="#" data-legal="confidentialite">politique de confidentialité</a>.</label>
+          <p id="besoinErr" class="form-err" hidden></p>
+          <div class="form-actions"><button type="submit" class="btn btn-primary" id="besoinSubmitBtn">Recevoir un devis</button></div>
+        </form>
+      </div>
+      <div class="success-box" id="besoinSuccess" hidden style="max-width:640px;margin:0 auto;">
+        <h2>Demande envoyée</h2>
+        <p id="besoinSuccessText">Merci ! Notre équipe vous contacte sous 24h avec un tarif personnalisé.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ TARIFS ============================ -->
+  <section class="section" id="tarifs">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="kicker">Tarifs</span>
+        <h2>Deux façons de payer, un prix clair</h2>
+      </div>
+      <div class="cards cards-3">
+        <article class="card reveal">
+          <div class="card-icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-payments"/></svg></div>
+          <h3>Réservation directe</h3>
+          <p>Le tarif horaire est affiché sur chaque profil de professeur. Vous réservez et payez ce montant, sans surprise.</p>
+        </article>
+        <article class="card reveal">
+          <div class="card-icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-star"/></svg></div>
+          <h3>Devis personnalisé</h3>
+          <p>Via le <a href="#besoin">formulaire de besoin</a>, notre équipe propose un tarif adapté à la classe et à la localisation, sous 24h.</p>
+        </article>
+      </div>
+      <div class="section-head reveal" style="margin-top:56px">
+        <h2 style="font-size:24px">Formules d'abonnement</h2>
+        <p>Pour un suivi régulier, plusieurs rythmes au choix.</p>
+      </div>
+      <div class="cards cards-3" id="pricingPlans"></div>
     </div>
   </section>
 
@@ -260,6 +356,8 @@
         <h4>Navigation</h4>
         <a href="#features">Fonctionnalités</a>
         <a href="#how">Comment ça marche</a>
+        <a href="#besoin">Demander un devis</a>
+        <a href="#tarifs">Tarifs</a>
         <a href="#audience">Pour qui</a>
         <a href="#download">Télécharger</a>
         <a href="devenir-prof.html">Devenir professeur</a>
@@ -294,5 +392,6 @@
   </footer>
 
   <script src="js/main.js"></script>
+  <script src="js/besoin.js?v=20260721a"></script>
 </body>
 </html>

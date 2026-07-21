@@ -324,7 +324,7 @@ api.post("/bookings", wrap(async (req, res) => {
   res.status(201).json({ reference: "AKW-" + (2000 + r.rows[0].id), course: r.rows[0] });
 }));
 
-registerNeedsRoutes(api);
+registerNeedsRoutes(api, { consentVersion: CONSENT_VERSION });
 
 // ----------------------------------------------------------------- Notifications
 api.get("/notifications", wrap(async (_req, res) => {
@@ -423,8 +423,11 @@ api.get("/payments/:id/status", wrap(async (req, res) => {
 }));
 
 // ----------------------------------------------------------------- Cours groupe
-api.get("/groups", wrap(async (_req, res) => {
-  const r = await pool.query("SELECT * FROM group_courses ORDER BY id");
+api.get("/groups", wrap(async (req, res) => {
+  const kind = typeof req.query.kind === "string" ? req.query.kind : undefined;
+  const r = kind
+    ? await pool.query("SELECT * FROM group_courses WHERE kind = $1 ORDER BY id", [kind])
+    : await pool.query("SELECT * FROM group_courses ORDER BY id");
   res.json(r.rows);
 }));
 
@@ -1052,11 +1055,15 @@ admin.post("/groups", wrap(async (req, res) => {
   const enrolled = optionalNumber(b, "enrolled", { min: 0 });
   const capacity = optionalNumber(b, "capacity", { min: 0 });
   const placesLeft = optionalNumber(b, "placesLeft", { min: 0 });
+  const kind = optionalEnum(b, "kind", ["regular", "stage"]) ?? "regular";
+  const startDate = optionalString(b, "startDate", { max: 20 });
+  const endDate = optionalString(b, "endDate", { max: 20 });
   const r = await pool.query(
-    `INSERT INTO group_courses (tag,tag_accent,price,title,detail,teacher_initials,teacher_name,teacher_accent,enrolled,capacity,places_left)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+    `INSERT INTO group_courses (tag,tag_accent,price,title,detail,teacher_initials,teacher_name,teacher_accent,enrolled,capacity,places_left,kind,start_date,end_date)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::date,$14::date) RETURNING *`,
     [tag, tagAccent, price, title, detail, teacherInitials ?? null, teacherName ?? null,
-     teacherAccent, enrolled ?? null, capacity ?? null, placesLeft ?? null]
+     teacherAccent, enrolled ?? null, capacity ?? null, placesLeft ?? null,
+     kind, startDate ?? null, endDate ?? null]
   );
   res.status(201).json(r.rows[0]);
 }));
@@ -1074,17 +1081,22 @@ admin.put("/groups/:id", wrap(async (req, res) => {
   const enrolled = optionalNumber(b, "enrolled", { min: 0 });
   const capacity = optionalNumber(b, "capacity", { min: 0 });
   const placesLeft = optionalNumber(b, "placesLeft", { min: 0 });
+  const kind = optionalEnum(b, "kind", ["regular", "stage"]);
+  const startDate = optionalString(b, "startDate", { max: 20 });
+  const endDate = optionalString(b, "endDate", { max: 20 });
   const r = await pool.query(
     `UPDATE group_courses SET
         tag = COALESCE($2,tag), tag_accent = COALESCE($3,tag_accent), price = COALESCE($4,price),
         title = COALESCE($5,title), detail = COALESCE($6,detail),
         teacher_initials = COALESCE($7,teacher_initials), teacher_name = COALESCE($8,teacher_name),
         teacher_accent = COALESCE($9,teacher_accent), enrolled = COALESCE($10,enrolled),
-        capacity = COALESCE($11,capacity), places_left = COALESCE($12,places_left)
+        capacity = COALESCE($11,capacity), places_left = COALESCE($12,places_left),
+        kind = COALESCE($13,kind), start_date = COALESCE($14::date,start_date), end_date = COALESCE($15::date,end_date)
      WHERE id = $1 RETURNING *`,
     [req.params.id, tag ?? null, tagAccent ?? null, price ?? null, title ?? null, detail ?? null,
      teacherInitials ?? null, teacherName ?? null, teacherAccent ?? null,
-     enrolled ?? null, capacity ?? null, placesLeft ?? null]
+     enrolled ?? null, capacity ?? null, placesLeft ?? null,
+     kind ?? null, startDate ?? null, endDate ?? null]
   );
   if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
   res.json(r.rows[0]);

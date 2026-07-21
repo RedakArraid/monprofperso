@@ -19,9 +19,13 @@ ios/        App iOS    , Swift + SwiftUI (~3080 lignes, 37 vues)
 backend/    API REST commune, Node/TS + Express + PostgreSQL (docker compose)
 web/        Page vitrine (HTML/CSS/JS statique, sans build), présentation,
             téléchargement des apps, réseaux sociaux (chargés depuis `/api/settings`).
+            Section « Décrivez votre besoin » (`#besoin`, `js/besoin.js`) : formulaire
+            public de demande de devis (façon Completude), sans compte, → `POST
+            /api/needs/public`. Sections « Confiance » (note moyenne réelle calculée
+            depuis `/api/teachers`) et « Tarifs » (forfaits depuis `/api/subscription/plans`).
             `web/admin/` = console d'administration web (connexion par numéro admin ;
-            gère profs, cours de groupe, catalogue, ressources, CGU, réseaux sociaux),
-            servie sur `/admin/`. Servir `web/` tel quel.
+            gère profs, cours de groupe (dont stages vacances), catalogue, ressources,
+            besoins parents, CGU, réseaux sociaux), servie sur `/admin/`. Servir `web/` tel quel.
 _maquette/  Maquette HTML d'origine (référence, gitignorée)
 docs/       Présentation .docx + assets, ROADMAP.md, COMPLIANCE.md (légal CI :
             Loi 2013-450/ARTCI, CEPICI, voir docs/legal/), HOSTING.md (hébergement
@@ -75,7 +79,12 @@ docs/       Présentation .docx + assets, ROADMAP.md, COMPLIANCE.md (légal CI :
   `1700000012000_teacher-applications` ajoute **`teacher_applications`** (candidatures
   profs : profil, CNI/diplôme/photo sur MinIO, statut `pending|approved|rejected`,
   liens `teacher_id`/`user_id` ; approve crée `teachers` + compte `teacher`), **24 tables
-  au total**. Suivi dans la table `pgmigrations`.
+  au total** (migrations suivantes, 13000→20000 : stockage ressources, consentement OTP,
+  paiements Paystack, `teachers.needs_confirmed`). Enfin `1700000021000_needs-source`
+  ajoute `course_needs.source` (`app|web`, distingue une demande créée dans l'app d'un
+  lead web) et `1700000022000_group-course-stages` ajoute `group_courses.kind`
+  (`regular|stage`) + `start_date`/`end_date`, pour les **stages intensifs de vacances**.
+  Suivi dans la table `pgmigrations`.
   Créer une migration : `npm run migrate create <nom>` (puis éditer le `.sql`).
 - **Ports (custom, pour éviter les collisions)** : API **8099**, Postgres **5544**,
   Adminer **8098**, MinIO API hôte **9002** (conteneur 9000) / console **9003**, page vitrine web **8095**
@@ -89,11 +98,15 @@ docs/       Présentation .docx + assets, ROADMAP.md, COMPLIANCE.md (légal CI :
 - Endpoints publics/user : `/health`, `/api/auth/{login,signup,verify-otp}`, `/api/me`,
   `/api/subjects`, `/api/levels`, `/api/programs` (programmes scolaires standard/français),
   `/api/children`, `/api/needs` (+ `POST /api/needs/:id/accept-price`),
+  `POST /api/needs/public` (**demande de devis publique, sans compte** : formulaire
+  du site vitrine → crée/retrouve un compte `parent` par téléphone puis un besoin
+  `source='web'`, façon Completude),
   `/api/teachers[?format=&level=]`, `/api/teachers/:id`,
   `/api/courses[?status=upcoming|done]`, `/api/bookings` (legacy réservation directe),
   `/api/notifications`, `/api/notifications/unread` (compteur non lu),
   `/api/notifications/read` (POST, « tout lire »),
-  `/api/wallet`, `/api/groups[/:id]`, `/api/subscription/{plans,mine}`,
+  `/api/wallet`, `/api/groups[/:id][?kind=regular|stage]` (cours de groupe, `kind=stage`
+  = stage intensif de vacances avec `start_date`/`end_date`), `/api/subscription/{plans,mine}`,
   `/api/progress`, `/api/teacher/{dashboard,requests,earnings,opportunities}`,
   `/api/teacher/opportunities/:id/accept` (gains nets affichés au prof),
   `/api/teacher/requests/:id/{accept,refuse}` (legacy),
@@ -108,7 +121,8 @@ docs/       Présentation .docx + assets, ROADMAP.md, COMPLIANCE.md (légal CI :
   `POST/DELETE /api/admin/programs[/:slug]` (programmes scolaires),
   `POST/DELETE /api/admin/resources[/:id]`, `PUT /api/admin/legal/:slug` (téléverse
   le PDF d'un document légal), `POST/PUT/DELETE /api/admin/teachers[/:id]`,
-  `POST/PUT/DELETE /api/admin/groups[/:id]` (cours de groupe),
+  `POST/PUT/DELETE /api/admin/groups[/:id]` (cours de groupe, dont `kind`
+  régulier/stage + dates de début/fin pour un stage de vacances),
   `GET /api/admin/teacher-applications[/:id]`, `GET .../:id/files/:kind` (`id_card|diploma|photo`),
   `POST .../:id/{approve,reject}` (candidatures profs), et
   `PUT /api/admin/settings` (réseaux sociaux + contact + **commission_pct** 15 % par défaut).
@@ -189,8 +203,11 @@ Les écrans live : Accueil, Résultats de recherche, Profil prof, Mes cours, Sui
 Ressources & supports (lecture seule, `Resources`/`.resources`, repli sur exemples hors-ligne),
 l'**espace professeur** (tableau de bord, demandes avec boutons « Accepter »/« Refuser »
 câblés sur `/teacher/requests/:id/{accept,refuse}`, revenus), branché sur `/teacher/*`
-avec repli mock, et les **Notifications** (`/notifications`, groupées aujourd'hui/semaine ;
-le parent est notifié quand sa réservation est acceptée/refusée).
+avec repli mock, les **Notifications** (`/notifications`, groupées aujourd'hui/semaine ;
+le parent est notifié quand sa réservation est acceptée/refusée), et **Cours en groupe**
+(`GroupCoursesScreen`, `GET /api/groups`, filtre « Vacances » sur `kind=stage` ; le détail
+`GroupDetailScreen` reste, lui, figé sur la maquette — pas d'argument de navigation depuis
+la liste pour l'instant, comme `TeacherProfileScreen`).
 Les autres écrans suivent le même patron et restent fidèles à la maquette hors-ligne.
 **États réseau** : composants partagés `OfflineBanner` (bandeau « hors-ligne » + Réessayer,
 sans bloquer le repli mock) et `LoadingRow` (Android `ui/components/NetworkStates.kt`,
