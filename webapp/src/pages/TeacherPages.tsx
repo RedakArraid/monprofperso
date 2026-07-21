@@ -622,3 +622,4 @@ export function TeacherProfileEditPage() {
     </AppShell>
   );
 }
+
