@@ -105,6 +105,7 @@ export function AppShell({
   hideNav,
   welcome,
   stickyFooter,
+  fullBleed,
 }: {
   title: string;
   back?: string | true;
@@ -114,6 +115,8 @@ export function AppShell({
   /** Sous-titre type « Bienvenue Prénom NOM » — Accueil uniquement par défaut (Completude) */
   welcome?: string | false;
   stickyFooter?: ReactNode;
+  /** Contenu pleine largeur (ex. offres 3 colonnes Completude) */
+  fullBleed?: boolean;
 }) {
   const { isTeacher, user } = useAuth();
   const navigate = useNavigate();
@@ -133,7 +136,7 @@ export function AppShell({
           : null;
 
   return (
-    <div className={cn("min-h-dvh bg-background", stickyFooter && "pb-16")}>
+    <div className={cn("min-h-dvh bg-background", stickyFooter && "pb-16", fullBleed && "flex flex-col")}>
       <header className="sticky top-0 z-40 border-b border-[#e8e8e8] bg-white">
         <div className="mx-auto flex h-14 max-w-[1280px] items-center gap-3 px-3 lg:h-[58px] lg:px-5">
           {!hideNav ? (
@@ -226,7 +229,17 @@ export function AppShell({
         </div>
       ) : null}
 
-      <main className={cn("mx-auto w-full max-w-[1280px] px-4 py-5 lg:px-5 lg:py-6", !hideNav && !stickyFooter && "pb-8")}>
+      <main
+        className={cn(
+          "w-full",
+          stickyFooter || fullBleed
+            ? "pb-0"
+            : !hideNav
+              ? "mx-auto max-w-[1280px] px-4 py-5 pb-8 lg:px-5 lg:py-6"
+              : "mx-auto max-w-[1280px] px-4 py-5 lg:px-5 lg:py-6",
+          fullBleed && "flex-1",
+        )}
+      >
         {children}
       </main>
 

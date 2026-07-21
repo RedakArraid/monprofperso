@@ -8,7 +8,6 @@ import {
   PageStack,
   MenuRow,
   SectionHeading,
-  PageTabs,
   CheckRow,
 } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -19,7 +18,8 @@ import { fallback } from "@/lib/fallback";
 import { fcfa } from "@/lib/utils";
 import { useLive } from "@/hooks/useLive";
 import { useMemo, useState } from "react";
-import { CoteIvoireOffersMap, formatLieuCi } from "@/components/OffersMap";
+import { Briefcase, Clock, GraduationCap, MapPin, MessageCircle, UserRound } from "lucide-react";
+import { CoteIvoireOffersMap, distanceKmFromHome } from "@/components/OffersMap";
 
 type Dash = typeof fallback.teacherDashboard & {
   profileCompletion?: { percent: number; complete: boolean };
@@ -41,79 +41,131 @@ type Req = {
   price?: number;
   netHourly?: number | null;
   isOpportunity?: boolean;
+  availabilityWeek?: boolean;
+  availabilityWeekend?: boolean;
+  availabilityHolidays?: boolean;
 };
 
-function DetailLine({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3 py-1">
-      <span className="text-[12.5px] text-[#888]">{label}</span>
-      <span className="text-right text-[12.5px] font-semibold text-[#222]">{value}</span>
-    </div>
-  );
+function parseStudent(student?: string) {
+  const s = (student || "").trim();
+  if (!s) return { name: "—", level: "—", gender: "" };
+  const parts = s.split(/·|-/).map((x) => x.trim()).filter(Boolean);
+  if (parts.length >= 2) return { name: parts[0], level: parts[1], gender: parts[2] || "" };
+  if (/ème|ere|ère|terminale|cm|cp|6e|5e|4e|3e|2nde|1ère/i.test(s)) {
+    return { name: "Élève", level: s, gender: "" };
+  }
+  return { name: s, level: "—", gender: "" };
 }
 
-/** Carte offre style Completude (parité apps natives) */
-function OfferCard({
-  r,
-  onAccept,
-  onRefuse,
-}: {
-  r: Req;
-  onAccept: () => void;
-  onRefuse: () => void;
-}) {
-  const title = (r.name || r.slot || r.format || "Offre").toUpperCase();
-  const priceLabel =
-    r.isOpportunity && r.netHourly != null && r.price != null
-      ? `${fcfa(r.netHourly)} F/h · ${fcfa(r.price)} F/séance nets`
+function formatStart(startDate?: string | null) {
+  if (!startDate) return null;
+  const d = String(startDate).slice(0, 10);
+  const [y, m, day] = d.split("-");
+  if (!y || !m || !day) return null;
+  return `${day}/${m}/${y}`;
+}
+
+/** Carte offre — disposition Completude desktop */
+function OfferCard({ r, onConsult }: { r: Req; onConsult: () => void }) {
+  const place = (r.name || r.slot || "Abidjan").replace(/,?\s*Côte d'Ivoire/i, "").trim();
+  const title = place.toUpperCase() || "ABIDJAN";
+  const dist = distanceKmFromHome(r.slot || r.name || place);
+  const { name: pupil, level, gender } = parseStudent(r.student);
+  const freq =
+    [r.frequency, r.duration].filter(Boolean).join(" - ") ||
+    (r.format === "online" || /ligne/i.test(r.format || "") ? "En ligne" : "À domicile");
+  const pay =
+    r.isOpportunity && r.netHourly != null
+      ? `${fcfa(r.netHourly)} F/h net${r.price != null ? ` · ${fcfa(r.price)} F/séance` : ""}`
       : r.price != null
         ? `${fcfa(r.price)} F`
         : "—";
-  const start =
-    r.startDate != null
-      ? String(r.startDate).slice(0, 10).split("-").reverse().join("/")
-      : null;
-  const lieu = formatLieuCi(r.slot || r.name, r.format);
+  const start = formatStart(r.startDate);
+  const ref = `Réf. ${2000 + Number(r.needId || r.courseId || 0)}`;
+  const badges = [
+    r.availabilityWeek !== false ? "SE" : null,
+    r.availabilityWeekend ? "WE" : null,
+    r.availabilityHolidays ? "VS" : null,
+  ].filter(Boolean) as string[];
 
   return (
-    <article className="rounded-[20px] border border-[#e5e5e5] bg-white p-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] sm:p-5">
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="text-[14.5px] font-bold uppercase tracking-wide text-[#222]">{title}</div>
-          <div className="mt-0.5 text-[11.5px] text-primary">Côte d&apos;Ivoire</div>
-          <div className="text-[11.5px] text-[#aaa]">{r.ago || "nouveau"}</div>
+    <article className="rounded-xl border border-[#e8e8e8] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="text-[15px] font-bold uppercase tracking-wide text-[#222]">{title}</h3>
+        {dist != null ? (
+          <div className="flex shrink-0 items-center gap-1 text-[12px] text-[#666]">
+            <span>{dist.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km</span>
+            <MapPin className="h-3.5 w-3.5 text-primary" />
+          </div>
+        ) : (
+          <div className="flex shrink-0 items-center gap-1 text-[12px] text-[#666]">
+            <span>CI</span>
+            <MapPin className="h-3.5 w-3.5 text-primary" />
+          </div>
+        )}
+      </div>
+
+      <div className="mt-3 space-y-1.5 text-[13px] text-[#333]">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <span className="inline-flex items-center gap-1.5">
+            <Briefcase className="h-3.5 w-3.5 text-[#888]" />
+            {r.subject || "—"}
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <GraduationCap className="h-3.5 w-3.5 text-[#888]" />
+            {level !== "—" ? level : pupil}
+          </span>
+          {(gender || (pupil !== "Élève" && level !== "—")) ? (
+            <span className="inline-flex items-center gap-1.5">
+              <UserRound className="h-3.5 w-3.5 text-[#888]" />
+              {gender || pupil}
+            </span>
+          ) : null}
         </div>
-        <div className="max-w-[48%] text-right text-[13px] font-extrabold leading-snug text-primary">{priceLabel}</div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <span className="inline-flex items-center gap-1.5">
+            <Clock className="h-3.5 w-3.5 text-[#888]" />
+            {freq}
+          </span>
+          <span className="font-bold text-[#222]">{pay}</span>
+        </div>
       </div>
 
-      <div className="mt-3.5 space-y-0.5">
-        <DetailLine label="Élève" value={r.student || "—"} />
-        <DetailLine label="Matière" value={r.subject || "—"} />
-        {r.frequency ? <DetailLine label="Fréquence" value={r.frequency} /> : null}
-        {r.duration ? <DetailLine label="Durée" value={r.duration} /> : null}
-        <DetailLine label="Lieu / format" value={lieu} />
-        <DetailLine label="Pays" value="Côte d'Ivoire" />
-        {start ? <DetailLine label="À partir du" value={start} /> : null}
-      </div>
-
-      {r.isOpportunity ? (
-        <p className="mt-2 text-[11px] text-[#888]">Tarif fixe — gains nets avant impôts</p>
+      {badges.length ? (
+        <div className="mt-2.5 flex gap-1.5">
+          {badges.map((b) => (
+            <span
+              key={b}
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white"
+              title={b === "SE" ? "Semaine" : b === "WE" ? "Week-end" : "Vacances scolaires"}
+            >
+              {b}
+            </span>
+          ))}
+        </div>
       ) : null}
 
-      <div className="mt-3.5 flex gap-2.5">
-        {!r.isOpportunity ? (
+      {start ? <p className="mt-2 text-[12px] text-[#666]">À partir du {start}</p> : null}
+
+      <div className="mt-3 flex items-end justify-between gap-2 border-t border-[#f0f0f0] pt-3">
+        <div>
           <button
             type="button"
-            onClick={onRefuse}
-            className="flex-1 rounded-xl border border-[#e5e5e5] bg-white py-3 text-center text-[13.5px] font-bold text-[#888] transition hover:bg-[#fafafa]"
+            className="mb-1 inline-flex items-center gap-1 rounded bg-[#4a90d9] px-2 py-0.5 text-[11px] font-semibold text-white opacity-80"
+            disabled
+            title="Bientôt disponible"
           >
-            Refuser
+            <MessageCircle className="h-3 w-3" />
+            Chat
           </button>
-        ) : null}
+          <div className="text-[11px] text-[#999]">
+            {ref} — {r.ago || "nouveau"}
+          </div>
+        </div>
         <button
           type="button"
-          onClick={onAccept}
-          className="flex-1 rounded-xl bg-primary py-3 text-center text-[13.5px] font-bold text-white transition hover:bg-welcome"
+          onClick={onConsult}
+          className="rounded-md bg-primary px-4 py-2 text-[12px] font-bold uppercase tracking-wide text-white hover:bg-welcome"
         >
           Consulter
         </button>
@@ -216,38 +268,32 @@ export function TeacherDashboardPage() {
 
 export function TeacherRequestsPage() {
   const { data, offline, reload } = useLive<Req[]>("/api/teacher/requests", fallback.teacherRequests as Req[]);
-  const [tab, setTab] = useState<"search" | "results" | "props">("results");
+  const [sideTab, setSideTab] = useState<"search" | "props">("search");
+  const [showResults, setShowResults] = useState(true);
   const [msg, setMsg] = useState("");
-  const [location, setLocation] = useState("");
+  const [sort, setSort] = useState<"recent" | "price">("recent");
+  const [location, setLocation] = useState("Cocody, Abidjan");
   const [whenOpts, setWhenOpts] = useState({ week: true, weekend: true, vacations: true });
   const [prefs, setPrefs] = useState({ vehicle: false, home: true, online: true });
   const [channels, setChannels] = useState({ sms: true, notif: true });
   const [filters, setFilters] = useState({ option: true, thinking: true, refused: false });
 
   const filtered = useMemo(() => {
-    let list = data;
-    if (location.trim()) {
-      const q = location.trim().toLowerCase();
-      list = list.filter(
-        (r) =>
-          (r.name || "").toLowerCase().includes(q) ||
-          (r.student || "").toLowerCase().includes(q) ||
-          (r.subject || "").toLowerCase().includes(q) ||
-          (r.format || "").toLowerCase().includes(q) ||
-          (r.slot || "").toLowerCase().includes(q),
-      );
+    let list = [...data];
+    if (!prefs.home) list = list.filter((r) => /ligne|online/i.test(r.format || ""));
+    if (!prefs.online) list = list.filter((r) => !/ligne|online/i.test(r.format || ""));
+    if (sort === "price") {
+      list.sort((a, b) => (b.netHourly || b.price || 0) - (a.netHourly || a.price || 0));
     }
-    if (!prefs.home) list = list.filter((r) => (r.format || "").toLowerCase().includes("ligne"));
-    if (!prefs.online) list = list.filter((r) => !(r.format || "").toLowerCase().includes("ligne"));
     return list;
-  }, [data, location, prefs.home, prefs.online]);
+  }, [data, prefs.home, prefs.online, sort]);
 
   async function act(r: Req, accept: boolean) {
     const id = Number(r.needId || r.courseId);
     if (!id) return;
     try {
       if (!accept && r.isOpportunity) {
-        setMsg("Les offres publiées se retirent en les laissant à d'autres professeurs.");
+        setMsg("Les offres publiées restent disponibles pour d'autres professeurs.");
         return;
       }
       await api(`/api/teacher/requests/${id}/${accept ? "accept" : "refuse"}`, { method: "POST", body: {} });
@@ -258,183 +304,197 @@ export function TeacherRequestsPage() {
     }
   }
 
-  const canSearch = location.trim().length > 0;
+  const mapOffers = filtered.map((r) => {
+    const id = String(r.needId || r.courseId);
+    return {
+      id,
+      label: r.name || r.slot || "Offre",
+      place: r.slot || r.name || r.format,
+      subject: r.subject,
+      priceLabel:
+        r.isOpportunity && r.netHourly != null
+          ? `${fcfa(r.netHourly)} F/h net`
+          : r.price != null
+            ? `${fcfa(r.price)} F`
+            : undefined,
+    };
+  });
 
   return (
-    <AppShell
-      title="Mes offres de cours"
-      active="prof-offres"
-      stickyFooter={
-        tab === "search" ? (
-          <button
-            type="button"
-            disabled={!canSearch}
-            className="w-full py-4 text-center text-[15px] font-bold uppercase tracking-wide text-white disabled:opacity-50"
-            onClick={() => setTab("results")}
-          >
-            Voir les offres
-          </button>
-        ) : undefined
-      }
-    >
-      {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
-      {msg ? <p className="mb-3 text-sm font-semibold text-primary">{msg}</p> : null}
-
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <h2 className="text-lg font-bold text-[#222] sm:text-xl">Mes offres de cours</h2>
-        <span className="rounded-full bg-accent px-2.5 py-0.5 text-xs font-bold text-white">{filtered.length}</span>
-      </div>
-
-      <PageTabs
-        tabs={[
-          { id: "search", label: "Nouvelle recherche" },
-          { id: "results", label: "Offres" },
-          { id: "props", label: "Propositions et options" },
-        ]}
-        value={tab}
-        onChange={(id) => setTab(id as "search" | "results" | "props")}
-      />
-
-      {tab === "search" ? (
-        <PageStack>
-          <ContentCard>
-            <SectionHeading>Mon adresse</SectionHeading>
-            <Label className="sr-only">Où ?</Label>
-            <Input
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="Où ?"
-              className="rounded-none border-0 border-b border-[#ccc] bg-transparent px-0 shadow-none focus-visible:ring-0"
-            />
-            {!location.trim() ? <p className="mt-1 text-sm text-destructive">Obligatoire</p> : null}
-          </ContentCard>
-
-          <ContentCard>
-            <SectionHeading>Quand ?</SectionHeading>
-            <CheckRow
-              label="Pendant la semaine en période scolaire"
-              checked={whenOpts.week}
-              onChange={(v) => setWhenOpts((s) => ({ ...s, week: v }))}
-            />
-            <CheckRow
-              label="Pendant les week-ends en période scolaire"
-              checked={whenOpts.weekend}
-              onChange={(v) => setWhenOpts((s) => ({ ...s, weekend: v }))}
-            />
-            <CheckRow
-              label="Seulement pendant les vacances scolaires"
-              checked={whenOpts.vacations}
-              onChange={(v) => setWhenOpts((s) => ({ ...s, vacations: v }))}
-            />
-          </ContentCard>
-
-          <ContentCard>
-            <SectionHeading>Mes préférences</SectionHeading>
-            <CheckRow
-              label="J'ai un véhicule"
-              checked={prefs.vehicle}
-              onChange={(v) => setPrefs((s) => ({ ...s, vehicle: v }))}
-            />
-            <CheckRow
-              label="J'accepte les cours à domicile"
-              checked={prefs.home}
-              onChange={(v) => setPrefs((s) => ({ ...s, home: v }))}
-            />
-            <CheckRow
-              label="J'accepte les cours en ligne"
-              checked={prefs.online}
-              onChange={(v) => setPrefs((s) => ({ ...s, online: v }))}
-            />
-          </ContentCard>
-        </PageStack>
+    <AppShell title="Mes offres de cours" active="prof-offres" fullBleed>
+      {offline ? (
+        <div className="px-4 pt-3">
+          <OfflineBanner onRetry={() => void reload()} />
+        </div>
       ) : null}
+      {msg ? <p className="px-4 pt-2 text-sm font-semibold text-primary">{msg}</p> : null}
 
-      {tab === "props" ? (
-        <PageStack>
-          <ContentCard>
-            <SectionHeading>Mon adresse</SectionHeading>
-            <Input
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="Où ?"
-              className="rounded-none border-0 border-b border-[#ccc] bg-transparent px-0 shadow-none focus-visible:ring-0"
-            />
-          </ContentCard>
-
-          <ContentCard>
-            <SectionHeading>Propositions reçues</SectionHeading>
-            <CheckRow label="SMS" checked={channels.sms} onChange={(v) => setChannels((s) => ({ ...s, sms: v }))} />
-            <CheckRow
-              label="Notification application"
-              checked={channels.notif}
-              onChange={(v) => setChannels((s) => ({ ...s, notif: v }))}
-            />
-          </ContentCard>
-
-          <ContentCard>
-            <SectionHeading>Mes préférences</SectionHeading>
-            <CheckRow
-              label="Avec option"
-              checked={filters.option}
-              onChange={(v) => setFilters((s) => ({ ...s, option: v }))}
-            />
-            <CheckRow
-              label="En réflexion"
-              checked={filters.thinking}
-              onChange={(v) => setFilters((s) => ({ ...s, thinking: v }))}
-            />
-            <CheckRow
-              label="Refusées"
-              checked={filters.refused}
-              onChange={(v) => setFilters((s) => ({ ...s, refused: v }))}
-            />
-          </ContentCard>
-
-          <Button type="button" className="w-full" onClick={() => setTab("results")}>
-            Voir les offres
-          </Button>
-        </PageStack>
-      ) : null}
-
-      {tab === "results" ? (
-        !filtered.length ? (
-          <Empty>Aucune offre n&apos;a été trouvée</Empty>
-        ) : (
-          <div className="space-y-5">
-            <CoteIvoireOffersMap
-              offers={filtered.map((r) => {
-                const id = String(r.needId || r.courseId);
-                const priceLabel =
-                  r.isOpportunity && r.netHourly != null && r.price != null
-                    ? `${fcfa(r.netHourly)} F/h net`
-                    : r.price != null
-                      ? `${fcfa(r.price)} F`
-                      : undefined;
-                return {
-                  id,
-                  label: r.name || r.slot || "Offre",
-                  place: r.slot || r.name || r.format,
-                  subject: r.subject,
-                  priceLabel,
-                };
-              })}
-            />
-            <div className="mx-auto grid w-full max-w-3xl gap-3.5 sm:gap-4 lg:max-w-none lg:grid-cols-2">
-              {filtered.map((r) => {
-                const id = r.needId || r.courseId;
-                return (
-                  <OfferCard
-                    key={`${r.isOpportunity ? "opp" : "req"}-${id}`}
-                    r={r}
-                    onAccept={() => void act(r, true)}
-                    onRefuse={() => void act(r, false)}
-                  />
-                );
-              })}
-            </div>
+      <div className="flex min-h-[calc(100dvh-58px)] flex-col lg:flex-row">
+        <aside className="flex w-full shrink-0 flex-col border-b border-[#e8e8e8] bg-[#f7f7f7] lg:w-[280px] lg:border-b-0 lg:border-r xl:w-[300px]">
+          <div className="grid grid-cols-2 border-b border-[#ddd] bg-white">
+            <button
+              type="button"
+              onClick={() => setSideTab("search")}
+              className={`px-2 py-3.5 text-center text-[11px] font-bold uppercase leading-tight tracking-wide sm:text-[12px] ${
+                sideTab === "search" ? "bg-welcome text-white" : "bg-white text-[#666]"
+              }`}
+            >
+              Nouvelle recherche
+            </button>
+            <button
+              type="button"
+              onClick={() => setSideTab("props")}
+              className={`px-2 py-3.5 text-center text-[11px] font-bold uppercase leading-tight tracking-wide sm:text-[12px] ${
+                sideTab === "props" ? "bg-welcome text-white" : "bg-white text-[#666]"
+              }`}
+            >
+              Propositions et options
+            </button>
           </div>
-        )
-      ) : null}
+
+          <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-3">
+            {sideTab === "search" ? (
+              <>
+                <div className="rounded-lg bg-white p-3 shadow-sm">
+                  <div className="mb-2 text-[14px] font-semibold text-welcome">Mon adresse</div>
+                  <Input
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    placeholder="Où ?"
+                    className="rounded-none border-0 border-b border-[#ccc] bg-transparent px-0 shadow-none focus-visible:ring-0"
+                  />
+                  <p className="mt-1 text-[11px] text-[#888]">Côte d&apos;Ivoire</p>
+                </div>
+                <div className="rounded-lg bg-white p-3 shadow-sm">
+                  <div className="mb-1 text-[14px] font-semibold text-welcome">Quand ?</div>
+                  <CheckRow
+                    label="Pendant la semaine en période scolaire"
+                    checked={whenOpts.week}
+                    onChange={(v) => setWhenOpts((s) => ({ ...s, week: v }))}
+                  />
+                  <CheckRow
+                    label="Pendant les week-ends en période scolaire"
+                    checked={whenOpts.weekend}
+                    onChange={(v) => setWhenOpts((s) => ({ ...s, weekend: v }))}
+                  />
+                  <CheckRow
+                    label="Seulement pendant les vacances scolaires"
+                    checked={whenOpts.vacations}
+                    onChange={(v) => setWhenOpts((s) => ({ ...s, vacations: v }))}
+                  />
+                </div>
+                <div className="rounded-lg bg-white p-3 shadow-sm">
+                  <div className="mb-1 text-[14px] font-semibold text-welcome">Mes préférences</div>
+                  <CheckRow
+                    label="J'ai un véhicule"
+                    checked={prefs.vehicle}
+                    onChange={(v) => setPrefs((s) => ({ ...s, vehicle: v }))}
+                  />
+                  <CheckRow
+                    label="J'accepte les cours à domicile"
+                    checked={prefs.home}
+                    onChange={(v) => setPrefs((s) => ({ ...s, home: v }))}
+                  />
+                  <CheckRow
+                    label="J'accepte les cours en ligne"
+                    checked={prefs.online}
+                    onChange={(v) => setPrefs((s) => ({ ...s, online: v }))}
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="rounded-lg bg-white p-3 shadow-sm">
+                  <div className="mb-2 text-[14px] font-semibold text-welcome">Mon adresse</div>
+                  <Input
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    className="rounded-none border-0 border-b border-[#ccc] bg-transparent px-0 shadow-none focus-visible:ring-0"
+                  />
+                </div>
+                <div className="rounded-lg bg-white p-3 shadow-sm">
+                  <div className="mb-1 text-[14px] font-semibold text-welcome">Propositions reçues</div>
+                  <CheckRow label="SMS" checked={channels.sms} onChange={(v) => setChannels((s) => ({ ...s, sms: v }))} />
+                  <CheckRow
+                    label="Notification application"
+                    checked={channels.notif}
+                    onChange={(v) => setChannels((s) => ({ ...s, notif: v }))}
+                  />
+                </div>
+                <div className="rounded-lg bg-white p-3 shadow-sm">
+                  <div className="mb-1 text-[14px] font-semibold text-welcome">Mes préférences</div>
+                  <CheckRow
+                    label="Avec option"
+                    checked={filters.option}
+                    onChange={(v) => setFilters((s) => ({ ...s, option: v }))}
+                  />
+                  <CheckRow
+                    label="En réflexion"
+                    checked={filters.thinking}
+                    onChange={(v) => setFilters((s) => ({ ...s, thinking: v }))}
+                  />
+                  <CheckRow
+                    label="Refusées"
+                    checked={filters.refused}
+                    onChange={(v) => setFilters((s) => ({ ...s, refused: v }))}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="sticky bottom-0 border-t border-[#e0e0e0] bg-primary p-0">
+            <button
+              type="button"
+              className="w-full py-3.5 text-center text-[13px] font-bold uppercase tracking-wide text-white"
+              onClick={() => setShowResults(true)}
+            >
+              Voir les offres
+            </button>
+          </div>
+        </aside>
+
+        <section className="flex min-h-[50vh] w-full flex-col bg-[#f2f2f2] lg:h-auto lg:w-[420px] lg:shrink-0 lg:min-h-0 xl:w-[460px]">
+          {!showResults ? (
+            <Empty>Lancez une recherche pour voir les offres</Empty>
+          ) : (
+            <>
+              <div className="flex gap-2 border-b border-[#e8e8e8] bg-white px-3 py-2.5">
+                <button
+                  type="button"
+                  className="flex-1 rounded border border-[#ddd] bg-[#fafafa] py-2 text-[12px] font-semibold text-[#444]"
+                >
+                  Filtrer ({filtered.length} offre{filtered.length > 1 ? "s" : ""})
+                </button>
+                <button
+                  type="button"
+                  className="flex-1 rounded border border-[#ddd] bg-[#fafafa] py-2 text-[12px] font-semibold text-[#444]"
+                  onClick={() => setSort((s) => (s === "recent" ? "price" : "recent"))}
+                >
+                  Trier · {sort === "recent" ? "Récent" : "Tarif"}
+                </button>
+              </div>
+              <div className="flex-1 space-y-3 overflow-y-auto p-3">
+                {!filtered.length ? (
+                  <Empty>Aucune offre n&apos;a été trouvée</Empty>
+                ) : (
+                  filtered.map((r) => (
+                    <OfferCard
+                      key={`${r.isOpportunity ? "opp" : "req"}-${r.needId || r.courseId}`}
+                      r={r}
+                      onConsult={() => void act(r, true)}
+                    />
+                  ))
+                )}
+              </div>
+            </>
+          )}
+        </section>
+
+        <section className="relative h-[280px] w-full shrink-0 border-t border-[#e8e8e8] bg-[#e8e8e8] lg:h-auto lg:min-h-0 lg:flex-1 lg:border-t-0">
+          <CoteIvoireOffersMap offers={mapOffers} className="absolute inset-0 h-full w-full" />
+        </section>
+      </div>
     </AppShell>
   );
 }

@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-/** Coordonnées approximatives des communes / zones CI (Abidjan + hors Abidjan) */
-const PLACE_COORDS: Record<string, [number, number]> = {
+/** Coordonnées approximatives des communes / zones CI */
+export const PLACE_COORDS: Record<string, [number, number]> = {
   cocody: [5.3599, -3.9769],
   "cocody riviera": [5.37, -3.96],
   riviera: [5.37, -3.96],
@@ -12,15 +12,16 @@ const PLACE_COORDS: Record<string, [number, number]> = {
   yopougon: [5.3364, -4.0847],
   treichville: [5.2893, -4.0078],
   bingerville: [5.3556, -3.8853],
+  abobo: [5.4167, -4.0167],
+  koumassi: [5.2889, -3.9553],
   abidjan: [5.36, -4.0083],
   bouaké: [7.6906, -5.0303],
   yamoussoukro: [6.8276, -5.2893],
-  san: [4.7485, -6.6363],
   "san-pedro": [4.7485, -6.6363],
   korhogo: [9.458, -5.6296],
 };
 
-const ABIDJAN: [number, number] = [5.36, -4.0083];
+export const TEACHER_HOME: [number, number] = [5.3599, -3.9769]; // Cocody par défaut
 const CI_BOUNDS = L.latLngBounds([4.2, -8.7], [10.8, -2.4]);
 
 export type MapOffer = {
@@ -31,26 +32,58 @@ export type MapOffer = {
   priceLabel?: string;
 };
 
-function resolveCoords(place?: string | null): [number, number] | null {
+export function resolveCoords(place?: string | null): [number, number] | null {
   if (!place) return null;
   const raw = place.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
   if (/en ligne|online|visio/.test(raw)) return null;
   for (const [key, coords] of Object.entries(PLACE_COORDS)) {
     if (raw.includes(key)) return coords;
   }
-  if (/cote.?d.?ivoire|côte.?d.?ivoire|ci\b/.test(raw)) return ABIDJAN;
-  return ABIDJAN;
+  return TEACHER_HOME;
 }
 
-const pinIcon = L.divIcon({
+/** Distance approx. (km) depuis le domicile prof */
+export function distanceKmFromHome(place?: string | null): number | null {
+  const c = resolveCoords(place);
+  if (!c) return null;
+  const [lat1, lon1] = TEACHER_HOME;
+  const [lat2, lon2] = c;
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 100) / 100;
+}
+
+const offerDot = L.divIcon({
   className: "",
-  html: `<div style="width:18px;height:18px;border-radius:50% 50% 50% 0;background:#0E5A43;transform:rotate(-45deg);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)"></div>`,
-  iconSize: [18, 18],
-  iconAnchor: [9, 18],
-  popupAnchor: [0, -16],
+  html: `<div style="width:16px;height:16px;border-radius:50%;background:#0E5A43;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)"></div>`,
+  iconSize: [16, 16],
+  iconAnchor: [8, 8],
+  popupAnchor: [0, -10],
 });
 
-export function CoteIvoireOffersMap({ offers }: { offers: MapOffer[] }) {
+const homeIcon = L.divIcon({
+  className: "",
+  html: `<div style="width:28px;height:28px;border-radius:8px;background:#2b6cb0;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.35);border:2px solid #fff">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-9.5z"/></svg>
+  </div>`,
+  iconSize: [28, 28],
+  iconAnchor: [14, 14],
+  popupAnchor: [0, -14],
+});
+
+export function CoteIvoireOffersMap({
+  offers,
+  className,
+  home = TEACHER_HOME,
+}: {
+  offers: MapOffer[];
+  className?: string;
+  home?: [number, number];
+}) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
 
@@ -69,47 +102,50 @@ export function CoteIvoireOffersMap({ offers }: { offers: MapOffer[] }) {
 
     if (!mapRef.current) {
       const map = L.map(containerRef.current, {
-        center: ABIDJAN,
-        zoom: 7,
-        scrollWheelZoom: false,
+        center: home,
+        zoom: 11,
+        scrollWheelZoom: true,
         attributionControl: true,
+        zoomControl: true,
       });
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 18,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       }).addTo(map);
-      map.setMaxBounds(CI_BOUNDS.pad(0.15));
+      map.setMaxBounds(CI_BOUNDS.pad(0.2));
       mapRef.current = map;
     }
 
     const map = mapRef.current;
     const layer = L.layerGroup().addTo(map);
 
-    const latLngs: L.LatLngExpression[] = [];
+    L.marker(home, { icon: homeIcon }).bindPopup("Mon domicile").addTo(layer);
+
+    const latLngs: L.LatLngExpression[] = [home];
     for (const m of markers) {
       latLngs.push(m.coords);
-      L.marker(m.coords, { icon: pinIcon })
+      L.marker(m.coords, { icon: offerDot })
         .bindPopup(
           `<strong>${m.label}</strong><br/>${m.subject || ""}${m.priceLabel ? `<br/>${m.priceLabel}` : ""}<br/><span style="color:#0E5A43">Côte d'Ivoire</span>`,
         )
         .addTo(layer);
     }
 
-    if (latLngs.length === 1) {
-      map.setView(latLngs[0], 12);
-    } else if (latLngs.length > 1) {
-      map.fitBounds(L.latLngBounds(latLngs).pad(0.35), { maxZoom: 12 });
+    if (latLngs.length > 1) {
+      map.fitBounds(L.latLngBounds(latLngs).pad(0.25), { maxZoom: 13 });
     } else {
-      map.setView(ABIDJAN, 7);
+      map.setView(home, 11);
     }
 
-    // Leaflet needs a size recalc after mount in responsive layouts
-    setTimeout(() => map.invalidateSize(), 80);
+    const t1 = setTimeout(() => map.invalidateSize(), 50);
+    const t2 = setTimeout(() => map.invalidateSize(), 300);
 
     return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
       layer.remove();
     };
-  }, [markers]);
+  }, [markers, home]);
 
   useEffect(() => {
     return () => {
@@ -118,24 +154,7 @@ export function CoteIvoireOffersMap({ offers }: { offers: MapOffer[] }) {
     };
   }, []);
 
-  return (
-    <div className="overflow-hidden rounded-xl border border-[#e5e5e5] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
-      <div className="flex items-center justify-between border-b border-[#eee] px-4 py-3">
-        <div>
-          <div className="text-[15px] font-semibold text-welcome">Carte — Côte d&apos;Ivoire</div>
-          <div className="text-xs text-[#888]">
-            {markers.length} offre{markers.length > 1 ? "s" : ""} géolocalisée
-            {markers.length > 1 ? "s" : ""}
-            {offers.length - markers.length > 0
-              ? ` · ${offers.length - markers.length} en ligne`
-              : ""}
-          </div>
-        </div>
-        <span className="text-xs font-semibold text-primary">CI</span>
-      </div>
-      <div ref={containerRef} className="h-[240px] w-full sm:h-[320px]" />
-    </div>
-  );
+  return <div ref={containerRef} className={className || "h-full min-h-[320px] w-full"} />;
 }
 
 export function formatLieuCi(place?: string | null, format?: string | null): string {
