@@ -14,12 +14,18 @@ git checkout "${BRANCH}" 2>/dev/null || git checkout -b "${BRANCH}" "origin/${BR
 git pull --ff-only origin "${BRANCH}"
 
 if [ -d webapp ] && command -v npm >/dev/null 2>&1; then
-  echo "==> Build espace React (webapp → web/espace)"
-  (cd webapp && npm ci && npm run build)
+  NODE_MAJOR="$(node -p "process.versions.node.split('.')[0]" 2>/dev/null || echo 0)"
+  if [ "$NODE_MAJOR" -ge 20 ]; then
+    echo "==> Build espace React (webapp → web/espace)"
+    (cd webapp && npm ci && npm run build)
+  else
+    echo "==> Skip build webapp (Node ${NODE_MAJOR} < 20) — assets commités dans web/espace/"
+  fi
 fi
 
 echo "==> Build & start (prod)"
 $COMPOSE up -d --build
+$COMPOSE up -d --force-recreate web
 
 echo "==> Status"
 $COMPOSE ps
