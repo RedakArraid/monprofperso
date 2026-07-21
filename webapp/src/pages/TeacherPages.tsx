@@ -17,9 +17,9 @@ import { api } from "@/lib/api";
 import { fallback } from "@/lib/fallback";
 import { fcfa } from "@/lib/utils";
 import { useLive } from "@/hooks/useLive";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Briefcase, Clock, GraduationCap, MapPin, MessageCircle, UserRound } from "lucide-react";
-import { CoteIvoireOffersMap, distanceKmFromHome } from "@/components/OffersMap";
+import { CoteIvoireOffersMap, distanceKmFromHome, resolveCoords, TEACHER_HOME } from "@/components/OffersMap";
 
 type Dash = typeof fallback.teacherDashboard & {
   profileCompletion?: { percent: number; complete: boolean };
@@ -66,10 +66,18 @@ function formatStart(startDate?: string | null) {
 }
 
 /** Carte offre — disposition Completude desktop */
-function OfferCard({ r, onConsult }: { r: Req; onConsult: () => void }) {
+function OfferCard({
+  r,
+  onConsult,
+  home,
+}: {
+  r: Req;
+  onConsult: () => void;
+  home?: [number, number];
+}) {
   const place = (r.name || r.slot || "Abidjan").replace(/,?\s*Côte d'Ivoire/i, "").trim();
   const title = place.toUpperCase() || "ABIDJAN";
-  const dist = distanceKmFromHome(r.slot || r.name || place);
+  const dist = distanceKmFromHome(r.slot || r.name || place, home);
   const { name: pupil, level, gender } = parseStudent(r.student);
   const freq =
     [r.frequency, r.duration].filter(Boolean).join(" - ") ||
@@ -268,6 +276,7 @@ export function TeacherDashboardPage() {
 
 export function TeacherRequestsPage() {
   const { data, offline, reload } = useLive<Req[]>("/api/teacher/requests", fallback.teacherRequests as Req[]);
+  const { data: profile } = useLive<{ location?: string } | null>("/api/teacher/profile", null);
   const [sideTab, setSideTab] = useState<"search" | "props">("search");
   const [showResults, setShowResults] = useState(true);
   const [msg, setMsg] = useState("");
@@ -277,6 +286,20 @@ export function TeacherRequestsPage() {
   const [prefs, setPrefs] = useState({ vehicle: false, home: true, online: true });
   const [channels, setChannels] = useState({ sms: true, notif: true });
   const [filters, setFilters] = useState({ option: true, thinking: true, refused: false });
+
+  // Adresse profil → champ « Mon adresse » (une fois)
+  const profileLocApplied = useRef(false);
+  useEffect(() => {
+    if (profile?.location && !profileLocApplied.current) {
+      profileLocApplied.current = true;
+      setLocation(profile.location);
+    }
+  }, [profile?.location]);
+
+  const homeCoords = useMemo(
+    () => resolveCoords(location) || resolveCoords(profile?.location) || TEACHER_HOME,
+    [location, profile?.location],
+  );
 
   const filtered = useMemo(() => {
     let list = [...data];
@@ -484,6 +507,7 @@ export function TeacherRequestsPage() {
                     <OfferCard
                       key={`${r.isOpportunity ? "opp" : "req"}-${r.needId || r.courseId}`}
                       r={r}
+                      home={homeCoords}
                       onConsult={() => void act(r, true)}
                     />
                   ))
@@ -495,11 +519,11 @@ export function TeacherRequestsPage() {
 
         {/* Carte sticky plein hauteur — pas de scroll imbriqué */}
         <section className="relative hidden flex-1 lg:sticky lg:top-[58px] lg:block lg:h-[calc(100dvh-58px)]">
-          <CoteIvoireOffersMap offers={mapOffers} className="absolute inset-0 h-full w-full" />
+          <CoteIvoireOffersMap offers={mapOffers} home={homeCoords} className="absolute inset-0 h-full w-full" />
         </section>
 
         <section className="relative h-[240px] w-full border-t border-[#e8e8e8] bg-[#e8e8e8] lg:hidden">
-          <CoteIvoireOffersMap offers={mapOffers} className="absolute inset-0 h-full w-full" />
+          <CoteIvoireOffersMap offers={mapOffers} home={homeCoords} className="absolute inset-0 h-full w-full" />
         </section>
       </div>
     </AppShell>
