@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="robots" content="noindex" />
+  <title>Mon espace · Mon Prof Perso</title>
+  <link rel="icon" href="../assets/mp2-logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/styles.css?v=20260721a" />
+  <link rel="stylesheet" href="css/espace.css?v=20260721a" />
+</head>
+<body class="espace-body">
+  <div class="es-app">
+    <div id="view" class="es-main"></div>
+    <div id="nav"></div>
+  </div>
+  <div class="toast" id="toast" hidden></div>
+
+  <script>
+    window.MPP_API_BASE = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
+      ? "http://localhost:8099" : location.origin;
+  </script>
+  <script src="../js/api-client.js?v=20260721a"></script>
+  <script src="js/fallback.js?v=20260721a"></script>
+  <script src="js/components.js?v=20260721a"></script>
+  <script src="js/auth.js?v=20260721a"></script>
+  <script src="js/views/parent.js?v=20260721a"></script>
+  <script src="js/views/needs.js?v=20260721a"></script>
+  <script src="js/views/teacher.js?v=20260721a"></script>
+  <script src="js/views/misc.js?v=20260721a"></script>
+  <script src="js/router.js?v=20260721a"></script>
+  <script src="js/app.js?v=20260721a"></script>
+</body>
+</html>

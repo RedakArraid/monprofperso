@@ -58,6 +58,15 @@
     reveals.forEach(function (el) { el.classList.add("in"); });
   }
 
+  // --- Lien connexion / Mon espace si session utilisateur ---
+  var authLink = document.getElementById("authLink");
+  if (authLink && localStorage.getItem("mpp_user_jwt")) {
+    authLink.textContent = "Mon espace";
+    authLink.href = "espace/";
+    authLink.classList.remove("btn-ghost");
+    authLink.classList.add("btn-primary");
+  }
+
   // --- Met en avant le store correspondant au système de l'utilisateur ---
   var ua = navigator.userAgent || "";
   var isIOS = /iPhone|iPad|iPod/i.test(ua);

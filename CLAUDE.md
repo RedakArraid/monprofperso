@@ -19,6 +19,8 @@ ios/        App iOS    , Swift + SwiftUI (~3080 lignes, 37 vues)
 backend/    API REST commune, Node/TS + Express + PostgreSQL (docker compose)
 web/        Page vitrine (HTML/CSS/JS statique, sans build), présentation,
             téléchargement des apps, réseaux sociaux (chargés depuis `/api/settings`).
+            **Connexion** (`connexion.html`) et **espace utilisateur** (`espace/`, SPA hash,
+            JWT `mpp_user_jwt`, parité ~37 écrans apps, live API + fallback).
             Section « Décrivez votre besoin » (`#besoin`, `js/besoin.js`) : formulaire
             public de demande de devis (façon Completude), sans compte, → `POST
             /api/needs/public`. Section « Confiance » (note moyenne réelle calculée

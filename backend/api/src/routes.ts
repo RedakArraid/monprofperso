@@ -48,8 +48,11 @@ const wrap = (fn: (req: any, res: any) => Promise<void>) => (req: any, res: any)
 
 // ---------------------------------------------------------------- Auth (mock)
 // GET /api/auth/login : souvent ouvert par erreur dans le navigateur (la connexion est un POST).
-api.get("/auth/login", (_req, res) => {
-  res.redirect(302, "https://www.monprofperso.com/admin/");
+api.get("/auth/login", (req, res) => {
+  const host = req.get("host") || "";
+  const proto = req.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
+  const base = host ? `${proto}://${host}` : "https://www.monprofperso.com";
+  res.redirect(302, `${base}/connexion.html`);
 });
 
 api.post("/auth/login", wrap(async (req, res) => {

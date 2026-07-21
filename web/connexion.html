@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="robots" content="noindex" />
+  <title>Connexion · Mon Prof Perso</title>
+  <link rel="icon" href="assets/mp2-logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;700;800&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css?v=20260721a" />
+  <link rel="stylesheet" href="espace/css/espace.css?v=20260721a" />
+</head>
+<body class="auth-page">
+  <div class="auth-wrap">
+    <a href="index.html" class="auth-back">← Retour au site</a>
+    <div class="auth-card">
+      <img src="assets/mp2-logo.png" alt="MP²" class="auth-logo" />
+      <h1>Mon Prof Perso</h1>
+      <p class="auth-sub">Connectez-vous ou créez un compte pour accéder à votre espace.</p>
+
+      <div class="auth-tabs">
+        <button type="button" class="auth-tab active" data-tab="login">Connexion</button>
+        <button type="button" class="auth-tab" data-tab="signup">Inscription</button>
+      </div>
+
+      <form id="loginForm" class="auth-panel">
+        <label for="loginPhone">Numéro de téléphone</label>
+        <input id="loginPhone" type="tel" inputmode="tel" placeholder="+2250700000000" autocomplete="username" />
+        <button type="submit" class="btn btn-primary btn-block" id="loginBtn">Se connecter</button>
+        <p class="auth-hint">Démo parent : <code>+2250758421903</code> · prof : <code>+2250707001234</code></p>
+      </form>
+
+      <form id="signupForm" class="auth-panel" hidden>
+        <label for="signupName">Nom complet</label>
+        <input id="signupName" type="text" placeholder="Aya Koné" />
+        <label for="signupPhone">Téléphone</label>
+        <input id="signupPhone" type="tel" placeholder="+22507…" />
+        <label for="signupRole">Je suis</label>
+        <select id="signupRole">
+          <option value="parent">Parent</option>
+          <option value="student">Élève</option>
+        </select>
+        <label class="check-row"><input type="checkbox" id="signupConsent" /> J'accepte les <a href="#" data-legal="cgu" target="_blank">CGU</a> et la <a href="#" data-legal="confidentialite" target="_blank">confidentialité</a>.</label>
+        <button type="submit" class="btn btn-primary btn-block" id="signupBtn">Créer mon compte</button>
+      </form>
+
+      <form id="otpForm" class="auth-panel" hidden>
+        <p class="muted">Un code a été envoyé (mode démo : laissez vide et validez).</p>
+        <label for="otpCode">Code OTP</label>
+        <input id="otpCode" type="text" inputmode="numeric" maxlength="6" placeholder="123456" />
+        <button type="submit" class="btn btn-primary btn-block">Valider</button>
+      </form>
+
+      <p class="auth-err" id="authErr" hidden></p>
+    </div>
+  </div>
+
+  <script>
+    window.MPP_API_BASE = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
+      ? "http://localhost:8099" : location.origin;
+  </script>
+  <script src="js/api-client.js?v=20260721a"></script>
+  <script src="espace/js/auth-page.js?v=20260721a"></script>
+</body>
+</html>
