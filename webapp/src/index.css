@@ -19,8 +19,9 @@
   --color-ring: var(--ring);
   --color-orange: var(--orange);
   --color-orange-soft: var(--orange-soft);
-  --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Schibsted Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --color-welcome: var(--welcome);
+  --font-sans: "Hanken Grotesk", "Roboto", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Schibsted Grotesk", "Roboto", ui-sans-serif, system-ui, sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -28,25 +29,27 @@
 }
 
 :root {
-  --radius: 0.875rem;
-  --background: #f7f4ee;
-  --foreground: #18241e;
+  /* Style extranet type Completude, charte MP² */
+  --radius: 0.75rem;
+  --background: #f2f2f2;
+  --foreground: #2d2d2d;
   --card: #ffffff;
-  --card-foreground: #18241e;
+  --card-foreground: #2d2d2d;
   --primary: #0e5a43;
   --primary-foreground: #ffffff;
   --secondary: #e2efe9;
   --secondary-foreground: #0e5a43;
-  --muted: #ece7de;
-  --muted-foreground: #5a675f;
+  --muted: #ebebeb;
+  --muted-foreground: #6b6b6b;
   --accent: #e8722a;
   --accent-foreground: #ffffff;
   --destructive: #e0392b;
-  --border: #e6e0d6;
-  --input: #e6e0d6;
+  --border: #e5e5e5;
+  --input: #e5e5e5;
   --ring: #0e5a43;
   --orange: #e8722a;
   --orange-soft: #fbe9da;
+  --welcome: #0b4937;
 }
 
 * {
@@ -72,4 +75,13 @@ h2,
 h3,
 .font-display {
   font-family: var(--font-display);
+}
+
+a.link-green {
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+a.link-green:hover {
+  text-decoration: underline;
 }

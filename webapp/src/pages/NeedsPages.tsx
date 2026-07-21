@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { AppShell, OfflineBanner, Empty } from "@/components/layout";
+import { AppShell, OfflineBanner, Empty, ContentCard } from "@/components/layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -74,14 +73,12 @@ export function ChildrenPage() {
         </Button>
       </form>
       {data.map((c) => (
-        <Card key={c.id}>
-          <CardContent className="pt-4">
-            <div className="font-semibold">{c.name}</div>
-            <div className="text-sm text-muted-foreground">
-              {c.level} · {c.school}
-            </div>
-          </CardContent>
-        </Card>
+        <ContentCard key={c.id} className="mt-3">
+          <div className="font-semibold text-[#222]">{c.name}</div>
+          <div className="text-sm text-[#666]">
+            {c.level} · {c.school}
+          </div>
+        </ContentCard>
       ))}
     </AppShell>
   );
@@ -192,38 +189,36 @@ export function MyNeedsPage() {
       {msg ? <p className="text-sm font-semibold text-primary">{msg}</p> : null}
       {!data.length ? <Empty>Aucune demande pour le moment.</Empty> : null}
       {data.map((n) => (
-        <Card key={n.id}>
-          <CardContent className="space-y-2 pt-4">
-            <div className="font-semibold">
-              {n.reference || `Besoin #${n.id}`} · {n.subject}
+        <ContentCard key={n.id} className="mt-3 space-y-2">
+          <div className="font-semibold text-[#222]">
+            {n.reference || `Besoin #${n.id}`} · {n.subject}
+          </div>
+          <div className="text-sm text-[#666]">
+            {n.level} · {n.format === "online" ? "En ligne" : n.location || "À domicile"}
+          </div>
+          <Badge>{needStatusLabel(n.status)}</Badge>
+          {n.parentPrice != null ? (
+            <div className="text-sm">
+              Tarif proposé : <strong>{fcfa(n.parentPrice)} F</strong>
             </div>
-            <div className="text-sm text-muted-foreground">
-              {n.level} · {n.format === "online" ? "En ligne" : n.location || "À domicile"}
-            </div>
-            <Badge>{needStatusLabel(n.status)}</Badge>
-            {n.parentPrice != null ? (
-              <div className="text-sm">
-                Tarif proposé : <strong>{fcfa(n.parentPrice)} F</strong>
-              </div>
-            ) : null}
-            {n.status === "priced" ? (
-              <Button
-                size="sm"
-                onClick={async () => {
-                  try {
-                    await api(`/api/needs/${n.id}/accept-price`, { method: "POST", body: {} });
-                    setMsg("Tarif accepté");
-                    void reload();
-                  } catch (ex) {
-                    setMsg(ex instanceof Error ? ex.message : "Erreur");
-                  }
-                }}
-              >
-                Accepter le tarif
-              </Button>
-            ) : null}
-          </CardContent>
-        </Card>
+          ) : null}
+          {n.status === "priced" ? (
+            <Button
+              size="sm"
+              onClick={async () => {
+                try {
+                  await api(`/api/needs/${n.id}/accept-price`, { method: "POST", body: {} });
+                  setMsg("Tarif accepté");
+                  void reload();
+                } catch (ex) {
+                  setMsg(ex instanceof Error ? ex.message : "Erreur");
+                }
+              }}
+            >
+              Accepter le tarif
+            </Button>
+          ) : null}
+        </ContentCard>
       ))}
     </AppShell>
   );

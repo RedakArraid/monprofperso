@@ -1,5 +1,5 @@
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { AppShell, OfflineBanner, Empty, MenuRow, PageGrid, PageStack } from "@/components/layout";
+import { AppShell, OfflineBanner, Empty, MenuRow, PageGrid, PageStack, ContentCard } from "@/components/layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,34 +33,39 @@ export function SearchPage() {
   const { data, offline, reload } = useLive<Teacher[]>(`/api/teachers${qs ? `?${qs}` : ""}`, fallback.teachers);
 
   return (
-    <AppShell title="Recherche" active="recherche" wide>
+    <AppShell title="Recherche" active="recherche">
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-muted-foreground">{data.length} professeur(s)</p>
-        <Button asChild variant="outline">
-          <Link to="/recherche/filtres">Filtres</Link>
-        </Button>
-      </div>
+      <ContentCard className="mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-bold text-[#222]">Trouver un professeur</h2>
+            <p className="mt-1 text-sm text-[#666]">{data.length} professeur(s) disponible(s)</p>
+          </div>
+          <Button asChild variant="outline">
+            <Link to="/recherche/filtres">Filtres</Link>
+          </Button>
+        </div>
+      </ContentCard>
       {!data.length ? <Empty>Aucun professeur trouvé.</Empty> : null}
       <PageGrid>
         {data.map((t) => (
           <Link key={t.id} to={`/prof/${t.id}`} className="block h-full">
-            <Card className="h-full transition hover:border-primary/40 hover:shadow-md">
-              <CardContent className="flex h-full items-start gap-3 pt-5">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-secondary font-display text-lg font-extrabold text-primary">
+            <ContentCard className="h-full transition hover:shadow-md">
+              <div className="flex items-start gap-3">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-secondary font-display text-lg font-extrabold text-primary">
                   {t.initials || t.name.slice(0, 2).toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="font-display text-lg font-bold">{t.name}</div>
-                  <div className="mt-1 text-sm text-muted-foreground">
+                  <div className="text-lg font-bold text-[#222]">{t.name}</div>
+                  <div className="mt-1 text-sm text-[#666]">
                     {t.subjects} · {t.location}
                   </div>
-                  <div className="mt-2 text-sm font-semibold">
+                  <div className="mt-2 text-sm font-semibold text-primary">
                     ★ {t.rating ?? "—"} · {fcfa(t.price_per_hour)} F/h
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </ContentCard>
           </Link>
         ))}
       </PageGrid>
@@ -174,26 +179,26 @@ export function TeacherProfilePage() {
 export function CoursesPage() {
   const { data, offline, reload } = useLive<typeof fallback.courses>("/api/courses", fallback.courses);
   return (
-    <AppShell title="Mes cours" active="cours" wide>
+    <AppShell title="Mes cours" active="cours">
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
       {!data.length ? <Empty>Aucun cours pour le moment.</Empty> : null}
       <PageGrid>
         {data.map((c) => (
-          <Card key={c.id}>
-            <CardContent className="flex items-center justify-between gap-3 pt-5">
+          <ContentCard key={c.id}>
+            <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="font-display text-lg font-bold">
+                <div className="text-lg font-bold text-[#222]">
                   {c.subject} · {c.level}
                 </div>
-                <div className="text-sm text-muted-foreground">{c.teacher_name}</div>
-                <div className="text-sm text-muted-foreground">
+                <div className="text-sm text-[#666]">{c.teacher_name}</div>
+                <div className="text-sm text-[#666]">
                   {c.day_label} {c.day_num} · {c.time}
                 </div>
                 {c.badge ? <Badge className="mt-2">{c.badge}</Badge> : null}
               </div>
-              <strong className="text-lg">{fcfa(c.price)} F</strong>
-            </CardContent>
-          </Card>
+              <strong className="text-lg text-primary">{fcfa(c.price)} F</strong>
+            </div>
+          </ContentCard>
         ))}
       </PageGrid>
     </AppShell>
@@ -205,25 +210,23 @@ export function ProgressPage() {
   return (
     <AppShell title="Progrès" active="progres">
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
-      <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground">Moyenne générale</div>
-            <div className="font-display text-5xl font-black">{data.average}</div>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {data.trend} · {data.goal}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="space-y-5 pt-6">
+      <div className="grid gap-5 lg:grid-cols-[280px_1fr]">
+        <ContentCard>
+          <div className="text-sm text-[#666]">Moyenne générale</div>
+          <div className="font-display text-5xl font-black text-primary">{data.average}</div>
+          <p className="mt-2 text-sm text-[#666]">
+            {data.trend} · {data.goal}
+          </p>
+        </ContentCard>
+        <ContentCard>
+          <div className="space-y-5">
             {data.subjects.map((s) => (
               <div key={s.subject} className="space-y-2">
                 <div className="flex justify-between text-sm font-semibold">
                   <span>{s.subject}</span>
                   <span className={s.warn ? "text-accent" : "text-primary"}>{s.grade}</span>
                 </div>
-                <div className="h-2.5 overflow-hidden rounded-full bg-muted">
+                <div className="h-2.5 overflow-hidden rounded-full bg-[#eee]">
                   <div
                     className={`h-full rounded-full ${s.warn ? "bg-accent" : "bg-primary"}`}
                     style={{ width: `${Math.round((s.fraction || 0) * 100)}%` }}
@@ -231,8 +234,8 @@ export function ProgressPage() {
                 </div>
               </div>
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </ContentCard>
       </div>
     </AppShell>
   );
@@ -242,24 +245,22 @@ export function AccountPage() {
   const { user, isTeacher, logout } = useAuth();
   return (
     <AppShell title="Mon compte" active="compte">
-      <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-        <Card>
-          <CardContent className="space-y-4 pt-6">
-            <div className="font-display text-2xl font-bold">{user?.full_name || "Utilisateur"}</div>
-            <div className="text-muted-foreground">{user?.phone}</div>
-            <Button
-              variant="destructive"
-              className="w-full"
-              onClick={() => {
-                logout();
-                window.location.href = "/connexion.html";
-              }}
-            >
-              Déconnexion
-            </Button>
-          </CardContent>
-        </Card>
-        <PageGrid className="xl:grid-cols-2">
+      <div className="grid gap-5 lg:grid-cols-[320px_1fr]">
+        <ContentCard>
+          <div className="text-2xl font-bold text-[#222]">{user?.full_name || "Utilisateur"}</div>
+          <div className="mt-1 text-[#666]">{user?.phone}</div>
+          <Button
+            variant="destructive"
+            className="mt-4 w-full"
+            onClick={() => {
+              logout();
+              window.location.href = "/connexion.html";
+            }}
+          >
+            Déconnexion
+          </Button>
+        </ContentCard>
+        <PageGrid>
           <MenuRow to="/notifications" label="Notifications" />
           <MenuRow to="/portefeuille" label="Portefeuille" />
           <MenuRow to="/mes-besoins" label="Mes besoins" />

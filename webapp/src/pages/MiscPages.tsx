@@ -1,5 +1,5 @@
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { AppShell, OfflineBanner, Empty, MenuRow, PageGrid, PageStack } from "@/components/layout";
+import { AppShell, OfflineBanner, Empty, MenuRow, PageGrid, PageStack, ContentCard } from "@/components/layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,7 +18,7 @@ export function NotificationsPage() {
     fallback.notifications,
   );
   return (
-    <AppShell title="Notifications" back="/compte" active="compte" wide>
+    <AppShell title="Notifications" back="/compte" active="compte">
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
       <div className="mb-4">
         <Button
@@ -33,17 +33,17 @@ export function NotificationsPage() {
         </Button>
       </div>
       {!data.length ? <Empty>Aucune notification.</Empty> : null}
-      <PageGrid className="xl:grid-cols-2">
+      <PageGrid>
         {data.map((n, i) => (
-          <Card key={i}>
-            <CardContent className="flex gap-3 pt-5">
+          <ContentCard key={i}>
+            <div className="flex gap-3">
               <span>{n.unread ? "🔵" : "⚪"}</span>
               <div>
-                <div>{n.text}</div>
-                <div className="text-sm text-muted-foreground">{n.time_ago}</div>
+                <div className="text-[#222]">{n.text}</div>
+                <div className="text-sm text-[#666]">{n.time_ago}</div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </ContentCard>
         ))}
       </PageGrid>
     </AppShell>
@@ -89,7 +89,7 @@ export function GroupsPage() {
     fallback.groups,
   );
   return (
-    <AppShell title="Cours en groupe" active="accueil" wide>
+    <AppShell title="Cours en groupe" active="accueil">
       <div className="mb-4 flex gap-4 text-sm">
         <Link to="/groupes" className="font-semibold text-primary">
           Tous
@@ -404,13 +404,12 @@ export function ConfirmationPage() {
 
 export function MockPage({ title, text, active }: { title: string; text: string; active?: string }) {
   return (
-    <AppShell title={title} back="/compte" active={active || "compte"}>
-      <Card>
-        <CardContent className="space-y-2 pt-4">
-          <p className="text-sm text-muted-foreground">{text}</p>
-          <p className="text-sm">Interface fidèle à l&apos;app — données de démonstration.</p>
-        </CardContent>
-      </Card>
+    <AppShell title={title} active={active || "compte"}>
+      <ContentCard>
+        <h2 className="mb-3 text-xl font-bold text-[#222]">{title}</h2>
+        <p className="text-[15px] leading-relaxed text-[#555]">{text}</p>
+        <p className="mt-3 text-sm text-[#666]">Interface web — données de démonstration.</p>
+      </ContentCard>
     </AppShell>
   );
 }
