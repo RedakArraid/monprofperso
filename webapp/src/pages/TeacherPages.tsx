@@ -329,9 +329,10 @@ export function TeacherRequestsPage() {
       ) : null}
       {msg ? <p className="px-4 pt-2 text-sm font-semibold text-primary">{msg}</p> : null}
 
-      <div className="flex min-h-[calc(100dvh-58px)] flex-col lg:flex-row">
-        <aside className="flex w-full shrink-0 flex-col border-b border-[#e8e8e8] bg-[#f7f7f7] lg:w-[280px] lg:border-b-0 lg:border-r xl:w-[300px]">
-          <div className="grid grid-cols-2 border-b border-[#ddd] bg-white">
+      <div className="flex flex-col lg:flex-row lg:items-start">
+        {/* Colonne filtres — sticky, hauteur viewport, scroll interne si besoin */}
+        <aside className="flex w-full shrink-0 flex-col border-b border-[#e8e8e8] bg-[#f7f7f7] lg:sticky lg:top-[58px] lg:h-[calc(100dvh-58px)] lg:w-[280px] lg:border-b-0 lg:border-r xl:w-[300px]">
+          <div className="grid shrink-0 grid-cols-2 border-b border-[#ddd] bg-white">
             <button
               type="button"
               onClick={() => setSideTab("search")}
@@ -352,7 +353,7 @@ export function TeacherRequestsPage() {
             </button>
           </div>
 
-          <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-3">
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
             {sideTab === "search" ? (
               <>
                 <div className="rounded-lg bg-white p-3 shadow-sm">
@@ -443,7 +444,7 @@ export function TeacherRequestsPage() {
             )}
           </div>
 
-          <div className="sticky bottom-0 border-t border-[#e0e0e0] bg-primary p-0">
+          <div className="shrink-0 border-t border-[#e0e0e0] bg-primary p-0">
             <button
               type="button"
               className="w-full py-3.5 text-center text-[13px] font-bold uppercase tracking-wide text-white"
@@ -454,12 +455,13 @@ export function TeacherRequestsPage() {
           </div>
         </aside>
 
-        <section className="flex min-h-[50vh] w-full flex-col bg-[#f2f2f2] lg:h-auto lg:w-[420px] lg:shrink-0 lg:min-h-0 xl:w-[460px]">
+        {/* Liste des offres — hauteur naturelle, scroll = page (barre à droite) */}
+        <section className="w-full bg-[#f2f2f2] lg:w-[420px] lg:shrink-0 xl:w-[460px]">
           {!showResults ? (
             <Empty>Lancez une recherche pour voir les offres</Empty>
           ) : (
             <>
-              <div className="flex gap-2 border-b border-[#e8e8e8] bg-white px-3 py-2.5">
+              <div className="sticky top-14 z-10 flex gap-2 border-b border-[#e8e8e8] bg-white px-3 py-2.5 lg:top-[58px]">
                 <button
                   type="button"
                   className="flex-1 rounded border border-[#ddd] bg-[#fafafa] py-2 text-[12px] font-semibold text-[#444]"
@@ -474,7 +476,7 @@ export function TeacherRequestsPage() {
                   Trier · {sort === "recent" ? "Récent" : "Tarif"}
                 </button>
               </div>
-              <div className="flex-1 space-y-3 overflow-y-auto p-3">
+              <div className="space-y-3 p-3">
                 {!filtered.length ? (
                   <Empty>Aucune offre n&apos;a été trouvée</Empty>
                 ) : (
@@ -491,7 +493,12 @@ export function TeacherRequestsPage() {
           )}
         </section>
 
-        <section className="relative h-[280px] w-full shrink-0 border-t border-[#e8e8e8] bg-[#e8e8e8] lg:h-auto lg:min-h-0 lg:flex-1 lg:border-t-0">
+        {/* Carte sticky plein hauteur — pas de scroll imbriqué */}
+        <section className="relative hidden flex-1 lg:sticky lg:top-[58px] lg:block lg:h-[calc(100dvh-58px)]">
+          <CoteIvoireOffersMap offers={mapOffers} className="absolute inset-0 h-full w-full" />
+        </section>
+
+        <section className="relative h-[240px] w-full border-t border-[#e8e8e8] bg-[#e8e8e8] lg:hidden">
           <CoteIvoireOffersMap offers={mapOffers} className="absolute inset-0 h-full w-full" />
         </section>
       </div>
