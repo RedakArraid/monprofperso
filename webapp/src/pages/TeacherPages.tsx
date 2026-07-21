@@ -26,14 +26,97 @@ type Dash = typeof fallback.teacherDashboard & {
 type Req = {
   courseId?: number;
   needId?: number | null;
+  initials?: string;
+  accent?: string;
+  name?: string;
+  ago?: string;
   subject?: string;
   student?: string;
   slot?: string;
   format?: string;
+  frequency?: string | null;
+  duration?: string | null;
+  startDate?: string | null;
   price?: number;
   netHourly?: number | null;
   isOpportunity?: boolean;
 };
+
+function DetailLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 py-1">
+      <span className="text-[12.5px] text-[#888]">{label}</span>
+      <span className="text-right text-[12.5px] font-semibold text-[#222]">{value}</span>
+    </div>
+  );
+}
+
+/** Carte offre style Completude (parité apps natives) */
+function OfferCard({
+  r,
+  onAccept,
+  onRefuse,
+}: {
+  r: Req;
+  onAccept: () => void;
+  onRefuse: () => void;
+}) {
+  const title = (r.name || r.slot || r.format || "Offre").toUpperCase();
+  const priceLabel =
+    r.isOpportunity && r.netHourly != null && r.price != null
+      ? `${fcfa(r.netHourly)} F/h · ${fcfa(r.price)} F/séance nets`
+      : r.price != null
+        ? `${fcfa(r.price)} F`
+        : "—";
+  const start =
+    r.startDate != null
+      ? String(r.startDate).slice(0, 10).split("-").reverse().join("/")
+      : null;
+
+  return (
+    <article className="rounded-[20px] border border-[#e5e5e5] bg-white p-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] sm:p-5">
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="text-[14.5px] font-bold uppercase tracking-wide text-[#222]">{title}</div>
+          <div className="mt-0.5 text-[11.5px] text-[#aaa]">{r.ago || "nouveau"}</div>
+        </div>
+        <div className="max-w-[48%] text-right text-[13px] font-extrabold leading-snug text-primary">{priceLabel}</div>
+      </div>
+
+      <div className="mt-3.5 space-y-0.5">
+        <DetailLine label="Élève" value={r.student || "—"} />
+        <DetailLine label="Matière" value={r.subject || "—"} />
+        {r.frequency ? <DetailLine label="Fréquence" value={r.frequency} /> : null}
+        {r.duration ? <DetailLine label="Durée" value={r.duration} /> : null}
+        <DetailLine label="Lieu / format" value={r.format || r.slot || "—"} />
+        {start ? <DetailLine label="À partir du" value={start} /> : null}
+      </div>
+
+      {r.isOpportunity ? (
+        <p className="mt-2 text-[11px] text-[#888]">Tarif fixe — gains nets avant impôts</p>
+      ) : null}
+
+      <div className="mt-3.5 flex gap-2.5">
+        {!r.isOpportunity ? (
+          <button
+            type="button"
+            onClick={onRefuse}
+            className="flex-1 rounded-xl border border-[#e5e5e5] bg-white py-3 text-center text-[13.5px] font-bold text-[#888] transition hover:bg-[#fafafa]"
+          >
+            Refuser
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={onAccept}
+          className="flex-1 rounded-xl bg-primary py-3 text-center text-[13.5px] font-bold text-white transition hover:bg-welcome"
+        >
+          Consulter
+        </button>
+      </div>
+    </article>
+  );
+}
 
 export function TeacherDashboardPage() {
   const { data, offline, reload } = useLive<Dash>("/api/teacher/dashboard", fallback.teacherDashboard);
@@ -129,7 +212,7 @@ export function TeacherDashboardPage() {
 
 export function TeacherRequestsPage() {
   const { data, offline, reload } = useLive<Req[]>("/api/teacher/requests", fallback.teacherRequests as Req[]);
-  const [tab, setTab] = useState<"search" | "props">("search");
+  const [tab, setTab] = useState<"search" | "results" | "props">("results");
   const [msg, setMsg] = useState("");
   const [location, setLocation] = useState("");
   const [whenOpts, setWhenOpts] = useState({ week: true, weekend: true, vacations: true });
@@ -138,21 +221,33 @@ export function TeacherRequestsPage() {
   const [filters, setFilters] = useState({ option: true, thinking: true, refused: false });
 
   const filtered = useMemo(() => {
-    if (!location.trim()) return data;
-    const q = location.trim().toLowerCase();
-    return data.filter(
-      (r) =>
-        (r.student || "").toLowerCase().includes(q) ||
-        (r.subject || "").toLowerCase().includes(q) ||
-        (r.format || "").toLowerCase().includes(q) ||
-        (r.slot || "").toLowerCase().includes(q),
-    );
-  }, [data, location]);
+    let list = data;
+    if (location.trim()) {
+      const q = location.trim().toLowerCase();
+      list = list.filter(
+        (r) =>
+          (r.name || "").toLowerCase().includes(q) ||
+          (r.student || "").toLowerCase().includes(q) ||
+          (r.subject || "").toLowerCase().includes(q) ||
+          (r.format || "").toLowerCase().includes(q) ||
+          (r.slot || "").toLowerCase().includes(q),
+      );
+    }
+    if (!prefs.home) list = list.filter((r) => (r.format || "").toLowerCase().includes("ligne"));
+    if (!prefs.online) list = list.filter((r) => !(r.format || "").toLowerCase().includes("ligne"));
+    return list;
+  }, [data, location, prefs.home, prefs.online]);
 
-  async function act(id: number, accept: boolean) {
+  async function act(r: Req, accept: boolean) {
+    const id = Number(r.needId || r.courseId);
+    if (!id) return;
     try {
+      if (!accept && r.isOpportunity) {
+        setMsg("Les offres publiées se retirent en les laissant à d'autres professeurs.");
+        return;
+      }
       await api(`/api/teacher/requests/${id}/${accept ? "accept" : "refuse"}`, { method: "POST", body: {} });
-      setMsg(accept ? "Demande acceptée" : "Demande refusée");
+      setMsg(accept ? "Offre acceptée" : "Demande refusée");
       void reload();
     } catch (ex) {
       setMsg(ex instanceof Error ? ex.message : "Erreur");
@@ -171,7 +266,7 @@ export function TeacherRequestsPage() {
             type="button"
             disabled={!canSearch}
             className="w-full py-4 text-center text-[15px] font-bold uppercase tracking-wide text-white disabled:opacity-50"
-            onClick={() => setTab("props")}
+            onClick={() => setTab("results")}
           >
             Voir les offres
           </button>
@@ -181,13 +276,19 @@ export function TeacherRequestsPage() {
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
       {msg ? <p className="mb-3 text-sm font-semibold text-primary">{msg}</p> : null}
 
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <h2 className="text-lg font-bold text-[#222] sm:text-xl">Mes offres de cours</h2>
+        <span className="rounded-full bg-accent px-2.5 py-0.5 text-xs font-bold text-white">{filtered.length}</span>
+      </div>
+
       <PageTabs
         tabs={[
           { id: "search", label: "Nouvelle recherche" },
+          { id: "results", label: "Offres" },
           { id: "props", label: "Propositions et options" },
         ]}
         value={tab}
-        onChange={(id) => setTab(id as "search" | "props")}
+        onChange={(id) => setTab(id as "search" | "results" | "props")}
       />
 
       {tab === "search" ? (
@@ -242,7 +343,9 @@ export function TeacherRequestsPage() {
             />
           </ContentCard>
         </PageStack>
-      ) : (
+      ) : null}
+
+      {tab === "props" ? (
         <PageStack>
           <ContentCard>
             <SectionHeading>Mon adresse</SectionHeading>
@@ -283,42 +386,31 @@ export function TeacherRequestsPage() {
             />
           </ContentCard>
 
-          <ContentCard>
-            <SectionHeading>Offres disponibles</SectionHeading>
-            {!filtered.length ? (
-              <p className="py-6 text-center text-[15px] text-[#888]">Aucune offre n&apos;a été trouvée</p>
-            ) : (
-              <div className="divide-y divide-[#eee]">
-                {filtered.map((r) => {
-                  const id = r.needId || r.courseId;
-                  return (
-                    <div key={String(id)} className="py-4 first:pt-0 last:pb-0">
-                      <div className="text-[16px] font-bold text-[#222]">
-                        {r.subject} · {r.student}
-                      </div>
-                      <div className="mt-1 text-sm text-[#666]">{r.slot || r.format}</div>
-                      {r.price != null ? (
-                        <div className="mt-2 text-[15px] font-bold text-primary">
-                          {fcfa(r.price)} F
-                          {r.netHourly != null ? ` · ${fcfa(r.netHourly)} F/h net` : ""}
-                        </div>
-                      ) : null}
-                      <div className="mt-3 flex gap-2">
-                        <Button size="sm" onClick={() => void act(Number(id), true)}>
-                          Accepter
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => void act(Number(id), false)}>
-                          Refuser
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </ContentCard>
+          <Button type="button" className="w-full" onClick={() => setTab("results")}>
+            Voir les offres
+          </Button>
         </PageStack>
-      )}
+      ) : null}
+
+      {tab === "results" ? (
+        !filtered.length ? (
+          <Empty>Aucune offre n&apos;a été trouvée</Empty>
+        ) : (
+          <div className="mx-auto grid w-full max-w-3xl gap-3.5 sm:gap-4 lg:max-w-none lg:grid-cols-2">
+            {filtered.map((r) => {
+              const id = r.needId || r.courseId;
+              return (
+                <OfferCard
+                  key={`${r.isOpportunity ? "opp" : "req"}-${id}`}
+                  r={r}
+                  onAccept={() => void act(r, true)}
+                  onRefuse={() => void act(r, false)}
+                />
+              );
+            })}
+          </div>
+        )
+      ) : null}
     </AppShell>
   );
 }
