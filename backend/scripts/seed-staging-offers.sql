@@ -100,6 +100,14 @@ WHERE NOT EXISTS (
    WHERE n.user_id = u.id AND n.subject = v.subject AND n.level = v.level AND n.status = 'published'
 );
 
+-- Animaux de compagnie (badges Chat / Chien Completude)
+UPDATE course_needs SET has_cat = TRUE
+ WHERE status = 'published' AND subject IN ('Maths', 'Français', 'Histoire') AND location IN ('Cocody', 'Cocody Riviera', 'Abidjan');
+UPDATE course_needs SET has_dog = TRUE
+ WHERE status = 'published' AND subject IN ('Physique', 'SVT', 'Chimie') AND format = 'home';
+UPDATE course_needs SET has_cat = TRUE, has_dog = TRUE
+ WHERE status = 'published' AND location = 'Yopougon';
+
 -- ---------- Besoins encore à tarifer (admin) + tarifés en attente parent ----------
 INSERT INTO course_needs (
   user_id, child_id, subject, level, format, location, frequency, duration,

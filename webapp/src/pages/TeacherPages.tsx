@@ -18,7 +18,7 @@ import { fallback } from "@/lib/fallback";
 import { fcfa } from "@/lib/utils";
 import { useLive } from "@/hooks/useLive";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Briefcase, Clock, GraduationCap, MapPin, MessageCircle, UserRound } from "lucide-react";
+import { Briefcase, Cat, Clock, Dog, GraduationCap, MapPin, UserRound } from "lucide-react";
 import { CoteIvoireOffersMap, distanceKmFromHome, resolveCoords, TEACHER_HOME } from "@/components/OffersMap";
 
 type Dash = typeof fallback.teacherDashboard & {
@@ -44,6 +44,8 @@ type Req = {
   availabilityWeek?: boolean;
   availabilityWeekend?: boolean;
   availabilityHolidays?: boolean;
+  hasCat?: boolean;
+  hasDog?: boolean;
 };
 
 function parseStudent(student?: string) {
@@ -157,15 +159,28 @@ function OfferCard({
 
       <div className="mt-3 flex items-end justify-between gap-2 border-t border-[#f0f0f0] pt-3">
         <div>
-          <button
-            type="button"
-            className="mb-1 inline-flex items-center gap-1 rounded bg-[#4a90d9] px-2 py-0.5 text-[11px] font-semibold text-white opacity-80"
-            disabled
-            title="Bientôt disponible" data-build="20260721b"
-          >
-            <MessageCircle className="h-3 w-3" />
-            Chat
-          </button>
+          {(r.hasCat || r.hasDog) ? (
+            <div className="mb-1.5 flex flex-wrap gap-1.5">
+              {r.hasCat ? (
+                <span
+                  className="inline-flex items-center gap-1 rounded bg-[#4a90d9] px-2 py-0.5 text-[11px] font-semibold text-white"
+                  title="Famille avec chat(s)"
+                >
+                  <Cat className="h-3 w-3" />
+                  Chat
+                </span>
+              ) : null}
+              {r.hasDog ? (
+                <span
+                  className="inline-flex items-center gap-1 rounded bg-[#4a90d9] px-2 py-0.5 text-[11px] font-semibold text-white"
+                  title="Famille avec chien(s)"
+                >
+                  <Dog className="h-3 w-3" />
+                  Chien
+                </span>
+              ) : null}
+            </div>
+          ) : null}
           <div className="text-[11px] text-[#999]">
             {ref} — {r.ago || "nouveau"}
           </div>
@@ -283,7 +298,7 @@ export function TeacherRequestsPage() {
   const [sort, setSort] = useState<"recent" | "price">("recent");
   const [location, setLocation] = useState("Cocody, Abidjan");
   const [whenOpts, setWhenOpts] = useState({ week: true, weekend: true, vacations: true });
-  const [prefs, setPrefs] = useState({ vehicle: false, home: true, online: true });
+  const [prefs, setPrefs] = useState({ vehicle: false, acceptDogs: true, acceptCats: true });
   const [channels, setChannels] = useState({ sms: true, notif: true });
   const [filters, setFilters] = useState({ option: true, thinking: true, refused: false });
 
@@ -303,13 +318,13 @@ export function TeacherRequestsPage() {
 
   const filtered = useMemo(() => {
     let list = [...data];
-    if (!prefs.home) list = list.filter((r) => /ligne|online/i.test(r.format || ""));
-    if (!prefs.online) list = list.filter((r) => !/ligne|online/i.test(r.format || ""));
+    if (!prefs.acceptCats) list = list.filter((r) => !r.hasCat);
+    if (!prefs.acceptDogs) list = list.filter((r) => !r.hasDog);
     if (sort === "price") {
       list.sort((a, b) => (b.netHourly || b.price || 0) - (a.netHourly || a.price || 0));
     }
     return list;
-  }, [data, prefs.home, prefs.online, sort]);
+  }, [data, prefs.acceptCats, prefs.acceptDogs, sort]);
 
   async function act(r: Req, accept: boolean) {
     const id = Number(r.needId || r.courseId);
@@ -415,14 +430,14 @@ export function TeacherRequestsPage() {
                     onChange={(v) => setPrefs((s) => ({ ...s, vehicle: v }))}
                   />
                   <CheckRow
-                    label="J'accepte les cours à domicile"
-                    checked={prefs.home}
-                    onChange={(v) => setPrefs((s) => ({ ...s, home: v }))}
+                    label="J'accepte les offres des familles avec des chiens"
+                    checked={prefs.acceptDogs}
+                    onChange={(v) => setPrefs((s) => ({ ...s, acceptDogs: v }))}
                   />
                   <CheckRow
-                    label="J'accepte les cours en ligne"
-                    checked={prefs.online}
-                    onChange={(v) => setPrefs((s) => ({ ...s, online: v }))}
+                    label="J'accepte les offres des familles avec des chats"
+                    checked={prefs.acceptCats}
+                    onChange={(v) => setPrefs((s) => ({ ...s, acceptCats: v }))}
                   />
                 </div>
               </>

@@ -539,6 +539,7 @@ api.get("/teacher/requests", wrap(async (_req, res) => {
             n.start_date AS "startDate", n.availability_week AS "availabilityWeek",
             n.availability_weekend AS "availabilityWeekend",
             n.availability_holidays AS "availabilityHolidays",
+            n.has_cat AS "hasCat", n.has_dog AS "hasDog",
             'nouveau' AS ago,
             COALESCE(n.location, CASE n.format WHEN 'online' THEN 'En ligne' ELSE 'À domicile' END) AS slot
      FROM course_needs n
@@ -578,6 +579,8 @@ api.get("/teacher/requests", wrap(async (_req, res) => {
     availabilityWeek: row.availabilityWeek ?? true,
     availabilityWeekend: row.availabilityWeekend ?? false,
     availabilityHolidays: row.availabilityHolidays ?? false,
+    hasCat: Boolean(row.hasCat),
+    hasDog: Boolean(row.hasDog),
     isOpportunity: row.needId != null,
   });
   res.json([...opportunities.rows.map(mapOpp), ...live.rows.map(mapOpp)]);

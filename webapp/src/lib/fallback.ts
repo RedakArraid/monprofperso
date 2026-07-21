@@ -79,6 +79,8 @@ export const fallback = {
       duration: "1h30",
       startDate: "2026-07-28",
       isOpportunity: true,
+      hasCat: true,
+      hasDog: false,
     },
   ] as Record<string, unknown>[],
   teacherEarnings: {
