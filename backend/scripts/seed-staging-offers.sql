@@ -64,7 +64,8 @@ INSERT INTO course_needs (
   user_id, child_id, subject, level, format, location, frequency, duration,
   availability_week, availability_weekend, availability_holidays, description,
   parent_price, commission_pct, net_teacher_amount, net_teacher_hourly,
-  status, priced_at, priced_by, parent_accepted_at, start_date, source
+  status, priced_at, priced_by, parent_accepted_at, start_date, source,
+  lat, lng
 )
 SELECT
   u.id,
@@ -78,35 +79,42 @@ SELECT
   (SELECT id FROM users WHERE phone = '+2250700000001'),
   now(),
   CURRENT_DATE + v.start_in_days,
-  v.source
+  v.source,
+  v.lat, v.lng
 FROM (VALUES
-  -- phone, child_name, subject, level, format, location, frequency, duration, hours, aw, awe, ah, description, price, start_in_days, source
-  ('+2250758421903', 'Aya',      'Maths',     '3ème',       'home',   'Cocody',        '2× / semaine', '1h30', 1.5, true,  false, false, 'Préparation BEPC — algèbre et géométrie',           12000, 5,  'app'),
-  ('+2250758421903', 'Moussa',   'Français',  '5ème',       'home',   'Cocody',        '1× / semaine', '1h',   1.0, true,  true,  false, 'Orthographe et rédaction',                           8000,  8,  'app'),
-  ('+2250701001001', 'Ibrahim',  'Physique',  'Terminale',  'home',   'Plateau',       '2× / semaine', '2h',   2.0, true,  false, true,  'Prépa BAC C — mécanique et électricité',             15000, 3,  'app'),
-  ('+2250701001001', 'Aïcha',    'Anglais',   '1ère',       'online', 'En ligne',      '1× / semaine', '1h30', 1.5, true,  true,  false, 'Conversation et préparation oral',                   9000,  10, 'app'),
-  ('+2250701001002', 'Koffi',    'SVT',       '4ème',       'home',   'Marcory',       '1× / semaine', '1h30', 1.5, true,  false, false, 'Renforcement programme standard',                    8500,  6,  'app'),
-  ('+2250701001003', 'Salimata', 'Maths',     'CM2',        'home',   'Plateau',       '2× / semaine', '1h',   1.0, true,  false, true,  'Calcul et problèmes — vacances',                     6000,  2,  'web'),
-  ('+2250701001004', 'Paul',     'Histoire',  '2nde',       'home',   'Cocody Riviera','1× / semaine', '1h30', 1.5, true,  true,  false, 'Méthode et dissertations',                           10000, 12, 'app'),
-  ('+2250701001005', 'Rokia',    'Anglais',   '6ème',       'online', 'En ligne',      '1× / semaine', '1h',   1.0, true,  false, false, 'Bases oral et vocabulaire',                          7000,  4,  'app'),
-  ('+2250701001006', 'Nadia',    'Maths',     'Terminale',  'home',   'Yopougon',      '3× / semaine', '2h',   2.0, true,  true,  true,  'Intensif BAC D — analyse et probabilités',           18000, 1,  'app'),
-  ('+2250701001007', 'Omar',     'Chimie',    '3ème',       'home',   'Treichville',   '1× / semaine', '1h30', 1.5, true,  false, false, 'Préparation BEPC sciences',                          9500,  9,  'web'),
-  ('+2250700000097', 'Lina',     'Français',  '5ème',       'home',   'Abidjan',       '1× / semaine', '1h',   1.0, true,  true,  false, 'Lecture et expression écrite',                       7500,  7,  'app')
-) AS v(phone, child_name, subject, level, format, location, frequency, duration, hours, aw, awe, ah, description, parent_price, start_in_days, source)
+  -- phone, child, subject, level, format, location, freq, dur, hours, aw, awe, ah, desc, price, start, source, lat, lng
+  ('+2250758421903', 'Aya',      'Maths',     '3ème',       'home',   'Cocody Angré',         '2× / semaine', '1h30', 1.5, true,  false, false, 'Préparation BEPC — algèbre et géométrie', 12000, 5,  'app', 5.389500, -3.958000),
+  ('+2250758421903', 'Moussa',   'Français',  '5ème',       'home',   'Cocody Deux-Plateaux', '1× / semaine', '1h',   1.0, true,  true,  false, 'Orthographe et rédaction',                8000,  8,  'app', 5.371000, -3.989000),
+  ('+2250701001001', 'Ibrahim',  'Physique',  'Terminale',  'home',   'Plateau Centre',       '2× / semaine', '2h',   2.0, true,  false, true,  'Prépa BAC C — mécanique et électricité',  15000, 3,  'app', 5.320400, -4.019700),
+  ('+2250701001001', 'Aïcha',    'Anglais',   '1ère',       'online', 'En ligne',             '1× / semaine', '1h30', 1.5, true,  true,  false, 'Conversation et préparation oral',        9000,  10, 'app', NULL::numeric, NULL::numeric),
+  ('+2250701001002', 'Koffi',    'SVT',       '4ème',       'home',   'Marcory Zone 4',       '1× / semaine', '1h30', 1.5, true,  false, false, 'Renforcement programme standard',         8500,  6,  'app', 5.291000, -3.981000),
+  ('+2250701001003', 'Salimata', 'Maths',     'CM2',        'home',   'Koumassi Remblais',    '2× / semaine', '1h',   1.0, true,  false, true,  'Calcul et problèmes — vacances',          6000,  2,  'web', 5.288900, -3.955300),
+  ('+2250701001004', 'Paul',     'Histoire',  '2nde',       'home',   'Cocody Riviera 3',     '1× / semaine', '1h30', 1.5, true,  true,  false, 'Méthode et dissertations',                10000, 12, 'app', 5.352000, -3.967500),
+  ('+2250701001005', 'Rokia',    'Anglais',   '6ème',       'online', 'En ligne',             '1× / semaine', '1h',   1.0, true,  false, false, 'Bases oral et vocabulaire',               7000,  4,  'app', NULL::numeric, NULL::numeric),
+  ('+2250701001006', 'Nadia',    'Maths',     'Terminale',  'home',   'Yopougon Sicogi',      '3× / semaine', '2h',   2.0, true,  true,  true,  'Intensif BAC D — analyse et probabilités',18000, 1,  'app', 5.348000, -4.102000),
+  ('+2250701001007', 'Omar',     'Chimie',    '3ème',       'home',   'Treichville',          '1× / semaine', '1h30', 1.5, true,  false, false, 'Préparation BEPC sciences',               9500,  9,  'web', 5.289300, -4.007800),
+  ('+2250700000097', 'Lina',     'Français',  '5ème',       'home',   'Abobo Avocatier',      '1× / semaine', '1h',   1.0, true,  true,  false, 'Lecture et expression écrite',            7500,  7,  'app', 5.430000, -4.020000),
+  ('+2250701001002', 'Koffi',    'Maths',     '4ème',       'home',   'Bingerville',          '2× / semaine', '1h30', 1.5, true,  true,  false, 'Fractions et proportionnalité',           9000,  11, 'app', 5.355600, -3.885300),
+  ('+2250701001004', 'Paul',     'Anglais',   '2nde',       'home',   'Port-Bouët',           '1× / semaine', '1h',   1.0, true,  false, true,  'Oral et compréhension',                   8500,  14, 'web', 5.256000, -3.924000),
+  ('+2250701001006', 'Nadia',    'Physique',  'Terminale',  'home',   'Anyama',               '2× / semaine', '2h',   2.0, true,  false, false, 'Optique et électricité',                  14000, 6,  'app', 5.494000, -4.051000),
+  ('+2250701001003', 'Salimata', 'Français',  'CM2',        'home',   'Grand-Bassam',         '1× / semaine', '1h',   1.0, true,  true,  true,  'Lecture suivie',                          6500,  9,  'app', 5.211000, -3.738000)
+) AS v(phone, child_name, subject, level, format, location, frequency, duration, hours, aw, awe, ah, description, parent_price, start_in_days, source, lat, lng)
 JOIN users u ON u.phone = v.phone
 LEFT JOIN children c ON c.user_id = u.id AND c.name = v.child_name
 WHERE NOT EXISTS (
   SELECT 1 FROM course_needs n
    WHERE n.user_id = u.id AND n.subject = v.subject AND n.level = v.level AND n.status = 'published'
+     AND COALESCE(n.location, '') = v.location
 );
 
 -- Animaux de compagnie (badges Chat / Chien Completude)
 UPDATE course_needs SET has_cat = TRUE
- WHERE status = 'published' AND subject IN ('Maths', 'Français', 'Histoire') AND location IN ('Cocody', 'Cocody Riviera', 'Abidjan');
+ WHERE status = 'published' AND subject IN ('Maths', 'Français', 'Histoire')
+   AND location ILIKE '%Cocody%';
 UPDATE course_needs SET has_dog = TRUE
  WHERE status = 'published' AND subject IN ('Physique', 'SVT', 'Chimie') AND format = 'home';
 UPDATE course_needs SET has_cat = TRUE, has_dog = TRUE
- WHERE status = 'published' AND location = 'Yopougon';
+ WHERE status = 'published' AND location ILIKE '%Yopougon%';
 
 -- ---------- Besoins encore à tarifer (admin) + tarifés en attente parent ----------
 INSERT INTO course_needs (

@@ -46,6 +46,8 @@ export type OfferReq = {
   availabilityHolidays?: boolean;
   hasCat?: boolean;
   hasDog?: boolean;
+  lat?: number | null;
+  lng?: number | null;
 };
 
 type WhenOpts = { week: boolean; weekend: boolean; vacations: boolean };
@@ -140,7 +142,7 @@ function OfferCard({
 }) {
   const place = (r.name || r.slot || "Abidjan").replace(/,?\s*Côte d'Ivoire/i, "").trim();
   const title = place.toUpperCase() || "ABIDJAN";
-  const dist = distanceKmFromHome(r.slot || r.name || place, home);
+  const dist = distanceKmFromHome(r.slot || r.name || place, home, r.lat, r.lng);
   const { name: pupil, level, gender } = parseStudent(r.student);
   const freq =
     [r.frequency, r.duration].filter(Boolean).join(" - ") ||
@@ -292,7 +294,7 @@ function OfferDetailModal({
   onMark: (m: OfferMark) => void;
 }) {
   const place = (r.name || r.slot || "Abidjan").replace(/,?\s*Côte d'Ivoire/i, "").trim();
-  const dist = distanceKmFromHome(r.slot || r.name || place, home);
+  const dist = distanceKmFromHome(r.slot || r.name || place, home, r.lat, r.lng);
   const { name: pupil, level, gender } = parseStudent(r.student);
   const start = formatStart(r.startDate);
   const pay =
@@ -529,7 +531,7 @@ export function TeacherRequestsPage() {
 
     list = list.filter((r) => {
       if (isOnline(r)) return true;
-      const d = distanceKmFromHome(r.slot || r.name || r.format, homeCoords);
+      const d = distanceKmFromHome(r.slot || r.name || r.format, homeCoords, r.lat, r.lng);
       if (d == null) return true;
       if (!applied.prefs.vehicle && d > NO_VEHICLE_MAX_KM) return false;
       if (applied.list.maxKm != null && d > applied.list.maxKm) return false;
@@ -542,8 +544,8 @@ export function TeacherRequestsPage() {
       list.sort((a, b) => (a.netHourly || a.price || 0) - (b.netHourly || b.price || 0));
     } else if (sort === "distance") {
       list.sort((a, b) => {
-        const da = distanceKmFromHome(a.slot || a.name, homeCoords) ?? 9999;
-        const db = distanceKmFromHome(b.slot || b.name, homeCoords) ?? 9999;
+        const da = distanceKmFromHome(a.slot || a.name, homeCoords, a.lat, a.lng) ?? 9999;
+        const db = distanceKmFromHome(b.slot || b.name, homeCoords, b.lat, b.lng) ?? 9999;
         return da - db;
       });
     }
@@ -648,6 +650,8 @@ export function TeacherRequestsPage() {
     label: r.name || r.slot || "Offre",
     place: r.slot || r.name || r.format,
     subject: r.subject,
+    lat: r.lat ?? null,
+    lng: r.lng ?? null,
     priceLabel:
       r.isOpportunity && r.netHourly != null
         ? `${fcfa(r.netHourly)} F/h net`
