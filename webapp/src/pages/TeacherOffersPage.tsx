@@ -973,7 +973,7 @@ export function TeacherRequestsPage() {
                   <Empty>
                     {sideTab === "props"
                       ? "Aucune proposition dans ces catégories — consultez une offre pour la classer."
-                      : "Aucune offre n'a été trouvée — ajustez vos filtres puis « Voir les offres »."}
+                      : "Aucune offre n’a été trouvée — ajustez vos filtres puis « Voir les offres »."}
                   </Empty>
                 ) : (
                   filtered.map((r) => {
@@ -1037,4 +1037,3 @@ export function TeacherRequestsPage() {
     </AppShell>
   );
 }
-// offers-clean 1784636834
