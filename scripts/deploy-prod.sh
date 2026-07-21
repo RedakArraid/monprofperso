@@ -13,6 +13,11 @@ git fetch origin
 git checkout "${BRANCH}" 2>/dev/null || git checkout -b "${BRANCH}" "origin/${BRANCH}"
 git pull --ff-only origin "${BRANCH}"
 
+if [ -d webapp ] && command -v npm >/dev/null 2>&1; then
+  echo "==> Build espace React (webapp → web/espace)"
+  (cd webapp && npm ci && npm run build)
+fi
+
 echo "==> Build & start (prod)"
 $COMPOSE up -d --build
 

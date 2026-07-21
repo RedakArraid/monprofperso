@@ -37,3 +37,7 @@ xcuserdata/
 # --- Divers ---
 _maquette/
 *.zip
+
+# --- Webapp (Vite/React) ---
+webapp/node_modules/
+webapp/dist/
