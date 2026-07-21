@@ -1,8 +1,7 @@
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { AppShell, OfflineBanner, Empty, MenuRow, PageGrid, PageStack, ContentCard } from "@/components/layout";
+import { AppShell, OfflineBanner, Empty, MenuRow, PageGrid, PageStack, ContentCard, SectionHeading } from "@/components/layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { useAuth } from "@/lib/auth";
@@ -78,39 +77,42 @@ export function FiltersPage() {
   return (
     <AppShell title="Filtres" back="/recherche" active="recherche">
       <PageStack>
-        <form
-          className="space-y-4 rounded-2xl border border-border bg-card p-6"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const fd = new FormData(e.currentTarget);
-            const parts = [];
-            if (fd.get("format")) parts.push(`format=${fd.get("format")}`);
-            if (fd.get("level")) parts.push(`level=${fd.get("level")}`);
-            navigate(`/recherche${parts.length ? `?${parts.join("&")}` : ""}`);
-          }}
-        >
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label>Format</Label>
-              <Select name="format" defaultValue="">
-                <option value="">Tous</option>
-                <option value="home">À domicile</option>
-                <option value="online">En ligne</option>
-              </Select>
+        <ContentCard>
+          <SectionHeading>Affiner la recherche</SectionHeading>
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const fd = new FormData(e.currentTarget);
+              const parts = [];
+              if (fd.get("format")) parts.push(`format=${fd.get("format")}`);
+              if (fd.get("level")) parts.push(`level=${fd.get("level")}`);
+              navigate(`/recherche${parts.length ? `?${parts.join("&")}` : ""}`);
+            }}
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-welcome">Format</Label>
+                <Select name="format" defaultValue="">
+                  <option value="">Tous</option>
+                  <option value="home">À domicile</option>
+                  <option value="online">En ligne</option>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-welcome">Niveau</Label>
+                <Select name="level" defaultValue="">
+                  <option value="">Tous</option>
+                  <option value="college">Collège</option>
+                  <option value="lycee">Lycée</option>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Niveau</Label>
-              <Select name="level" defaultValue="">
-                <option value="">Tous</option>
-                <option value="college">Collège</option>
-                <option value="lycee">Lycée</option>
-              </Select>
-            </div>
-          </div>
-          <Button type="submit" className="w-full sm:w-auto">
-            Appliquer
-          </Button>
-        </form>
+            <Button type="submit" className="w-full">
+              Appliquer
+            </Button>
+          </form>
+        </ContentCard>
       </PageStack>
     </AppShell>
   );
@@ -132,20 +134,20 @@ export function TeacherProfilePage() {
   return (
     <AppShell title="Profil prof" back active="recherche">
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
-      <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
-        <Card>
-          <CardContent className="flex gap-4 p-6 pt-6 sm:p-8">
-            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-secondary font-display text-2xl font-extrabold text-primary">
+      <PageStack>
+        <ContentCard>
+          <div className="flex gap-4">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-secondary font-display text-2xl font-extrabold text-primary">
               {data.initials || "?"}
             </div>
             <div>
-              <div className="font-display text-2xl font-bold sm:text-3xl">{data.name}</div>
-              <div className="mt-1 text-muted-foreground">{data.subjects}</div>
-              <div className="mt-2 text-sm text-muted-foreground">
+              <SectionHeading className="mb-1">{data.name}</SectionHeading>
+              <div className="text-[15px] text-[#555]">{data.subjects}</div>
+              <div className="mt-2 text-sm text-[#666]">
                 ★ {data.rating} ({data.reviews_count || 0} avis) · {data.location}
               </div>
-              <div className="mt-3 text-xl font-bold">{fcfa(data.price_per_hour)} F/h</div>
-              <Button asChild className="mt-5" size="lg">
+              <div className="mt-3 text-xl font-bold text-primary">{fcfa(data.price_per_hour)} F/h</div>
+              <Button asChild className="mt-5">
                 <Link
                   to={`/reservation?teacherId=${data.id}&name=${encodeURIComponent(data.name)}&price=${data.price_per_hour || 6000}`}
                 >
@@ -153,54 +155,57 @@ export function TeacherProfilePage() {
                 </Link>
               </Button>
             </div>
-          </CardContent>
-        </Card>
-        <div className="space-y-3">
-          <h2 className="font-display text-lg font-bold">Avis</h2>
+          </div>
+        </ContentCard>
+        <ContentCard>
+          <SectionHeading>Avis</SectionHeading>
           {(data.reviews || []).length === 0 ? (
-            <p className="text-sm text-muted-foreground">Pas encore d&apos;avis.</p>
+            <p className="text-sm text-[#888]">Pas encore d&apos;avis.</p>
           ) : null}
-          {(data.reviews || []).map((r, i) => (
-            <Card key={i}>
-              <CardContent className="pt-4">
-                <div className="text-sm text-muted-foreground">
+          <div className="divide-y divide-[#eee]">
+            {(data.reviews || []).map((r, i) => (
+              <div key={i} className="py-3 first:pt-0 last:pb-0">
+                <div className="text-sm text-[#666]">
                   ★ {r.rating} · {r.author_name}
                 </div>
-                <p className="mt-1 text-sm">{r.text}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
+                <p className="mt-1 text-[15px] text-[#444]">{r.text}</p>
+              </div>
+            ))}
+          </div>
+        </ContentCard>
+      </PageStack>
     </AppShell>
   );
 }
 
 export function CoursesPage() {
+  const { isTeacher } = useAuth();
   const { data, offline, reload } = useLive<typeof fallback.courses>("/api/courses", fallback.courses);
+  const title = isTeacher ? "Mes élèves" : "Mes cours";
   return (
-    <AppShell title="Mes cours" active="cours">
+    <AppShell title={title} active="cours">
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
-      {!data.length ? <Empty>Aucun cours pour le moment.</Empty> : null}
-      <PageGrid>
-        {data.map((c) => (
-          <ContentCard key={c.id}>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-lg font-bold text-[#222]">
-                  {c.subject} · {c.level}
-                </div>
-                <div className="text-sm text-[#666]">{c.teacher_name}</div>
-                <div className="text-sm text-[#666]">
-                  {c.day_label} {c.day_num} · {c.time}
-                </div>
-                {c.badge ? <Badge className="mt-2">{c.badge}</Badge> : null}
+      {!data.length ? (
+        <Empty>{isTeacher ? "Aucun élève n'a été trouvé" : "Aucun cours n'a été trouvé"}</Empty>
+      ) : (
+        <PageStack>
+          {data.map((c) => (
+            <ContentCard key={c.id}>
+              <SectionHeading>
+                {c.subject} · {c.level}
+              </SectionHeading>
+              <div className="text-[15px] text-[#444]">{c.teacher_name}</div>
+              <div className="mt-1 text-sm text-[#666]">
+                {c.day_label} {c.day_num} · {c.time}
               </div>
-              <strong className="text-lg text-primary">{fcfa(c.price)} F</strong>
-            </div>
-          </ContentCard>
-        ))}
-      </PageGrid>
+              <div className="mt-3 flex items-center justify-between gap-3">
+                {c.badge ? <Badge>{c.badge}</Badge> : <span />}
+                <strong className="text-[15px] text-primary">{fcfa(c.price)} F</strong>
+              </div>
+            </ContentCard>
+          ))}
+        </PageStack>
+      )}
     </AppShell>
   );
 }
@@ -210,15 +215,16 @@ export function ProgressPage() {
   return (
     <AppShell title="Progrès" active="progres">
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
-      <div className="grid gap-5 lg:grid-cols-[280px_1fr]">
+      <PageStack>
         <ContentCard>
-          <div className="text-sm text-[#666]">Moyenne générale</div>
+          <SectionHeading>Moyenne générale</SectionHeading>
           <div className="font-display text-5xl font-black text-primary">{data.average}</div>
           <p className="mt-2 text-sm text-[#666]">
             {data.trend} · {data.goal}
           </p>
         </ContentCard>
         <ContentCard>
+          <SectionHeading>Par matière</SectionHeading>
           <div className="space-y-5">
             {data.subjects.map((s) => (
               <div key={s.subject} className="space-y-2">
@@ -236,7 +242,7 @@ export function ProgressPage() {
             ))}
           </div>
         </ContentCard>
-      </div>
+      </PageStack>
     </AppShell>
   );
 }
@@ -245,13 +251,14 @@ export function AccountPage() {
   const { user, isTeacher, logout } = useAuth();
   return (
     <AppShell title="Mon compte" active="compte">
-      <div className="grid gap-5 lg:grid-cols-[320px_1fr]">
+      <PageStack>
         <ContentCard>
-          <div className="text-2xl font-bold text-[#222]">{user?.full_name || "Utilisateur"}</div>
+          <SectionHeading>Mon profil</SectionHeading>
+          <div className="text-[18px] font-bold text-[#222]">{user?.full_name || "Utilisateur"}</div>
           <div className="mt-1 text-[#666]">{user?.phone}</div>
           <Button
             variant="destructive"
-            className="mt-4 w-full"
+            className="mt-5 w-full"
             onClick={() => {
               logout();
               window.location.href = "/connexion.html";
@@ -260,24 +267,25 @@ export function AccountPage() {
             Déconnexion
           </Button>
         </ContentCard>
-        <PageGrid>
+        <ContentCard>
+          <SectionHeading>Raccourcis</SectionHeading>
           <MenuRow to="/notifications" label="Notifications" />
           <MenuRow to="/portefeuille" label="Portefeuille" />
           <MenuRow to="/mes-besoins" label="Mes besoins" />
           <MenuRow to="/enfants" label="Mes enfants" />
-          <MenuRow to="/ressources" label="Ressources" />
+          <MenuRow to="/ressources" label={isTeacher ? "Mes documents" : "Ressources"} />
           <MenuRow to="/abonnement" label="Abonnement" />
           <MenuRow to="/parrainage" label="Parrainage" />
           <MenuRow to="/legal" label="Documents légaux" />
-          <MenuRow to="/aide" label="Aide" />
+          <MenuRow to="/aide" label={isTeacher ? "Mes contacts" : "Aide"} />
           <MenuRow to="/parametres" label="Paramètres" />
           {isTeacher ? (
             <MenuRow to="/prof-profil" label="Compléter mon profil" />
           ) : (
             <MenuRow to="/devenir-prof.html" label="Devenir professeur" external />
           )}
-        </PageGrid>
-      </div>
+        </ContentCard>
+      </PageStack>
     </AppShell>
   );
 }
@@ -287,17 +295,27 @@ export function LegalPage() {
   return (
     <AppShell title="Documents légaux" back="/compte" active="compte">
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
-      {!data.length ? <Empty>Documents indisponibles.</Empty> : null}
-      <PageGrid className="xl:grid-cols-2">
-        {data.map((d) => (
-          <MenuRow
-            key={d.slug}
-            to={d.hasFile ? `${apiBase()}/api/legal/${d.slug}/file` : "#"}
-            label={d.title || d.slug}
-            external
-          />
-        ))}
-      </PageGrid>
+      {!data.length ? (
+        <Empty>Aucun document n&apos;est disponible</Empty>
+      ) : (
+        <ContentCard>
+          <SectionHeading>Documents utiles</SectionHeading>
+          <ul className="list-disc space-y-1 pl-5 marker:text-primary">
+            {data.map((d) => (
+              <li key={d.slug}>
+                <a
+                  href={d.hasFile ? `${apiBase()}/api/legal/${d.slug}/file` : "#"}
+                  className="link-green text-[15px]"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {d.title || d.slug}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </ContentCard>
+      )}
     </AppShell>
   );
 }

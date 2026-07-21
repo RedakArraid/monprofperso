@@ -1,16 +1,25 @@
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { AppShell, OfflineBanner, Empty, MenuRow, PageGrid, PageStack, ContentCard } from "@/components/layout";
+import {
+  AppShell,
+  OfflineBanner,
+  Empty,
+  PageStack,
+  ContentCard,
+  SectionHeading,
+  InfoRow,
+  DocLink,
+} from "@/components/layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { api, apiBase } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { fallback } from "@/lib/fallback";
 import { fcfa } from "@/lib/utils";
 import { useLive } from "@/hooks/useLive";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 export function NotificationsPage() {
   const { data, offline, reload } = useLive<typeof fallback.notifications>(
@@ -20,32 +29,38 @@ export function NotificationsPage() {
   return (
     <AppShell title="Notifications" back="/compte" active="compte">
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
-      <div className="mb-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={async () => {
-            await api("/api/notifications/read", { method: "POST", body: {} });
-            void reload();
-          }}
-        >
-          Tout lire
-        </Button>
-      </div>
-      {!data.length ? <Empty>Aucune notification.</Empty> : null}
-      <PageGrid>
-        {data.map((n, i) => (
-          <ContentCard key={i}>
-            <div className="flex gap-3">
-              <span>{n.unread ? "🔵" : "⚪"}</span>
-              <div>
-                <div className="text-[#222]">{n.text}</div>
-                <div className="text-sm text-[#666]">{n.time_ago}</div>
-              </div>
+      {!data.length ? (
+        <Empty>Aucune notification n&apos;est disponible</Empty>
+      ) : (
+        <PageStack>
+          <ContentCard>
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <SectionHeading className="mb-0">Mes notifications</SectionHeading>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  await api("/api/notifications/read", { method: "POST", body: {} });
+                  void reload();
+                }}
+              >
+                Tout lire
+              </Button>
+            </div>
+            <div className="divide-y divide-[#eee]">
+              {data.map((n, i) => (
+                <div key={i} className="flex gap-3 py-3 first:pt-0 last:pb-0">
+                  <span className={n.unread ? "text-primary" : "text-[#ccc]"}>●</span>
+                  <div>
+                    <div className="text-[15px] text-[#333]">{n.text}</div>
+                    <div className="text-sm text-[#888]">{n.time_ago}</div>
+                  </div>
+                </div>
+              ))}
             </div>
           </ContentCard>
-        ))}
-      </PageGrid>
+        </PageStack>
+      )}
     </AppShell>
   );
 }
@@ -55,28 +70,36 @@ export function WalletPage() {
     accounts: { provider?: string; number?: string; label?: string }[];
     transactions: { title?: string; label?: string; amount?: number; subtitle?: string }[];
   }>("/api/wallet", fallback.wallet);
+  const empty = !(data.accounts || []).length && !(data.transactions || []).length;
   return (
     <AppShell title="Portefeuille" back="/compte" active="compte">
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
-      {(data.accounts || []).map((a, i) => (
-        <Card key={i}>
-          <CardContent className="pt-4">
-            <div className="font-semibold">{a.label || a.provider}</div>
-            <div className="text-sm text-muted-foreground">{a.number}</div>
-          </CardContent>
-        </Card>
-      ))}
-      {(data.transactions || []).map((t, i) => (
-        <Card key={i}>
-          <CardContent className="flex justify-between pt-4">
-            <div>
-              <div className="font-semibold">{t.title || t.label}</div>
-              <div className="text-sm text-muted-foreground">{t.subtitle}</div>
+      {empty ? (
+        <Empty>Aucun acompte n&apos;est disponible</Empty>
+      ) : (
+        <PageStack>
+          {(data.accounts || []).map((a, i) => (
+            <ContentCard key={i}>
+              <SectionHeading>{a.label || a.provider || "Compte"}</SectionHeading>
+              <p className="text-[15px] text-[#444]">{a.number}</p>
+            </ContentCard>
+          ))}
+          <ContentCard>
+            <SectionHeading>Transactions</SectionHeading>
+            <div className="divide-y divide-[#eee]">
+              {(data.transactions || []).map((t, i) => (
+                <div key={i} className="flex justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                  <div>
+                    <div className="text-[15px] font-medium text-[#333]">{t.title || t.label}</div>
+                    <div className="text-sm text-[#888]">{t.subtitle}</div>
+                  </div>
+                  <strong className="text-primary">{fcfa(t.amount)} F</strong>
+                </div>
+              ))}
             </div>
-            <strong>{fcfa(t.amount)} F</strong>
-          </CardContent>
-        </Card>
-      ))}
+          </ContentCard>
+        </PageStack>
+      )}
     </AppShell>
   );
 }
@@ -90,30 +113,34 @@ export function GroupsPage() {
   );
   return (
     <AppShell title="Cours en groupe" active="accueil">
-      <div className="mb-4 flex gap-4 text-sm">
-        <Link to="/groupes" className="font-semibold text-primary">
-          Tous
-        </Link>
-        <Link to="/groupes?kind=stage" className="font-semibold text-primary">
-          Vacances
-        </Link>
-      </div>
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
-      {!data.length ? <Empty>Aucun groupe disponible.</Empty> : null}
-      <PageGrid>
-        {data.map((g) => (
-          <Link key={g.id} to={`/groupes/${g.id}`} className="block h-full">
-            <Card className="h-full transition hover:border-primary/40">
-              <CardContent className="pt-5">
-                <div className="font-display text-lg font-bold">{g.title}</div>
-                <div className="mt-1 text-sm text-muted-foreground">
+      <PageStack>
+        <ContentCard>
+          <SectionHeading>Filtres</SectionHeading>
+          <div className="flex gap-4 text-[15px]">
+            <Link to="/groupes" className={!kind ? "font-bold text-welcome" : "link-green"}>
+              Tous
+            </Link>
+            <Link to="/groupes?kind=stage" className={kind === "stage" ? "font-bold text-welcome" : "link-green"}>
+              Vacances
+            </Link>
+          </div>
+        </ContentCard>
+        {!data.length ? (
+          <Empty>Aucun groupe n&apos;a été trouvé</Empty>
+        ) : (
+          data.map((g) => (
+            <Link key={g.id} to={`/groupes/${g.id}`}>
+              <ContentCard className="transition hover:shadow-md">
+                <SectionHeading className="mb-1">{g.title}</SectionHeading>
+                <p className="text-[15px] text-[#555]">
                   {g.detail || g.teacher_name} · {fcfa(g.price)} F
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
-      </PageGrid>
+                </p>
+              </ContentCard>
+            </Link>
+          ))
+        )}
+      </PageStack>
     </AppShell>
   );
 }
@@ -127,21 +154,21 @@ export function GroupDetailPage() {
   if (!data) {
     return (
       <AppShell title="Groupe" back="/groupes" active="accueil">
-        <Empty>Introuvable.</Empty>
+        <Empty>Aucun groupe n&apos;a été trouvé</Empty>
       </AppShell>
     );
   }
   return (
     <AppShell title="Détail groupe" back="/groupes" active="accueil">
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
-      <Card>
-        <CardContent className="pt-4">
-          <div className="font-display text-lg font-bold">{data.title}</div>
-          <div className="text-sm text-muted-foreground">{data.detail}</div>
-          <p className="mt-2 font-bold">{fcfa(data.price)} F</p>
-        </CardContent>
-      </Card>
-      <p className="text-sm text-muted-foreground">Inscription bientôt disponible sur le web.</p>
+      <PageStack>
+        <ContentCard>
+          <SectionHeading>{data.title}</SectionHeading>
+          <p className="text-[15px] text-[#555]">{data.detail}</p>
+          <p className="mt-3 text-lg font-bold text-primary">{fcfa(data.price)} F</p>
+          <p className="mt-4 text-sm text-[#888]">Inscription bientôt disponible sur le web.</p>
+        </ContentCard>
+      </PageStack>
     </AppShell>
   );
 }
@@ -152,27 +179,25 @@ export function SubscriptionPage() {
   return (
     <AppShell title="Abonnement" back="/compte" active="compte">
       {plans.offline ? <OfflineBanner onRetry={() => void plans.reload()} /> : null}
-      {mine.data?.plan ? (
-        <Card className="border-primary/30 bg-secondary">
-          <CardContent className="pt-4">
-            <div className="font-semibold">Votre formule</div>
-            <div className="text-sm text-muted-foreground">{mine.data.plan}</div>
-          </CardContent>
-        </Card>
-      ) : null}
-      {plans.data.map((p) => (
-        <Card key={p.name}>
-          <CardContent className="pt-4">
-            <div className="font-semibold">
+      <PageStack>
+        {mine.data?.plan ? (
+          <ContentCard>
+            <SectionHeading>Votre formule</SectionHeading>
+            <p className="text-[15px] text-[#444]">{mine.data.plan}</p>
+          </ContentCard>
+        ) : null}
+        {plans.data.map((p) => (
+          <ContentCard key={p.name}>
+            <SectionHeading>
               {p.name} {p.popular ? <Badge variant="orange">Populaire</Badge> : null}
-            </div>
-            <div className="text-sm text-muted-foreground">{p.detail}</div>
-            <strong>
+            </SectionHeading>
+            <p className="text-[15px] text-[#555]">{p.detail}</p>
+            <strong className="mt-2 block text-primary">
               {fcfa(p.price)} F{p.suffix || ""}
             </strong>
-          </CardContent>
-        </Card>
-      ))}
+          </ContentCard>
+        ))}
+      </PageStack>
     </AppShell>
   );
 }
@@ -182,39 +207,120 @@ export function ReferralPage() {
   return (
     <AppShell title="Parrainage" back="/compte" active="compte">
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
-      <Card>
-        <CardContent className="pt-4">
-          <div className="text-xs text-muted-foreground">Votre code</div>
-          <div className="font-display text-2xl font-black">{data.code}</div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="pt-4 text-sm text-muted-foreground">
-          Filleuls : {data.referred || 0} · Gains : {fcfa(data.earned)} F
-        </CardContent>
-      </Card>
+      <PageStack>
+        <ContentCard>
+          <SectionHeading>Votre code</SectionHeading>
+          <div className="font-display text-3xl font-black text-primary">{data.code}</div>
+        </ContentCard>
+        <ContentCard>
+          <InfoRow label="Filleuls">{data.referred || 0}</InfoRow>
+          <InfoRow label="Gains">{fcfa(data.earned)} F</InfoRow>
+        </ContentCard>
+      </PageStack>
     </AppShell>
   );
 }
 
 export function ResourcesPage() {
+  const { isTeacher } = useAuth();
   const { data, offline, reload } = useLive<typeof fallback.resources>("/api/resources", fallback.resources);
+  const grouped = useMemo(() => {
+    const map = new Map<string, typeof data>();
+    for (const r of data) {
+      const key = r.level || "Autres";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(r);
+    }
+    return [...map.entries()];
+  }, [data]);
+
   return (
-    <AppShell title="Ressources" back="/compte" active="compte">
+    <AppShell title={isTeacher ? "Mes documents" : "Ressources"} active="ressources">
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
-      {!data.length ? <Empty>Aucune ressource.</Empty> : null}
-      {data.map((r) => (
-        <a key={r.id} href={`${apiBase()}/api/files/${r.id}`} target="_blank" rel="noreferrer">
-          <Card>
-            <CardContent className="pt-4">
-              <div className="font-semibold">{r.title}</div>
-              <div className="text-sm text-muted-foreground">
-                {r.type} · {r.level}
-              </div>
-            </CardContent>
-          </Card>
-        </a>
-      ))}
+      {!data.length ? (
+        <Empty>Aucun document n&apos;est disponible</Empty>
+      ) : (
+        <ContentCard>
+          <SectionHeading>Documents utiles</SectionHeading>
+          <ul className="mb-4 list-disc space-y-1 pl-5 marker:text-primary">
+            {data.slice(0, 3).map((r) => (
+              <li key={`top-${r.id}`}>
+                <a href={`${apiBase()}/api/files/${r.id}`} className="link-green text-[15px]" target="_blank" rel="noreferrer">
+                  {r.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+          {grouped.map(([level, items]) => (
+            <div key={level} className="mb-5 last:mb-0">
+              <h3 className="mb-2 text-[15px] font-bold text-[#333]">{level}</h3>
+              <ul className="list-none space-y-1 pl-1">
+                {items.map((r) => (
+                  <li key={r.id} className="flex gap-2">
+                    <span className="mt-2 h-1.5 w-1.5 shrink-0 bg-primary" />
+                    <a
+                      href={`${apiBase()}/api/files/${r.id}`}
+                      className="link-green text-[15px]"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {r.title}
+                      <span className="text-[#888] no-underline"> — {r.type}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </ContentCard>
+      )}
+    </AppShell>
+  );
+}
+
+export function ContactsPage() {
+  const { isTeacher } = useAuth();
+  const { data, offline, reload } = useLive<Record<string, string>>("/api/settings", {});
+  const phone = data.contact_phone || "+225 07 00 00 00 00";
+  const email = data.contact_email || "contact@monprofperso.com";
+  return (
+    <AppShell title={isTeacher ? "Mes contacts" : "Aide"} active="aide">
+      {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
+      <PageStack>
+        <div className="flex flex-wrap items-baseline justify-between gap-2 px-1">
+          <p className="text-[15px] font-semibold text-welcome underline">Mon support&nbsp;:</p>
+          <span className="text-[15px] text-[#444]">Abidjan · Côte d&apos;Ivoire</span>
+        </div>
+        <ContentCard>
+          <InfoRow label="Adresse">Abidjan, Côte d&apos;Ivoire</InfoRow>
+          <InfoRow label="Horaires">Du lundi au vendredi de 8h à 18h</InfoRow>
+          <InfoRow label="Téléphone">
+            <a href={`tel:${phone.replace(/\s/g, "")}`} className="link-green">
+              {phone}
+            </a>
+          </InfoRow>
+          <InfoRow label="E-mail">
+            <a href={`mailto:${email}`} className="link-green">
+              {email}
+            </a>
+          </InfoRow>
+        </ContentCard>
+        <ContentCard>
+          <SectionHeading>Liens utiles</SectionHeading>
+          <DocLink to="/legal">Documents légaux</DocLink>
+          <DocLink to="/ressources">{isTeacher ? "Mes documents" : "Ressources pédagogiques"}</DocLink>
+          {data.social_whatsapp ? (
+            <DocLink to={data.social_whatsapp} external>
+              WhatsApp
+            </DocLink>
+          ) : null}
+          {data.social_facebook ? (
+            <DocLink to={data.social_facebook} external>
+              Facebook
+            </DocLink>
+          ) : null}
+        </ContentCard>
+      </PageStack>
     </AppShell>
   );
 }
@@ -226,66 +332,71 @@ export function BookingPage() {
   return (
     <AppShell title="Réservation" back="/recherche" active="recherche">
       <PageStack>
-        <form
-          className="space-y-4 rounded-2xl border border-border bg-card p-6"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            setErr("");
-            const fd = new FormData(e.currentTarget);
-            try {
-              const r = await api<{ reference?: string; course?: { id: number } }>("/api/bookings", {
-                method: "POST",
-                body: {
-                  teacherId: Number(fd.get("teacherId")),
-                  teacherName: fd.get("teacherName"),
-                  subject: fd.get("subject"),
-                  level: fd.get("level"),
-                  format: fd.get("format"),
-                  price: Number(fd.get("price")),
-                  dayLabel: "SAM",
-                  dayNum: "22",
-                  time: "16h00",
-                  duration: "1h30",
-                  location: "Cocody",
-                },
-              });
-              sessionStorage.setItem("mpp_booking_price", String(fd.get("price")));
-              sessionStorage.setItem("mpp_course_id", String(r.course?.id || ""));
-              navigate("/paiement");
-            } catch (ex) {
-              setErr(ex instanceof Error ? ex.message : "Erreur");
-            }
-          }}
-        >
-          <input type="hidden" name="teacherId" value={sp.get("teacherId") || "1"} />
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label>Professeur</Label>
-              <Input name="teacherName" defaultValue={decodeURIComponent(sp.get("name") || "Professeur")} />
+        <ContentCard>
+          <SectionHeading>Réserver un cours</SectionHeading>
+          <form
+            className="space-y-4"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setErr("");
+              const fd = new FormData(e.currentTarget);
+              try {
+                const r = await api<{ reference?: string; course?: { id: number } }>("/api/bookings", {
+                  method: "POST",
+                  body: {
+                    teacherId: Number(fd.get("teacherId")),
+                    teacherName: fd.get("teacherName"),
+                    subject: fd.get("subject"),
+                    level: fd.get("level"),
+                    format: fd.get("format"),
+                    price: Number(fd.get("price")),
+                    dayLabel: "SAM",
+                    dayNum: "22",
+                    time: "16h00",
+                    duration: "1h30",
+                    location: "Cocody",
+                  },
+                });
+                sessionStorage.setItem("mpp_booking_price", String(fd.get("price")));
+                sessionStorage.setItem("mpp_course_id", String(r.course?.id || ""));
+                navigate("/paiement");
+              } catch (ex) {
+                setErr(ex instanceof Error ? ex.message : "Erreur");
+              }
+            }}
+          >
+            <input type="hidden" name="teacherId" value={sp.get("teacherId") || "1"} />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label className="text-welcome">Professeur</Label>
+                <Input name="teacherName" defaultValue={decodeURIComponent(sp.get("name") || "Professeur")} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-welcome">Matière</Label>
+                <Input name="subject" defaultValue="Maths" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-welcome">Niveau</Label>
+                <Input name="level" defaultValue="3ème" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-welcome">Format</Label>
+                <Select name="format" defaultValue="home">
+                  <option value="home">À domicile</option>
+                  <option value="online">En ligne</option>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-welcome">Prix (F)</Label>
+                <Input name="price" type="number" defaultValue={sp.get("price") || "6000"} />
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Matière</Label>
-              <Input name="subject" defaultValue="Maths" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Niveau</Label>
-              <Input name="level" defaultValue="3ème" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Format</Label>
-              <Select name="format" defaultValue="home">
-                <option value="home">À domicile</option>
-                <option value="online">En ligne</option>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Prix (F)</Label>
-              <Input name="price" type="number" defaultValue={sp.get("price") || "6000"} />
-            </div>
-          </div>
-          {err ? <p className="text-sm text-destructive">{err}</p> : null}
-          <Button type="submit">Continuer vers paiement</Button>
-        </form>
+            {err ? <p className="text-sm text-destructive">{err}</p> : null}
+            <Button type="submit" className="w-full">
+              Continuer vers paiement
+            </Button>
+          </form>
+        </ContentCard>
       </PageStack>
     </AppShell>
   );
@@ -298,55 +409,59 @@ export function PaymentPage() {
   return (
     <AppShell title="Paiement" back="/reservation">
       <PageStack>
-        <Card>
-          <CardContent className="pt-5">
-            <div className="font-display text-2xl font-bold">Montant : {fcfa(Number(price))} F</div>
-            <div className="text-sm text-muted-foreground">Mobile Money (démo)</div>
-          </CardContent>
-        </Card>
-        <form
-          className="space-y-4 rounded-2xl border border-border bg-card p-6"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            setErr("");
-            const courseId = Number(sessionStorage.getItem("mpp_course_id"));
-            if (!courseId) {
-              setErr("Réservez d'abord un cours");
-              return;
-            }
-            const fd = new FormData(e.currentTarget);
-            try {
-              const r = await api<{ paymentId?: number; id?: number; needsOtp?: boolean }>(
-                "/api/payments/charge-mobile",
-                {
-                  method: "POST",
-                  body: { courseId, provider: fd.get("provider"), phone: fd.get("phone") },
-                },
-              );
-              sessionStorage.setItem("mpp_payment_id", String(r.paymentId || r.id || ""));
-              navigate(r.needsOtp ? "/paiement-otp" : "/confirmation");
-            } catch (ex) {
-              setErr(ex instanceof Error ? ex.message : "Erreur");
-            }
-          }}
-        >
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label>Opérateur</Label>
-              <Select name="provider" defaultValue="orange">
-                <option value="orange">Orange Money</option>
-                <option value="mtn">MTN</option>
-                <option value="wave">Wave</option>
-              </Select>
+        <ContentCard>
+          <SectionHeading>Montant</SectionHeading>
+          <div className="text-2xl font-bold text-primary">{fcfa(Number(price))} F</div>
+          <div className="text-sm text-[#666]">Mobile Money (démo)</div>
+        </ContentCard>
+        <ContentCard>
+          <SectionHeading>Payer</SectionHeading>
+          <form
+            className="space-y-4"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setErr("");
+              const courseId = Number(sessionStorage.getItem("mpp_course_id"));
+              if (!courseId) {
+                setErr("Réservez d'abord un cours");
+                return;
+              }
+              const fd = new FormData(e.currentTarget);
+              try {
+                const r = await api<{ paymentId?: number; id?: number; needsOtp?: boolean }>(
+                  "/api/payments/charge-mobile",
+                  {
+                    method: "POST",
+                    body: { courseId, provider: fd.get("provider"), phone: fd.get("phone") },
+                  },
+                );
+                sessionStorage.setItem("mpp_payment_id", String(r.paymentId || r.id || ""));
+                navigate(r.needsOtp ? "/paiement-otp" : "/confirmation");
+              } catch (ex) {
+                setErr(ex instanceof Error ? ex.message : "Erreur");
+              }
+            }}
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-welcome">Opérateur</Label>
+                <Select name="provider" defaultValue="orange">
+                  <option value="orange">Orange Money</option>
+                  <option value="mtn">MTN</option>
+                  <option value="wave">Wave</option>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-welcome">Téléphone</Label>
+                <Input name="phone" type="tel" placeholder="+22507…" />
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Téléphone</Label>
-              <Input name="phone" type="tel" placeholder="+22507…" />
-            </div>
-          </div>
-          {err ? <p className="text-sm text-destructive">{err}</p> : null}
-          <Button type="submit">Payer</Button>
-        </form>
+            {err ? <p className="text-sm text-destructive">{err}</p> : null}
+            <Button type="submit" className="w-full">
+              Payer
+            </Button>
+          </form>
+        </ContentCard>
       </PageStack>
     </AppShell>
   );
@@ -357,31 +472,33 @@ export function PaymentOtpPage() {
   const [err, setErr] = useState("");
   return (
     <AppShell title="Code OTP" back="/paiement" hideNav>
-      <form
-        className="space-y-3"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          const fd = new FormData(e.currentTarget);
-          try {
-            await api("/api/payments/submit-otp", {
-              method: "POST",
-              body: { paymentId: Number(sessionStorage.getItem("mpp_payment_id")), otp: fd.get("code") },
-            });
-            navigate("/confirmation");
-          } catch (ex) {
-            setErr(ex instanceof Error ? ex.message : "Erreur");
-          }
-        }}
-      >
-        <div className="space-y-1.5">
-          <Label>Code reçu</Label>
-          <Input name="code" maxLength={6} />
-        </div>
-        {err ? <p className="text-sm text-destructive">{err}</p> : null}
-        <Button type="submit" className="w-full">
-          Valider
-        </Button>
-      </form>
+      <PageStack>
+        <ContentCard>
+          <SectionHeading>Code reçu</SectionHeading>
+          <form
+            className="space-y-3"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const fd = new FormData(e.currentTarget);
+              try {
+                await api("/api/payments/submit-otp", {
+                  method: "POST",
+                  body: { paymentId: Number(sessionStorage.getItem("mpp_payment_id")), otp: fd.get("code") },
+                });
+                navigate("/confirmation");
+              } catch (ex) {
+                setErr(ex instanceof Error ? ex.message : "Erreur");
+              }
+            }}
+          >
+            <Input name="code" maxLength={6} />
+            {err ? <p className="text-sm text-destructive">{err}</p> : null}
+            <Button type="submit" className="w-full">
+              Valider
+            </Button>
+          </form>
+        </ContentCard>
+      </PageStack>
     </AppShell>
   );
 }
@@ -389,15 +506,15 @@ export function PaymentOtpPage() {
 export function ConfirmationPage() {
   return (
     <AppShell title="Confirmé" active="cours" hideNav>
-      <Card>
-        <CardContent className="space-y-2 pt-8 text-center">
-          <div className="text-5xl">✓</div>
-          <div className="font-display text-lg font-bold">Réservation enregistrée</div>
-        </CardContent>
-      </Card>
-      <Button asChild className="w-full">
-        <Link to="/cours">Voir mes cours</Link>
-      </Button>
+      <PageStack>
+        <ContentCard className="text-center">
+          <div className="text-5xl text-primary">✓</div>
+          <SectionHeading className="mt-3">Réservation enregistrée</SectionHeading>
+          <Button asChild className="mt-4 w-full">
+            <Link to="/cours">Voir mes cours</Link>
+          </Button>
+        </ContentCard>
+      </PageStack>
     </AppShell>
   );
 }
@@ -405,11 +522,13 @@ export function ConfirmationPage() {
 export function MockPage({ title, text, active }: { title: string; text: string; active?: string }) {
   return (
     <AppShell title={title} active={active || "compte"}>
-      <ContentCard>
-        <h2 className="mb-3 text-xl font-bold text-[#222]">{title}</h2>
-        <p className="text-[15px] leading-relaxed text-[#555]">{text}</p>
-        <p className="mt-3 text-sm text-[#666]">Interface web — données de démonstration.</p>
-      </ContentCard>
+      <PageStack>
+        <ContentCard>
+          <SectionHeading>{title}</SectionHeading>
+          <p className="text-[15px] leading-relaxed text-[#555]">{text}</p>
+          <p className="mt-3 text-sm text-[#888]">Interface web — données de démonstration.</p>
+        </ContentCard>
+      </PageStack>
     </AppShell>
   );
 }

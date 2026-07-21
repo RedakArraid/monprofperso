@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { AppShell, OfflineBanner, MenuRow, ContentCard, PageGrid } from "@/components/layout";
+import { AppShell, OfflineBanner, ContentCard, PageGrid, DocLink } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { fallback } from "@/lib/fallback";
@@ -29,11 +29,11 @@ export function HomePage() {
 
       <PageGrid>
         <ContentCard>
-          <h2 className="mb-3 text-xl font-bold text-[#222] sm:text-[22px]">
+          <h2 className="mb-3 text-[20px] font-bold leading-snug text-[#222] sm:text-[22px]">
             Bonjour{first ? ` ${first}` : ""}, bienvenue sur votre espace Mon Prof Perso !
           </h2>
-          <p className="mb-3 text-[15px] leading-relaxed text-[#555]">
-            Trouvez un professeur vérifié en quelques clics grâce à la{" "}
+          <p className="mb-3 text-[15px] leading-relaxed text-[#444]">
+            Vous cherchez un professeur ? Trouvez en quelques clics le profil qui vous correspond grâce à la{" "}
             <Link to="/recherche" className="link-green">
               recherche
             </Link>
@@ -43,53 +43,85 @@ export function HomePage() {
             </Link>{" "}
             : nous vous proposons un tarif adapté.
           </p>
-          <p className="mb-5 text-[15px] leading-relaxed text-[#555]">
-            Suivez les cours, les progrès et les notifications depuis cet espace web, aussi disponible sur mobile.
+          <p className="mb-5 text-[15px] leading-relaxed text-[#444]">
+            Suivez les cours, les progrès et les ressources pédagogiques depuis cet espace, aussi disponible sur mobile.
           </p>
-          <div className="flex flex-wrap gap-3">
-            <Button asChild>
-              <Link to="/recherche">Rechercher un prof</Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link to="/exprimer-besoin">Exprimer un besoin</Link>
-            </Button>
+
+          <div className="mb-5 overflow-hidden rounded-lg bg-[#e8f2ee]">
+            <div className="flex aspect-[16/9] max-h-48 items-center justify-center bg-gradient-to-br from-primary/15 to-welcome/20 px-6 text-center">
+              <div>
+                <p className="text-sm font-semibold text-welcome">Votre prochain cours</p>
+                {next ? (
+                  <>
+                    <p className="mt-1 text-[15px] font-bold text-[#222]">
+                      {next.subject} · {next.level}
+                    </p>
+                    <p className="text-xs text-[#666]">
+                      {next.teacher_name} · {next.day_label} {next.day_num} · {next.time}
+                    </p>
+                    <p className="mt-1 text-sm font-bold text-primary">{fcfa(next.price)} F</p>
+                  </>
+                ) : (
+                  <p className="mt-1 text-xs text-[#666]">Aucun cours à venir pour le moment</p>
+                )}
+                <div className="mt-3 flex flex-wrap justify-center gap-2">
+                  <Button asChild size="sm">
+                    <Link to="/recherche">Rechercher un prof</Link>
+                  </Button>
+                  <Button asChild size="sm" variant="outline">
+                    <Link to="/exprimer-besoin">Exprimer un besoin</Link>
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
+
           {(unread.data.count || 0) > 0 ? (
-            <p className="mt-5 text-sm">
+            <p className="mb-4 text-[14px]">
               <Link to="/notifications" className="link-green">
                 {unread.data.count} notification{(unread.data.count || 0) > 1 ? "s" : ""} non lue
                 {(unread.data.count || 0) > 1 ? "s" : ""}
               </Link>
             </p>
           ) : null}
+
+          <p className="text-[14px] leading-relaxed text-[#555]">
+            Avez-vous déjà téléchargé l&apos;application Mon Prof Perso ?
+          </p>
+          <p className="mt-2 text-[14px]">
+            Android :{" "}
+            <a href="/#download" className="link-green">
+              Télécharger maintenant sur Play Store
+            </a>
+          </p>
+          <p className="mt-1 text-[14px]">
+            Apple :{" "}
+            <a href="/#download" className="link-green">
+              Télécharger maintenant sur App Store
+            </a>
+          </p>
         </ContentCard>
 
         <ContentCard>
-          <h2 className="mb-3 text-xl font-bold text-[#222] sm:text-[22px]">Votre prochain cours</h2>
-          {next ? (
-            <>
-              <div className="text-lg font-semibold">
-                {next.subject} · {next.level}
-              </div>
-              <div className="mt-1 text-sm text-[#666]">{next.teacher_name}</div>
-              <div className="mt-1 text-sm text-[#666]">
-                {next.day_label} {next.day_num} · {next.time}
-              </div>
-              <div className="mt-3 text-lg font-bold text-primary">{fcfa(next.price)} F</div>
-              <Button asChild variant="outline" className="mt-4">
-                <Link to="/cours">Voir tous mes cours</Link>
-              </Button>
-            </>
-          ) : (
-            <p className="text-[15px] text-[#555]">
-              Aucun cours à venir. Lancez une recherche ou déposez un besoin pour être mis en relation.
-            </p>
-          )}
-          <div className="mt-6 space-y-2 border-t border-[#eee] pt-4">
-            <MenuRow to="/mes-besoins" label="Mes besoins" />
-            <MenuRow to="/enfants" label="Mes enfants" />
-            <MenuRow to="/groupes" label="Cours en groupe" />
+          <h2 className="mb-3 text-[20px] font-bold leading-snug text-[#222] sm:text-[22px]">
+            Mon Prof Perso s&apos;engage sur la qualité de son service de soutien scolaire
+          </h2>
+          <p className="mb-3 text-[15px] font-semibold leading-relaxed text-[#444]">
+            Des professeurs vérifiés, un suivi des progrès, et un paiement Mobile Money sécurisé pour les familles
+            ivoiriennes.
+          </p>
+          <p className="mb-4 text-[15px] leading-relaxed text-[#555]">
+            Notre équipe valide chaque profil avant la mise en relation. Les programmes scolaires (standard et français)
+            sont couverts jusqu&apos;en Terminale, avec un accompagnement dédié pour le BEPC et le BAC.
+          </p>
+          <div className="mb-4 space-y-1 border-t border-[#eee] pt-3">
+            <DocLink to="/mes-besoins">Mes besoins</DocLink>
+            <DocLink to="/enfants">Mes enfants</DocLink>
+            <DocLink to="/groupes">Cours en groupe & stages vacances</DocLink>
           </div>
+          <Link to="/aide" className="link-green text-[15px]">
+            Voir plus…
+          </Link>
         </ContentCard>
       </PageGrid>
     </AppShell>

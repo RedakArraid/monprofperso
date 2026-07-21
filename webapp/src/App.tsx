@@ -21,6 +21,7 @@ import {
 import {
   BookingPage,
   ConfirmationPage,
+  ContactsPage,
   GroupDetailPage,
   GroupsPage,
   MockPage,
@@ -95,9 +96,20 @@ export default function App() {
                 path="/prof-retrait"
                 element={<MockPage title="Retrait" text="Demande de retrait vers Mobile Money." active="prof-revenus" />}
               />
+              <Route path="/aide" element={<ContactsPage />} />
+              <Route
+                path="/parametres"
+                element={<MockPage title="Paramètres" text="Notifications, langue, confidentialité." />}
+              />
               <Route
                 path="/agenda"
-                element={<MockPage title="Agenda" text="Vos créneaux de cours cette semaine." active="agenda" />}
+                element={
+                  <MockPage
+                    title="Mon agenda"
+                    text="Vos créneaux de cours cette semaine. Synchronisation calendrier bientôt disponible."
+                    active="agenda"
+                  />
+                }
               />
               <Route path="/messages" element={<MockPage title="Messages" text="Messagerie avec vos professeurs." />} />
               <Route
@@ -105,11 +117,6 @@ export default function App() {
                 element={<MockPage title="Cours en ligne" text="Salle de visioconférence." />}
               />
               <Route path="/avis" element={<MockPage title="Laisser un avis" text="Notez votre dernier cours." />} />
-              <Route path="/aide" element={<MockPage title="Aide" text="FAQ et contact support." />} />
-              <Route
-                path="/parametres"
-                element={<MockPage title="Paramètres" text="Notifications, langue, confidentialité." />}
-              />
               <Route path="*" element={<DefaultRedirect />} />
             </Routes>
           </RequireAuth>

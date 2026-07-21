@@ -104,38 +104,47 @@ export function AppShell({
   active,
   hideNav,
   welcome,
+  stickyFooter,
 }: {
   title: string;
   back?: string | true;
   children: ReactNode;
   active?: string;
   hideNav?: boolean;
-  /** Sous-titre type « Bienvenue Prénom NOM » (Completude) */
+  /** Sous-titre type « Bienvenue Prénom NOM » — Accueil uniquement par défaut (Completude) */
   welcome?: string | false;
+  stickyFooter?: ReactNode;
 }) {
   const { isTeacher, user } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const tabs = isTeacher ? teacherTabs : parentTabs;
   const firstName = user?.full_name || "";
+  const isHome = active === "accueil" || active === "prof-espace";
   const welcomeText =
     welcome === false
       ? null
-      : welcome || (firstName ? `Bienvenue ${firstName}` : "Bienvenue");
+      : welcome
+        ? welcome
+        : isHome
+          ? firstName
+            ? `Bienvenue ${firstName}`
+            : "Bienvenue"
+          : null;
 
   return (
-    <div className="min-h-dvh bg-background">
-      {/* Header type Completude */}
+    <div className={cn("min-h-dvh bg-background", stickyFooter && "pb-16")}>
       <header className="sticky top-0 z-40 border-b border-[#e8e8e8] bg-white">
         <div className="mx-auto flex h-14 max-w-[1280px] items-center gap-3 px-3 lg:h-[58px] lg:px-5">
           {!hideNav ? (
             <button
               type="button"
-              className="flex h-10 w-10 items-center justify-center rounded-md text-primary lg:hidden"
+              className="flex flex-col items-center justify-center px-1 text-primary lg:hidden"
               aria-label="Menu"
               onClick={() => setMenuOpen(true)}
             >
               <Menu className="h-6 w-6" />
+              <span className="text-[10px] font-medium leading-none">Menu</span>
             </button>
           ) : back ? (
             <Button
@@ -156,7 +165,7 @@ export function AppShell({
             </span>
           </a>
 
-          <h1 className="flex-1 truncate text-center text-base font-semibold text-[#333] lg:hidden">{title}</h1>
+          <h1 className="flex-1 truncate text-center text-base font-semibold text-welcome lg:hidden">{title}</h1>
 
           {!hideNav ? (
             <nav className="hidden min-w-0 flex-1 items-center justify-center gap-0.5 overflow-x-auto px-2 lg:flex">
@@ -178,7 +187,6 @@ export function AppShell({
         </div>
       </header>
 
-      {/* Drawer mobile / tablette (sidebar Completude) */}
       {menuOpen ? (
         <div className="fixed inset-0 z-50 lg:hidden">
           <button type="button" className="absolute inset-0 bg-black/35" aria-label="Fermer" onClick={() => setMenuOpen(false)} />
@@ -210,7 +218,6 @@ export function AppShell({
         </div>
       ) : null}
 
-      {/* Bandeau Bienvenue */}
       {welcomeText ? (
         <div className="border-b border-[#e8e8e8] bg-white">
           <div className="mx-auto max-w-[1280px] px-4 py-4 lg:px-5">
@@ -219,9 +226,15 @@ export function AppShell({
         </div>
       ) : null}
 
-      <main className={cn("mx-auto w-full max-w-[1280px] px-4 py-5 lg:px-5 lg:py-6", !hideNav && "pb-8")}>
+      <main className={cn("mx-auto w-full max-w-[1280px] px-4 py-5 lg:px-5 lg:py-6", !hideNav && !stickyFooter && "pb-8")}>
         {children}
       </main>
+
+      {stickyFooter ? (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-primary/20 bg-primary">
+          <div className="mx-auto max-w-[1280px]">{stickyFooter}</div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -234,6 +247,11 @@ export function ContentCard({ children, className }: { children: ReactNode; clas
   );
 }
 
+/** Titre de section violet Completude → vert sombre MP² */
+export function SectionHeading({ children, className }: { children: ReactNode; className?: string }) {
+  return <h2 className={cn("mb-4 text-[17px] font-semibold text-welcome sm:text-lg", className)}>{children}</h2>;
+}
+
 export function PageGrid({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={cn("grid gap-5 lg:grid-cols-2", className)}>{children}</div>;
 }
@@ -243,7 +261,85 @@ export function PageStack({ children, className }: { children: ReactNode; classN
 }
 
 export function SectionTitle({ children }: { children: ReactNode }) {
-  return <h2 className="mb-3 text-lg font-bold text-[#222] sm:text-xl">{children}</h2>;
+  return <SectionHeading>{children}</SectionHeading>;
+}
+
+export function PageTabs({
+  tabs,
+  value,
+  onChange,
+}: {
+  tabs: { id: string; label: string }[];
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  return (
+    <div className="mb-5 flex border-b border-[#ddd] bg-white">
+      {tabs.map((t) => {
+        const on = t.id === value;
+        return (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => onChange(t.id)}
+            className={cn(
+              "flex-1 px-3 py-3.5 text-center text-[12px] font-bold uppercase tracking-wide transition-colors sm:text-[13px]",
+              on ? "border-b-[3px] border-welcome text-welcome" : "text-[#888]",
+            )}
+          >
+            {t.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+export function CheckRow({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-start gap-3 border-b border-[#eee] py-3 last:border-0">
+      <input
+        type="checkbox"
+        className="mt-0.5 h-5 w-5 shrink-0 accent-primary"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <span className="text-[15px] text-[#333]">{label}</span>
+    </label>
+  );
+}
+
+export function InfoRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="border-b border-[#eee] py-3 last:border-0">
+      <div className="text-[15px] font-semibold text-welcome">{label}&nbsp;:</div>
+      <div className="mt-0.5 text-[15px] text-[#333]">{children}</div>
+    </div>
+  );
+}
+
+export function DocLink({ to, children, external }: { to: string; children: ReactNode; external?: boolean }) {
+  const className = "link-green block py-1.5 text-[15px] underline-offset-2";
+  if (external) {
+    return (
+      <a href={to} className={className} target="_blank" rel="noreferrer">
+        {children}
+      </a>
+    );
+  }
+  return (
+    <Link to={to} className={className}>
+      {children}
+    </Link>
+  );
 }
 
 export function OfflineBanner({ onRetry }: { onRetry?: () => void }) {
@@ -260,24 +356,28 @@ export function OfflineBanner({ onRetry }: { onRetry?: () => void }) {
 }
 
 export function Empty({ children }: { children: ReactNode }) {
-  return <p className="py-12 text-center text-muted-foreground">{children}</p>;
+  return (
+    <div className="flex min-h-[40vh] items-center justify-center px-4">
+      <p className="text-center text-[15px] text-[#888]">{children}</p>
+    </div>
+  );
 }
 
 export function MenuRow({ to, label, external }: { to: string; label: string; external?: boolean }) {
   const className =
-    "flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3.5 text-sm font-semibold transition hover:border-primary/30";
+    "flex items-center justify-between border-b border-[#eee] px-1 py-3.5 text-[15px] font-medium text-[#333] transition hover:text-primary last:border-0";
   if (external) {
     return (
       <a href={to} className={className}>
         <span>{label}</span>
-        <span className="text-muted-foreground">›</span>
+        <span className="text-[#aaa]">›</span>
       </a>
     );
   }
   return (
     <Link to={to} className={className}>
       <span>{label}</span>
-      <span className="text-muted-foreground">›</span>
+      <span className="text-[#aaa]">›</span>
     </Link>
   );
 }
