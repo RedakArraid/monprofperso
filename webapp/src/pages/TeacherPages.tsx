@@ -153,7 +153,7 @@ function OfferCard({ r, onConsult }: { r: Req; onConsult: () => void }) {
             type="button"
             className="mb-1 inline-flex items-center gap-1 rounded bg-[#4a90d9] px-2 py-0.5 text-[11px] font-semibold text-white opacity-80"
             disabled
-            title="Bientôt disponible"
+            title="Bientôt disponible" data-build="20260721b"
           >
             <MessageCircle className="h-3 w-3" />
             Chat
