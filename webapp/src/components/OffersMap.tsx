@@ -97,13 +97,18 @@ function makeOfferDot(selected: boolean) {
 }
 
 const homeIcon = L.divIcon({
-  className: "",
-  html: `<div style="width:28px;height:28px;border-radius:8px;background:#2b6cb0;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.35);border:2px solid #fff">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-9.5z"/></svg>
+  className: "mpp-home-marker",
+  html: `<div style="display:flex;flex-direction:column;align-items:center;pointer-events:none">
+    <div style="width:40px;height:40px;border-radius:12px;background:#2b6cb0;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.4);border:3px solid #fff">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
+        <path d="M12 3.2 3.5 10.2c-.3.25-.15.7.25.7H6v8.3c0 .4.3.7.7.7h3.6v-5.2h3.4v5.2h3.6c.4 0 .7-.3.7-.7V10.9h2.25c.4 0 .55-.45.25-.7L12 3.2z"/>
+      </svg>
+    </div>
+    <div style="margin-top:2px;padding:1px 6px;border-radius:4px;background:#2b6cb0;color:#fff;font:700 10px/1.2 system-ui,sans-serif;box-shadow:0 1px 3px rgba(0,0,0,.3);white-space:nowrap">Ma case</div>
   </div>`,
-  iconSize: [28, 28],
-  iconAnchor: [14, 14],
-  popupAnchor: [0, -14],
+  iconSize: [48, 56],
+  iconAnchor: [24, 56],
+  popupAnchor: [0, -56],
 });
 
 export function CoteIvoireOffersMap({
@@ -164,7 +169,9 @@ export function CoteIvoireOffersMap({
     const map = mapRef.current;
     const layer = L.layerGroup().addTo(map);
 
-    L.marker(home, { icon: homeIcon }).bindPopup("Mon domicile").addTo(layer);
+    L.marker(home, { icon: homeIcon, zIndexOffset: 1000 })
+      .bindPopup("<strong>Ma case</strong><br/>Votre domicile (point de départ)")
+      .addTo(layer);
 
     for (const m of markers) {
       const selected = selectedId != null && selectedId === m.id;
