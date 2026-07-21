@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { AppShell, OfflineBanner, MenuRow } from "@/components/layout";
+import { AppShell, OfflineBanner, MenuRow, PageGrid, SectionTitle } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/lib/auth";
@@ -19,52 +19,82 @@ export function HomePage() {
 
   return (
     <AppShell title="Accueil" active="accueil">
-      {offline ? <OfflineBanner onRetry={() => { void unread.reload(); void courses.reload(); }} /> : null}
-      <Card className="border-primary/20 bg-primary text-primary-foreground">
-        <CardHeader>
-          <CardDescription className="text-white/80">Bonjour{first ? `, ${first}` : ""}</CardDescription>
-          <CardTitle className="text-xl text-white">Trouvez le bon prof</CardTitle>
-          <p className="text-sm text-white/85">Cours à domicile ou en ligne, profs vérifiés.</p>
-        </CardHeader>
-      </Card>
-      <Button asChild className="w-full">
-        <Link to="/recherche">Rechercher un prof</Link>
-      </Button>
-      <Button asChild variant="outline" className="w-full">
-        <Link to="/exprimer-besoin">Exprimer un besoin</Link>
-      </Button>
-      {(unread.data.count || 0) > 0 ? (
-        <Card>
-          <CardContent className="pt-4">
-            <Link to="/notifications" className="font-semibold">
-              🔔 {unread.data.count} notification{(unread.data.count || 0) > 1 ? "s" : ""} ›
-            </Link>
-          </CardContent>
+      {offline ? (
+        <OfflineBanner
+          onRetry={() => {
+            void unread.reload();
+            void courses.reload();
+          }}
+        />
+      ) : null}
+
+      <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+        <Card className="border-primary/20 bg-primary text-primary-foreground">
+          <CardHeader className="space-y-3 p-6 sm:p-8">
+            <CardDescription className="text-base text-white/80">
+              Bonjour{first ? `, ${first}` : ""}
+            </CardDescription>
+            <CardTitle className="font-display text-3xl text-white sm:text-4xl">Trouvez le bon prof</CardTitle>
+            <p className="max-w-xl text-base text-white/85">
+              Cours à domicile ou en ligne, professeurs vérifiés, paiement Mobile Money.
+            </p>
+            <div className="flex flex-wrap gap-3 pt-2">
+              <Button asChild variant="accent" size="lg">
+                <Link to="/recherche">Rechercher un prof</Link>
+              </Button>
+              <Button asChild variant="secondary" size="lg" className="bg-white text-primary hover:bg-white/90">
+                <Link to="/exprimer-besoin">Exprimer un besoin</Link>
+              </Button>
+            </div>
+          </CardHeader>
         </Card>
-      ) : null}
-      {next ? (
-        <>
-          <h2 className="font-display text-sm font-bold">Prochain cours</h2>
-          <Card>
-            <CardContent className="flex items-center justify-between pt-4">
-              <div>
-                <div className="font-semibold">
+
+        <div className="flex flex-col gap-4">
+          {(unread.data.count || 0) > 0 ? (
+            <Card>
+              <CardContent className="pt-5">
+                <Link to="/notifications" className="text-base font-semibold">
+                  🔔 {unread.data.count} notification{(unread.data.count || 0) > 1 ? "s" : ""} ›
+                </Link>
+              </CardContent>
+            </Card>
+          ) : null}
+          {next ? (
+            <Card>
+              <CardHeader>
+                <CardDescription>Prochain cours</CardDescription>
+                <CardTitle>
                   {next.subject} · {next.level}
-                </div>
-                <div className="text-sm text-muted-foreground">{next.teacher_name}</div>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex items-end justify-between gap-4">
                 <div className="text-sm text-muted-foreground">
-                  {next.day_label} {next.day_num} · {next.time}
+                  <div>{next.teacher_name}</div>
+                  <div>
+                    {next.day_label} {next.day_num} · {next.time}
+                  </div>
                 </div>
-              </div>
-              <strong>{fcfa(next.price)} F</strong>
-            </CardContent>
-          </Card>
-        </>
-      ) : null}
-      <h2 className="font-display pt-2 text-sm font-bold">Raccourcis</h2>
-      <MenuRow to="/mes-besoins" label="Mes besoins" />
-      <MenuRow to="/enfants" label="Mes enfants" />
-      <MenuRow to="/groupes" label="Cours en groupe" />
+                <strong className="text-lg">{fcfa(next.price)} F</strong>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="pt-5 text-sm text-muted-foreground">
+                Aucun cours à venir. Lancez une recherche ou exprimez un besoin.
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-8">
+        <SectionTitle>Raccourcis</SectionTitle>
+        <PageGrid className="mt-3 xl:grid-cols-3">
+          <MenuRow to="/mes-besoins" label="Mes besoins" />
+          <MenuRow to="/enfants" label="Mes enfants" />
+          <MenuRow to="/groupes" label="Cours en groupe" />
+        </PageGrid>
+      </div>
     </AppShell>
   );
 }

@@ -1,5 +1,5 @@
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { AppShell, OfflineBanner, Empty } from "@/components/layout";
+import { AppShell, OfflineBanner, Empty, MenuRow, PageGrid, PageStack } from "@/components/layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,30 +18,34 @@ export function NotificationsPage() {
     fallback.notifications,
   );
   return (
-    <AppShell title="Notifications" back="/compte" active="compte">
+    <AppShell title="Notifications" back="/compte" active="compte" wide>
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={async () => {
-          await api("/api/notifications/read", { method: "POST", body: {} });
-          void reload();
-        }}
-      >
-        Tout lire
-      </Button>
+      <div className="mb-4">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={async () => {
+            await api("/api/notifications/read", { method: "POST", body: {} });
+            void reload();
+          }}
+        >
+          Tout lire
+        </Button>
+      </div>
       {!data.length ? <Empty>Aucune notification.</Empty> : null}
-      {data.map((n, i) => (
-        <Card key={i}>
-          <CardContent className="flex gap-2 pt-4">
-            <span>{n.unread ? "🔵" : "⚪"}</span>
-            <div>
-              <div>{n.text}</div>
-              <div className="text-sm text-muted-foreground">{n.time_ago}</div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+      <PageGrid className="xl:grid-cols-2">
+        {data.map((n, i) => (
+          <Card key={i}>
+            <CardContent className="flex gap-3 pt-5">
+              <span>{n.unread ? "🔵" : "⚪"}</span>
+              <div>
+                <div>{n.text}</div>
+                <div className="text-sm text-muted-foreground">{n.time_ago}</div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </PageGrid>
     </AppShell>
   );
 }
@@ -85,30 +89,31 @@ export function GroupsPage() {
     fallback.groups,
   );
   return (
-    <AppShell title="Cours en groupe" active="accueil">
-      <p className="text-sm text-muted-foreground">
-        <Link to="/groupes" className="text-primary">
+    <AppShell title="Cours en groupe" active="accueil" wide>
+      <div className="mb-4 flex gap-4 text-sm">
+        <Link to="/groupes" className="font-semibold text-primary">
           Tous
-        </Link>{" "}
-        ·{" "}
-        <Link to="/groupes?kind=stage" className="text-primary">
+        </Link>
+        <Link to="/groupes?kind=stage" className="font-semibold text-primary">
           Vacances
         </Link>
-      </p>
+      </div>
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
       {!data.length ? <Empty>Aucun groupe disponible.</Empty> : null}
-      {data.map((g) => (
-        <Link key={g.id} to={`/groupes/${g.id}`}>
-          <Card>
-            <CardContent className="pt-4">
-              <div className="font-semibold">{g.title}</div>
-              <div className="text-sm text-muted-foreground">
-                {g.detail || g.teacher_name} · {fcfa(g.price)} F
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-      ))}
+      <PageGrid>
+        {data.map((g) => (
+          <Link key={g.id} to={`/groupes/${g.id}`} className="block h-full">
+            <Card className="h-full transition hover:border-primary/40">
+              <CardContent className="pt-5">
+                <div className="font-display text-lg font-bold">{g.title}</div>
+                <div className="mt-1 text-sm text-muted-foreground">
+                  {g.detail || g.teacher_name} · {fcfa(g.price)} F
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+      </PageGrid>
     </AppShell>
   );
 }
@@ -219,67 +224,69 @@ export function BookingPage() {
   const navigate = useNavigate();
   const [err, setErr] = useState("");
   return (
-    <AppShell title="Réservation" back="/recherche" active="recherche" hideNav>
-      <form
-        className="space-y-3"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          setErr("");
-          const fd = new FormData(e.currentTarget);
-          try {
-            const r = await api<{ reference?: string; course?: { id: number } }>("/api/bookings", {
-              method: "POST",
-              body: {
-                teacherId: Number(fd.get("teacherId")),
-                teacherName: fd.get("teacherName"),
-                subject: fd.get("subject"),
-                level: fd.get("level"),
-                format: fd.get("format"),
-                price: Number(fd.get("price")),
-                dayLabel: "SAM",
-                dayNum: "22",
-                time: "16h00",
-                duration: "1h30",
-                location: "Cocody",
-              },
-            });
-            sessionStorage.setItem("mpp_booking_price", String(fd.get("price")));
-            sessionStorage.setItem("mpp_course_id", String(r.course?.id || ""));
-            navigate("/paiement");
-          } catch (ex) {
-            setErr(ex instanceof Error ? ex.message : "Erreur");
-          }
-        }}
-      >
-        <input type="hidden" name="teacherId" value={sp.get("teacherId") || "1"} />
-        <div className="space-y-1.5">
-          <Label>Professeur</Label>
-          <Input name="teacherName" defaultValue={decodeURIComponent(sp.get("name") || "Professeur")} />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Matière</Label>
-          <Input name="subject" defaultValue="Maths" />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Niveau</Label>
-          <Input name="level" defaultValue="3ème" />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Format</Label>
-          <Select name="format" defaultValue="home">
-            <option value="home">À domicile</option>
-            <option value="online">En ligne</option>
-          </Select>
-        </div>
-        <div className="space-y-1.5">
-          <Label>Prix (F)</Label>
-          <Input name="price" type="number" defaultValue={sp.get("price") || "6000"} />
-        </div>
-        {err ? <p className="text-sm text-destructive">{err}</p> : null}
-        <Button type="submit" className="w-full">
-          Continuer vers paiement
-        </Button>
-      </form>
+    <AppShell title="Réservation" back="/recherche" active="recherche">
+      <PageStack>
+        <form
+          className="space-y-4 rounded-2xl border border-border bg-card p-6"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setErr("");
+            const fd = new FormData(e.currentTarget);
+            try {
+              const r = await api<{ reference?: string; course?: { id: number } }>("/api/bookings", {
+                method: "POST",
+                body: {
+                  teacherId: Number(fd.get("teacherId")),
+                  teacherName: fd.get("teacherName"),
+                  subject: fd.get("subject"),
+                  level: fd.get("level"),
+                  format: fd.get("format"),
+                  price: Number(fd.get("price")),
+                  dayLabel: "SAM",
+                  dayNum: "22",
+                  time: "16h00",
+                  duration: "1h30",
+                  location: "Cocody",
+                },
+              });
+              sessionStorage.setItem("mpp_booking_price", String(fd.get("price")));
+              sessionStorage.setItem("mpp_course_id", String(r.course?.id || ""));
+              navigate("/paiement");
+            } catch (ex) {
+              setErr(ex instanceof Error ? ex.message : "Erreur");
+            }
+          }}
+        >
+          <input type="hidden" name="teacherId" value={sp.get("teacherId") || "1"} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Professeur</Label>
+              <Input name="teacherName" defaultValue={decodeURIComponent(sp.get("name") || "Professeur")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Matière</Label>
+              <Input name="subject" defaultValue="Maths" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Niveau</Label>
+              <Input name="level" defaultValue="3ème" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Format</Label>
+              <Select name="format" defaultValue="home">
+                <option value="home">À domicile</option>
+                <option value="online">En ligne</option>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Prix (F)</Label>
+              <Input name="price" type="number" defaultValue={sp.get("price") || "6000"} />
+            </div>
+          </div>
+          {err ? <p className="text-sm text-destructive">{err}</p> : null}
+          <Button type="submit">Continuer vers paiement</Button>
+        </form>
+      </PageStack>
     </AppShell>
   );
 }
@@ -289,56 +296,58 @@ export function PaymentPage() {
   const price = sessionStorage.getItem("mpp_booking_price") || "6000";
   const [err, setErr] = useState("");
   return (
-    <AppShell title="Paiement" back="/reservation" hideNav>
-      <Card>
-        <CardContent className="pt-4">
-          <div className="font-semibold">Montant : {fcfa(Number(price))} F</div>
-          <div className="text-sm text-muted-foreground">Mobile Money (démo)</div>
-        </CardContent>
-      </Card>
-      <form
-        className="space-y-3"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          setErr("");
-          const courseId = Number(sessionStorage.getItem("mpp_course_id"));
-          if (!courseId) {
-            setErr("Réservez d'abord un cours");
-            return;
-          }
-          const fd = new FormData(e.currentTarget);
-          try {
-            const r = await api<{ paymentId?: number; id?: number; needsOtp?: boolean }>(
-              "/api/payments/charge-mobile",
-              {
-                method: "POST",
-                body: { courseId, provider: fd.get("provider"), phone: fd.get("phone") },
-              },
-            );
-            sessionStorage.setItem("mpp_payment_id", String(r.paymentId || r.id || ""));
-            navigate(r.needsOtp ? "/paiement-otp" : "/confirmation");
-          } catch (ex) {
-            setErr(ex instanceof Error ? ex.message : "Erreur");
-          }
-        }}
-      >
-        <div className="space-y-1.5">
-          <Label>Opérateur</Label>
-          <Select name="provider" defaultValue="orange">
-            <option value="orange">Orange Money</option>
-            <option value="mtn">MTN</option>
-            <option value="wave">Wave</option>
-          </Select>
-        </div>
-        <div className="space-y-1.5">
-          <Label>Téléphone</Label>
-          <Input name="phone" type="tel" placeholder="+22507…" />
-        </div>
-        {err ? <p className="text-sm text-destructive">{err}</p> : null}
-        <Button type="submit" className="w-full">
-          Payer
-        </Button>
-      </form>
+    <AppShell title="Paiement" back="/reservation">
+      <PageStack>
+        <Card>
+          <CardContent className="pt-5">
+            <div className="font-display text-2xl font-bold">Montant : {fcfa(Number(price))} F</div>
+            <div className="text-sm text-muted-foreground">Mobile Money (démo)</div>
+          </CardContent>
+        </Card>
+        <form
+          className="space-y-4 rounded-2xl border border-border bg-card p-6"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setErr("");
+            const courseId = Number(sessionStorage.getItem("mpp_course_id"));
+            if (!courseId) {
+              setErr("Réservez d'abord un cours");
+              return;
+            }
+            const fd = new FormData(e.currentTarget);
+            try {
+              const r = await api<{ paymentId?: number; id?: number; needsOtp?: boolean }>(
+                "/api/payments/charge-mobile",
+                {
+                  method: "POST",
+                  body: { courseId, provider: fd.get("provider"), phone: fd.get("phone") },
+                },
+              );
+              sessionStorage.setItem("mpp_payment_id", String(r.paymentId || r.id || ""));
+              navigate(r.needsOtp ? "/paiement-otp" : "/confirmation");
+            } catch (ex) {
+              setErr(ex instanceof Error ? ex.message : "Erreur");
+            }
+          }}
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Opérateur</Label>
+              <Select name="provider" defaultValue="orange">
+                <option value="orange">Orange Money</option>
+                <option value="mtn">MTN</option>
+                <option value="wave">Wave</option>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Téléphone</Label>
+              <Input name="phone" type="tel" placeholder="+22507…" />
+            </div>
+          </div>
+          {err ? <p className="text-sm text-destructive">{err}</p> : null}
+          <Button type="submit">Payer</Button>
+        </form>
+      </PageStack>
     </AppShell>
   );
 }
