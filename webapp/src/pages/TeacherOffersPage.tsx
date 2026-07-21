@@ -433,7 +433,15 @@ function PopMenu({
 }
 
 export function TeacherRequestsPage() {
-  const { data, offline, reload } = useLive<OfferReq[]>("/api/teacher/requests", fallback.teacherRequests as OfferReq[]);
+  const { data: rawData, offline, reload } = useLive<OfferReq[]>(
+    "/api/teacher/requests",
+    fallback.teacherRequests as OfferReq[],
+  );
+  // Page Completude « Mes offres » = besoins publiés uniquement (pas les réservations legacy)
+  const data = useMemo(
+    () => rawData.filter((r) => Boolean(r.isOpportunity) || r.needId != null),
+    [rawData],
+  );
   const { data: profile } = useLive<{ location?: string } | null>("/api/teacher/profile", null);
 
   const savedSearch = loadJson(LS_SEARCH, {

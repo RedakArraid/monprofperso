@@ -153,7 +153,7 @@ WHERE u.phone = '+2250701001003'
     SELECT 1 FROM course_needs n WHERE n.user_id = u.id AND n.status = 'priced' AND n.subject = 'SVT'
   );
 
--- ---------- Réservations directes en attente d'acceptation prof ----------
+-- ---------- Réservations directes en attente (autres profs — pas le flux « offres » Completude) ----------
 INSERT INTO courses (
   user_id, teacher_id, teacher_name, subject, level, day_label, day_num, time, duration,
   format, location, price, status, badge, accepted, payment_status
@@ -165,11 +165,8 @@ SELECT
   v.subject, v.level, v.day_label, v.day_num, v.time, v.duration,
   v.format, v.location, v.price, 'upcoming', 'En attente', FALSE, 'unpaid'
 FROM (VALUES
-  ('+2250701001001', 1, 'Maths',    'Terminale', 'MER', '29', '17h00', '2h',   'home',   'Plateau', 15000),
-  ('+2250701001004', 1, 'Physique', '2nde',      'VEN', '31', '16h00', '1h30', 'home',   'Cocody',  11000),
   ('+2250701001006', 2, 'Anglais',  'Terminale', 'SAM', '01', '10h00', '1h30', 'online', NULL,     9000),
-  ('+2250701001007', 2, 'Chimie',   '3ème',      'LUN', '27', '18h00', '1h30', 'home',   'Treichville', 9500),
-  ('+2250758421903', 1, 'Français', '3ème',      'MAR', '28', '15h30', '1h',   'home',   'Cocody',  8000)
+  ('+2250701001007', 2, 'Chimie',   '3ème',      'LUN', '27', '18h00', '1h30', 'home',   'Treichville', 9500)
 ) AS v(phone, teacher_id, subject, level, day_label, day_num, time, duration, format, location, price)
 JOIN users u ON u.phone = v.phone
 JOIN teachers t ON t.id = v.teacher_id
