@@ -11,11 +11,22 @@ import ci.monprofperso.app.ui.components.TeacherTab
  */
 class NavActions(private val nav: NavHostController) {
     fun back() {
-        if (!nav.popBackStack()) nav.navigate(Routes.Home)
+        if (!nav.popBackStack()) {
+            go(when {
+                TokenStore.token.isNullOrBlank() -> Routes.Welcome
+                AppState.authRole == "teacher" -> Routes.TeacherDashboard
+                else -> Routes.Home
+            })
+        }
     }
 
     fun go(route: String) {
-        nav.navigate(route) { launchSingleTop = true }
+        nav.navigate(route) {
+            launchSingleTop = true
+            if (route in listOf(Routes.Welcome, Routes.Login) && TokenStore.token.isNullOrBlank()) {
+                popUpTo(nav.graph.id) { inclusive = true }
+            }
+        }
     }
 
     fun openTeacher(id: Int) {
@@ -45,7 +56,7 @@ class NavActions(private val nav: NavHostController) {
             else -> Routes.BecomeTeacher
         }
         nav.navigate(dest) {
-            popUpTo(Routes.Welcome) { inclusive = true }
+            popUpTo(nav.graph.id) { inclusive = true }
             launchSingleTop = true
         }
     }

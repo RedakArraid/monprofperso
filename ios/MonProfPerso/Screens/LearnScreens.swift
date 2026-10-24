@@ -38,7 +38,7 @@ struct MyCoursesScreen: View {
                                     .clipShape(RoundedRectangle(cornerRadius: 12))
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text("\(course.subject) · \(course.level)").font(AkFont.bold(15)).foregroundColor(Ak.ink)
-                                    Text("avec \(course.teacher_name)").font(AkFont.regular(12.5)).foregroundColor(Ak.muted)
+                                    Text(course.isTeacherParticipant(accountRole: router.authRole) ? "Parent : \(course.parent_name ?? "")" : "avec \(course.teacher_name)").font(AkFont.regular(12.5)).foregroundColor(Ak.muted)
                                 }
                                 Spacer()
                             }
@@ -50,7 +50,10 @@ struct MyCoursesScreen: View {
                                 Spacer()
                                 Text("\(course.price.formattedFCFA) F").font(AkFont.bold(14)).foregroundColor(Ak.ink)
                             }
-                            if course.canPay {
+                            Button("Détails et suivi") { router.selectedCourseId = course.id; router.go(.manageCourse) }
+                                .buttonStyle(.bordered)
+                            Text(CourseOperations.statusLabel(course.lifecycle_status)).font(AkFont.semibold(12)).foregroundColor(Ak.green)
+                            if course.canPay && !course.isTeacherParticipant(accountRole: router.authRole) {
                                 PrimaryButton(label: "Payer ce cours", color: Ak.green, trailingSystemIcon: "lock.fill") {
                                     router.loadCourse(course)
                                     router.go(.payment)
@@ -60,7 +63,7 @@ struct MyCoursesScreen: View {
                     }
                 }.padding(22)
             }.refreshable { await store.load() }
-            BottomNav(current: .cours)
+            if router.isTeacher { TeacherBottomNav(current: .agenda) } else { BottomNav(current: .cours) }
         }.task { await store.load() }
     }
 }

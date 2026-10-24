@@ -3,6 +3,7 @@ import nodemailer from "nodemailer";
 import { pool } from "./db";
 import { ValidationError } from "./validate";
 import { AuthError, isDemoMode } from "./auth";
+import { currentConsentVersion } from "./consent";
 
 export const OTP_SETTING_KEYS = [
   "otp_enabled",
@@ -156,7 +157,7 @@ export async function getOtpChannels() {
   const defaultChannel = configuredDefault === "email" && email ? "email" : "whatsapp";
   const parsedTtl = parseInt(s.otp_code_ttl_minutes || "10", 10);
   const ttl = Number.isFinite(parsedTtl) ? Math.min(30, Math.max(1, parsedTtl)) : 10;
-  return { demo, enabled, whatsapp, email, defaultChannel, codeLength: 6, ttlMinutes: ttl };
+  return { demo, enabled, whatsapp, email, defaultChannel, codeLength: 6, ttlMinutes: ttl, consentVersion: await currentConsentVersion() };
 }
 
 async function sendWhatsApp(settings: Record<string, string>, phone: string, code: string, ttl: number) {
@@ -292,7 +293,7 @@ export async function beginLoginChallenge(opts: {
   if (!channels.enabled || (!channels.whatsapp && !channels.email)) {
     throw new AuthError(503, "otp_unavailable", "La vérification n'est pas configurée. Contactez l'assistance.");
   }
-  const user = (await pool.query("SELECT id, phone, email, email_verified_at FROM users WHERE phone=$1", [opts.phone])).rows[0];
+  const user = (await pool.query("SELECT id, phone, email, email_verified_at FROM users WHERE phone=$1 AND deleted_at IS NULL", [opts.phone])).rows[0];
   if (!user) throw new AuthError(401, "invalid_credentials", "Compte introuvable. Inscrivez-vous pour continuer.");
   const channel = opts.channel ?? (channels.defaultChannel as OtpChannel);
   let destination = user.phone;
@@ -361,7 +362,7 @@ export async function verifyChallenge(challengeId: string, code: string): Promis
     }
     let user;
     if (row.purpose === "login") {
-      user = (await client.query("SELECT * FROM users WHERE id=$1 AND phone=$2 FOR UPDATE", [row.user_id, row.phone])).rows[0];
+      user = (await client.query("SELECT * FROM users WHERE id=$1 AND phone=$2 AND deleted_at IS NULL FOR UPDATE", [row.user_id, row.phone])).rows[0];
       if (!user || (row.channel === "email" && (!user.email_verified_at || user.email?.toLowerCase() !== row.destination))) {
         throw new AuthError(401, "invalid_otp", "Le compte associé à cette vérification a changé");
       }
@@ -376,8 +377,11 @@ export async function verifyChallenge(challengeId: string, code: string): Promis
       );
       // Un autre processus a pu créer le compte ; la preuve est bien celle du même téléphone.
       // Ne modifier ni son nom ni son rôle ni son e-mail avec le formulaire d'inscription.
-      user = inserted.rows[0] ?? (await client.query("SELECT * FROM users WHERE phone=$1 FOR UPDATE", [row.phone])).rows[0];
+      user = inserted.rows[0] ?? (await client.query("SELECT * FROM users WHERE phone=$1 AND deleted_at IS NULL FOR UPDATE", [row.phone])).rows[0];
       if (!user) throw new AuthError(401, "invalid_otp", "Compte introuvable");
+    }
+    if (row.channel === "whatsapp") {
+      user = (await client.query("UPDATE users SET phone_verified_at=now() WHERE id=$1 RETURNING *", [user.id])).rows[0];
     }
     await client.query("UPDATE auth_challenges SET consumed_at=now() WHERE id=$1", [challengeId]);
     await client.query("COMMIT");
@@ -389,6 +393,29 @@ export async function verifyChallenge(challengeId: string, code: string): Promis
   } finally {
     client.release();
   }
+}
+
+/** Transactional alerts only; callers must verify the destination and preferences. */
+export async function deliverServiceNotification(channel: OtpChannel, destination: string): Promise<void> {
+  const settings = await loadOtpSettings();
+  const site = process.env.PUBLIC_WEB_URL || "https://www.monprofperso.com";
+  const url = new URL("/espace/notifications", site);
+  if (url.protocol !== "https:" && process.env.NODE_ENV === "production") throw new Error("public_site_requires_https");
+  const text = `Mon Prof Perso : une mise à jour concernant vos cours ou vos paiements est disponible dans votre espace. ${url.href}`;
+  if (channel === "whatsapp") {
+    if (!isTrue(settings.otp_whatsapp_enabled)) throw new Error("notification_channel_unavailable");
+    await postOpenWaSendText(settings, destination, text);
+    return;
+  }
+  if (!isTrue(settings.otp_smtp_enabled)) throw new Error("notification_channel_unavailable");
+  const transporter = nodemailer.createTransport({
+    host: settings.otp_smtp_host.trim(), port: Number(settings.otp_smtp_port || 587),
+    secure: isTrue(settings.otp_smtp_secure), connectionTimeout: 10_000, greetingTimeout: 10_000, socketTimeout: 15_000,
+    disableFileAccess: true, disableUrlAccess: true,
+    auth: settings.otp_smtp_user ? { user: settings.otp_smtp_user, pass: settings.otp_smtp_pass } : undefined,
+  });
+  try { await transporter.sendMail({ from: settings.otp_smtp_from, to: destination, subject: "Mon Prof Perso — mise à jour de votre cours", text }); }
+  finally { transporter.close(); }
 }
 
 /** Compatibilité d'import : les anciens codes par destination ne peuvent plus ouvrir de session. */

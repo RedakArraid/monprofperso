@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { pool } from "./db";
 import { ValidationError } from "./validate";
+import { courseEvent } from "./courseOperations";
 
 export const PAYMENT_PROVIDERS = ["orange", "mtn", "wave"] as const;
 export type PaymentProvider = (typeof PAYMENT_PROVIDERS)[number];
@@ -95,11 +96,28 @@ async function paystackFetch(path: string, init: RequestInit = {}): Promise<any>
   return result.data ?? {};
 }
 
-export function matchesPayment(data: any, payment: Pick<PaymentRow, "amount" | "paystack_reference">): boolean {
+/** Seules les lectures prestataire sont exposées aux workflows de règlement. */
+export async function paystackRead(path: string): Promise<any> {
+  validatePaymentConfiguration();
+  if (!/^\/(?:refund\/[A-Za-z0-9._=-]+|transaction\/verify\/[A-Za-z0-9._=-]+|transfer\/verify\/[A-Za-z0-9._=-]+|transferrecipient\/[A-Za-z0-9_]+)$/.test(path)) {
+    throw new Error("Route de vérification prestataire non autorisée");
+  }
+  try { return await paystackFetch(path, { method: "GET" }); }
+  catch (error) {
+    if (error instanceof PaymentUnavailableError) throw error;
+    throw Object.assign(new Error("La lecture de la preuve prestataire est indisponible. Aucun mouvement n'a été lancé."), { statusCode: 502, code: "provider_unavailable" });
+  }
+}
+
+function matchesPaymentIdentity(data: any, payment: Pick<PaymentRow, "amount" | "paystack_reference">): boolean {
   const domain = secretKey().startsWith("sk_live_") ? "live" : "test";
-  return data?.status === "success" && data?.reference === payment.paystack_reference
+  return data?.reference === payment.paystack_reference
     && data?.domain === domain
     && data?.currency === "XOF" && Number(data?.amount) === toPaystackAmount(Number(payment.amount));
+}
+
+export function matchesPayment(data: any, payment: Pick<PaymentRow, "amount" | "paystack_reference">): boolean {
+  return data?.status === "success" && matchesPaymentIdentity(data, payment);
 }
 
 async function recordProviderState(payment: PaymentRow, data: any, preserveOtp = false): Promise<void> {
@@ -119,6 +137,14 @@ async function reconcile(payment: PaymentRow): Promise<void> {
     if (!matchesPayment(data, payment)) throw new Error("Montant, devise ou référence Paystack incohérents");
     await finalizeSuccessfulPayment(payment.id, data);
   } else {
+    if (["failed", "abandoned"].includes(data.status)) {
+      if (!matchesPaymentIdentity(data, payment)) throw new Error("Échec sans identité de transaction vérifiable");
+      // Un ancien indicateur success sans preuve peut être infirmé par une
+      // lecture fournisseur. Les véritables encaissements ne sont pas effacés.
+      await pool.query(`UPDATE payments SET status='failed',provider_response=$2,updated_at=now()
+        WHERE id=$1 AND funds_verified_at IS NULL`, [payment.id, JSON.stringify(data)]);
+      return;
+    }
     await recordProviderState(payment, data, true);
   }
 }
@@ -144,6 +170,13 @@ export async function initiateMobileCharge(opts: {
     if (course.payment_status === "paid") throw new ValidationError("courseId", "ce cours est déjà payé");
     if (course.status !== "upcoming") throw new ValidationError("courseId", "ce cours ne peut pas être payé");
     if (!course.accepted) throw new ValidationError("courseId", "attendez l'acceptation du professeur avant de payer");
+    if (course.lifecycle_status !== "scheduled" || !course.starts_at || new Date(course.starts_at).getTime() <= Date.now()) {
+      throw new ValidationError("courseId", "un créneau futur confirmé est requis avant paiement");
+    }
+    if (["refunded", "partially_refunded"].includes(course.payment_status)) throw new ValidationError("courseId", "ce cours a déjà fait l'objet d'un remboursement");
+    if ((await client.query("SELECT id FROM finance_operations WHERE course_id=$1 AND kind='refund' AND status IN ('requested','approved')", [course.id])).rowCount) {
+      throw new ValidationError("courseId", "une revue de remboursement est en cours");
+    }
     const existing = (await client.query(
       `SELECT * FROM payments WHERE course_id=$1 AND status IN ('pending','otp_required') ORDER BY id DESC LIMIT 1`,
       [opts.courseId],
@@ -152,6 +185,7 @@ export async function initiateMobileCharge(opts: {
       await client.query("COMMIT");
       return paymentResponse(existing);
     }
+    if (course.commission_pct == null) throw new ValidationError("courseId", "les termes financiers historiques doivent être documentés par l'équipe");
     const amount = Number(course.price);
     toPaystackAmount(amount);
     const phone = normalizeCiPhone(opts.phone || course.user_phone || "");
@@ -243,7 +277,7 @@ export async function getPaymentStatus(paymentId: number, userId: number) {
       try {
         const data = await paystackFetch(`/charge/${encodeURIComponent(payment.paystack_reference)}`);
         if (data.reference && data.reference !== payment.paystack_reference) throw new Error("Référence Paystack incohérente");
-        if (data.status === "success") await reconcile(payment);
+        if (["success", "failed", "abandoned"].includes(data.status)) await reconcile(payment);
         else {
           await recordProviderState(payment, data, data.status !== "pay_offline");
           if (mapPaystackChargeStatus(data) === "pending") await reconcile(payment);
@@ -274,17 +308,23 @@ async function finalizeSuccessfulPayment(paymentId: number, evidence: any): Prom
     )).rows[0];
     if (!payment) { await client.query("ROLLBACK"); return; }
     if (!isMockMode() && !matchesPayment(evidence, payment)) throw new Error("Preuve de paiement invalide");
-    if (payment.integrity_version === 1 && payment.status === "success" && payment.course_payment_status === "paid") {
+    if (payment.integrity_version === 1 && payment.status === "success") {
       // Le registre historique ne permet pas de relier sans ambiguïté les débits.
       // Sa réconciliation doit être faite avec les preuves, sans nouvelle dépense.
+      if (!isMockMode()) await client.query(
+        "UPDATE payments SET funds_verified_at=COALESCE(funds_verified_at,now()),verification_source='provider',provider_response=$2 WHERE id=$1",
+        [paymentId, JSON.stringify(evidence)],
+      );
       await client.query("COMMIT");
       return;
     }
     await client.query(
-      "UPDATE payments SET status='success',provider_response=$2,updated_at=now() WHERE id=$1",
-      [paymentId, JSON.stringify(evidence)],
+      `UPDATE payments SET status='success',provider_response=$2,updated_at=now(),
+       funds_verified_at=CASE WHEN $3 THEN NULL ELSE COALESCE(funds_verified_at,now()) END,
+       verification_source=CASE WHEN $3 THEN 'simulation' ELSE 'provider' END WHERE id=$1`,
+      [paymentId, JSON.stringify(evidence), isMockMode()],
     );
-    await client.query("UPDATE courses SET payment_status='paid' WHERE id=$1", [payment.course_id]);
+    await client.query("UPDATE courses SET payment_status=CASE WHEN payment_status IN ('refunded','partially_refunded') THEN payment_status ELSE 'paid' END WHERE id=$1", [payment.course_id]);
     // Une ligne comptable par paiement, pas une déduplication par libellé/montant.
     const inserted = await client.query(
       `INSERT INTO transactions (user_id,title,subtitle,amount,credit,payment_id)
@@ -293,6 +333,7 @@ async function finalizeSuccessfulPayment(paymentId: number, evidence: any): Prom
         `${payment.day_label} ${payment.day_num} · ${payment.provider}`, -payment.amount, payment.id],
     );
     if (inserted.rowCount) {
+      await courseEvent(client, payment.course_id, null, isMockMode() ? "payment_simulated" : "payment_verified", { paymentId, amount: payment.amount });
       await client.query(
         `INSERT INTO notifications (user_id,icon,accent,text,time_ago,unread,section)
          VALUES ($1,'wallet','green',$2,'à l''instant',TRUE,'today')`,
@@ -303,6 +344,47 @@ async function finalizeSuccessfulPayment(paymentId: number, evidence: any): Prom
   } catch (error) {
     await client.query("ROLLBACK"); throw error;
   } finally { client.release(); }
+}
+
+/** Rattrapage manuel d'un paiement historique, sans initier de mouvement. */
+export async function reconcilePaymentById(paymentId: number) {
+  validatePaymentConfiguration();
+  secretKey();
+  if (isMockMode()) throw new PaymentUnavailableError();
+  const payment = (await pool.query("SELECT * FROM payments WHERE id=$1", [paymentId])).rows[0];
+  if (!payment) throw new ValidationError("paymentId", "paiement introuvable");
+  await reconcile(payment);
+  const row = (await pool.query("SELECT id,status,funds_verified_at,last_reconcile_error FROM payments WHERE id=$1", [paymentId])).rows[0];
+  return { paymentId: row.id, status: row.status, fundsVerifiedAt: row.funds_verified_at };
+}
+
+/** Lot de lectures borné, lease en base pour plusieurs instances et reprise
+ * après arrêt. Aucune charge, aucun remboursement, aucun transfert n'est créé. */
+export async function reconcilePendingPayments(limit = 25, paymentIds?: number[]) {
+  validatePaymentConfiguration();
+  if (isMockMode() || !process.env.PAYSTACK_SECRET_KEY?.trim()) return { checked: 0, errors: 0, skipped: true };
+  const rows = (await pool.query(
+    `WITH selected AS (SELECT id FROM payments WHERE status IN ('pending','otp_required')
+      AND created_at < now()-interval '30 seconds'
+      AND (reconcile_after IS NULL OR reconcile_after<=now())
+      AND (reconcile_lease_until IS NULL OR reconcile_lease_until<now())
+      AND ($2::int[] IS NULL OR id=ANY($2::int[]))
+      ORDER BY reconcile_after NULLS FIRST,id FOR UPDATE SKIP LOCKED LIMIT $1)
+     UPDATE payments p SET reconcile_lease_until=now()+interval '2 minutes',reconcile_attempts=reconcile_attempts+1
+      FROM selected s WHERE p.id=s.id RETURNING p.*`, [Math.min(50, Math.max(1, Math.floor(limit))), paymentIds ?? null],
+  )).rows;
+  let checked = 0, errors = 0;
+  for (let i = 0; i < rows.length; i += 4) await Promise.all(rows.slice(i, i + 4).map(async payment => {
+    let error: string | null = null;
+    try { await reconcile(payment); checked++; }
+    catch { error = "provider_verification_unavailable"; errors++; }
+    await pool.query(
+      `UPDATE payments SET reconcile_lease_until=NULL,checked_at=now(),last_reconcile_error=$2,
+        reconcile_after=now()+($3 * interval '1 second') WHERE id=$1`,
+      [payment.id, error, Math.min(3600, 30 * 2 ** Math.min(payment.reconcile_attempts, 7))],
+    );
+  }));
+  return { checked, errors, skipped: false };
 }
 
 export function verifyPaystackSignature(rawBody: Buffer, signature: string | undefined): boolean {

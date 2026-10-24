@@ -20,6 +20,27 @@ object ApiConfig {
 }
 
 interface MonProfPersoApi {
+    @GET("api/capabilities")
+    suspend fun capabilities(): Map<String, Boolean>
+
+    @GET("api/account/export")
+    suspend fun exportAccount(): okhttp3.ResponseBody
+
+    @GET("api/account/deletion-request")
+    suspend fun accountDeletion(): AccountDeletionDto
+
+    @POST("api/account/deletion-request")
+    suspend fun requestAccountDeletion(@Body body: Map<String, String>): AccountDeletionDto
+
+    @DELETE("api/account/deletion-request")
+    suspend fun cancelAccountDeletion(): AccountDeletionDto
+
+    @GET("api/account/preferences")
+    suspend fun accountPreferences(): NotificationPreferencesDto
+
+    @retrofit2.http.PUT("api/account/preferences")
+    suspend fun updateAccountPreferences(@Body body: Map<String, Boolean>): NotificationPreferencesDto
+
     @GET("api/me")
     suspend fun me(): UserDto
 
@@ -90,6 +111,33 @@ interface MonProfPersoApi {
 
     @GET("api/courses")
     suspend fun courses(@Query("status") status: String? = null): List<CourseDto>
+
+    @GET("api/courses/{id}")
+    suspend fun courseDetails(@Path("id") id: Int): CourseDetailsDto
+
+    @retrofit2.http.PUT("api/courses/{id}/details")
+    suspend fun updateCourseDetails(@Path("id") id: Int, @Body body: Map<String, @JvmSuppressWildcards Any?>): CourseDetailsDto
+
+    @POST("api/courses/{id}/schedule")
+    suspend fun proposeSchedule(@Path("id") id: Int, @Body body: Map<String, String>): CourseDetailsDto
+
+    @POST("api/courses/{id}/schedule/{proposalId}/respond")
+    suspend fun respondSchedule(@Path("id") id: Int, @Path("proposalId") proposalId: Int, @Body body: Map<String, String>): CourseDetailsDto
+
+    @POST("api/courses/{id}/cancel")
+    suspend fun cancelCourse(@Path("id") id: Int, @Body body: Map<String, String>): CourseDetailsDto
+
+    @POST("api/courses/{id}/report")
+    suspend fun reportCourse(@Path("id") id: Int, @Body body: Map<String, String>): CourseDetailsDto
+
+    @POST("api/courses/{id}/review")
+    suspend fun reviewCourse(@Path("id") id: Int, @Body body: Map<String, @JvmSuppressWildcards Any?>): okhttp3.ResponseBody
+
+    @POST("api/courses/{id}/refund-requests")
+    suspend fun requestRefund(@Path("id") id: Int, @Body body: Map<String, @JvmSuppressWildcards Any?>): okhttp3.ResponseBody
+
+    @POST("api/teacher/payout-requests")
+    suspend fun requestPayout(@Body body: Map<String, @JvmSuppressWildcards Any?>): okhttp3.ResponseBody
 
     @POST("api/bookings")
     suspend fun book(@Body body: Map<String, @JvmSuppressWildcards Any?>): BookingResponse
@@ -162,6 +210,9 @@ interface MonProfPersoApi {
     @POST("api/needs/{id}/accept-price")
     suspend fun acceptNeedPrice(@Path("id") id: Int): NeedDto
 
+    @POST("api/needs/{id}/cancel")
+    suspend fun cancelNeed(@Path("id") id: Int): okhttp3.ResponseBody
+
     @POST("api/auth/login")
     suspend fun login(@Body body: Map<String, String>): AuthResponse
 
@@ -170,6 +221,12 @@ interface MonProfPersoApi {
 
     @GET("api/auth/otp-channels")
     suspend fun otpChannels(): OtpChannelsDto
+
+    @GET("api/account/consent")
+    suspend fun accountConsent(): AccountConsentDto
+
+    @POST("api/account/consent")
+    suspend fun acceptAccountConsent(@Body body: Map<String, @JvmSuppressWildcards Any>): okhttp3.ResponseBody
 
     @POST("api/auth/request-otp")
     suspend fun requestOtp(@Body body: Map<String, String>): RequestOtpResponse
@@ -206,7 +263,7 @@ object Api {
             .addInterceptor(auth)
             .addInterceptor(logging)
             .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(35, TimeUnit.SECONDS)
             .build()
         Retrofit.Builder()
             .baseUrl(ApiConfig.BASE_URL)

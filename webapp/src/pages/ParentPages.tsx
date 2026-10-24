@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { AppShell, OfflineBanner, ContentCard, PageGrid, DocLink } from "@/components/layout";
 import { Button } from "@/components/ui/button";
+import { useCapabilities } from "@/lib/capabilities";
 import { useAuth } from "@/lib/auth";
 import { fallback } from "@/lib/fallback";
 import { fcfa } from "@/lib/utils";
@@ -10,6 +11,7 @@ const EMPTY_UNREAD = { count: 0 };
 
 export function HomePage() {
   const { user } = useAuth();
+  const { capabilities } = useCapabilities();
   const unread = useLive<{ count: number }>("/api/notifications/unread", EMPTY_UNREAD);
   const courses = useLive<typeof fallback.courses>("/api/courses?status=upcoming", fallback.courses);
   const offline = unread.offline || courses.offline;
@@ -44,7 +46,7 @@ export function HomePage() {
             : nous vous proposons un tarif adapté.
           </p>
           <p className="mb-5 text-[15px] leading-relaxed text-[#444]">
-            Suivez les cours, les progrès et les ressources pédagogiques depuis cet espace, aussi disponible sur mobile.
+            Retrouvez vos rendez-vous, vos paiements, les bilans partagés par vos professeurs et les ressources pédagogiques.
           </p>
 
           <div className="mb-5 overflow-hidden rounded-lg bg-[#e8f2ee]">
@@ -85,21 +87,7 @@ export function HomePage() {
             </p>
           ) : null}
 
-          <p className="text-[14px] leading-relaxed text-[#555]">
-            Avez-vous déjà téléchargé l&apos;application Mon Prof Perso ?
-          </p>
-          <p className="mt-2 text-[14px]">
-            Android :{" "}
-            <a href="/#download" className="link-green">
-              Télécharger maintenant sur Play Store
-            </a>
-          </p>
-          <p className="mt-1 text-[14px]">
-            Apple :{" "}
-            <a href="/#download" className="link-green">
-              Télécharger maintenant sur App Store
-            </a>
-          </p>
+          <p className="text-sm"><Link to="/agenda" className="link-green">Consulter mon agenda</Link> · <Link to="/parametres" className="link-green">Gérer mes données</Link></p>
         </ContentCard>
 
         <ContentCard>
@@ -107,7 +95,7 @@ export function HomePage() {
             Mon Prof Perso s&apos;engage sur la qualité de son service de soutien scolaire
           </h2>
           <p className="mb-3 text-[15px] font-semibold leading-relaxed text-[#444]">
-            Des professeurs vérifiés, un suivi des progrès, et un paiement Mobile Money sécurisé pour les familles
+            Des professeurs vérifiés, des rendez-vous suivis et un paiement Mobile Money pour les familles
             ivoiriennes.
           </p>
           <p className="mb-4 text-[15px] leading-relaxed text-[#555]">
@@ -117,7 +105,7 @@ export function HomePage() {
           <div className="mb-4 space-y-1 border-t border-[#eee] pt-3">
             <DocLink to="/mes-besoins">Mes besoins</DocLink>
             <DocLink to="/enfants">Mes enfants</DocLink>
-            <DocLink to="/groupes">Cours en groupe & stages vacances</DocLink>
+            {capabilities.groups ? <DocLink to="/groupes">Cours en groupe</DocLink> : null}
           </div>
           <Link to="/aide" className="link-green text-[15px]">
             Voir plus…

@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import {
   AppShell,
   OfflineBanner,
@@ -23,7 +24,8 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { CoteIvoireOffersMap, distanceKmFromHome, resolveCoords, TEACHER_HOME } from "@/components/OffersMap";
+import { CoteIvoireOffersMap } from "@/components/OffersMap";
+import { distanceKmFromHome, resolveCoords } from "@/lib/geography";
 
 export type OfferReq = {
   courseId?: number;
@@ -133,14 +135,14 @@ function OfferCard({
 }: {
   r: OfferReq;
   onConsult: () => void;
-  home?: [number, number];
+  home?: [number, number] | null;
   selected?: boolean;
   cardRef?: (el: HTMLElement | null) => void;
   onSelect?: () => void;
   mark?: OfferMark | null;
 }) {
-  const place = (r.name || r.slot || "Abidjan").replace(/,?\s*Côte d'Ivoire/i, "").trim();
-  const title = place.toUpperCase() || "ABIDJAN";
+  const place = (r.name || r.slot || "Localisation à préciser").replace(/,?\s*Côte d'Ivoire/i, "").trim();
+  const title = place.toUpperCase() || "LOCALISATION À PRÉCISER";
   const dist = distanceKmFromHome(r.slot || r.name || place, home, r.lat, r.lng);
   const { name: pupil, level, gender } = parseStudent(r.student);
   const freq =
@@ -285,14 +287,14 @@ function OfferDetailModal({
   onMark,
 }: {
   r: OfferReq;
-  home: [number, number];
+  home: [number, number] | null;
   mark?: OfferMark | null;
   busy?: boolean;
   onClose: () => void;
   onAccept: () => void;
   onMark: (m: OfferMark) => void;
 }) {
-  const place = (r.name || r.slot || "Abidjan").replace(/,?\s*Côte d'Ivoire/i, "").trim();
+  const place = (r.name || r.slot || "Localisation à préciser").replace(/,?\s*Côte d'Ivoire/i, "").trim();
   const dist = distanceKmFromHome(r.slot || r.name || place, home, r.lat, r.lng);
   const { name: pupil, level, gender } = parseStudent(r.student);
   const start = formatStart(r.startDate);
@@ -433,6 +435,7 @@ function PopMenu({
 
 export function TeacherRequestsPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const storageKey = useCallback((name: string) => `${name}:${user?.id ?? "anonymous"}`, [user?.id]);
   const { data: rawData, offline, reload } = useLive<OfferReq[]>(
     "/api/teacher/requests",
@@ -447,7 +450,7 @@ export function TeacherRequestsPage() {
   const { data: profile } = useLive<{ location?: string } | null>("/api/teacher/profile", null);
 
   const savedSearch = loadJson(storageKey(LS_SEARCH), {
-    location: "Cocody, Abidjan",
+    location: "",
     when: { week: true, weekend: true, vacations: true } as WhenOpts,
     prefs: { vehicle: false, acceptDogs: true, acceptCats: true } as Prefs,
   });
@@ -495,7 +498,7 @@ export function TeacherRequestsPage() {
   }, [marks, storageKey]);
 
   const homeCoords = useMemo(
-    () => resolveCoords(applied.location) || resolveCoords(profile?.location) || TEACHER_HOME,
+    () => resolveCoords(applied.location) || resolveCoords(profile?.location),
     [applied.location, profile?.location],
   );
 
@@ -606,7 +609,8 @@ export function TeacherRequestsPage() {
       const path = r.needId != null
         ? `/api/teacher/opportunities/${r.needId}/accept`
         : `/api/teacher/requests/${r.courseId}/accept`;
-      await api(path, { method: "POST", body: {} });
+      const result = await api<{ courseId?: number }>(path, { method: "POST", body: {} });
+      const acceptedCourseId = r.needId != null ? result.courseId : r.courseId;
       setMsg("Demande acceptée. Le parent a été informé.");
       setConsultId(null);
       setMarks((m) => {
@@ -615,6 +619,7 @@ export function TeacherRequestsPage() {
         return next;
       });
       void reload();
+      if (acceptedCourseId) navigate(`/cours/${acceptedCourseId}`);
     } catch (ex) {
       setMsg(ex instanceof Error ? ex.message : "Erreur");
     } finally {
@@ -807,7 +812,7 @@ export function TeacherRequestsPage() {
                 </div>
                 <div className="rounded-lg bg-white p-3 shadow-sm">
                   <div className="mb-1 text-[14px] font-semibold text-welcome">Notifications</div>
-                  <p className="text-sm text-[#666]">Le réglage des canaux de notification n’est pas encore disponible.</p>
+                  <a className="link-green text-sm" href="/espace/#/parametres">Régler mes alertes de cours et de paiement</a>
                 </div>
                 <div className="rounded-lg bg-white p-3 shadow-sm">
                   <div className="mb-1 text-[14px] font-semibold text-welcome">Mes préférences</div>

@@ -101,16 +101,19 @@ services:
     ports:
       - "127.0.0.1:${ADMINER_PORT:-8098}:8080"     # Système: PostgreSQL, Serveur: db
 
-  # Page vitrine statique (dossier ../web), servie par nginx. Aucun build.
+  # Site de développement monté en direct ; la cible API est propre à ce réseau.
   web:
     image: nginx:alpine
     container_name: monprofperso-web
     restart: unless-stopped
+    environment:
+      API_UPSTREAM: api:${API_PORT:-8099}
+      NGINX_ENVSUBST_FILTER: "^API_UPSTREAM$$"
     depends_on:
       - api
     volumes:
       - ../web:/usr/share/nginx/html:ro
-      - ../web/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ../web/nginx.conf:/etc/nginx/templates/default.conf.template:ro
     ports:
       - "${WEB_PORT:-8095}:80"           # http://localhost:8095
 

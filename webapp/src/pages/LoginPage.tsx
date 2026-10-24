@@ -1,7 +1,8 @@
-import { api, apiBase } from "@/lib/api";
+import { api, apiBase, ApiError } from "@/lib/api";
 import { redirectAfterLogin, useAuth, type User } from "@/lib/auth";
 import { normalizePhone } from "@/lib/utils";
 import { isOtpChallenge, type OtpChallenge } from "@/lib/flows";
+import { loginDestination } from "@/lib/operations";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,20 +11,23 @@ import { Select } from "@/components/ui/select";
 import { useEffect, useState, type FormEvent } from "react";
 
 type Session = { token: string; user: User };
-type Channels = { demo: boolean; whatsapp: boolean; email: boolean; defaultChannel: "whatsapp" | "email" };
+type Channels = { demo: boolean; whatsapp: boolean; email: boolean; defaultChannel: "whatsapp" | "email"; consentVersion: string };
 
 function finishLogin(user: User) {
   const next = new URLSearchParams(window.location.hash.split("?")[1] || "").get("next");
-  if (next === "candidature") window.location.href = "/devenir-prof.html#suivi";
+  const destination = loginDestination(next);
+  if (destination) window.location.href = destination;
   else redirectAfterLogin(user);
 }
 
 export function LoginPage() {
   const { login, user, loading } = useAuth();
+  const reauthenticate = new URLSearchParams(window.location.hash.split("?")[1] || "").get("reauth") === "1";
+  const phoneProof = new URLSearchParams(window.location.hash.split("?")[1] || "").get("phone") === "1";
   const [tab, setTab] = useState<"login" | "signup">(
     window.location.hash.includes("inscription") ? "signup" : "login",
   );
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState(user?.phone || "");
   const [name, setName] = useState("");
   const [role, setRole] = useState("parent");
   const [consent, setConsent] = useState(false);
@@ -40,20 +44,21 @@ export function LoginPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) finishLogin(user);
-  }, [loading, user]);
+    if (!loading && user && !reauthenticate) finishLogin(user);
+    if (user && reauthenticate) setPhone(user.phone);
+  }, [loading, user, reauthenticate]);
 
   useEffect(() => {
     let active = true;
     api<Channels>("/api/auth/otp-channels").then((c) => {
       if (!active) return;
       setChannels(c);
-      setChannel(c.defaultChannel === "email" && c.email ? "email" : "whatsapp");
+      setChannel(!phoneProof && c.defaultChannel === "email" && c.email ? "email" : "whatsapp");
     }).catch(() => {
       if (active) setErr("Les moyens de vérification sont indisponibles. Réessayez dans un instant.");
     });
     return () => { active = false; };
-  }, []);
+  }, [phoneProof]);
 
   useEffect(() => {
     if (!challenge) return;
@@ -91,12 +96,13 @@ export function LoginPage() {
           method: "POST", body: { challengeId: challenge.challengeId, code },
         }));
       } else if (tab === "signup") {
+        if (!channels?.consentVersion) throw new Error("La version des documents n’a pas pu être chargée. Actualisez la page avant de créer votre compte.");
         if (!consent || (role === "student" && !parentalConsent)) {
           throw new Error("Confirmez les consentements requis pour créer votre compte.");
         }
         acceptResponse(await api("/api/auth/signup", {
           method: "POST",
-          body: { fullName: name.trim(), phone: normalizePhone(phone), role, consent, parentalConsent },
+          body: { fullName: name.trim(), phone: normalizePhone(phone), role, consent, parentalConsent, consentVersion: channels.consentVersion },
         }));
       } else {
         acceptResponse(await api("/api/auth/login", {
@@ -106,6 +112,13 @@ export function LoginPage() {
       }
     } catch (ex) {
       setErr(ex instanceof Error ? ex.message : "Connexion impossible");
+      if (ex instanceof ApiError && (ex.data as { error?: string } | null)?.error === "consent_version_changed") {
+        setConsent(false); setParentalConsent(false); setChallenge(null); setCode(""); setChannels(null);
+        try {
+          setChannels(await api<Channels>("/api/auth/otp-channels"));
+          setErr("Les documents ont changé. Consultez les nouvelles versions puis acceptez-les à nouveau pour continuer.");
+        } catch { setErr("Les documents ont changé, mais leur nouvelle version n’a pas pu être chargée. Actualisez la page pour continuer."); }
+      }
     } finally {
       setBusy(false);
     }
@@ -142,10 +155,10 @@ export function LoginPage() {
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="text-2xl">{challenge ? "Vérifiez votre identité" : tab === "signup" ? "Créer un compte" : "Connexion"}</CardTitle>
-              <CardDescription>Accédez à votre espace parent ou professeur.</CardDescription>
+              <CardDescription>{reauthenticate ? "Vérifiez à nouveau votre identité pour protéger les données de votre compte." : "Accédez à votre espace parent ou professeur."}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {!challenge ? (
+              {!challenge && !reauthenticate ? (
                 <div className="grid grid-cols-2 gap-2">
                   {(["login", "signup"] as const).map((value) => (
                     <Button key={value} variant={tab === value ? "secondary" : "outline"} disabled={busy}
@@ -183,7 +196,8 @@ export function LoginPage() {
                     <div className="space-y-1.5"><Label htmlFor="phone">Téléphone</Label>
                       <Input id="phone" type="tel" required autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+2250700000000" />
                     </div>
-                    {tab === "login" && channels?.email ? (
+                    {phoneProof ? <p className="text-sm">Vérifiez votre numéro par WhatsApp pour demander un reversement vers ce numéro.</p> : null}
+                    {tab === "login" && channels?.email && !phoneProof ? (
                       <>
                         <div className="space-y-1.5"><Label htmlFor="channel">Recevoir le code</Label>
                           <Select id="channel" value={channel} onChange={(e) => setChannel(e.target.value as "whatsapp" | "email")}>
@@ -197,9 +211,10 @@ export function LoginPage() {
                     {tab === "signup" ? (
                       <>
                         <p className="text-xs text-muted-foreground">Votre numéro sera vérifié par WhatsApp.</p>
-                        <label className="flex items-start gap-2 text-sm"><input type="checkbox" required checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1" />
-                          <span>J&apos;accepte les <a href={`${apiBase()}/api/legal/cgu/file`} target="_blank" rel="noreferrer" className="underline">CGU</a> et la <a href={`${apiBase()}/api/legal/confidentialite/file`} target="_blank" rel="noreferrer" className="underline">politique de confidentialité</a>.</span>
+                        <label className="flex items-start gap-2 text-sm"><input type="checkbox" required disabled={!channels?.consentVersion} checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1" />
+                          <span>J&apos;accepte les <a href={`${apiBase()}/api/legal/cgu/file?v=${encodeURIComponent(channels?.consentVersion || "")}`} target="_blank" rel="noreferrer" className="underline">CGU</a> et la <a href={`${apiBase()}/api/legal/confidentialite/file?v=${encodeURIComponent(channels?.consentVersion || "")}`} target="_blank" rel="noreferrer" className="underline">politique de confidentialité</a>.</span>
                         </label>
+                        <p className="text-xs text-muted-foreground">{channels?.consentVersion ? `Version présentée : ${channels.consentVersion}` : "Chargement de la version des documents…"}</p>
                         {role === "student" ? <label className="flex items-start gap-2 text-sm"><input type="checkbox" required checked={parentalConsent} onChange={(e) => setParentalConsent(e.target.checked)} className="mt-1" />
                           <span>Je dispose de l&apos;accord de mon responsable légal.</span></label> : null}
                       </>
@@ -207,7 +222,7 @@ export function LoginPage() {
                   </>
                 )}
                 {err ? <p role="alert" className="text-sm font-semibold text-destructive">{err}</p> : null}
-                <Button className="w-full" disabled={busy || (Boolean(challenge) && now >= expiresAt)} type="submit">
+                <Button className="w-full" disabled={busy || (!challenge && tab === "signup" && !channels?.consentVersion) || (Boolean(challenge) && now >= expiresAt)} type="submit">
                   {busy ? "Vérification…" : challenge ? "Valider le code" : tab === "signup" ? "Créer mon compte" : "Se connecter"}
                 </Button>
               </form>

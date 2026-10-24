@@ -54,15 +54,21 @@
         <button class="menu-item" data-view="applications">Candidatures profs</button>
         <button class="menu-item" data-view="needs">Besoins parents</button>
         <button class="menu-item" data-view="teachers">Professeurs</button>
-        <button class="menu-item" data-view="groups">Cours de groupe</button>
+        <button class="menu-item" data-view="courses">Suivi des cours</button>
+        <button class="menu-item" data-view="finance">Paiements et reversements</button>
+        <button class="menu-item" data-view="deletions">Suppressions de comptes</button>
+        <button class="menu-item" data-view="readiness">Mise en service</button>
+        <button class="menu-item" data-view="groups" data-capability="groups" hidden>Cours de groupe</button>
         <button class="menu-item" data-view="catalog">Matières &amp; niveaux</button>
         <button class="menu-item" data-view="resources">Ressources</button>
         <button class="menu-item" data-view="legal">Documents légaux</button>
         <button class="menu-item" data-view="social">Réseaux &amp; contact</button>
-        <button class="menu-item" data-view="otp">OTP &amp; messagerie</button>
+        <button class="menu-item" data-view="otp">Vérification OTP</button>
       </nav>
       <div class="sidebar-foot">
         <a href="../index.html" class="link-quiet">← Voir le site</a>
+        <a href="/espace/#/parametres" class="link-quiet" id="myAccountSettings">Mes données / mon compte</a>
+        <button class="link-quiet" id="reauthBtn">Vérifier à nouveau mon identité</button>
         <button class="link-quiet" id="logoutBtn">Se déconnecter</button>
       </div>
     </aside>
@@ -85,6 +91,7 @@
       ? "http://localhost:8099"
       : location.origin;
   </script>
-  <script src="js/admin.js?v=20261024-auth"></script>
+  <script src="js/operations.js?v=20261024-production"></script>
+  <script src="js/admin.js?v=20261024-production"></script>
 </body>
 </html>

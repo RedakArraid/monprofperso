@@ -2,7 +2,7 @@ package ci.monprofperso.app.data
 
 import ci.monprofperso.app.BuildConfig
 import kotlinx.coroutines.CancellationException
-import org.json.JSONObject
+import com.google.gson.Gson
 import retrofit2.HttpException
 
 /** Une session existe seulement après preuve OTP ou réponse explicite d'un serveur de démonstration. */
@@ -20,9 +20,18 @@ object Auth {
         return if (digits.length < 8) e164 else "+${digits.take(5)} ** ** ${digits.takeLast(2)}"
     }
 
+    private fun apiFailure(error: Throwable): ApiFailureDto? = if (error is HttpException) runCatching {
+        error.response()?.errorBody()?.source()?.peek()?.use { Gson().fromJson(it.readUtf8(), ApiFailureDto::class.java) }
+    }.getOrNull() else null
+
+    fun errorCode(error: Throwable): String? = apiFailure(error)?.error
+
     fun errorMessage(error: Throwable): String {
         if (error is HttpException) {
-            val message = runCatching { JSONObject(error.response()?.errorBody()?.string().orEmpty()).optString("message") }.getOrNull()
+            val failure = apiFailure(error)
+            if (failure?.error == "consent_required") return "Acceptez les conditions à jour dans « Mes données et mon compte » avant de poursuivre."
+            if (failure?.error == "consent_version_changed") return "Les conditions ont changé. Relisez les documents et cochez à nouveau votre accord."
+            val message = failure?.message
             if (!message.isNullOrBlank()) return message
             return when (error.code()) {
                 401 -> "Connexion nécessaire ou code incorrect."
@@ -37,6 +46,7 @@ object Auth {
 
     private fun fail(error: Throwable) {
         if (error is CancellationException) throw error
+        AppState.authErrorCode = errorCode(error)
         AppState.authError = errorMessage(error)
     }
 
@@ -92,15 +102,18 @@ object Auth {
         } catch (error: Exception) { fail(error); false }
     }
 
-    suspend fun signup(fullName: String, phone: String, roleIndex: Int, consent: Boolean, parentalConsent: Boolean): Boolean {
+    suspend fun signup(fullName: String, phone: String, roleIndex: Int, consent: Boolean, parentalConsent: Boolean, consentVersion: String): Boolean {
         AppState.authError = null
+        AppState.authErrorCode = null
         AppState.authChallengeId = null
         TokenStore.clear()
         AppState.authRole = null
         return try {
+            require(consent && consentVersion.isNotBlank()) { "Consultez et acceptez les conditions à jour." }
             val body = mutableMapOf(
                 "fullName" to fullName.trim(), "phone" to phone, "role" to apiRole[roleIndex.coerceIn(0, 2)],
                 "consent" to consent.toString(), "parentalConsent" to parentalConsent.toString(),
+                "consentVersion" to consentVersion,
             )
             AppState.authEmail.takeIf { it.isNotBlank() }?.let { body["email"] = it.trim() }
             acceptResponse(Api.service.signup(body))
@@ -157,5 +170,13 @@ object Auth {
         AppState.authChallengeId = null
         AppState.authError = null
         AppState.bkCourseId = null
+        AppState.selectedCourseId = null
+        AppState.selectedTeacherId = 0
+        AppState.authPhone = ""
+        AppState.authEmail = ""
+        AppState.authFullName = ""
+        AppState.bkTeacherName = ""
+        AppState.bkLocation = ""
+        AppState.bkPaymentConfirmed = false
     }
 }

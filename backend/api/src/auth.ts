@@ -51,6 +51,7 @@ export interface JwtPayload {
   v: number;
   aud: string;
   iss: string;
+  auth_time?: number;
 }
 
 /** Les jetons v2 remplacent les anciens JWT délivrés sans preuve de possession. */
@@ -61,7 +62,7 @@ export function signJwt(sub: number, role?: string): string {
   const now = Math.floor(Date.now() / 1000);
   const header = b64urlJson({ alg: "HS256", typ: "JWT" });
   const payload = b64urlJson({
-    sub, role, iat: now, exp: now + TTL_SECONDS,
+    sub, role, iat: now, auth_time: now, exp: now + TTL_SECONDS,
     v: TOKEN_VERSION, aud: TOKEN_AUDIENCE, iss: TOKEN_ISSUER,
   } satisfies JwtPayload);
   const body = `${header}.${payload}`;
@@ -86,6 +87,8 @@ export function verifyJwt(token: string): JwtPayload | null {
     if (!Number.isSafeInteger(claims.iat) || claims.iat > now + 30 || claims.iat > claims.exp) return null;
     if (claims.v !== TOKEN_VERSION || claims.aud !== TOKEN_AUDIENCE || claims.iss !== TOKEN_ISSUER) return null;
     if (claims.role !== undefined && !ROLES.has(claims.role)) return null;
+    if (claims.auth_time !== undefined && (!Number.isSafeInteger(claims.auth_time)
+      || claims.auth_time > claims.iat || claims.auth_time < 0)) return null;
     return claims;
   } catch {
     return null;
@@ -104,16 +107,18 @@ export function optionalAuth(req: Request, res: Response, next: NextFunction): v
   res.locals.userId = undefined;
   res.locals.userRole = undefined;
   res.locals.teacherId = undefined;
+  res.locals.authTime = undefined;
   const match = (req.header("authorization") ?? "").match(/^Bearer\s+(.+)$/i);
   const claims = match ? verifyJwt(match[1]) : null;
   if (!claims) { next(); return; }
-  pool.query("SELECT id, role, teacher_id FROM users WHERE id=$1", [claims.sub])
+  pool.query("SELECT id, role, teacher_id FROM users WHERE id=$1 AND deleted_at IS NULL", [claims.sub])
     .then(({ rows }) => {
       const user = rows[0];
       if (user && ROLES.has(user.role)) {
         res.locals.userId = user.id;
         res.locals.userRole = user.role;
         res.locals.teacherId = user.teacher_id;
+        res.locals.authTime = claims.auth_time ?? claims.iat;
       }
       next();
     })
@@ -142,6 +147,18 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
   requireAuth(req, res, () => {
     if (currentRole(res) !== "admin") {
       res.status(403).json({ error: "forbidden", message: "Accès administrateur requis" });
+      return;
+    }
+    next();
+  });
+}
+
+/** Sensitive account actions require a recently proven session, never a refreshed timestamp. */
+export function requireRecentAuth(req: Request, res: Response, next: NextFunction): void {
+  requireAuth(req, res, () => {
+    const authenticatedAt = res.locals.authTime;
+    if (!Number.isSafeInteger(authenticatedAt) || Date.now() / 1000 - authenticatedAt > 900) {
+      res.status(403).json({ error: "reauthentication_required", message: "Reconnectez-vous pour confirmer cette action sur votre compte." });
       return;
     }
     next();

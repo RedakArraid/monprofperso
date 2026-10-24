@@ -51,6 +51,9 @@ final class Router: ObservableObject {
 
     // MARK: Brouillon de réservation (fiche prof → Réservation → Paiement → Confirmé)
     @Published var selectedTeacherId: Int? = nil
+    @Published var selectedCourseId: Int? = nil
+    @Published var capabilities: [String: Bool] = [:]
+    func featureEnabled(_ key: String) -> Bool { capabilities[key] == true }
     @Published var bkTeacherId = 0
     @Published var bkTeacherName = ""
     @Published var bkTeacherInitials = ""
@@ -97,9 +100,9 @@ final class Router: ObservableObject {
         bkSubjectsLine = t.subjects
         bkSubject = t.subjects.split(separator: "·").first.map { $0.trimmingCharacters(in: .whitespaces) } ?? "Cours"
         bkPricePerHour = t.price_per_hour
-        bkLocation = t.location
+        bkLocation = ""
         bkNegotiable = t.negotiable ?? false
-        bkFormats = t.formats ?? ["home", "online"]
+        bkFormats = (t.formats ?? ["home"]).filter { $0 == "home" || ($0 == "online" && featureEnabled("onlineCourses")) }
         bkCourseId = nil
         bkAccepted = false
         bkPaid = false
@@ -157,6 +160,15 @@ final class Router: ObservableObject {
     func go(_ route: Route) { path.append(route) }
     func back() { if !path.isEmpty { path.removeLast() } }
     func popToRoot() { path = NavigationPath() }
+
+    func logout() {
+        TokenStore.clear()
+        authRole = nil
+        authPhone = ""; authEmail = ""; authFullName = ""; authChallengeId = nil
+        selectedCourseId = nil; selectedTeacherId = nil; bkCourseId = nil
+        bkTeacherName = ""; bkLocation = ""; bkPaid = false
+        popToRoot()
+    }
 
     /// Entrée dans l'app après authentification : un professeur arrive sur
     /// l'espace prof, un parent/élève sur l'accueil.

@@ -16,6 +16,9 @@ object AppState {
     /** Rôle réel renvoyé par le serveur à la connexion (`parent|student|teacher|admin`). */
     var authRole by mutableStateOf<String?>(null)
     var authTeacherId by mutableStateOf<Int?>(null)
+    var capabilities by mutableStateOf<Map<String, Boolean>>(emptyMap())
+    var selectedCourseId by mutableStateOf<Int?>(null)
+    fun featureEnabled(name: String): Boolean = capabilities[name] == true
 
     val isAdmin: Boolean get() = authRole == "admin"
 
@@ -31,6 +34,7 @@ object AppState {
     var authChallengeId by mutableStateOf<String?>(null)
     var authDestination by mutableStateOf("")
     var authError by mutableStateOf<String?>(null)
+    var authErrorCode by mutableStateOf<String?>(null)
     var otpDemo by mutableStateOf(false)
     var otpCodeLength by mutableIntStateOf(6)
     var otpTtlMinutes by mutableIntStateOf(10)
@@ -38,30 +42,30 @@ object AppState {
     var otpEmailEnabled by mutableStateOf(false)
 
     // --- Brouillon de réservation (rempli depuis la fiche prof, lu par Réservation → Paiement → Confirmé) ---
-    var selectedTeacherId by mutableIntStateOf(1)
-    var bkTeacherId by mutableIntStateOf(1)
-    var bkTeacherName by mutableStateOf("Koffi N'Guessan")
-    var bkTeacherInitials by mutableStateOf("KN")
-    var bkSubjectsLine by mutableStateOf("Maths · Physique-Chimie")
-    var bkSubject by mutableStateOf("Maths")
-    var bkLevel by mutableStateOf("3ᵉ")
-    var bkPricePerHour by mutableIntStateOf(4000)
-    var bkLocation by mutableStateOf("Cocody")
+    var selectedTeacherId by mutableIntStateOf(0)
+    var bkTeacherId by mutableIntStateOf(0)
+    var bkTeacherName by mutableStateOf("")
+    var bkTeacherInitials by mutableStateOf("")
+    var bkSubjectsLine by mutableStateOf("")
+    var bkSubject by mutableStateOf("")
+    var bkLevel by mutableStateOf("")
+    var bkPricePerHour by mutableIntStateOf(0)
+    var bkLocation by mutableStateOf("")
     var bkNegotiable by mutableStateOf(false)
     var bkFormats by mutableStateOf(listOf("home", "online"))
 
     // Détails confirmés au fil des écrans
     var bkFormat by mutableStateOf("home")
-    var bkDayLabel by mutableStateOf("SAM")
-    var bkDayNum by mutableStateOf("22")
-    var bkDayFull by mutableStateOf("Sam. 22 juin")
-    var bkTime by mutableStateOf("16:00")
+    var bkDayLabel by mutableStateOf("")
+    var bkDayNum by mutableStateOf("")
+    var bkDayFull by mutableStateOf("")
+    var bkTime by mutableStateOf("")
     var bkDuration by mutableStateOf("1h30")
-    var bkPrice by mutableIntStateOf(6000)
+    var bkPrice by mutableIntStateOf(0)
     var bkProposedPrice by mutableStateOf<Int?>(null)
     var bkProposedFrequency by mutableStateOf<String?>(null)
     var bkHasProposal by mutableStateOf(false)
-    var bkReference by mutableStateOf("AKW-2058")
+    var bkReference by mutableStateOf("")
     var bkCourseId by mutableStateOf<Int?>(null)
     var bkStartAt by mutableStateOf<String?>(null)
     var bkPaymentConfirmed by mutableStateOf(false)
@@ -74,9 +78,9 @@ object AppState {
         bkSubjectsLine = t.subjects
         bkSubject = t.subjects.split("·").firstOrNull()?.trim()?.ifBlank { "Cours" } ?: "Cours"
         bkPricePerHour = t.pricePerHour
-        bkLocation = t.location
+        bkLocation = ""
         bkNegotiable = t.negotiable
-        bkFormats = t.formats?.takeIf { it.isNotEmpty() } ?: listOf("home", "online")
+        bkFormats = (t.formats ?: listOf("home")).filter { it == "home" || (it == "online" && featureEnabled("onlineCourses")) }
         bkProposedPrice = null
         bkProposedFrequency = null
         bkHasProposal = false

@@ -75,24 +75,24 @@ fun WelcomeScreen(nav: NavActions) {
 
             Spacer(Modifier.height(48.dp))
             Text(
-                "Le bon prof,\nchez vous ou\nen ligne.",
+                "Votre prof,\nvotre rythme,\nvotre réussite.",
                 fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 39.sp,
                 lineHeight = 41.sp, color = AkColors.White,
             )
             Spacer(Modifier.height(18.dp))
             Text(
-                "Soutien scolaire du CP à la Terminale, avec des professeurs vérifiés partout en Côte d'Ivoire.",
+                "Trouvez un professeur, organisez vos cours et suivez l’accompagnement de votre enfant en Côte d’Ivoire.",
                 fontFamily = Hanken, fontSize = 15.5.sp, lineHeight = 23.sp, color = AkColors.OnGreenSoft,
                 modifier = Modifier.widthIn(max = 300.dp),
             )
 
             Spacer(Modifier.height(28.dp))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Stat("2 500+", "professeurs")
+                Stat("Cours", "individuels")
                 Box(Modifier.width(1.dp).height(34.dp).background(AkColors.GreenLine))
-                Stat("4,9★", "note moyenne")
+                Stat("Suivi", "personnalisé")
                 Box(Modifier.width(1.dp).height(34.dp).background(AkColors.GreenLine))
-                Stat("18", "villes")
+                Stat("Simple", "à organiser")
             }
 
             Spacer(Modifier.weight(1f))
@@ -165,12 +165,19 @@ fun SignupScreen(nav: NavActions) {
     var email by remember { mutableStateOf(AppState.authEmail) }
     var fullName by remember { mutableStateOf(AppState.authFullName) }
     var consent by remember { mutableStateOf(false) }
+    var consentVersion by remember { mutableStateOf<String?>(null) }
     var parentalConsent by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     val isStudent = role == 1
-    val canSubmit = !busy && consent && (!isStudent || parentalConsent) && fullName.trim().length >= 2 && phone.count { it.isDigit() } >= 10
+    val canSubmit = !busy && !consentVersion.isNullOrBlank() && consent && (!isStudent || parentalConsent) && fullName.trim().length >= 2 && phone.count { it.isDigit() } >= 10
 
-    LaunchedEffect(Unit) { AppState.authError = null; Auth.refreshOtpChannels() }
+    suspend fun loadConsentVersion() {
+        val version = Auth.refreshOtpChannels()?.consentVersion?.takeIf { it.isNotBlank() }
+        if (version != consentVersion) { consent = false; parentalConsent = false }
+        consentVersion = version
+        if (version == null) AppState.authError = "Impossible de charger les conditions actuelles. Réessayez avant de créer le compte."
+    }
+    LaunchedEffect(Unit) { AppState.authError = null; loadConsentVersion() }
     fun openLegal(slug: String, title: String) {
         nav.openPdf(ci.monprofperso.app.data.ApiConfig.BASE_URL + "api/legal/$slug/file", title)
     }
@@ -203,7 +210,8 @@ fun SignupScreen(nav: NavActions) {
                 Text(ci.monprofperso.app.data.roleLabels[role], fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AkColors.Ink)
             }
             Spacer(Modifier.height(16.dp))
-            ConsentCheckboxLinked(checked = consent, onToggle = { consent = !consent },
+            if (consentVersion == null) androidx.compose.material3.TextButton(onClick = { scope.launch { loadConsentVersion() } }) { Text("Recharger les conditions") }
+            ConsentCheckboxLinked(checked = consent, onToggle = { if (consentVersion != null && !busy) consent = !consent },
                 onOpenCgu = { openLegal("cgu", "Conditions d'utilisation") },
                 onOpenPrivacy = { openLegal("confidentialite", "Politique de confidentialité") })
             if (isStudent) {
@@ -224,8 +232,12 @@ fun SignupScreen(nav: NavActions) {
                             AppState.authEmail = email
                             AppState.authFullName = fullName
                             AppState.authOtpChannel = "whatsapp"
-                            if (Auth.signup(fullName, Auth.normalizePhone(phone), role, consent, parentalConsent)) {
+                            val version = consentVersion ?: return@launch
+                            if (Auth.signup(fullName, Auth.normalizePhone(phone), role, consent, parentalConsent, version)) {
                                 if (AppState.authChallengeId != null) nav.go(Routes.Otp) else nav.enterApp()
+                            } else if (AppState.authErrorCode == "consent_version_changed") {
+                                consent = false; parentalConsent = false; consentVersion = null
+                                loadConsentVersion()
                             }
                         } finally { busy = false }
                     }

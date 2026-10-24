@@ -8,6 +8,7 @@ struct BookingScreen: View {
     @State private var duration = 1
     @State private var sending = false
     @State private var error: String?
+    @State private var consentRequired = false
     private let durations = ["1h", "1h30", "2h"]
     private let durationFactors = [1.0, 1.5, 2.0]
     private let abidjan = TimeZone(identifier: "Africa/Abidjan")!
@@ -31,6 +32,11 @@ struct BookingScreen: View {
                         if router.bkFormats.contains("home") { Text("À domicile").tag("home") }
                         if router.bkFormats.contains("online") { Text("En ligne").tag("online") }
                     }.pickerStyle(.segmented)
+                    if router.bkFormats.isEmpty { Text("Aucun format de cours disponible pour ce professeur dans la version actuelle.").foregroundColor(Ak.orange) }
+                    if format == "home" {
+                        TextField("Adresse précise du cours", text: $router.bkLocation, axis: .vertical).textFieldStyle(.roundedBorder)
+                    }
+                    TextField("Niveau de l’élève", text: $router.bkLevel).textFieldStyle(.roundedBorder)
                     Text("\(router.bkSubject) · \(router.bkLevel)").font(AkFont.bold(14)).foregroundColor(Ak.ink)
                     Text("Choisir une date et une heure").font(AkFont.schibstedBold(14.5)).foregroundColor(Ak.ink)
                     DatePicker("Créneau souhaité", selection: $startAt, in: Date()...,
@@ -46,6 +52,7 @@ struct BookingScreen: View {
                     Text("Vous pourrez payer depuis Mes cours dès que le professeur aura accepté la demande.")
                         .font(AkFont.regular(13)).foregroundColor(Ak.muted)
                     if let error { Text(error).font(AkFont.regular(13)).foregroundColor(Ak.danger) }
+                    if consentRequired { Button("Lire et accepter les conditions dans mes paramètres") { router.go(.settings) } }
                 }.padding(.horizontal, 22).padding(.top, 16)
             }
             VStack(spacing: 12) {
@@ -55,7 +62,7 @@ struct BookingScreen: View {
                     Text("\(estimate.formattedFCFA) F").font(AkFont.schibstedExtra(18)).foregroundColor(Ak.ink)
                 }
                 PrimaryButton(label: sending ? "Envoi…" : "Envoyer ma demande", color: Ak.green) { submit() }
-                    .disabled(sending || startAt <= Date() || router.bkTeacherId < 1)
+                    .disabled(sending || startAt <= Date() || router.bkTeacherId < 1 || router.bkFormats.isEmpty || (format == "home" && router.bkLocation.trimmingCharacters(in: .whitespacesAndNewlines).count < 5))
             }.padding(22).background(.white)
         }
         .onAppear { format = router.bkFormats.contains("home") ? "home" : "online" }
@@ -78,7 +85,7 @@ struct BookingScreen: View {
                 guard ownerToken != nil, ownerToken == TokenStore.token else { return }
                 router.loadCourse(booking.course, reference: booking.reference)
                 router.go(.confirmed)
-            } catch { self.error = error.localizedDescription }
+            } catch { consentRequired = (error as? ApiError)?.consentCode == "consent_required"; self.error = error.localizedDescription }
         }
     }
 }
@@ -96,6 +103,7 @@ struct PaymentScreen: View {
     @State private var pendingPaymentId: Int?
     @State private var otpCode = ""
     @State private var payError: String?
+    @State private var consentRequired = false
     @State private var ownerToken: String?
     @State private var selectedCourseId: Int?
     @State private var active = false
@@ -131,6 +139,7 @@ struct PaymentScreen: View {
                     Text("Validez la demande sur votre téléphone. Le statut sera confirmé par le service de paiement.")
                         .font(AkFont.regular(12)).foregroundColor(Ak.muted)
                     if let payError { Text(payError).font(AkFont.regular(13)).foregroundColor(Ak.danger) }
+                    if consentRequired { Button("Lire et accepter les conditions dans mes paramètres") { router.go(.settings) } }
                     if needsOtp {
                         Button("Saisir le code de paiement") { showOtp = true }
                             .font(AkFont.bold(14)).foregroundColor(Ak.green).disabled(sending)
@@ -148,7 +157,7 @@ struct PaymentScreen: View {
             selectedCourseId = router.bkCourseId
             phone = router.authPhone
             do { try await refreshCourse() }
-            catch { payError = error.localizedDescription }
+            catch { consentRequired = (error as? ApiError)?.consentCode == "consent_required"; payError = error.localizedDescription }
             loading = false
         }
         .onDisappear { active = false }
@@ -168,7 +177,7 @@ struct PaymentScreen: View {
             throw ApiError.badStatus(404, "Cours introuvable. Retrouvez-le dans Mes cours.")
         }
         router.loadCourse(course)
-        eligible = course.canPay
+        eligible = course.canPay && !course.isTeacherParticipant(accountRole: router.authRole)
         if course.payment_status == "paid" {
             router.go(.confirmed)
         } else if !eligible {
@@ -188,7 +197,7 @@ struct PaymentScreen: View {
                 let charge = try await ApiClient.shared.chargeMobile(courseId: id, provider: provider,
                                                                     phone: ApiClient.normalizePhone(phone))
                 await handleCharge(charge)
-            } catch { payError = error.localizedDescription }
+            } catch { consentRequired = (error as? ApiError)?.consentCode == "consent_required"; payError = error.localizedDescription }
         }
     }
 
@@ -229,7 +238,7 @@ struct PaymentScreen: View {
             do {
                 let response = try await ApiClient.shared.submitPaymentOtp(paymentId: id, otp: otpCode)
                 await handleCharge(response)
-            } catch { payError = error.localizedDescription }
+            } catch { consentRequired = (error as? ApiError)?.consentCode == "consent_required"; payError = error.localizedDescription }
         }
     }
 

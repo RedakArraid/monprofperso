@@ -17,6 +17,7 @@ import androidx.compose.material.icons.outlined.AddCircle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import ci.monprofperso.app.data.isPayable
+import ci.monprofperso.app.data.isTeacherParticipant
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -49,13 +50,14 @@ fun MyCoursesScreen(nav: NavActions, vm: ci.monprofperso.app.data.CoursesViewMod
     val state by vm.state.collectAsStateWithLifecycle()
     var tab by remember { mutableIntStateOf(0) }
     val result = state as? ci.monprofperso.app.data.UiState.Success
-    val courses = result?.data.orEmpty().filter { if (tab == 0) it.status == "upcoming" else it.status == "done" }
+    val courses = result?.data.orEmpty().filter { if (tab == 0) it.status == "upcoming" else if (tab == 1) it.status == "done" else it.status in listOf("cancelled", "refused") }
     AkScreen(applyBottomInset = false) {
         Text("Mes cours", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 23.sp,
             color = AkColors.Ink, modifier = Modifier.padding(horizontal = 22.dp, vertical = 8.dp))
         Row(Modifier.padding(horizontal = 22.dp).padding(bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PillTab("À venir", tab == 0) { tab = 0 }
             PillTab("Terminés", tab == 1) { tab = 1 }
+            PillTab("Annulés", tab == 2) { tab = 2 }
             PillTab("Actualiser", false) { vm.load() }
         }
         Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 22.dp).padding(top = 16.dp)) {
@@ -78,20 +80,20 @@ fun MyCoursesScreen(nav: NavActions, vm: ci.monprofperso.app.data.CoursesViewMod
                         Spacer(Modifier.width(13.dp))
                         Column(Modifier.weight(1f)) {
                             Text("${course.subject} · ${course.level}", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = AkColors.Ink)
-                            Text("avec ${course.teacherName}", fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted)
+                            Text(if (course.isTeacherParticipant(ci.monprofperso.app.data.AppState.authRole)) "Parent : ${course.parentName.orEmpty()}" else "avec ${course.teacherName}", fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted)
                         }
                     }
                     CourseMeta(course)
                     Text("%,d F".format(course.price).replace(',', ' '), fontFamily = Hanken, fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(top = 10.dp), color = AkColors.Ink)
-                    val statusLabel = when {
-                        course.status == "done" -> "Cours terminé"
-                        !course.accepted -> "En attente de la réponse du professeur"
-                        course.paymentStatus == "paid" -> "Cours accepté · payé"
-                        else -> "Cours accepté · paiement à effectuer"
-                    }
+                    val statusLabel = courseStateLabel(course.lifecycleStatus)
                     Text(statusLabel, fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Muted, modifier = Modifier.padding(top = 6.dp))
-                    if (course.isPayable() && result?.fromApi == true) {
+                    Spacer(Modifier.height(12.dp))
+                    PrimaryButton("Détails et suivi", Modifier.fillMaxWidth(), onClick = {
+                        ci.monprofperso.app.data.AppState.selectedCourseId = course.id
+                        nav.go(Routes.ManageCourse)
+                    })
+                    if (course.isPayable() && result?.fromApi == true && !course.isTeacherParticipant(ci.monprofperso.app.data.AppState.authRole)) {
                         Spacer(Modifier.height(12.dp))
                         PrimaryButton("Payer ce cours", Modifier.fillMaxWidth(), onClick = {
                             ci.monprofperso.app.data.AppState.resumePayment(course)
@@ -102,7 +104,8 @@ fun MyCoursesScreen(nav: NavActions, vm: ci.monprofperso.app.data.CoursesViewMod
                 Spacer(Modifier.height(13.dp))
             }
         }
-        BottomNav(NavTab.Cours, nav::selectTab)
+        if (ci.monprofperso.app.data.AppState.authRole == "teacher") TeacherBottomNav(TeacherTab.Agenda, nav::selectTeacherTab)
+        else BottomNav(NavTab.Cours, nav::selectTab)
     }
 }
 

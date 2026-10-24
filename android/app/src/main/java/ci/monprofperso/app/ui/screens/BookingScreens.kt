@@ -12,6 +12,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
 import ci.monprofperso.app.data.isPayable
+import ci.monprofperso.app.data.isTeacherParticipant
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -54,7 +55,7 @@ import ci.monprofperso.app.ui.theme.Schibsted
 fun BookingScreen(nav: NavActions) {
     val app = ci.monprofperso.app.data.AppState
     val scope = rememberCoroutineScope()
-    var format by remember { mutableStateOf(app.bkFormats.first()) }
+    var format by remember { mutableStateOf(app.bkFormats.firstOrNull().orEmpty()) }
     var day by remember { mutableIntStateOf(0) }
     var time by remember { mutableIntStateOf(2) }
     var duration by remember { mutableIntStateOf(1) }
@@ -62,6 +63,7 @@ fun BookingScreen(nav: NavActions) {
     var level by remember { mutableStateOf(app.bkLevel) }
     var busy by remember { mutableStateOf(false) }
     var bookingError by remember { mutableStateOf<String?>(null) }
+    var consentRequired by remember { mutableStateOf(false) }
     val timezone = remember { TimeZone.getTimeZone("Africa/Abidjan") }
     val days = remember { List(5) { offset -> Calendar.getInstance(timezone).apply { add(Calendar.DAY_OF_YEAR, offset + 1) }.time } }
     val shortDay = remember { SimpleDateFormat("EEE", Locale.FRENCH).apply { timeZone = timezone } }
@@ -84,6 +86,7 @@ fun BookingScreen(nav: NavActions) {
                 }
             }
             SubLabel("Format du cours")
+            if (app.bkFormats.isEmpty()) Text("Aucun format de cours disponible pour ce professeur dans la version actuelle.", color = AkColors.Orange)
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 if ("home" in app.bkFormats) FormatCard(Icons.Filled.Home, "À domicile", "Adresse du cours", format == "home", Modifier.weight(1f)) { format = "home" }
                 if ("online" in app.bkFormats) FormatCard(Icons.Filled.Videocam, "En ligne", "À convenir avec le prof", format == "online", Modifier.weight(1f)) { format = "online" }
@@ -111,11 +114,12 @@ fun BookingScreen(nav: NavActions) {
             Text("Le professeur doit accepter votre demande. Le paiement sera ensuite disponible dans Mes cours.",
                 fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Muted, modifier = Modifier.padding(top = 18.dp))
             bookingError?.let { Text(it, color = AkColors.Orange, modifier = Modifier.padding(top = 12.dp)) }
+            if (consentRequired) TextButton(onClick = { nav.go(Routes.Settings) }) { Text("Lire et accepter les conditions dans mes paramètres") }
             Spacer(Modifier.height(16.dp))
         }
         Column(Modifier.fillMaxWidth().background(AkColors.White).padding(horizontal = 22.dp).padding(top = 14.dp, bottom = 24.dp)) {
             RecapRow("Estimation (${durations[duration]})", priceLabel)
-            PrimaryButton(if (busy) "Envoi…" else "Envoyer la demande", Modifier.fillMaxWidth(), onClick = {
+            PrimaryButton(if (busy) "Envoi…" else "Envoyer la demande", Modifier.fillMaxWidth(), enabled = !busy && format.isNotBlank() && (format != "home" || location.trim().length >= 5), onClick = {
                 if (busy) return@PrimaryButton
                 if (ci.monprofperso.app.data.TokenStore.token.isNullOrBlank()) { nav.go(Routes.Login); return@PrimaryButton }
                 busy = true
@@ -143,6 +147,7 @@ fun BookingScreen(nav: NavActions) {
                     } catch (error: Exception) {
                         if (error is kotlinx.coroutines.CancellationException) throw error
                         bookingError = Auth.errorMessage(error)
+                        consentRequired = Auth.errorCode(error) == "consent_required"
                     } finally { busy = false }
                 }
             })
@@ -227,6 +232,7 @@ fun PaymentScreen(nav: NavActions) {
     var otpPaymentId by remember { mutableIntStateOf(0) }
     var otpCode by remember { mutableStateOf("") }
     var payError by remember { mutableStateOf<String?>(null) }
+    var consentRequired by remember { mutableStateOf(false) }
     var payable by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(true) }
     var payerPhone by remember { mutableStateOf(app.authPhone) }
@@ -236,12 +242,12 @@ fun PaymentScreen(nav: NavActions) {
             if (course == null) payError = "Retrouvez votre cours dans Mes cours pour le payer."
             else {
                 app.resumePayment(course)
-                payable = course.isPayable()
+                payable = course.isPayable() && !course.isTeacherParticipant(app.authRole)
                 if (!payable) payError = if (course.paymentStatus == "paid") "Ce cours est déjà payé." else "Le professeur doit d'abord accepter ce cours."
             }
         } catch (error: Exception) {
             if (error is kotlinx.coroutines.CancellationException) throw error
-            payError = Auth.errorMessage(error)
+            consentRequired = Auth.errorCode(error) == "consent_required"; payError = Auth.errorMessage(error)
         } finally { loading = false }
     }
 
@@ -303,7 +309,7 @@ fun PaymentScreen(nav: NavActions) {
                                 } else payError = response.message ?: "Paiement en attente ou code refusé. Consultez Mes cours."
                             } catch (error: Exception) {
                                 if (error is kotlinx.coroutines.CancellationException) throw error
-                                payError = Auth.errorMessage(error)
+                                consentRequired = Auth.errorCode(error) == "consent_required"; payError = Auth.errorMessage(error)
                             } finally { sending = false }
                         }
                     },
@@ -346,6 +352,7 @@ fun PaymentScreen(nav: NavActions) {
                 Spacer(Modifier.height(12.dp))
                 Text(it, fontFamily = Hanken, fontSize = 12.sp, color = Color(0xFFB42318))
             }
+            if (consentRequired) TextButton(onClick = { nav.go(Routes.Settings) }) { Text("Lire et accepter les conditions dans mes paramètres") }
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Lock, null, tint = AkColors.Green, modifier = Modifier.size(14.dp))
@@ -379,7 +386,7 @@ fun PaymentScreen(nav: NavActions) {
                         }
                     } catch (error: Exception) {
                         if (error is kotlinx.coroutines.CancellationException) throw error
-                        payError = Auth.errorMessage(error)
+                        consentRequired = Auth.errorCode(error) == "consent_required"; payError = Auth.errorMessage(error)
                     } finally { sending = false }
                 }
             })

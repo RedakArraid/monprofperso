@@ -2,11 +2,9 @@ import { Link } from "react-router-dom";
 import {
   AppShell,
   OfflineBanner,
-  Empty,
   ContentCard,
   PageGrid,
   PageStack,
-  MenuRow,
   SectionHeading,
 } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -15,11 +13,8 @@ import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
 import { fileToBase64 } from "@/lib/uploads";
 import { fallback } from "@/lib/fallback";
-import { fcfa } from "@/lib/utils";
 import { useLive } from "@/hooks/useLive";
 import { useState } from "react";
-
-export { TeacherRequestsPage } from "@/pages/TeacherOffersPage";
 
 type Dash = typeof fallback.teacherDashboard & {
   profileCompletion?: { percent: number; complete: boolean };
@@ -78,21 +73,7 @@ export function TeacherDashboardPage() {
             </div>
           </div>
 
-          <p className="text-[14px] leading-relaxed text-[#555]">
-            Avez-vous déjà téléchargé l&apos;application Mon Prof Perso ?
-          </p>
-          <p className="mt-2 text-[14px]">
-            Android :{" "}
-            <a href="/#download" className="link-green">
-              Télécharger maintenant sur Play Store
-            </a>
-          </p>
-          <p className="mt-1 text-[14px]">
-            Apple :{" "}
-            <a href="/#download" className="link-green">
-              Télécharger maintenant sur App Store
-            </a>
-          </p>
+          <p className="text-sm"><Link className="link-green" to="/agenda">Consulter mon agenda</Link> · <Link className="link-green" to="/prof-revenus">Mes revenus et reversements</Link></p>
         </ContentCard>
 
         <ContentCard>
@@ -100,7 +81,7 @@ export function TeacherDashboardPage() {
             Mon Prof Perso s&apos;engage sur la qualité de son service de soutien scolaire
           </h2>
           <p className="mb-3 text-[15px] font-semibold leading-relaxed text-[#444]">
-            Des professeurs vérifiés, un suivi des progrès, et un paiement Mobile Money sécurisé pour les familles
+            Des professeurs vérifiés, des rendez-vous suivis et un paiement Mobile Money pour les familles
             ivoiriennes.
           </p>
           <p className="mb-4 text-[15px] leading-relaxed text-[#555]">
@@ -117,56 +98,10 @@ export function TeacherDashboardPage() {
   );
 }
 
-export function TeacherEarningsPage() {
-  const { data, offline, reload } = useLive<typeof fallback.teacherEarnings>(
-    "/api/teacher/earnings",
-    fallback.teacherEarnings,
-  );
-  const hasData = (data.total || 0) > 0 || (data.stats || []).length > 0;
-
-  return (
-    <AppShell title="Mes revenus" active="prof-revenus">
-      {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
-      {!hasData ? (
-        <Empty>Aucun revenu n&apos;est disponible</Empty>
-      ) : (
-        <PageGrid cols={2}>
-          <ContentCard>
-            <SectionHeading>Total</SectionHeading>
-            <div className="text-4xl font-black text-primary sm:text-5xl">{fcfa(data.total)} F</div>
-            <p className="mt-1 text-sm text-[#666]">{data.trend}</p>
-          </ContentCard>
-          <ContentCard>
-            <SectionHeading>Indicateurs</SectionHeading>
-            <div className="grid grid-cols-3 gap-3 text-center">
-              {(data.stats || []).map((s) => (
-                <div key={s.label}>
-                  <div className="text-xl font-extrabold text-[#222]">{s.value}</div>
-                  <div className="text-xs text-[#666]">{s.label}</div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 border-t border-[#eee] pt-2">
-              <MenuRow to="/prof-retrait" label="Demander un retrait" />
-            </div>
-          </ContentCard>
-        </PageGrid>
-      )}
-    </AppShell>
-  );
-}
-
 type TeacherProfile = {
-  location?: string;
-  subjects?: string;
-  programs?: string[];
-  levels?: string[];
-  pricePerHour?: number;
-  negotiable?: boolean;
-  hasIdCard?: boolean;
-  hasDiploma?: boolean;
-  hasPhoto?: boolean;
-  completion?: { percent: number; complete: boolean; missing: string[] };
+  location?: string; subjects?: string; programs?: string[]; levels?: string[];
+  pricePerHour?: number; negotiable?: boolean; hasIdCard?: boolean; hasDiploma?: boolean;
+  hasPhoto?: boolean; completion?: { percent: number; complete: boolean; missing: string[] };
 };
 
 export function TeacherProfileEditPage() {

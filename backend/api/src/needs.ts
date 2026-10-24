@@ -1,8 +1,10 @@
 import { Router } from "express";
 import { pool } from "./db";
 import { ValidationError, optionalString, optionalNumber, optionalEnum, optionalPhone, requiredString, requiredEnum } from "./validate";
-import { currentUserId, normalizeAuthPhone } from "./auth";
+import { currentUserId, normalizeAuthPhone, AuthError } from "./auth";
 import { putFile } from "./storage";
+import { courseEvent, requireOnlineEnabled, snapshotCommission, integer } from "./courseOperations";
+import { validateConsentVersion } from "./consent";
 
 type ServeFile = (res: any, row: any) => Promise<void>;
 
@@ -12,7 +14,7 @@ const GENDERS = ["garcon", "fille"] as const;
 
 export async function getCommissionPct(): Promise<number> {
   const r = await pool.query("SELECT value FROM app_settings WHERE key = 'commission_pct'");
-  const v = parseFloat(r.rows[0]?.value ?? "15");
+  const v = Number(r.rows[0]?.value);
   if (!Number.isFinite(v) || v < 0 || v > 100) {
     throw new ValidationError("commission_pct", "commission invalide (0 à 100 %) ");
   }
@@ -113,14 +115,14 @@ function mapOpportunity(row: any) {
   return {
     needId: row.id,
     reference: needRef(row.id),
-    location: row.location ?? (row.format === "online" ? "En ligne" : "À domicile"),
+    location: row.format === "online" ? "En ligne" : "À domicile · coordonnées après acceptation",
     subject: row.subject,
     level: row.level,
-    student: row.child_name ? `${row.child_name} · ${row.level}` : row.level,
-    gender: row.child_gender,
+    student: row.level,
+    gender: null,
     frequency: row.frequency,
     duration: row.duration,
-    format: row.format === "online" ? "En ligne" : row.location ?? "À domicile",
+    format: row.format === "online" ? "En ligne" : "À domicile",
     netAmount: row.net_teacher_amount,
     netHourly: row.net_teacher_hourly,
     availabilityWeek: row.availability_week,
@@ -160,6 +162,7 @@ const wrap = (fn: (req: any, res: any) => Promise<void>) => (req: any, res: any)
       res.status(400).json({ error: "validation_error", field: e.field, message: e.message });
       return;
     }
+    if (e instanceof AuthError) { res.status(e.statusCode).json({ error: e.code, message: e.message }); return; }
     console.error(`[${req.method} ${req.originalUrl}]`, e);
     res.status(500).json({ error: "internal_error", message: "erreur interne" });
   });
@@ -169,7 +172,7 @@ export async function acceptNeedForTeacher(needId: number, teacherId: number): P
   try {
     await client.query("BEGIN");
     const teacher = (await client.query(
-      "SELECT name, needs_confirmed FROM teachers WHERE id=$1 FOR SHARE", [teacherId],
+      "SELECT name, needs_confirmed FROM teachers WHERE id=$1 AND archived_at IS NULL FOR UPDATE", [teacherId],
     )).rows[0];
     if (!teacher || !teacher.needs_confirmed) {
       await client.query("ROLLBACK");
@@ -187,18 +190,35 @@ export async function acceptNeedForTeacher(needId: number, teacherId: number): P
       return null;
     }
 
+    const parent = (await client.query("SELECT id,deleted_at FROM users WHERE id=$1 FOR KEY SHARE", [need.user_id])).rows[0];
+    if (!parent || parent.deleted_at || (await client.query("SELECT 1 FROM account_deletion_requests WHERE user_id=$1 AND status='pending'",[need.user_id])).rowCount)
+      throw new AuthError(409,"account_closing","Ce besoin ne peut plus être attribué pendant la fermeture du compte parent");
+    if ((await client.query("SELECT 1 FROM users u JOIN account_deletion_requests d ON d.user_id=u.id AND d.status='pending' WHERE u.teacher_id=$1", [teacherId])).rowCount)
+      throw new AuthError(409,"teacher_unavailable","Ce professeur n'accepte plus de nouvelles affectations");
+
+    requireOnlineEnabled(need.format);
+    const teacherUser = (await client.query("SELECT id FROM users WHERE teacher_id=$1 AND role='teacher' AND deleted_at IS NULL ORDER BY id LIMIT 1", [teacherId])).rows[0];
+    if (!teacherUser || teacherUser.id === need.user_id) throw new AuthError(409, "invalid_match", "Cette affectation de professeur n'est pas possible");
+    if (!Number.isSafeInteger(need.parent_price) || need.parent_price <= 0 || need.commission_pct == null) {
+      throw new AuthError(409, "historical_terms_required", "Le devis doit être complété par l'équipe avant affectation");
+    }
+    const commission = await snapshotCommission(client, need.parent_price, need.commission_pct);
+
     const courseR = await client.query(
       `INSERT INTO courses (
          user_id, teacher_id, teacher_name, subject, level,
          day_label, day_num, time, duration, format, location,
-         price, status, badge, accepted, payment_status, duration_minutes
-       ) VALUES ($1,$2,$3,$4,$5,'—','—','—',$6,$7,$8,$9,'upcoming','Confirmé',TRUE,'pending',$10)
+         price, status, badge, accepted, payment_status, duration_minutes,
+         lifecycle_status,commission_pct,commission_amount,teacher_net_amount,private_address
+       ) VALUES ($1,$2,$3,$4,$5,'—','—','—',$6,$7,$8,$9,'upcoming','À planifier',TRUE,'pending',$10,
+         'awaiting_schedule',$11,$12,$13,$8)
        RETURNING id`,
       [need.user_id, teacherId, teacher.name, need.subject, need.level,
         need.duration ?? "1h30", need.format, need.location, need.parent_price,
-        need.duration_minutes ?? parseDurationMinutes(need.duration)],
+        need.duration_minutes ?? parseDurationMinutes(need.duration),commission.pct,commission.commission,commission.net],
     );
     const courseId = courseR.rows[0].id;
+    await courseEvent(client, courseId, { id: teacherUser.id, role: "teacher", teacherId }, "need_matched", { needId, commissionPct: commission.pct, price: need.parent_price });
 
     await client.query(
       `UPDATE course_needs
@@ -222,8 +242,8 @@ export async function acceptNeedForTeacher(needId: number, teacherId: number): P
   }
 }
 
-export function registerNeedsRoutes(api: Router, deps: { consentVersion: string; serveFile: ServeFile }): void {
-  const { consentVersion, serveFile } = deps;
+export function registerNeedsRoutes(api: Router, deps: { consentVersion?: string; serveFile: ServeFile }): void {
+  const { serveFile } = deps;
 
   // --- Enfants (parent) ---
   api.get("/children", wrap(async (_req, res) => {
@@ -293,6 +313,7 @@ export function registerNeedsRoutes(api: Router, deps: { consentVersion: string;
     const subject = requiredString(b, "subject", { max: 80 });
     const level = requiredString(b, "level", { max: 40 });
     const format = requiredEnum(b, "format", FORMATS);
+    requireOnlineEnabled(format);
     const location = optionalString(b, "location", { max: 200 });
     const frequency = optionalString(b, "frequency", { max: 60 });
     const duration = optionalString(b, "duration", { max: 20 }) ?? "1h30";
@@ -369,10 +390,12 @@ export function registerNeedsRoutes(api: Router, deps: { consentVersion: string;
     const subject = requiredString(b, "subject", { max: 80 });
     const level = requiredString(b, "level", { max: 40 });
     const format = requiredEnum(b, "format", FORMATS);
+    requireOnlineEnabled(format);
     const location = optionalString(b, "location", { max: 200 });
     const description = optionalString(b, "description", { max: 2000 });
     const consent = b.consent === true || b.consent === "true";
     if (!consent) throw new ValidationError("consent", "consentement requis");
+    const consentVersion = await validateConsentVersion(b.consentVersion);
 
     const initials = parentName.split(" ").map((s) => s[0]).filter(Boolean).join("").slice(0, 2).toUpperCase() || "AK";
     const userR = await pool.query(
@@ -506,7 +529,7 @@ export function registerAdminNeedsRoutes(admin: Router, deps: { serveFile: Serve
   }));
 
   admin.put("/needs/:id/price", wrap(async (req, res) => {
-    const parentPrice = requiredNumber(req.body, "parentPrice", { min: 1000, max: 1_000_000 });
+    const parentPrice = integer(req.body?.parentPrice, "parentPrice", 1000, 1_000_000);
     const frequency = optionalString(req.body, "frequency", { max: 60 });
     const startDate = optionalString(req.body, "startDate", { max: 20 });
     const recommendedTeacherId = optionalNumber(req.body, "recommendedTeacherId", { min: 1 });

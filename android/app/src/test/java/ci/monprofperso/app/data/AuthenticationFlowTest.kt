@@ -40,7 +40,8 @@ class AuthenticationFlowTest {
 
     private fun course(accepted: Boolean = false, status: String = "upcoming", payment: String = "pending") =
         CourseDto(17, "Professeur test", "Maths", "3e", "LUN", "26 oct.", "14:00", "1h30", "home",
-            "Abidjan", 6000, status, null, paymentStatus = payment, accepted = accepted)
+            "Abidjan", 6000, status, null, paymentStatus = payment, accepted = accepted,
+            startAt = "2099-10-26T14:00:00.000Z", lifecycleStatus = "scheduled")
 
     @Test fun onlyAcceptedUpcomingUnpaidCoursesOfferPayment() {
         assertFalse(course().isPayable())
@@ -49,5 +50,10 @@ class AuthenticationFlowTest {
         assertFalse(course(accepted = true, status = "cancelled").isPayable())
         assertFalse(course(accepted = true, payment = "paid").isPayable())
         assertFalse(course(accepted = true).copy(price = 0).isPayable())
+        assertFalse(course(accepted = true).copy(lifecycleStatus = "awaiting_schedule").isPayable())
+        assertFalse(course(accepted = true).copy(startAt = null).isPayable())
+        assertFalse(course(accepted = true).copy(startAt = "2020-01-01T10:00:00Z").isPayable())
+        assertFalse(course(accepted = true, payment = "refunded").isPayable())
+        assertFalse(course(accepted = true, payment = "partially_refunded").isPayable())
     }
 }

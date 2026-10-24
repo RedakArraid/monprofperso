@@ -1,23 +1,24 @@
-import { Fragment } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Fragment, lazy, Suspense } from "react";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { LoginPage } from "@/pages/LoginPage";
 import { HomePage } from "@/pages/ParentPages";
 import {
   AccountPage,
-  CoursesPage,
   FiltersPage,
   LegalPage,
   ProgressPage,
   SearchPage,
   TeacherProfilePage,
 } from "@/pages/SearchAccount";
+import { AgendaPage, CourseDetailPage, CoursesPage } from "@/pages/CoursePages";
+import { AccountSettingsPage } from "@/pages/AccountSettingsPage";
+import { TeacherFinancePage } from "@/pages/TeacherFinancePage";
+import { CapabilityGate } from "@/components/capabilities";
 import { ChildrenPage, ExpressNeedPage, MyNeedsPage } from "@/pages/NeedsPages";
 import {
   TeacherDashboardPage,
-  TeacherEarningsPage,
   TeacherProfileEditPage,
-  TeacherRequestsPage,
 } from "@/pages/TeacherPages";
 import {
   BookingPage,
@@ -35,15 +36,19 @@ import {
   WalletPage,
 } from "@/pages/MiscPages";
 
+// Mapping tools are only needed when a professor opens the offers page.
+const TeacherRequestsPage = lazy(() => import("@/pages/TeacherOffersPage").then((module) => ({ default: module.TeacherRequestsPage })));
+
 function RequireAuth({ children }: { children: import("react").ReactNode }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
   if (loading) {
     return (
       <div className="flex min-h-dvh items-center justify-center text-sm text-muted-foreground">Chargement…</div>
     );
   }
-  if (!user) return <Navigate to="/login" replace />;
-  if (user.role === "admin") {
+  if (!user) return <Navigate to={location.pathname === "/parametres" ? "/login?next=suppression" : "/login"} replace />;
+  if (user.role === "admin" && location.pathname !== "/parametres") {
     localStorage.setItem("mpp_admin_jwt", localStorage.getItem("mpp_user_jwt") || "");
     window.location.href = "/admin/";
     return null;
@@ -77,17 +82,18 @@ export default function App() {
               <Route path="/recherche/filtres" element={<FiltersPage />} />
               <Route path="/prof/:id" element={<TeacherProfilePage />} />
               <Route path="/cours" element={<CoursesPage />} />
-              <Route path="/progres" element={<ProgressPage />} />
+              <Route path="/cours/:id" element={<CourseDetailPage />} />
+              <Route path="/progres" element={<CapabilityGate name="progress" title="Bilans pédagogiques"><ProgressPage /></CapabilityGate>} />
               <Route path="/compte" element={<AccountPage />} />
               <Route path="/enfants" element={<ChildrenPage />} />
               <Route path="/exprimer-besoin" element={<ExpressNeedPage />} />
               <Route path="/mes-besoins" element={<MyNeedsPage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/portefeuille" element={<WalletPage />} />
-              <Route path="/groupes" element={<GroupsPage />} />
-              <Route path="/groupes/:id" element={<GroupDetailPage />} />
-              <Route path="/abonnement" element={<SubscriptionPage />} />
-              <Route path="/parrainage" element={<ReferralPage />} />
+              <Route path="/groupes" element={<CapabilityGate name="groups" title="Cours en groupe"><GroupsPage /></CapabilityGate>} />
+              <Route path="/groupes/:id" element={<CapabilityGate name="groups" title="Cours en groupe"><GroupDetailPage /></CapabilityGate>} />
+              <Route path="/abonnement" element={<CapabilityGate name="subscriptions" title="Abonnement"><SubscriptionPage /></CapabilityGate>} />
+              <Route path="/parrainage" element={<CapabilityGate name="referrals" title="Parrainage"><ReferralPage /></CapabilityGate>} />
               <Route path="/ressources" element={<ResourcesPage />} />
               <Route path="/legal" element={<LegalPage />} />
               <Route path="/reservation" element={<BookingPage />} />
@@ -95,34 +101,16 @@ export default function App() {
               <Route path="/paiement-otp" element={<PaymentOtpPage />} />
               <Route path="/confirmation" element={<ConfirmationPage />} />
               <Route path="/prof-espace" element={<RequireTeacher><TeacherDashboardPage /></RequireTeacher>} />
-              <Route path="/prof-offres" element={<RequireTeacher><TeacherRequestsPage /></RequireTeacher>} />
-              <Route path="/prof-revenus" element={<RequireTeacher><TeacherEarningsPage /></RequireTeacher>} />
+              <Route path="/prof-offres" element={<RequireTeacher><Suspense fallback={<p className="p-6">Chargement des offres…</p>}><TeacherRequestsPage /></Suspense></RequireTeacher>} />
+              <Route path="/prof-revenus" element={<RequireTeacher><CapabilityGate name="payouts" title="Mes revenus"><TeacherFinancePage /></CapabilityGate></RequireTeacher>} />
               <Route path="/prof-profil" element={<RequireTeacher><TeacherProfileEditPage /></RequireTeacher>} />
-              <Route
-                path="/prof-retrait"
-                element={<MockPage title="Retrait" text="Demande de retrait vers Mobile Money." active="prof-revenus" />}
-              />
+              <Route path="/prof-retrait" element={<RequireTeacher><Navigate to="/prof-revenus" replace /></RequireTeacher>} />
               <Route path="/aide" element={<ContactsPage />} />
-              <Route
-                path="/parametres"
-                element={<MockPage title="Paramètres" text="Notifications, langue, confidentialité." />}
-              />
-              <Route
-                path="/agenda"
-                element={
-                  <MockPage
-                    title="Mon agenda"
-                    text="Vos créneaux de cours cette semaine. Synchronisation calendrier bientôt disponible."
-                    active="agenda"
-                  />
-                }
-              />
-              <Route path="/messages" element={<MockPage title="Messages" text="Messagerie avec vos professeurs." />} />
-              <Route
-                path="/cours-en-ligne"
-                element={<MockPage title="Cours en ligne" text="Salle de visioconférence." />}
-              />
-              <Route path="/avis" element={<MockPage title="Laisser un avis" text="Notez votre dernier cours." />} />
+              <Route path="/parametres" element={<AccountSettingsPage />} />
+              <Route path="/agenda" element={<CapabilityGate name="agenda" title="Mon agenda"><AgendaPage /></CapabilityGate>} />
+              <Route path="/messages" element={<CapabilityGate name="messaging" title="Messagerie"><MockPage title="Messages" text="Ce service est indisponible." /></CapabilityGate>} />
+              <Route path="/cours-en-ligne" element={<Navigate to="/cours" replace />} />
+              <Route path="/avis" element={<Navigate to="/cours" replace />} />
               <Route path="*" element={<DefaultRedirect />} />
             </Routes>
           </RequireAuth>

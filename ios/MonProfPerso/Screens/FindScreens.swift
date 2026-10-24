@@ -23,10 +23,10 @@ struct HomeScreen: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(spacing: 11) {
-                        InitialsAvatar(initials: "AK", size: 44, radius: 13, fontSize: 17)
+                        InitialsAvatar(initials: router.authFullName.split(separator: " ").prefix(2).map { String($0.prefix(1)) }.joined(), size: 44, radius: 13, fontSize: 17)
                         VStack(alignment: .leading, spacing: 0) {
                             Text("Bonjour,").font(AkFont.regular(12.5)).foregroundColor(Ak.muted)
-                            Text("Aya Koné").font(AkFont.bold(16)).foregroundColor(Ak.ink)
+                            Text(router.authFullName.isEmpty ? "Mon compte" : router.authFullName).font(AkFont.bold(16)).foregroundColor(Ak.ink)
                         }
                         Spacer()
                         NotificationBell()
@@ -51,18 +51,11 @@ struct HomeScreen: View {
                     }.padding(16).background(Ak.orangeSoft).clipShape(RoundedRectangle(cornerRadius: 15)).padding(.top, 12)
                     .onTapGesture { router.go(.expressNeed) }
 
-                    // promo
-                    VStack(alignment: .leading, spacing: 0) {
-                        Pill(text: "SESSION 2026", fg: Ak.green, bg: Ak.orangeLight)
-                        Text("Prépa BEPC & BAC\nen petits groupes").font(AkFont.schibstedExtra(19)).foregroundColor(.white).padding(.top, 10)
-                        HStack(spacing: 7) {
-                            Text("Découvrir").font(AkFont.bold(13)).foregroundColor(.white)
-                                .padding(.horizontal, 14).padding(.vertical, 8).background(Ak.orange)
-                                .clipShape(RoundedRectangle(cornerRadius: 10)).onTapGesture { router.go(.groupCourses) }
-                            Text("dès 2 000 F / séance").font(AkFont.regular(12.5)).foregroundColor(Ak.onGreenSoft)
-                        }.padding(.top, 13)
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Un accompagnement adapté à votre enfant").font(AkFont.schibstedExtra(19)).foregroundColor(.white)
+                        Text("Choisissez un professeur, convenez d’un créneau et suivez chaque cours depuis votre espace.").font(AkFont.regular(13)).foregroundColor(Ak.onGreenSoft)
                     }.padding(18).frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Ak.green).clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous)).padding(.top, 16)
+                        .background(Ak.green).clipShape(RoundedRectangle(cornerRadius: 20)).padding(.top, 16)
 
                     SectionHeader(title: "Matières", action: nil).padding(.top, 20)
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 4), spacing: 12) {
@@ -79,12 +72,17 @@ struct HomeScreen: View {
                     }.padding(.top, 13)
 
                     SectionHeader(title: "Profs recommandés") { router.go(.searchResults) }.padding(.top, 20)
+                    if store.loading { LoadingRow() }
+                    if let error = store.error {
+                        Text(error).font(AkFont.regular(13)).foregroundColor(Ak.danger)
+                        Button("Réessayer") { Task { await store.load() } }
+                    }
                     if store.teachers.isEmpty {
                         Text("Consultez la recherche pour voir les professeurs disponibles.")
                             .font(AkFont.regular(13)).foregroundColor(Ak.muted).padding(.top, 13)
                     } else {
                         ForEach(Array(store.teachers.prefix(2).enumerated()), id: \.element.id) { i, t in
-                            recoTeacher(t.id, t.initials, t.name, t.subjects, t.ratingLabel, "\(t.reviews_count) avis", t.location, t.priceLabel, t.isGreen).padding(.top, i == 0 ? 13 : 11)
+                            recoTeacher(t.id, t.initials, t.name, t.subjects, t.ratingLabel, "\(t.reviews_count) avis", t.location, t.priceLabel, t.isGreen, t.verified).padding(.top, i == 0 ? 13 : 11)
                         }
                     }
                 }.padding(.horizontal, 22).padding(.top, 8).padding(.bottom, 16)
@@ -94,9 +92,9 @@ struct HomeScreen: View {
         }
     }
 
-    func recoTeacher(_ id: Int, _ ini: String, _ name: String, _ subj: String, _ rating: String, _ reviews: String, _ place: String, _ price: String, _ green: Bool) -> some View {
+    func recoTeacher(_ id: Int, _ ini: String, _ name: String, _ subj: String, _ rating: String, _ reviews: String, _ place: String, _ price: String, _ green: Bool, _ verified: Bool) -> some View {
         HStack(spacing: 13) {
-            InitialsAvatar(initials: ini, size: 54, bg: green ? Ak.greenSoft : Ak.orangeSoft, fg: green ? Ak.green : Ak.orange, verified: true)
+            InitialsAvatar(initials: ini, size: 54, bg: green ? Ak.greenSoft : Ak.orangeSoft, fg: green ? Ak.green : Ak.orange, verified: verified)
             VStack(alignment: .leading, spacing: 1) {
                 Text(name).font(AkFont.bold(15)).foregroundColor(Ak.ink)
                 Text(subj).font(AkFont.regular(12.5)).foregroundColor(Ak.muted)
@@ -283,10 +281,9 @@ struct TeacherProfileScreen: View {
                 HStack {
                     IconSquare(system: "arrow.left", bg: .white.opacity(0.14), tint: .white) { router.back() }
                     Spacer()
-                    IconSquare(system: "heart", bg: .white.opacity(0.14), tint: .white)
                 }
                 HStack(spacing: 15) {
-                    InitialsAvatar(initials: t.initials, size: 76, bg: Ak.orangeLight, fg: Ak.green, radius: 22, fontSize: 27, verified: true)
+                    InitialsAvatar(initials: t.initials, size: 76, bg: Ak.orangeLight, fg: Ak.green, radius: 22, fontSize: 27, verified: t.verified)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(t.name).font(AkFont.schibstedExtra(22)).foregroundColor(.white)
                         Text(t.subjects).font(AkFont.regular(13.5)).foregroundColor(Ak.onGreenSoft)
@@ -328,7 +325,7 @@ struct TeacherProfileScreen: View {
                                 Text(review.time_ago).font(AkFont.regular(11)).foregroundColor(Ak.faint)
                             }
                             Spacer()
-                            HStack(spacing: 1) { ForEach(0..<5, id: \.self) { _ in Image(systemName: "star.fill").font(.system(size: 11)).foregroundColor(Ak.star) } }
+                            HStack(spacing: 1) { ForEach(0..<max(0, min(5, review.rating)), id: \.self) { _ in Image(systemName: "star.fill").font(.system(size: 11)).foregroundColor(Ak.star) } }
                         }
                         Text(review.text)
                             .font(AkFont.regular(13)).foregroundColor(Ak.textBody).lineSpacing(3).padding(.top, 9)
@@ -338,12 +335,6 @@ struct TeacherProfileScreen: View {
             }
             // CTA collant
             VStack(spacing: 12) {
-                HStack(spacing: 10) {
-                    Image(systemName: "crown.fill").font(.system(size: 17)).foregroundColor(Ak.green)
-                    Text("Suivi régulier ? Abonnez-vous dès 14 000 F/mois").font(AkFont.regular(12.5)).foregroundColor(Ak.ink)
-                    Spacer()
-                    Image(systemName: "arrow.right").font(.system(size: 13, weight: .bold)).foregroundColor(Ak.green)
-                }.padding(.horizontal, 13).padding(.vertical, 11).background(Ak.greenSoft).clipShape(RoundedRectangle(cornerRadius: 13)).onTapGesture { router.go(.subscriptionPlans) }
                 HStack(spacing: 14) {
                     VStack(alignment: .leading, spacing: 0) {
                         HStack(spacing: 0) {

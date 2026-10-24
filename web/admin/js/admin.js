@@ -258,11 +258,24 @@ function logout() {
   $("#phone").value = "";
 }
 
-async function enterApp(user) {
+let adminUserId = null;
+let adminPhone = "";
+let currentAdminView = "dashboard";
+let returnAdminView = null;
+function reauthenticateAdmin() {
+  const destination = currentAdminView; const phone = adminPhone;
+  document.querySelectorAll(".modal-back").forEach((element) => element.remove());
+  logout(); returnAdminView = destination; $("#phone").value = phone;
+  $("#loginErr").textContent = "Une nouvelle vérification d’identité est nécessaire. Connectez-vous puis recommencez l’action."; $("#loginErr").hidden = false;
+}
+function enterApp(user) {
+  adminUserId = user?.id || null;
+  adminPhone = user?.phone || "";
+  api("/api/capabilities").then((capabilities) => { document.querySelectorAll("[data-capability]").forEach((element) => { element.hidden = capabilities[element.dataset.capability] !== true; }); }).catch(() => {});
   $("#login").hidden = true;
   $("#app").hidden = false;
   $("#who").textContent = user ? (user.full_name || "Administrateur") : "Administrateur";
-  navigate("dashboard");
+  const destination = returnAdminView || "dashboard"; returnAdminView = null; navigate(destination);
 }
 
 // --- Reprise de session : vérifie le token via /api/me. ---
@@ -291,6 +304,10 @@ async function boot() {
  * ===================================================================== */
 const VIEWS = {
   dashboard: { title: "Tableau de bord", render: renderDashboard },
+  courses: { title: "Suivi des cours", render: renderCourseOperations },
+  finance: { title: "Paiements et reversements", render: renderFinanceOperations },
+  deletions: { title: "Suppressions de comptes", render: renderAccountDeletions },
+  readiness: { title: "Mise en service", render: renderProductionReadiness },
   applications: { title: "Candidatures profs", render: renderApplications },
   needs: { title: "Besoins parents", render: renderNeeds },
   teachers: { title: "Professeurs", render: renderTeachers },
@@ -299,7 +316,7 @@ const VIEWS = {
   resources: { title: "Ressources pédagogiques", render: renderResources },
   legal: { title: "Documents légaux", render: renderLegal },
   social: { title: "Réseaux sociaux & contact", render: renderSocial },
-  otp: { title: "OTP & messagerie", render: renderOtp },
+  otp: { title: "Vérification OTP", render: renderOtp },
 };
 
 function setSidebarOpen(open) {
@@ -316,6 +333,7 @@ function setSidebarOpen(open) {
 }
 
 function navigate(view) {
+  currentAdminView = view;
   const v = VIEWS[view] || VIEWS.dashboard;
   $("#viewTitle").textContent = v.title;
   document.querySelectorAll(".menu-item").forEach((b) =>
@@ -333,6 +351,8 @@ $("#menu").addEventListener("click", (e) => {
   if (b) navigate(b.dataset.view);
 });
 $("#logoutBtn").addEventListener("click", logout);
+$("#reauthBtn").addEventListener("click", reauthenticateAdmin);
+$("#myAccountSettings").addEventListener("click", () => { localStorage.setItem("mpp_user_jwt", token.get() || ""); localStorage.setItem("mpp_user_role", "admin"); });
 $("#burger").addEventListener("click", () => {
   const sidebar = $("#sidebar");
   setSidebarOpen(!sidebar?.classList.contains("open"));
@@ -346,9 +366,9 @@ document.addEventListener("keydown", (e) => {
  * Vue : Tableau de bord
  * ===================================================================== */
 async function renderDashboard(root) {
-  const [subjects, levels, teachers, groups, resources, applications] = await Promise.all([
+  const [subjects, levels, teachers, resources, applications] = await Promise.all([
     api("/api/subjects"), api("/api/levels"), api("/api/teachers"),
-    api("/api/groups"), api("/api/resources"),
+    api("/api/resources"),
     api("/api/admin/teacher-applications?status=pending"),
   ]).then((rows) => rows.map(asList));
   const pendingApps = applications.length;
@@ -356,7 +376,6 @@ async function renderDashboard(root) {
     ["Candidatures en attente", pendingApps, "applications"],
     ["Besoins à tarifer", (await api("/api/admin/needs?status=submitted")).length, "needs"],
     ["Professeurs", teachers.length, "teachers"],
-    ["Cours de groupe", groups.length, "groups"],
     ["Matières", subjects.length, "catalog"],
     ["Niveaux", levels.length, "catalog"],
     ["Ressources", resources.length, "resources"],
@@ -371,7 +390,7 @@ async function renderDashboard(root) {
     <div class="card">
       <h3>Bienvenue 👋</h3>
       <p class="card-sub">Gérez candidatures, besoins parents (tarification fixe), professeurs,
-      cours de groupe, catalogue, ressources, documents légaux et paramètres plateforme.</p>
+      cours, paiements, reversements, suppressions de comptes, catalogue, ressources et paramètres plateforme.</p>
     </div>`;
   root.querySelectorAll("[data-go]").forEach((c) =>
     c.addEventListener("click", () => navigate(c.dataset.go)));
@@ -711,36 +730,34 @@ function openNeedDetail(n) {
 /* =====================================================================
  * Vue : Professeurs
  * ===================================================================== */
-async function renderTeachers(root) {
-  const teachers = asList(await api("/api/teachers"));
+async function renderTeachers(root, includeArchived = false) {
+  const teachers = asList(await api(`/api/admin/teachers${includeArchived ? "?includeArchived=true" : ""}`));
   root.innerHTML = `
     <div class="section-head">
       <h3>Professeurs <span class="count">${teachers.length}</span></h3>
-      <button class="btn btn-primary btn-sm" id="addT">+ Ajouter un professeur</button>
+      <button class="btn btn-primary btn-sm" id="addT">Examiner les candidatures</button>
     </div>
+    <label class="check-row"><input id="includeArchivedTeachers" type="checkbox"${includeArchived ? " checked" : ""} /> Inclure les profils retirés du catalogue</label>
     <div class="list" id="tList">
       ${teachers.length ? "" : `<p class="empty">Aucun professeur pour l'instant.</p>`}
       ${teachers.map(teacherRow).join("")}
     </div>`;
-  $("#addT").addEventListener("click", () => teacherForm());
+  $("#addT").addEventListener("click", () => navigate("applications"));
+  $("#includeArchivedTeachers").addEventListener("change", (event) => renderTeachers(root, event.target.checked).catch((error) => toast(error.message, true)));
   root.querySelectorAll("[data-edit]").forEach((b) =>
     b.addEventListener("click", () => teacherForm(teachers.find((t) => String(t.id) === b.dataset.edit))));
   root.querySelectorAll("[data-confirm]").forEach((b) =>
     b.addEventListener("click", async () => {
       const t = teachers.find((x) => String(x.id) === b.dataset.confirm);
       const confirmed = !t?.needs_confirmed;
-      await api("/api/admin/teachers/" + b.dataset.confirm + "/confirm-needs", {
-        method: "POST",
-        body: { confirmed },
-      });
-      toast(confirmed ? "Accès aux offres confirmé" : "Accès aux offres révoqué");
-      navigate("teachers");
+      b.disabled = true;
+      try {
+        await api("/api/admin/teachers/" + b.dataset.confirm + "/confirm-needs", { method: "POST", body: { confirmed } });
+        toast(confirmed ? "Accès aux offres confirmé" : "Accès aux offres révoqué"); await renderTeachers(root, includeArchived);
+      } catch (error) { toast(error.message, true); } finally { b.disabled = false; }
     }));
-  root.querySelectorAll("[data-del]").forEach((b) =>
-    b.addEventListener("click", () => confirmDelete("ce professeur", async () => {
-      await api("/api/admin/teachers/" + b.dataset.del, { method: "DELETE" });
-      toast("Professeur supprimé"); navigate("teachers");
-    })));
+  root.querySelectorAll("[data-del]").forEach((button) => button.addEventListener("click", () => opForm("Retirer le professeur du catalogue", "Le profil ne sera plus proposé pour de nouvelles réservations. Le compte, les cours existants et les opérations financières restent accessibles pour leur clôture.", '<label><input type="checkbox" required /> Je confirme le retrait du catalogue.</label>', "Retirer le profil", () => api("/api/admin/teachers/" + button.dataset.del, { method: "DELETE" }), async () => { toast("Professeur retiré du catalogue"); await renderTeachers(root, includeArchived); })));
+
 }
 
 function teacherRow(t) {
@@ -749,14 +766,14 @@ function teacherRow(t) {
     <span class="dot ${t.accent === "orange" ? "orange" : "green"}"></span>
     <div class="row-main">
       <div class="row-title">${esc(t.name)}
-        ${t.verified ? `<span class="pill green">vérifié</span>` : ""}
+        ${t.archived_at ? `<span class="pill orange">retiré du catalogue</span>` : t.verified ? `<span class="pill green">vérifié</span>` : `<span class="pill orange">non validé</span>`}${!t.hasActiveAccount ? `<span class="pill orange">aucun compte professeur actif lié</span>` : ""}
         ${t.special_bepc ? `<span class="pill orange">BEPC</span>` : ""}
         ${needsOk ? `<span class="pill green">offres actives</span>` : `<span class="pill orange">tests en cours</span>`}</div>
-      <div class="row-meta">${esc(t.subjects)} · ${esc(t.location || "Abidjan")} · ★ ${t.rating}</div>
+      <div class="row-meta">${esc(t.subjects)} · ${esc(t.location || "Localisation non renseignée")} · ${Number(t.reviews_count) > 0 ? "★ " + esc(t.rating) + " (" + esc(t.reviews_count) + " avis)" : "Pas encore d’avis"}</div>
     </div>
     <div class="row-actions">
-      <button class="btn btn-ghost btn-sm" data-confirm="${t.id}">${needsOk ? "Révoquer offres" : "Confirmer offres"}</button>
-      <button class="btn btn-ghost btn-sm" data-edit="${t.id}">Modifier</button>
+      <button class="btn btn-ghost btn-sm" data-confirm="${t.id}"${t.archived_at || !t.hasActiveAccount ? " disabled" : ""}>${needsOk ? "Révoquer offres" : "Confirmer offres"}</button>
+      <button class="btn btn-ghost btn-sm" data-edit="${t.id}"${t.archived_at ? " disabled" : ""}>Modifier</button>
       <button class="btn btn-danger btn-sm" data-del="${t.id}">Suppr.</button>
     </div>
   </div>`;
@@ -781,12 +798,11 @@ function teacherForm(t) {
         <p class="field-hint">À activer après validation des tests. Les tarifs des cours passent par l'admin (besoins parents).</p>
       </div>
       <div class="field full" style="grid-column:1/-1"><p class="muted" style="font-size:12px;margin:4px 0 0"><strong>Profil public (optionnel)</strong> — affichage catalogue / vitrine</p></div>
-      <div class="field"><label>Prix indicatif / h (F)</label><input id="f_price" type="number" value="${t.price_per_hour ?? 0}" placeholder="0"></div>
+      <div class="field"><label>Tarif horaire (F CFA)</label><input id="f_price" type="number" min="1" step="1" value="${t.price_per_hour ?? 0}" placeholder="Tarif horaire"></div>
       <div class="field"><label>Expérience</label><input id="f_exp" value="${esc(t.experience || "")}" placeholder="8 ans"></div>
       <div class="field"><label>Formats</label>
         <select id="f_formats"><option value="home,online"${fmt.length === 2 ? " selected" : ""}>Domicile + En ligne</option><option value="home"${fmt.length === 1 && fmt[0] === "home" ? " selected" : ""}>Domicile</option><option value="online"${fmt.length === 1 && fmt[0] === "online" ? " selected" : ""}>En ligne</option></select></div>
-      <div class="field"><label>Note (0-5)</label><input id="f_rating" type="number" step="0.1" min="0" max="5" value="${t.rating ?? 5}"></div>
-      <div class="field"><label>Nb d'avis</label><input id="f_reviews" type="number" value="${t.reviews_count ?? 0}"></div>
+      <div class="field"><label>Avis des cours réalisés</label><p>${Number(t.reviews_count) > 0 ? esc(t.rating) + " / 5 · " + esc(t.reviews_count) + " avis" : "Pas encore d’avis"}</p><p class="field-hint">Note calculée à partir des avis publiés.</p></div>
       <div class="field"><label>Élèves</label><input id="f_students" value="${esc(t.students || "")}" placeholder="340+"></div>
       <div class="field"><label>Réussite BAC</label><input id="f_bac" value="${esc(t.bac_success || "")}" placeholder="94%"></div>
       <div class="field"><label>Couleur</label>
@@ -812,8 +828,6 @@ function teacherForm(t) {
         subjects: $("#f_subjects", back).value.trim(),
         location: $("#f_location", back).value.trim() || undefined,
         pricePerHour: Number($("#f_price", back).value) || 0,
-        rating: Number($("#f_rating", back).value) || 0,
-        reviewsCount: Number($("#f_reviews", back).value) || 0,
         experience: $("#f_exp", back).value.trim() || undefined,
         students: $("#f_students", back).value.trim() || undefined,
         bacSuccess: $("#f_bac", back).value.trim() || undefined,

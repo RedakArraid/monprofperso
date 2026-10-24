@@ -37,9 +37,11 @@ export function isConfirmedPayment(value: unknown): boolean {
   return result.status === "success" && result.paid === true;
 }
 
-export function canPayCourse(course: { accepted?: boolean; payment_status?: string; status?: string } | null | undefined): boolean {
-  return course?.accepted === true && course.status === "upcoming"
-    && typeof course.payment_status === "string" && course.payment_status !== "paid";
+export function canPayCourse(course: { accepted?: boolean; participant_role?: string; payment_status?: string; status?: string; lifecycle_status?: string; starts_at?: string | null } | null | undefined): boolean {
+  return course?.participant_role === "parent" && course.accepted === true && course.status === "upcoming"
+    && course.lifecycle_status === "scheduled"
+    && typeof course.starts_at === "string" && new Date(course.starts_at).getTime() > Date.now()
+    && ["pending", "unpaid"].includes(course.payment_status || "");
 }
 
 export function normalizeCiPhone(raw: string): string {

@@ -1,6 +1,5 @@
-import { Link, useNavigate, useParams, useSearchParams, useLocation } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AppShell, OfflineBanner, Empty, MenuRow, PageGrid, PageStack, ContentCard, SectionHeading } from "@/components/layout";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -9,8 +8,8 @@ import { fallback } from "@/lib/fallback";
 import { fcfa } from "@/lib/utils";
 import { useLive } from "@/hooks/useLive";
 import { apiBase } from "@/lib/api";
-import { readPaymentSession, savePaymentSession } from "@/lib/payment-session";
-import { canPayCourse } from "@/lib/flows";
+import { useCapabilities } from "@/lib/capabilities";
+import { reviewedRating, courseDate } from "@/lib/operations";
 
 type Teacher = {
   id: number;
@@ -62,7 +61,7 @@ export function SearchPage() {
                     {t.subjects} · {t.location}
                   </div>
                   <div className="mt-2 text-sm font-semibold text-primary">
-                    ★ {t.rating ?? "—"} · {fcfa(t.price_per_hour)} F/h
+                    {reviewedRating(t.rating, t.reviews_count)} · {fcfa(t.price_per_hour)} F/h
                   </div>
                 </div>
               </div>
@@ -76,6 +75,7 @@ export function SearchPage() {
 
 export function FiltersPage() {
   const navigate = useNavigate();
+  const { capabilities } = useCapabilities();
   return (
     <AppShell title="Filtres" back="/recherche" active="recherche">
       <PageStack narrow>
@@ -98,7 +98,7 @@ export function FiltersPage() {
                 <Select name="format" defaultValue="">
                   <option value="">Tous</option>
                   <option value="home">À domicile</option>
-                  <option value="online">En ligne</option>
+                  {capabilities.onlineCourses ? <option value="online">En ligne (lien externe)</option> : null}
                 </Select>
               </div>
               <div className="space-y-1.5">
@@ -147,7 +147,7 @@ export function TeacherProfilePage() {
               <SectionHeading className="mb-1">{data.name}</SectionHeading>
               <div className="text-[15px] text-[#555]">{data.subjects}</div>
               <div className="mt-2 text-sm text-[#666]">
-                ★ {data.rating} ({data.reviews_count || 0} avis) · {data.location}
+                {reviewedRating(data.rating, data.reviews_count)} · {data.location}
               </div>
               <div className="mt-3 text-xl font-bold text-primary">{fcfa(data.price_per_hour)} F/h</div>
               <Button asChild className="mt-5 w-full sm:w-auto">
@@ -181,88 +181,24 @@ export function TeacherProfilePage() {
   );
 }
 
-export function CoursesPage() {
-  const { isTeacher, user } = useAuth();
-  const navigate = useNavigate();
-  const { data, offline, reload } = useLive<typeof fallback.courses>("/api/courses", fallback.courses);
-  const title = isTeacher ? "Mes élèves" : "Mes cours";
-  const location = useLocation();
-  const notice = (location.state as { notice?: string } | null)?.notice;
-  return (
-    <AppShell title={title} active="cours">
-      {notice ? <p role="status" className="mb-4 rounded-lg bg-secondary p-3 text-sm">{notice}</p> : null}
-      {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
-      {!data.length ? (
-        <Empty>{isTeacher ? "Aucun élève n'a été trouvé" : "Aucun cours n'a été trouvé"}</Empty>
-      ) : (
-        <PageGrid>
-          {data.map((c) => (
-            <ContentCard key={c.id}>
-              <SectionHeading>
-                {c.subject} · {c.level}
-              </SectionHeading>
-              <div className="text-[15px] text-[#444]">{isTeacher ? c.student_name || c.parent_name || "Élève" : c.teacher_name}</div>
-              <div className="mt-1 text-sm text-[#666]">
-                {c.day_label} {c.day_num} · {c.time}
-              </div>
-              <div className="mt-3 flex items-center justify-between gap-3">
-                {c.badge ? <Badge>{c.badge}</Badge> : <span />}
-                <strong className="text-[15px] text-primary">{fcfa(c.price)} F</strong>
-              </div>
-              {!isTeacher && canPayCourse(c) && user ? (
-                <Button className="mt-3" variant="outline" disabled={offline} onClick={() => {
-                  const current = readPaymentSession(user.id);
-                  savePaymentSession(current?.courseId === c.id ? current : { userId: user.id, courseId: c.id, amount: c.price });
-                  navigate("/paiement");
-                }}>Consulter / régler le paiement</Button>
-              ) : null}
-            </ContentCard>
-          ))}
-        </PageGrid>
-      )}
-    </AppShell>
-  );
-}
-
 export function ProgressPage() {
-  const { data, offline, reload } = useLive<typeof fallback.progress>("/api/progress", fallback.progress);
-  return (
-    <AppShell title="Progrès" active="progres">
-      {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
-      <PageGrid cols={2}>
-        <ContentCard>
-          <SectionHeading>Moyenne générale</SectionHeading>
-          <div className="font-display text-5xl font-black text-primary sm:text-6xl">{data.average}</div>
-          <p className="mt-2 text-sm text-[#666]">
-            {data.trend} · {data.goal}
-          </p>
-        </ContentCard>
-        <ContentCard>
-          <SectionHeading>Par matière</SectionHeading>
-          <div className="space-y-5">
-            {data.subjects.map((s) => (
-              <div key={s.subject} className="space-y-2">
-                <div className="flex justify-between text-sm font-semibold">
-                  <span>{s.subject}</span>
-                  <span className={s.warn ? "text-accent" : "text-primary"}>{s.grade}</span>
-                </div>
-                <div className="h-2.5 overflow-hidden rounded-full bg-[#eee]">
-                  <div
-                    className={`h-full rounded-full ${s.warn ? "bg-accent" : "bg-primary"}`}
-                    style={{ width: `${Math.round((s.fraction || 0) * 100)}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </ContentCard>
-      </PageGrid>
-    </AppShell>
-  );
+  type Progress = { entries: { courseId: number; subject: string; teacherName: string; studentName: string | null; completedAt: string | null; summary: string }[] };
+  const { data, loading, offline, reload } = useLive<Progress>("/api/progress", { entries: [] });
+  return <AppShell title="Bilans pédagogiques" active="progres">
+    {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
+    <p className="mb-5 text-sm">Les comptes rendus rédigés par vos professeurs après les cours réalisés et confirmés.</p>
+    {data.entries?.length ? <PageGrid>{data.entries.map((entry) => <ContentCard key={entry.courseId}>
+      <SectionHeading>{entry.subject}{entry.studentName ? ` · ${entry.studentName}` : ""}</SectionHeading>
+      <p className="mb-2 text-sm text-muted-foreground">{entry.teacherName} · {courseDate(entry.completedAt, false)}</p>
+      <p className="whitespace-pre-wrap text-sm">{entry.summary}</p>
+      <Link className="link-green mt-4 inline-block" to={`/cours/${entry.courseId}`}>Consulter le cours</Link>
+    </ContentCard>)}</PageGrid> : <Empty>{loading ? "Chargement…" : "Aucun bilan pédagogique partagé pour le moment."}</Empty>}
+  </AppShell>;
 }
 
 export function AccountPage() {
   const { user, isTeacher, logout } = useAuth();
+  const { capabilities } = useCapabilities();
   return (
     <AppShell title="Mon compte" active="compte">
       <PageGrid cols={2}>
@@ -290,13 +226,13 @@ export function AccountPage() {
               <MenuRow to="/mes-besoins" label="Mes besoins" />
               <MenuRow to="/enfants" label="Mes enfants" />
               <MenuRow to="/ressources" label={isTeacher ? "Mes documents" : "Ressources"} />
-              <MenuRow to="/abonnement" label="Abonnement" />
+              {capabilities.subscriptions ? <MenuRow to="/abonnement" label="Abonnement" /> : null}
             </div>
             <div>
-              <MenuRow to="/parrainage" label="Parrainage" />
+              {capabilities.referrals ? <MenuRow to="/parrainage" label="Parrainage" /> : null}
               <MenuRow to="/legal" label="Documents légaux" />
               <MenuRow to="/aide" label={isTeacher ? "Mes contacts" : "Aide"} />
-              <MenuRow to="/parametres" label="Paramètres" />
+              <MenuRow to="/parametres" label="Mes données / suppression du compte" />
               {isTeacher ? (
                 <MenuRow to="/prof-profil" label="Compléter mon profil" />
               ) : (
@@ -320,11 +256,13 @@ export function LegalPage() {
       ) : (
         <ContentCard>
           <SectionHeading>Documents utiles</SectionHeading>
+          <a className="link-green mb-4 inline-block" href="/informations-service.html">Informations et règles du service</a>
           <ul className="list-disc space-y-1 pl-5 marker:text-primary">
             {data.map((d) => (
               <li key={d.slug}>
                 <a
-                  href={d.hasFile ? `${apiBase()}/api/legal/${d.slug}/file` : "#"}
+                  aria-disabled={!d.hasFile}
+                  href={d.hasFile ? `${apiBase()}/api/legal/${d.slug}/file` : undefined}
                   className="link-green text-[15px]"
                   target="_blank"
                   rel="noreferrer"

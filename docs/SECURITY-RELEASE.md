@@ -1,72 +1,109 @@
-# Sécurisation et préparation de la mise en service
+# Sécurité et mise en service
 
-Cette correction est préparée depuis `dev`, révision
-`9f118d1c2246b830142545f5ee8cfff8abf6dacb`. Le parcours de livraison reste
-**dev → staging → main**. Les changements de contrat concernent simultanément
-l’API, le web, Android et iOS.
+État du lot préparé le 24 octobre 2026. Le workflow reste **dev → staging → main**.
+L’API, le web, Android et iOS doivent être livrés avec le même contrat. Le guide
+[PRODUCTION-OPERATIONS.md](PRODUCTION-OPERATIONS.md) décrit la préparation fermée,
+l’ouverture explicite, la sauvegarde, la restauration et la supervision.
 
-## Changements livrés
+Les tests du dépôt constituent des preuves techniques. Ils ne remplacent pas
+la recette des prestataires, l’examen des données existantes et la validation
+des règles commerciales par l’exploitant. Aucun déploiement sur le VPS ni
+transfert financier réel n’est revendiqué par ce document.
 
-| Domaine | Correction et comportement |
+## Périmètre livré
+
+| Domaine | Comportement |
 | --- | --- |
-| Identité | Challenge OTP lié au compte avant JWT ; inscription différée ; email de connexion déjà vérifié ; ancien JWT invalidé ; destination masquée |
-| Autorisations | Aucune identité anonyme de démonstration ; rôle relu en base ; fiche professeur liée obligatoire ; suivi candidat privé |
-| Administrateur | Remplacement explicite du compte seed avant tout démarrage exposé |
-| Réservation | Professeur sélectionné réellement utilisé ; date future ; tarif et durée calculés côté serveur ; conflit de créneau accepté refusé |
-| Paiement | Acceptation préalable ; aucun succès simulé par absence de clé ; clés test/live séparées ; contrôle signature, référence, montant, devise et domaine |
-| Concurrence | Une initiation en attente par cours ; réutilisation après réponse perdue ; une écriture comptable par nouveau paiement ; contrôle prestataire limité à une fois par dix secondes |
-| Historique | Un webhook rejoué sur un ancien paiement finalisé ne recrée pas de dépense |
-| Candidatures | Unicité du pipeline actif ; approbation transactionnelle ; notes internes exclues du suivi candidat |
-| Documents | Correction du premier upload professeur ; repli BYTEA pour les besoins ; téléchargements privés ; contenu actif servi en pièce jointe avec nosniff et CSP sandbox |
-| Web | Textes de carte construits par textContent ; états OTP/paiement distincts ; description conservée ; erreurs et états vides explicites |
-| Mobile | Android Keystore/iOS Keychain ; URLs par environnement ; encodage des requêtes ; fin des connexions fictives après erreur ; réservation et paiement distincts |
-| Livraison | Lockfile backend ; Node.js 24 ; npm ci ; conteneur API sans root ; CI API/web/Android/iOS ; health et smoke bloquants |
+| Identité | Challenge OTP lié au compte avant JWT ; inscription différée ; téléphone prouvé ; email de connexion déjà vérifié ; quotas persistants ; rôle relu en base |
+| Autorisations | Aucun compte anonyme de démonstration ; dossiers candidats privés ; contrôles parent/professeur/admin ; participation au cours distincte du rôle global du compte |
+| Administration | Remplacement explicite du numéro administrateur seed avant démarrage exposé ; réauthentification récente pour les décisions sensibles |
+| Réservation | Professeur actif réellement sélectionné ; dates et durée contrôlées ; tarif et commission figés côté serveur ; conflits de créneau refusés |
+| Réalisation | Détail privé du rendez-vous, lien HTTPS de visio externe, report accepté par l’autre partie, annulation, comptes rendus, litiges, bilan pédagogique et avis liés au cours |
+| Paiement | Accord du professeur et créneau futur requis ; aucun succès par absence de clé ; séparation test/live ; signature webhook et contrôle référence/montant/devise/domaine |
+| Rapprochement | Reprise des réponses perdues ; intentions et verrous persistants ; écritures idempotentes ; preuve fournisseur indispensable aux fonds disponibles |
+| Remboursement et reversement | Décision administrative tracée ; demande du professeur sur téléphone prouvé ; exécution dans la console prestataire puis confirmation par lecture de sa preuve ; montants réservés, versés et inversés distincts |
+| Pertes et anomalies | Exception financière documentée et explicitement approuvée ; plafond lié aux fonds encaissés ; aucune transformation d’une simulation en recette disponible |
+| Compte | Préférences transactionnelles, export personnel et documents, fermeture immédiate ou différée selon les obligations, retrait des données personnelles et reprise durable du nettoyage S3 |
+| Consentement | Version affichée transmise par le client ; réacceptation explicite après changement ; archive des PDF et reçus successifs ; version du demandeur figée sur chaque nouveau cours |
+| Notifications | Destinations vérifiées, préférences relues à l’envoi, contenu générique, reprises bornées ; rappels sans doublon, renouvelés après changement effectif du créneau |
+| Livraison | Images API/web par SHA, environnement sans fixtures, contrôle des quatre jobs CI, sauvegarde avant migration, ouverture fermée par défaut, santé et préparation vérifiées séparément |
 
-## Variables à préparer avant staging
+Les groupes, abonnements, parrainages et la messagerie ne sont pas ouverts
+commercialement. Les capacités publiées les désactivent dans les clients.
+Les lectures historiques conservées dans l’API ne constituent pas un mécanisme
+d’achat. La visioconférence intégrée n’est pas fournie ; un lien de réunion
+HTTPS peut être partagé aux participants autorisés.
 
-Ne pas placer les secrets dans Git. Les fichiers d’exemple contiennent
-uniquement les noms et des valeurs de remplacement.
+## Configuration réelle requise
 
-| Variable | Règle |
+Les fichiers `backend/.env.production.example`, `.env.staging.example`,
+`.env.backup.example` et `.env.monitor.example` donnent les clés attendues.
+Les valeurs réelles restent hors Git.
+
+| Configuration | Condition de mise en service |
 | --- | --- |
-| `JWT_SECRET` | Secret aléatoire d’au moins 32 caractères ; les valeurs locales connues sont refusées |
-| `ADMIN_BOOTSTRAP_PHONE` | Numéro réellement contrôlé, différent du seed et libre ; nécessaire seulement si le compte seed est encore administrateur |
-| `OTP_ENABLED` | `true` pour l’authentification réelle |
-| `OTP_WHATSAPP_ENABLED` | `true` pour prouver le téléphone, notamment à l’inscription |
-| `OTP_WHATSAPP_BASE_URL`, `OTP_WHATSAPP_SESSION_ID`, `OTP_WHATSAPP_API_KEY` | Fournisseur/session opérationnels avant la première connexion admin |
-| `TRUST_PROXY` | Adresses ou CIDR exacts des reverse proxies fiables, séparés par des virgules |
-| `PAYSTACK_SECRET_KEY` | Clé `sk_test_…` en staging ; `sk_live_…` en production |
-| `S3_*` | Stockage objet, si utilisé ; sinon les nouveaux fichiers sont conservés en base |
+| `POSTGRES_PASSWORD`, `JWT_SECRET` | Secrets propres à l’environnement ; secret JWT aléatoire d’au moins 32 caractères |
+| `ADMIN_BOOTSTRAP_PHONE` | Numéro effectivement contrôlé et différent du seed ; utilisé si le seed est encore administrateur |
+| `OTP_*` | Fournisseur WhatsApp et session opérationnels avant la première connexion administrateur ; les variables surchargent les réglages de la console |
+| `PAYSTACK_SECRET_KEY` | `sk_test_…` en staging, `sk_live_…` en production ; l’absence de clé laisse le paiement indisponible |
+| `TRUST_PROXY` | Adresses ou CIDR des proxies réellement utilisés ; aucune confiance globale dans les en-têtes entrants |
+| `S3_*` | Bucket et accès propres à l’environnement si le stockage objet est utilisé ; sinon les fichiers sont conservés en BYTEA |
+| `PUBLIC_WEB_URL`, `CORS_ALLOWED_ORIGINS` | URL HTTPS et origines réellement servies |
+| `RELEASE_SHA` | SHA Git complet livré et contrôlé par la CI |
+| `SERVICE_OPEN` | `false` pendant préparation et recette ; ouverture explicite seulement après validation |
+| `LAUNCH_TEST_PHONES` | Liste limitée des comptes de recette avant ouverture ; aucun contournement de l’OTP ni simulation de paiement implicite |
+| `NOTIFICATIONS_ENABLED`, `WORKER_ENABLED` | Envois transactionnels et worker activés après configuration et vérification ; suivi de son dernier cycle réussi |
+| Exploitant et politiques | Identité, contact, hébergement, conservation, annulation, remboursement et reversement renseignés par l’exploitant |
+| Documents | PDF effectifs et versions de CGU, confidentialité et mentions légales |
+| Sauvegarde et alertes | Dépôt chiffré externe, secret de récupération conservé séparément, restauration répétée, destinataire et procédure d’alerte opérationnels |
 
-Les Compose de staging et production forcent `NODE_ENV=production`,
-`DEMO_MODE=false`, `PAYSTACK_MOCK=false` et leur propre `APP_ENV`.
-Le backend refuse une clé de test sur l’environnement de production, et une
-clé live sur le staging. Une clé manquante laisse le paiement indisponible (503).
+`GET /health` vérifie l’accès à PostgreSQL. `GET /ready` exige les contrôles
+de configuration, les tâches périodiques et l’ouverture du service. Dans
+l’administration, les cinq validations `data_review`, `provider_e2e`,
+`backup_restore`, `monitoring` et `legal_review` sont des déclarations documentées
+de l’exploitant. Elles sont liées au SHA et à une empreinte de la configuration
+effective ; changer un prestataire, le stockage ou une politique rend les
+preuves précédentes caduques. L’empreinte ne révèle aucun secret.
 
-Les variables `OTP_*` surchargent les réglages enregistrés dans l’administration.
-Ce mécanisme permet de configurer l’OTP avant la première connexion. Retirer
-une surcharge après le bootstrap si la configuration doit ensuite être gérée
-depuis la console. L’authentification par email exige une adresse déjà vérifiée
-pour le compte ; elle ne sert pas à prouver arbitrairement un autre téléphone.
+Le blocage des nouvelles opérations laisse accessibles la connexion,
+l’administration, l’export, les demandes de fermeture et la résolution des
+obligations existantes. Les nouvelles inscriptions, réservations, demandes et
+charges restent fermées tant que les conditions ne sont pas réunies.
 
-Ne pas définir `TRUST_PROXY=true` ni une confiance inconditionnelle dans les
-en-têtes entrants. Vérifier les réseaux Nginx/Traefik réels. Sans une valeur
-adaptée, les quotas OTP risquent de regrouper tous les utilisateurs derrière
-le proxy ; les Compose exposés refusent donc une valeur vide.
+## Migrations et historique existant
 
-## Préparer les données et les migrations
+Chaque migration SQL est transactionnelle séparément. Une relance applique
+uniquement les migrations restantes. Le numéro 30 est volontairement absent.
 
-Sauvegarder la base et les objets avant mise à niveau, puis répéter la migration
-sur une copie de staging. Les migrations ajoutées sont :
+| Migration | Effet principal |
+| --- | --- |
+| 28 | Challenges OTP hachés, état de vérification et invalidation des anciens codes |
+| 29 | Unicité des candidatures actives, documents BYTEA, durée et net horaire |
+| 31 | Dates réelles, intégrité des paiements et lien comptable unique |
+| 32 | Cycle du cours, reports, comptes rendus, avis, règlements et opérations financières |
+| 33 | Fermeture et anonymisation des comptes, nettoyage durable et contrôles d’ouverture |
+| 34 | Destinations vérifiées, préférences, file de notifications et rappels |
+| 35 | Anomalies financières, inversion des reversements et exception de perte explicitement approuvée |
+| 36 | Révision contractuelle et quotas persistants des formulaires publics |
+| 37 | Historique des documents légaux |
+| 38 | Empreinte de configuration associée aux validations d’exploitation |
+| 39 | Registre des révisions acceptées, reçus de consentement et snapshot sur les nouveaux cours |
 
-- **28 — secure-auth** : challenges hachés, état de vérification email et invalidation des anciens codes.
-- **29 — business-integrity** : unicité des candidatures actives, documents de besoins en BYTEA, durée numérique et net horaire corrigé.
-- **31 — payment-integrity** : date réelle et durée des cours, lien comptable unique, version de l’historique et horodatage des vérifications prestataire.
+Une installation sans `DEMO_MODE=true` ne crée plus de professeurs, comptes
+clients, cours, avis ni revenus de démonstration. Les catalogues de matières,
+niveaux et programmes demeurent disponibles. Le seul compte initial est
+l’administrateur technique dont le téléphone doit être remplacé au bootstrap.
+Ce changement des scripts seed ne réexécute pas les anciennes migrations
+d’une base existante.
 
-Le trou de numérotation 30 est volontaire ; `node-pg-migrate` applique les
-migrations présentes dans l’ordre.
+Pour une base existante, effectuer la sauvegarde puis la migration sur une
+copie isolée avant promotion. L’audit administrateur signale les signatures
+connues de fixtures et les cours payés sans preuve d’encaissement. Il ne supprime
+aucune donnée automatiquement et ne peut détecter toute donnée de test créée
+manuellement.
 
-Avant migration 29, identifier les doublons sans afficher les notes privées :
+La migration 29 refuse les candidatures actives en doublon. Les identifier
+sans exposer leurs pièces ou notes :
 
 ```sql
 SELECT phone, array_agg(id ORDER BY id) AS application_ids, count(*)
@@ -75,74 +112,57 @@ WHERE status IN ('pending','interview','test','training')
 GROUP BY phone HAVING count(*) > 1;
 ```
 
-Choisir le dossier actif avec l’administration. La migration s’arrête sur
-ces doublons plutôt que de rejeter automatiquement un dossier.
-Chaque migration possède sa propre transaction : si 29 échoue, 28 reste
-appliquée. Après résolution du doublon, une relance reprend 29 puis 31.
-Les durées historiques invalides restent à corriger explicitement ; le code
-ne les transforme plus silencieusement en une heure.
-Les anciens cours gardent leurs dates numériques à NULL, faute de conversion
-fiable depuis les libellés. Le contrôle de chevauchement couvre les créneaux
-réellement datés ; compléter les anciens agendas avant d’y compter dessus.
-Une pièce perdue avant cette correction ne peut pas être reconstruite.
+Un responsable choisit le dossier actif avant relance. Les anciennes dates,
+durées ou commissions ambiguës ne sont pas inventées. Les termes historiques
+et paiements inconnus disposent d’actions administratives documentées. Un
+ancien paiement marqué réussi ne devient disponible au professeur qu’après
+confirmation de fonds par le prestataire. Une simulation peut être classée
+comme non encaissée ; elle ne constitue jamais un revenu réel.
 
-Les paiements existants reçoivent `integrity_version=1`, les nouveaux `2`.
-L’ancien registre ne contient pas de clé permettant de relier toutes les
-transactions à un paiement avec certitude. Les succès historiques déjà
-comptabilisés restent donc stables lors d’un rejeu de webhook. Réconcilier
-séparément les paiements historiques, en particulier ceux qui auraient été
-marqués payés par l’ancien mode simulé. Cette correction ne prétend pas
-reconstituer de véritables encaissements à partir de données de démonstration.
+La fermeture retire les profils, données d’enfants et pièces personnelles.
+Les références, montants, preuves financières et reçus nécessaires à la
+traçabilité sont conservés suivant la politique que l’exploitant doit publier.
+Les anciennes acceptations dont les PDF ne peuvent être identifiés gardent
+`legal_revisions=NULL` : aucun historique juridique n’est reconstitué au hasard.
 
-## Vérification de staging et livraison
+## Validation technique et limites
 
-1. Construire et tester la branche avec les quatre jobs CI. Le build Android
-   exige le SDK Android et les tests iOS exigent Xcode/macOS.
-2. Préparer les secrets, le numéro administrateur et les proxies fiables.
-3. Déployer sur staging avec sa base et son stockage distincts, puis exécuter
-   `scripts/smoke.sh https://staging.monprofperso.com`.
-4. Vérifier avec les configurations de test autorisées : réception OTP,
-   création de compte, candidature, réservation datée, accord du professeur,
-   paiement demandé/attendu/confirmé et réception d’un webhook.
-5. Livrer les applications clientes compatibles avant d’exposer le nouveau
-   contrat aux utilisateurs ; les anciennes sessions sont invalidées.
-6. Après validation de staging, suivre le workflow de promotion vers `main`.
+Avant publication du lot : **164 tests API**, **26 tests web** et **15 tests JVM
+Android** ont passé localement. La compilation TypeScript, le build Vite,
+la compilation Android Debug et le code Release sont vérifiés. Le lint web
+ne produit aucune erreur, avec trois avertissements Fast Refresh. Les tests
+du dernier commit publiés dans GitHub Actions sont la référence pour les
+quatre plateformes, notamment la compilation SwiftUI et les XCTest sur macOS.
 
-Le smoke ne se connecte pas comme administrateur et n’envoie pas d’OTP. Il
-contrôle la santé, les pages, le catalogue, les refus anonymes et l’absence de
-démo sur les URLs HTTPS. Les scripts de déploiement échouent si le build,
-la santé de l’API ou le smoke échoue.
+La recette Chromium locale a couvert les trois rôles, réservation, paiement
+simulé avec écran OTP, report bilatéral, comptes rendus, bilan, avis, opérations
+financières de fixture, consentement, export et fermeture. Elle a aussi vérifié
+l’affichage mobile et le cas d’un payeur devenu professeur. Les simulations
+restent explicitement exclues du calcul des fonds réels.
 
-## Portée de la validation
+Les tests des scripts couvrent notamment le SHA CI exact, les jobs manquants
+ou ignorés, l’interdiction de retour sur schéma incompatible, les archives
+incomplètes et altérées, les verrous d’exploitation et la distinction entre
+sauvegarde locale de test et copie externe. Le résultat de la répétition de
+restauration est décrit dans le guide d’exploitation.
 
-La validation locale couvre compilation TypeScript, PostgreSQL réel temporaire,
-scénarios auth avec fournisseur local simulé, concurrence, isolation des comptes,
-documents, paiements et webhooks simulés, tests web, lint et build web.
-Android a également des tests JVM sur les vrais modèles et aides de contrat.
-Les fichiers Swift/Kotlin ont été analysés syntaxiquement.
+La validation locale ne prouve pas la livraison d’un OTP sur le VPS,
+l’encaissement bancaire, l’exécution d’un remboursement ou d’un reversement,
+la réception d’une alerte ni le fonctionnement sur des téléphones physiques.
+Les signatures Android/iOS, les déclarations stores et la recette sur appareils
+restent associées aux comptes et configurations réels de l’exploitant.
 
-Résultats locaux : 130 scénarios backend validés (suite complète de 129 puis
-les 11 régressions de paiement incluant le dernier scénario ajouté), 9 tests
-web et 6 tests JVM Android réussis. Compilation TypeScript et build Vite
-réussis ; lint sans erreur, avec sept avertissements Fast Refresh. La montée
-depuis les 28 migrations historiques jusqu’aux 31 présentes a été répétée,
-ainsi que l’échec et la reprise sur doublons de candidatures. Aucun accès à une
-base de production ni appel à un véritable prestataire n’a été effectué.
+Audit npm effectué le 24 octobre 2026 : web **0 alerte** ; backend **0 haute ou
+critique, 4 modérées transitives** dans MinIO (`decode-uri-component`,
+`query-string`, `stream-json` et MinIO par propagation). Les chemins de parsing
+JSON de notifications MinIO concernés ne sont pas utilisés par les opérations
+de stockage de cette application. Ces alertes restent à suivre ; elles ne sont
+pas présentées comme corrigées. Aucun downgrade ou remplacement majeur forcé
+n’a été appliqué pour faire disparaître artificiellement l’audit.
 
-La validation locale ne prouve pas un encaissement bancaire, une livraison OTP
-par le fournisseur configuré sur le VPS, ni l’exécution sur des téléphones
-physiques. Ces essais doivent utiliser les accès et environnements prévus à cet effet.
-
-Après mise à jour, `npm audit` web ne signale aucune vulnérabilité. Le backend
-ne signale aucune vulnérabilité haute ou critique ; quatre alertes modérées
-restent dans la chaîne MinIO 8.0.7 (`decode-uri-component`, `query-string`,
-`stream-json`, et MinIO par propagation). Ne pas forcer le retour vers une
-version ancienne proposé par audit ni remplacer un majeur transitif sans
-vérifier son API. Le stockage courant utilise des objets binaires et les
-opérations bucket/put/get/delete, pas le parseur de notifications JSON concerné.
-Suivre les corrections amont et refaire l’audit lors de la livraison.
-
-Références du protocole de paiement :
+Références du protocole financier :
 [modes test/live](https://paystack.com/docs/api/authentication/),
-[vérification d’une transaction](https://paystack.com/docs/api/transaction/),
-[contrôle d’une charge en attente](https://paystack.com/docs/api/charge/#check-pending-charge).
+[vérification de transaction](https://paystack.com/docs/api/transaction/),
+[charge en attente](https://paystack.com/docs/api/charge/#check-pending-charge),
+[remboursements](https://paystack.com/docs/api/refund/),
+[reversements](https://paystack.com/docs/api/transfer/).

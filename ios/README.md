@@ -1,76 +1,53 @@
-# Mon Prof Perso, iOS (Swift + SwiftUI)
+# Mon Prof Perso — iOS
 
-Application native iOS reproduisant fidèlement la maquette « Akwaba, Cours
-particuliers » (soutien scolaire à domicile / en ligne en Côte d'Ivoire).
+Application Swift et SwiftUI pour iPhone (iOS 16+), reliée à l’API commune Android/web. Les services visibles correspondent aux capacités exposées par le serveur. Les prototypes de groupes, abonnements, chat et parrainage ne sont pas présentés comme des fonctions disponibles.
 
-## Stack
-- **Swift 5.9** · **SwiftUI** · `NavigationStack` (iOS 16+)
-- Polices **Schibsted Grotesk** + **Hanken Grotesk** (bundlées, `UIAppFonts`)
-- Icônes **SF Symbols** (équivalents des Phosphor de la maquette)
+## Génération du projet
 
-## Générer le projet Xcode
-Le dépôt ne versionne pas le `.xcodeproj` (binaire). Deux options :
+Le fichier `project.yml` est la source XcodeGen ; le projet Xcode généré n’est pas versionné.
 
-**A. XcodeGen (recommandé)**
-```bash
-brew install xcodegen      # si nécessaire
+```sh
+brew install xcodegen
 cd ios
-xcodegen generate          # crée MonProfPerso.xcodeproj depuis project.yml
+xcodegen generate
 open MonProfPerso.xcodeproj
 ```
 
-**B. Projet Xcode manuel**
-1. Xcode → New Project → App (SwiftUI), nom « MonProfPerso ».
-2. Glisser le dossier `MonProfPerso/` (App, Theme, Components, Screens, Resources)
-   dans le projet (« Create groups »).
-3. Vérifier que les `.ttf` de `Resources/Fonts` sont dans *Build Phases →
-   Copy Bundle Resources* et listés dans `Info.plist` (clé `UIAppFonts`).
-4. Ajouter le build setting `API_BASE_URL` (voir ci-dessous), utilisé par la clé
-   `APIBaseURL` du plist.
+Un Xcode actuellement accepté pour la soumission App Store est nécessaire pour une livraison. Les polices, l’icône AppIcon 1024 × 1024 opaque et le manifeste de confidentialité sont inclus dans les ressources du projet.
 
-## Environnements et session
-
-`project.yml` définit trois configurations :
-
-| Configuration | URL de base | Identifiant de l'app |
+| Configuration | API par défaut | Identifiant |
 | --- | --- | --- |
 | Debug | `http://localhost:8099` | `ci.monprofperso.app.dev` |
 | Staging | `https://staging-api.monprofperso.com` | `ci.monprofperso.app.staging` |
 | Release | `https://api.monprofperso.com` | `ci.monprofperso.app` |
 
-Les appels ajoutent `/api` à cette base. Le scheme `MonProfPerso` utilise Debug
-pour le simulateur et Release pour l'archive. `MonProfPerso-Staging` utilise la
-préproduction. L'URL se surcharge avec le build setting `API_BASE_URL` ; HTTPS
-est obligatoire en dehors de `localhost` et `127.0.0.1`.
+Les appels ajoutent `/api`. Le build setting `API_BASE_URL` remplace l’URL. HTTPS est exigé hors hôtes locaux, sans identifiants, requête ni fragment. Le scheme `MonProfPerso` exécute Debug et archive Release ; `MonProfPerso-Staging` utilise Staging. Une URL configurée ne confirme pas que le serveur a été déployé.
 
-Le JWT et l'identité associée sont conservés dans le Keychain, disponibles sur
-l'appareil déverrouillé, sans synchronisation iCloud. Les environnements sont
-isolés par leur identifiant. Les anciennes sessions du prototype stockées dans
-UserDefaults sont supprimées ; une nouvelle connexion est nécessaire.
+## Parcours opérationnels
 
-L'inscription et la connexion reçoivent un challenge serveur. L'écran OTP vérifie
-`challengeId` + `code` et conserve le nouvel identifiant après un renvoi. Il ne
-renvoie pas de code automatiquement à son ouverture. Une panne réseau ou des
-canaux OTP indisponibles affichent une erreur. Seule une session vérifiée ouvre
-l'espace utilisateur. Le raccourci administrateur de démonstration est réservé
-aux builds Debug et à un serveur ayant explicitement activé la démo locale.
+`GET /api/capabilities` contrôle les options. En l’absence de réponse, les options non attestées restent désactivées. Le cours en ligne ouvre uniquement un lien HTTPS autorisé et enregistré dans le détail d’un vrai cours, si le service est activé côté serveur.
 
-## Réserver et payer
+Le catalogue, la recherche et les avis utilisent les données de l’API. Les besoins permettent de choisir un enfant ou d’en créer un, d’accepter le tarif, d’annuler la recherche ou d’ouvrir le cours attribué. Le détail du cours propose les coordonnées privées autorisées, la planification et le report acceptés par l’autre partie, l’annulation motivée, puis la déclaration de réalisation, absence ou litige. Les bilans pédagogiques sont ceux saisis par le professeur.
 
-La fiche conserve l'identifiant du professeur sélectionné. La réservation envoie
-un créneau futur ISO 8601, choisi en heure de Côte d'Ivoire, et une durée. Le
-serveur fixe le montant de la séance. Après l'envoi, le parent retrouve la demande
-dans **Mes cours**. Le bouton **Payer ce cours** apparaît après acceptation du
-professeur ; il réutilise le cours existant et son prix confirmé. La confirmation
-de paiement dépend du statut serveur. Les besoins tarifés et les réservations
-directes utilisent deux routes d'acceptation distinctes.
+Le paiement réutilise un cours accepté, planifié dans le futur et impayé. La confirmation attend la relecture du statut serveur. Les revenus du professeur séparent le prévisionnel, le dû, le disponible, les sommes réservées et celles effectivement versées. Les demandes de versement et remboursement utilisent une clé d’idempotence ; l’approbation d’une demande n’est pas présentée comme un mouvement d’argent réalisé. Un versement exige le numéro vérifié du compte et une session OTP de moins de 15 minutes.
 
-## Vérification sur macOS
+L’écran **Mes données et mon compte** exporte les données JSON avec le sélecteur natif, règle les alertes transactionnelles WhatsApp/email et propose la suppression confirmée par `SUPPRIMER`. L’export et la suppression exigent une connexion récente. Une demande bloquée par des cours ou finances ouverts reste en attente et peut être retirée. La suppression clôt le compte, avec conservation des justificatifs requis selon la politique de confidentialité et nettoyage des fichiers qui peut être différé.
 
-Les tests `ApiClientTests` couvrent l'encodage des filtres et des numéros `+225`,
-la conservation du zéro ivoirien et l'éligibilité d'un cours au paiement.
+Les nouvelles vues sont regroupées dans `Screens/ProductionScreens.swift`. `Networking/ApiClient.swift` porte les contrats et `App/Router.swift` l’état et la navigation.
 
-```bash
+## Session et confidentialité
+
+Login/signup reçoit un challenge serveur ; la vérification utilise `challengeId` + `code`. Une panne ne crée aucune session de démonstration. Le JWT et l’identité sont conservés dans Keychain, accessibles sur appareil déverrouillé et sans synchronisation iCloud. Les anciennes sessions UserDefaults sont supprimées, et `/api/me` valide la session restaurée. La déconnexion efface l’identité et la pile de navigation.
+
+L’inscription et la candidature utilisent la version fournie par `/api/auth/otp-channels`, gardée dans l’écran lors de l’accord explicite. En cas de publication concurrente, les cases sont décochées et les conditions rechargées. Les paramètres proposent la réacceptation via `/api/account/consent`, avec un accès depuis les erreurs de réservation et paiement qui l’exigent. Le rôle de participation à chaque cours prime sur celui du compte, pour conserver le suivi des cours achetés avant ou après le passage au rôle professeur.
+
+`Resources/PrivacyInfo.xcprivacy` déclare les données nécessaires aux comptes, cours, candidatures, paiements et demandes de support. L’accès à UserDefaults utilise le motif `CA92.1` pour les données propres à l’app. Il ne déclare pas de suivi publicitaire. Références Apple : [manifeste de confidentialité](https://developer.apple.com/documentation/bundleresources/adding-a-privacy-manifest-to-your-app-or-third-party-sdk) et [déclarations App Store](https://developer.apple.com/app-store/app-privacy-details/).
+
+Le responsable de la publication doit vérifier ces déclarations avec les prestataires réellement configurés et renseigner App Store Connect. Le manifeste ne remplace pas les réponses de confidentialité de la fiche ni la politique applicable aux données des enfants.
+
+## Tests sur macOS
+
+```sh
 cd ios
 xcodegen generate
 xcodebuild -list -project MonProfPerso.xcodeproj
@@ -78,33 +55,16 @@ xcodebuild test -project MonProfPerso.xcodeproj -scheme MonProfPerso \
   -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO
 ```
 
-Adapter le nom du simulateur à ceux installés dans Xcode. Un environnement Linux
-ne permet pas de compiler SwiftUI ni d'exécuter ces tests iOS.
+Adapter le simulateur à ceux installés. `ApiClientTests` contrôle l’encodage des filtres et du préfixe ivoirien, l’éligibilité au paiement, les liens HTTPS, les demandes de suppression en attente, les montants de versement et les conditions financières manquantes d’un cours historique. Linux permet seulement une vérification des sources ; il ne compile pas SwiftUI et n’exécute pas ces tests.
 
-## Architecture
-```
-MonProfPerso/
-├── App/
-│   ├── MonProfPersoApp.swift     # @main + NavigationStack + table de routage
-│   ├── Router.swift        # Route (37 cas) + Router (pile) + onglets
-│   └── Info.plist          # UIAppFonts, orientation
-├── Theme/                  # Ak (couleurs), AkFont (typographie)
-├── Components/             # AkScreen, boutons, chips, avatars, BottomNav, FlowLayout…
-└── Screens/                # les 37 écrans, regroupés par étape (A→K)
-    ├── AuthScreens.swift          # 1-4
-    ├── FindScreens.swift          # 5-8
-    ├── BookingScreens.swift       # 9-11
-    ├── LearnScreens.swift         # 12-15
-    ├── AccountScreens.swift       # 16-19
-    ├── TeacherScreens.swift       # 20-22
-    ├── SubscriptionScreens.swift  # 23-25
-    ├── GroupScreens.swift         # 26-28
-    ├── TeacherMgmtScreens.swift   # 29-30
-    ├── ManageScreens.swift        # 31-33
-    └── MiscScreens.swift          # 34-37
+## Archive et export de livraison
+
+Configurer le compte Apple Developer et les certificats/profils de signature sur le Mac de publication. Fournir l’identifiant d’équipe dans `MPP_IOS_TEAM_ID`, puis lancer depuis `ios/` :
+
+```sh
+./scripts/archive-release.sh
 ```
 
-## Navigation
-- Racine : **Bienvenue** → Inscription/Connexion → Accueil.
-- Barres inférieures parent & professeur, écrans secondaires poussés sur la pile.
-- L'« Espace professeur → » au bas de l'écran Compte ouvre le tableau de bord prof.
+Variables optionnelles : `MPP_IOS_API_URL` (HTTPS), `MPP_IOS_VERSION_NAME` (par défaut `1.1.0`) et `MPP_IOS_BUILD_NUMBER` (par défaut `3`). Le numéro de build doit augmenter à chaque envoi. Le script exige une équipe valide, génère le projet, archive Release et exporte localement vers `ios/build/`. Il ne téléverse rien vers App Store Connect.
+
+La mise en diffusion nécessite encore les certificats et profils du propriétaire, les métadonnées et documents de confidentialité, les captures adaptées, les accès de revue et une validation des parcours sur appareils et préproduction. Une archive réussie ne prouve ni une validation App Review ni un paiement réel.

@@ -3,10 +3,15 @@ import { pool } from "./db";
 import { ValidationError, optionalString, optionalPhone, optionalEmail, optionalEnum, optionalNumber, requiredString, requiredEnum } from "./validate";
 import { optionalAuth, currentUserId, requireAuth, requireTeacher, requireAdmin, isDemoMode, AuthError } from "./auth";
 import { registerAuthRoutes } from "./authRoutes";
+import { accountRouter } from "./account";
+import { productionRouter, launchGate, invalidateReadiness } from "./production";
 import { putFile, getFileStream, removeFile } from "./storage";
 import { registerTeacherApplicationRoutes } from "./teacherApplications";
 import { registerTeacherProfileRoutes, computeProfileCompletion } from "./teacherProfile";
 import { registerNeedsRoutes, registerAdminNeedsRoutes, parseDurationHours } from "./needs";
+import { registerCourseLifecycleRoutes, progressForUser } from "./courseLifecycle";
+import { registerFinanceRoutes, teacherEarnings } from "./finance";
+import { actorFromResponse, assertSlotFree, courseEvent, dateLabels, futureDate, requireOnlineEnabled, snapshotCommission, inTransaction, lockCourse } from "./courseOperations";
 import {
   loadOtpSettings,
   maskOtpSettings,
@@ -26,12 +31,11 @@ export const api = Router();
 
 // Résout la session vérifiée, sans repli vers un autre compte.
 api.use(optionalAuth);
+api.use(productionRouter);
+api.use(launchGate);
+api.use(accountRouter);
 
 const OTP_CHANNELS = ["whatsapp", "email"] as const;
-
-// Version courante des CGU / politique de confidentialité (cf. docs/COMPLIANCE.md).
-// À incrémenter à chaque révision pour re-solliciter le consentement.
-const CONSENT_VERSION = "2026-06";
 
 const wrap = (fn: (req: any, res: any) => Promise<void>) => (req: any, res: any) =>
   fn(req, res).catch((e: any) => {
@@ -196,7 +200,8 @@ api.get("/legal/:slug/file", wrap(async (req, res) => {
 api.get("/teachers", wrap(async (req, res) => {
   const { format, level } = req.query;
   const params: any[] = [];
-  const where: string[] = [];
+  const where: string[] = ["archived_at IS NULL", "verified=TRUE", "EXISTS (SELECT 1 FROM users u WHERE u.teacher_id=teachers.id AND u.role='teacher' AND u.deleted_at IS NULL)",
+    "NOT EXISTS (SELECT 1 FROM users u JOIN account_deletion_requests d ON d.user_id=u.id AND d.status='pending' WHERE u.teacher_id=teachers.id)"];
   if (format) { params.push(format); where.push(`$${params.length} = ANY(formats)`); }
   if (level)  { params.push(level);  where.push(`$${params.length} = ANY(levels)`); }
   const sql = `SELECT id, initials, name, subjects, rating, reviews_count, location,
@@ -208,7 +213,9 @@ api.get("/teachers", wrap(async (req, res) => {
 }));
 
 api.get("/teachers/:id", wrap(async (req, res) => {
-  const t = await pool.query("SELECT * FROM teachers WHERE id=$1", [req.params.id]);
+  const t = await pool.query(`SELECT * FROM teachers WHERE id=$1 AND archived_at IS NULL AND verified=TRUE
+    AND EXISTS (SELECT 1 FROM users u WHERE u.teacher_id=teachers.id AND u.role='teacher' AND u.deleted_at IS NULL)
+    AND NOT EXISTS (SELECT 1 FROM users u JOIN account_deletion_requests d ON d.user_id=u.id AND d.status='pending' WHERE u.teacher_id=teachers.id)`, [req.params.id]);
   if (!t.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
   const reviews = await pool.query(
     "SELECT author_initials, author_name, rating, time_ago, text FROM reviews WHERE teacher_id=$1 ORDER BY id",
@@ -221,12 +228,13 @@ api.get("/teachers/:id", wrap(async (req, res) => {
 api.get("/courses", wrap(async (req, res) => {
   const status = req.query.status as string | undefined;
   const teacher = res.locals.userRole === "teacher";
-  const params: any[] = [teacher ? await currentTeacherId(res) : currentUserId(res)];
-  let sql = `SELECT c.*, u.full_name AS parent_name, ch.name AS student_name
+  const params: any[] = [currentUserId(res), teacher ? res.locals.teacherId ?? null : null];
+  let sql = `SELECT c.*, u.full_name AS parent_name, ch.name AS student_name,
+    CASE WHEN c.user_id=$1 THEN 'parent' ELSE 'teacher' END AS participant_role
     FROM courses c JOIN users u ON u.id=c.user_id
     LEFT JOIN course_needs n ON n.course_id=c.id
     LEFT JOIN children ch ON ch.id=n.child_id
-    WHERE ${teacher ? "c.teacher_id=$1 AND c.accepted=TRUE" : "c.user_id=$1"}`;
+    WHERE (c.user_id=$1 OR (c.teacher_id=$2::int AND c.accepted=TRUE))`;
   if (status) { params.push(status); sql += ` AND c.status=$${params.length}`; }
   sql += " ORDER BY c.starts_at NULLS LAST,c.id";
   const r = await pool.query(sql, params);
@@ -240,49 +248,54 @@ api.post("/bookings", wrap(async (req, res) => {
   // Champ historique accepté/validé mais jamais utilisé comme autorité de prix.
   optionalNumber(b, "price", { min: 0 });
   const format = optionalEnum(b, "format", ["home", "online"]) ?? "home";
+  requireOnlineEnabled(format);
   const subject = optionalString(b, "subject", { max: 80 });
   const level = optionalString(b, "level", { max: 40 }) ?? "Non précisé";
   const location = optionalString(b, "location", { max: 200 });
+  const privateAddress = optionalString(b, "privateAddress", { max: 1000 });
   const duration = optionalString(b, "duration", { max: 20 }) ?? "1h30";
   const minutes = Math.round(parseDurationHours(duration) * 60);
   const startAt = optionalString(b, "startAt", { max: 40 });
   if (!startAt && !isDemoMode()) throw new ValidationError("startAt", "date et heure du cours requises");
-  const startsAt = startAt ? new Date(startAt) : new Date(Date.now() + 86_400_000);
-  if (!Number.isFinite(startsAt.getTime()) || startsAt.getTime() <= Date.now()
-      || (startAt && !/^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/.test(startAt))) {
-    throw new ValidationError("startAt", "date future avec fuseau horaire requise");
-  }
+  const startsAt = futureDate(startAt ?? new Date(Date.now() + 86_400_000).toISOString());
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const teacher = (await client.query("SELECT * FROM teachers WHERE id=$1 FOR UPDATE", [teacherId])).rows[0];
+    const user = (await client.query("SELECT id,teacher_id FROM users WHERE id=$1 AND deleted_at IS NULL FOR SHARE", [currentUserId(res)])).rows[0];
+    if (!user) throw new AuthError(401, "account_unavailable", "Compte indisponible");
+    if ((await client.query("SELECT 1 FROM account_deletion_requests WHERE user_id=$1 AND status='pending'", [user.id])).rowCount)
+      throw new AuthError(409,"account_closing","Annulez votre demande de fermeture de compte avant une nouvelle réservation");
+    if (user.teacher_id === teacherId) throw new ValidationError("teacherId", "vous ne pouvez pas réserver votre propre cours");
+    const teacher = (await client.query("SELECT * FROM teachers WHERE id=$1 AND archived_at IS NULL FOR UPDATE", [teacherId])).rows[0];
     if (!teacher) throw new ValidationError("teacherId", "professeur introuvable");
+    if (!teacher.verified) throw new ValidationError("teacherId", "professeur non validé");
+    if (!(await client.query("SELECT id FROM users WHERE teacher_id=$1 AND role='teacher' AND deleted_at IS NULL", [teacherId])).rowCount) {
+      throw new ValidationError("teacherId", "ce professeur ne dispose pas d'un compte actif");
+    }
+    if ((await client.query("SELECT 1 FROM users u JOIN account_deletion_requests d ON d.user_id=u.id AND d.status='pending' WHERE u.teacher_id=$1", [teacherId])).rowCount)
+      throw new AuthError(409,"teacher_unavailable","Ce professeur n'accepte plus de nouvelles réservations");
     if (Array.isArray(teacher.formats) && !teacher.formats.includes(format)) throw new ValidationError("format", "modalité non proposée par ce professeur");
     const price = Math.round(Number(teacher.price_per_hour) * minutes / 60);
     if (!Number.isSafeInteger(price) || price <= 0 || price > 20_000_000) throw new ValidationError("teacherId", "tarif professeur indisponible");
-    const conflicts = await client.query(
-      `SELECT id FROM courses WHERE teacher_id=$1 AND status='upcoming' AND accepted=TRUE
-       AND starts_at < $2::timestamptz + ($3 * interval '1 minute')
-       AND starts_at + (COALESCE(duration_minutes,90) * interval '1 minute') > $2::timestamptz`,
-      [teacherId, startsAt, minutes],
-    );
-    if (conflicts.rowCount) throw new AuthError(409, "slot_unavailable", "Ce créneau est déjà réservé");
-    const dayLabel = new Intl.DateTimeFormat("fr-FR", { weekday: "short", timeZone: "Africa/Abidjan" }).format(startsAt).replace(".", "").toUpperCase();
-    const dayNum = new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "short", timeZone: "Africa/Abidjan" }).format(startsAt);
-    const time = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Africa/Abidjan" }).format(startsAt);
+    await assertSlotFree(client, { teacher_id: teacherId, duration_minutes: minutes }, startsAt);
+    const { dayLabel, dayNum, time } = dateLabels(startsAt);
+    const commission = await snapshotCommission(client, price);
     const r = await client.query(
-      `INSERT INTO courses (user_id,teacher_id,teacher_name,subject,level,day_label,day_num,time,duration,format,location,price,status,badge,accepted,payment_status,starts_at,duration_minutes)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'upcoming','En attente',FALSE,'pending',$13,$14) RETURNING *`,
+      `INSERT INTO courses (user_id,teacher_id,teacher_name,subject,level,day_label,day_num,time,duration,format,location,price,status,badge,accepted,payment_status,starts_at,duration_minutes,
+       commission_pct,commission_amount,teacher_net_amount,private_address,lifecycle_status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'upcoming','En attente',FALSE,'pending',$13,$14,$15,$16,$17,$18,'requested') RETURNING *`,
       [currentUserId(res),teacherId,teacher.name,subject?.trim() || teacher.subjects,level,dayLabel,dayNum,time,
-        `${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, "0")}`, format,location ?? teacher.location,price,startsAt,minutes],
+        `${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, "0")}`, format,location ?? teacher.location,price,startsAt,minutes,
+        commission.pct,commission.commission,commission.net,privateAddress?.trim() || null],
     );
+    await courseEvent(client, r.rows[0].id, actorFromResponse(res), "booking_requested", { startAt: startsAt.toISOString(), price, commissionPct: commission.pct });
     await client.query("COMMIT");
     res.status(201).json({ reference: "AKW-" + (2000 + r.rows[0].id), course: r.rows[0] });
   } catch (error) { await client.query("ROLLBACK"); throw error; }
   finally { client.release(); }
 }));
 
-registerNeedsRoutes(api, { consentVersion: CONSENT_VERSION, serveFile });
+registerNeedsRoutes(api, { serveFile });
 
 // ----------------------------------------------------------------- Notifications
 api.get("/notifications", wrap(async (_req, res) => {
@@ -420,15 +433,7 @@ api.get("/subscription/mine", wrap(async (_req, res) => {
 
 // --------------------------------------------------------------------- Progrès
 api.get("/progress", wrap(async (_req, res) => {
-  const subs = await pool.query(
-    "SELECT subject, grade, fraction, warn FROM progress_subjects WHERE user_id=$1 ORDER BY id",
-    [currentUserId(res)]
-  );
-  res.json({
-    student: "Suivi des progrès", average: "—", trend: "—",
-    goal: subs.rows.length ? "Résultats enregistrés" : "Aucun résultat enregistré pour ce compte",
-    subjects: subs.rows,
-  });
+  res.json(await progressForUser(currentUserId(res)));
 }));
 
 // --------------------------------------------------------------- Espace prof
@@ -441,12 +446,17 @@ async function currentTeacherId(res: any): Promise<number> {
 
 api.get("/teacher/dashboard", wrap(async (_req, res) => {
   const teacherId = await currentTeacherId(res);
-  const p = (await pool.query("SELECT * FROM teacher_profiles WHERE teacher_id=$1", [teacherId])).rows[0];
   const t = (await pool.query(
     "SELECT name, negotiable, location, price_per_hour, experience, subjects, levels, formats, programs, needs_confirmed FROM teachers WHERE id=$1",
     [teacherId],
   )).rows[0];
-  if (!p || !t) { res.status(404).json({ error: "not_found" }); return; }
+  if (!t) { res.status(404).json({ error: "not_found" }); return; }
+  const earnings = await teacherEarnings(teacherId);
+  const stats = (await pool.query(
+    `SELECT count(*) FILTER (WHERE lifecycle_status='scheduled' AND starts_at>=date_trunc('week',now()) AND starts_at<date_trunc('week',now())+interval '1 week')::int AS week,
+      count(DISTINCT user_id) FILTER (WHERE lifecycle_status='completed')::int AS students FROM courses WHERE teacher_id=$1`, [teacherId],
+  )).rows[0];
+  const rating = (await pool.query("SELECT round(avg(rating),1) AS rating FROM reviews WHERE teacher_id=$1", [teacherId])).rows[0]?.rating;
   const needsConfirmed = Boolean(t.needs_confirmed);
   const oppCount = needsConfirmed
     ? (await pool.query(
@@ -458,11 +468,11 @@ api.get("/teacher/dashboard", wrap(async (_req, res) => {
     [teacherId],
   )).rows[0].n;
   res.json({
-    name: t.name, revenue: p.revenue, trend: p.trend,
+    name: t.name, revenue: earnings.summary.due, trend: "—",
     stats: [
-      { value: p.courses_per_week, label: "cours / semaine" },
-      { value: p.rating_label, label: "note moyenne" },
-      { value: p.new_students, label: "nouveaux élèves" },
+      { value: String(stats.week), label: "cours cette semaine" },
+      { value: rating == null ? "—" : String(rating), label: "note moyenne" },
+      { value: String(stats.students), label: "élèves accompagnés" },
     ],
     pendingRequests: oppCount + legacyCount,
     needsConfirmed,
@@ -485,16 +495,16 @@ api.get("/teacher/requests", wrap(async (_req, res) => {
   // Offres publiées (besoins parents) — gains nets affichés au prof.
   const opportunities = needsConfirmed
     ? await pool.query(
-    `SELECT n.id AS "needId", n.id AS "courseId", c.name AS student, n.subject, n.level,
-            n.location, n.format, n.frequency, n.duration,
+    `SELECT n.id AS "needId", n.id AS "courseId", n.level AS student, n.subject, n.level,
+            NULL::text AS location, n.format, n.frequency, n.duration,
             n.net_teacher_amount AS price, n.net_teacher_hourly AS "netHourly",
             n.start_date AS "startDate", n.availability_week AS "availabilityWeek",
             n.availability_weekend AS "availabilityWeekend",
             n.availability_holidays AS "availabilityHolidays",
             n.has_cat AS "hasCat", n.has_dog AS "hasDog",
-            n.lat, n.lng,
+            NULL::numeric AS lat, NULL::numeric AS lng,
             'nouveau' AS ago,
-            COALESCE(n.location, CASE n.format WHEN 'online' THEN 'En ligne' ELSE 'À domicile' END) AS slot
+            CASE n.format WHEN 'online' THEN 'En ligne' ELSE 'À domicile · coordonnées après acceptation' END AS slot
      FROM course_needs n
      LEFT JOIN children c ON c.id = n.child_id
      WHERE n.status = 'published' AND n.teacher_id IS NULL
@@ -504,7 +514,7 @@ api.get("/teacher/requests", wrap(async (_req, res) => {
   // Réservations legacy encore en attente pour ce prof.
   const live = await pool.query(
     `SELECT c.id AS "courseId", NULL::int AS "needId", u.initials, 'green' AS accent, u.full_name AS name,
-            'nouveau' AS ago, c.price, c.level AS student, c.subject,
+            'nouveau' AS ago, COALESCE(c.teacher_net_amount,c.price) AS price, c.level AS student, c.subject,
             (c.day_label || ' ' || c.day_num || ' · ' || c.time) AS slot,
             CASE c.format WHEN 'online' THEN 'En ligne'
                           ELSE COALESCE(c.location, 'À domicile') END AS format
@@ -556,23 +566,15 @@ api.post("/teacher/requests/:id/accept", wrap(async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    await client.query("SELECT id FROM teachers WHERE id=$1 FOR UPDATE", [teacherId]);
-    const course = (await client.query(
-      "SELECT * FROM courses WHERE id=$1 AND teacher_id=$2 AND accepted=FALSE AND status='upcoming' FOR UPDATE",
-      [req.params.id,teacherId],
-    )).rows[0];
-    if (!course) { await client.query("ROLLBACK"); res.status(404).json({ error: "not_found" }); return; }
+    const course = await lockCourse(client, Number(req.params.id), actorFromResponse(res));
+    if (course.teacher_id !== teacherId || course.accepted || course.lifecycle_status !== "requested") { await client.query("ROLLBACK"); res.status(404).json({ error: "not_found" }); return; }
     if (course.starts_at) {
       if (new Date(course.starts_at).getTime() <= Date.now()) throw new AuthError(409, "slot_expired", "Ce créneau est passé");
-      const conflict = await client.query(
-        `SELECT id FROM courses WHERE teacher_id=$1 AND accepted=TRUE AND status='upcoming'
-         AND starts_at < $2::timestamptz + ($3 * interval '1 minute')
-         AND starts_at + (COALESCE(duration_minutes,90) * interval '1 minute') > $2::timestamptz`,
-        [teacherId,course.starts_at,course.duration_minutes ?? 90],
-      );
-      if (conflict.rowCount) throw new AuthError(409, "slot_unavailable", "Ce créneau est déjà réservé");
+      await assertSlotFree(client, course, new Date(course.starts_at));
     }
-    await client.query("UPDATE courses SET accepted=TRUE,badge='Confirmé' WHERE id=$1", [course.id]);
+    await client.query("UPDATE courses SET accepted=TRUE,badge=$2,lifecycle_status=$3,updated_at=now() WHERE id=$1",
+      [course.id,course.starts_at ? "Confirmé" : "À planifier",course.starts_at ? "scheduled" : "awaiting_schedule"]);
+    await courseEvent(client, course.id, actorFromResponse(res), "teacher_accepted");
     await client.query(
       `INSERT INTO notifications(user_id,icon,accent,text,time_ago,unread,section)
        VALUES ($1,'seal','green',$2,'à l''instant',TRUE,'today')`,
@@ -587,13 +589,13 @@ api.post("/teacher/requests/:id/accept", wrap(async (req, res) => {
 // Refus d'une demande réelle : le prof décline la réservation (status='refused').
 api.post("/teacher/requests/:id/refuse", wrap(async (req, res) => {
   const teacherId = await currentTeacherId(res);
-  const r = await pool.query(
-    `UPDATE courses SET status = 'refused', badge = 'Refusé'
-     WHERE id = $1 AND teacher_id = $2 AND accepted = FALSE AND status = 'upcoming' RETURNING id, user_id, subject`,
-    [req.params.id, teacherId]
-  );
-  const c = r.rows[0];
-  if (!c) { res.status(404).json({ error: "not_found" }); return; }
+  const c = await inTransaction(async client => {
+    const course = await lockCourse(client, Number(req.params.id), actorFromResponse(res));
+    if (course.teacher_id !== teacherId || course.accepted || course.lifecycle_status !== "requested") throw new AuthError(404,"not_found","Cours introuvable");
+    await client.query("UPDATE courses SET status='refused',lifecycle_status='refused',badge='Refusé',updated_at=now() WHERE id=$1", [course.id]);
+    await courseEvent(client, course.id, actorFromResponse(res), "teacher_refused");
+    return course;
+  });
   await notifyParent(c.user_id, "calendar", "orange",
     `Votre demande de cours${c.subject ? ` de ${c.subject}` : ""} n'a pas été retenue`);
   res.json({ ok: true, courseId: c.id });
@@ -601,25 +603,7 @@ api.post("/teacher/requests/:id/refuse", wrap(async (req, res) => {
 
 api.get("/teacher/earnings", wrap(async (_req, res) => {
   const teacherId = await currentTeacherId(res);
-  const p = (await pool.query("SELECT * FROM teacher_profiles WHERE teacher_id=$1", [teacherId])).rows[0];
-  if (!p) { res.status(404).json({ error: "not_found" }); return; }
-  const weeks = (await pool.query(
-    "SELECT label, fraction AS f FROM teacher_earning_weeks WHERE teacher_id=$1 ORDER BY ord, id", [teacherId]
-  )).rows;
-  const payouts = (await pool.query(
-    `SELECT provider, payout_date AS date, amount, color
-     FROM teacher_payouts WHERE teacher_id=$1 ORDER BY ord, id`, [teacherId]
-  )).rows;
-  res.json({
-    total: p.earnings_total, trend: p.earnings_trend,
-    weeks,
-    stats: [
-      { value: p.courses_given, label: "cours donnés" },
-      { value: p.hours_taught, label: "enseignées" },
-      { value: p.avg_per_hour, label: "F / h moyen" },
-    ],
-    payouts,
-  });
+  res.json(await teacherEarnings(teacherId));
 }));
 
 registerTeacherProfileRoutes(api, { wrap, currentTeacherId, currentUserId });
@@ -630,6 +614,8 @@ registerTeacherProfileRoutes(api, { wrap, currentTeacherId, currentUserId });
 // ============================================================================ *
 const admin = Router();
 admin.use(requireAdmin);
+registerCourseLifecycleRoutes(api, admin);
+registerFinanceRoutes(api, admin);
 
 // --- Matières (permet d'ajouter musique, langues autres que FR/EN, etc.) ---
 admin.post("/subjects", wrap(async (req, res) => {
@@ -804,29 +790,53 @@ admin.put("/legal/:slug", wrap(async (req, res) => {
   const mimeType = optionalString(b, "mimeType", { max: 100 });
   const contentBase64 = optionalString(b, "contentBase64", { max: 20_000_000 });
 
-  // Le document doit exister (slug connu : cgu | confidentialite | mentions-legales).
-  const existing = (await pool.query("SELECT slug FROM legal_documents WHERE slug=$1", [req.params.slug])).rows[0];
-  if (!existing) { res.status(404).json({ error: "not_found" }); return; }
-
-  // Si un fichier est fourni, on le téléverse (MinIO, repli BYTEA).
-  let setFile = "";
-  const params: any[] = [req.params.slug, title ?? null, version ?? null];
-  if (contentBase64) {
-    const buffer = Buffer.from(contentBase64, "base64");
-    const storageKey = await putFile(buffer, mimeType ?? null, fileName ?? null);
-    const content = storageKey ? null : buffer;
-    params.push(fileName ?? null, mimeType ?? null, buffer.length, content, storageKey);
-    setFile = `, file_name=$4, mime_type=$5, size_bytes=$6, content=$7, storage_key=$8`;
+  if (version !== undefined && !version.trim()) throw new ValidationError("version", "version non vide requise");
+  let file: Buffer | null = null;
+  if (contentBase64 !== undefined) {
+    const encoded = contentBase64.replace(/\s/g, "");
+    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(encoded) || encoded.length % 4 !== 0) throw new ValidationError("contentBase64", "fichier base64 invalide");
+    file = Buffer.from(encoded, "base64");
+    if (file.length < 8 || file.length > 8 * 1024 * 1024 || file.subarray(0,5).toString("ascii") !== "%PDF-") {
+      throw new ValidationError("contentBase64", "document PDF non vide de 8 Mo maximum requis");
+    }
+    if (mimeType && mimeType !== "application/pdf") throw new ValidationError("mimeType", "un PDF est requis pour un document légal");
   }
-  const r = await pool.query(
-    `UPDATE legal_documents
-        SET title = COALESCE($2, title), version = COALESCE($3, version),
-            updated_at = now(), updated_by = ${currentUserId(res)}${setFile}
-      WHERE slug = $1
-      RETURNING slug, title, version, file_name, size_bytes, updated_at`,
-    params
-  );
-  res.json(r.rows[0]);
+  let uploadedKey: string | null = null;
+  try {
+    const result = await inTransaction(async client => {
+      const existing = (await client.query("SELECT * FROM legal_documents WHERE slug=$1 FOR UPDATE", [req.params.slug])).rows[0];
+      if (!existing) throw new AuthError(404, "not_found", "Document introuvable");
+      if (file) uploadedKey = await putFile(file, "application/pdf", fileName ?? `${req.params.slug}.pdf`, "legal");
+      const row = (await client.query(
+        `UPDATE legal_documents SET title=COALESCE($2,title),version=COALESCE($3,version),updated_at=now(),updated_by=$4,
+         file_name=CASE WHEN $5 THEN $6 ELSE file_name END,mime_type=CASE WHEN $5 THEN 'application/pdf' ELSE mime_type END,
+         size_bytes=CASE WHEN $5 THEN $7::int ELSE size_bytes END,content=CASE WHEN $5 THEN $8::bytea ELSE content END,
+         storage_key=CASE WHEN $5 THEN $9::text ELSE storage_key END WHERE slug=$1
+         RETURNING slug,title,version,revision_id,file_name,size_bytes,updated_at`,
+        [req.params.slug,title?.trim() ?? null,version?.trim() ?? null,currentUserId(res),Boolean(file),fileName ?? `${req.params.slug}.pdf`,
+          file?.length ?? null,uploadedKey ? null : file,uploadedKey],
+      )).rows[0];
+      // Le trigger de révision invalide la revue seulement si le document change.
+      return row;
+    });
+    invalidateReadiness();
+    res.json(result);
+  } catch (error) {
+    if (uploadedKey) await removeFile(uploadedKey);
+    throw error;
+  }
+}));
+
+admin.get("/legal/:slug/versions", wrap(async (req, res) => {
+  const rows = (await pool.query(`SELECT slug,revision_id,title,version,file_name,size_bytes,published_at,published_by
+    FROM legal_document_versions WHERE slug=$1 ORDER BY published_at DESC`, [req.params.slug])).rows;
+  res.json(rows);
+}));
+admin.get("/legal/:slug/versions/:revision/file", wrap(async (req, res) => {
+  if (!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(req.params.revision)) throw new ValidationError("revision", "révision invalide");
+  const row = (await pool.query("SELECT * FROM legal_document_versions WHERE slug=$1 AND revision_id=$2::uuid", [req.params.slug,req.params.revision])).rows[0];
+  if (!row || (!row.content && !row.storage_key)) throw new AuthError(404,"not_found","Document introuvable");
+  await serveFile(res,row);
 }));
 
 // --- Paramètres plateforme : réseaux sociaux + contact (mise à jour groupée) ---
@@ -836,17 +846,31 @@ admin.put("/settings", wrap(async (req, res) => {
   const updates: [string, string][] = [];
   for (const key of SETTING_KEYS) {
     const v = optionalString(b, key, { max: 300 });
-    if (v !== undefined) updates.push([key, v.trim()]);
+    if (v !== undefined) {
+      if (key === "commission_pct" && (!/^\d{1,3}(?:\.\d{1,2})?$/.test(v.trim()) || Number(v) > 100)) {
+        throw new ValidationError("commission_pct", "pourcentage explicite entre 0 et 100, avec au plus deux décimales");
+      }
+      updates.push([key, v.trim()]);
+    }
   }
-  for (const [key, value] of updates) {
-    await pool.query(
+  await inTransaction(async client => {
+    let sensitiveChanged = false;
+    for (const [key, value] of updates) {
+      const changed = await client.query(
       `INSERT INTO app_settings (key, value, updated_at, updated_by)
        VALUES ($1,$2,now(),$3)
        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value,
-         updated_at = now(), updated_by = EXCLUDED.updated_by`,
+         updated_at = now(), updated_by = EXCLUDED.updated_by
+       WHERE app_settings.value IS DISTINCT FROM EXCLUDED.value RETURNING key`,
       [key, value, currentUserId(res)]
-    );
-  }
+      );
+      if (changed.rowCount && ["commission_pct","contact_email","contact_phone"].includes(key)) sensitiveChanged = true;
+    }
+    if (sensitiveChanged) {
+      await client.query("DELETE FROM production_checks WHERE check_key IN ('provider_e2e','legal_review')");
+    }
+  });
+  invalidateReadiness();
   const r = await pool.query("SELECT key, value FROM app_settings");
   const out: Record<string, string> = {};
   for (const k of SETTING_KEYS) out[k] = "";
@@ -904,14 +928,23 @@ function strArray(body: any, field: string): string[] | undefined {
   return v;
 }
 
+admin.get("/teachers", wrap(async (req, res) => {
+  const includeArchived = req.query.includeArchived === "true";
+  const rows = (await pool.query(`SELECT t.*,
+    EXISTS(SELECT 1 FROM users u WHERE u.teacher_id=t.id AND u.role='teacher' AND u.deleted_at IS NULL) AS "hasActiveAccount"
+    FROM teachers t WHERE ($1 OR t.archived_at IS NULL) ORDER BY t.id DESC`, [includeArchived])).rows;
+  res.json(rows);
+}));
+
 admin.post("/teachers", wrap(async (req, res) => {
   const b = req.body ?? {};
   const name = requiredString(b, "name", { max: 120 });
   const subjects = requiredString(b, "subjects", { max: 200 });
   const location = optionalString(b, "location", { max: 120 }) ?? "Abidjan";
   const pricePerHour = optionalNumber(b, "pricePerHour", { min: 0, max: 1_000_000 }) ?? 4000;
-  const rating = optionalNumber(b, "rating", { min: 0, max: 5 }) ?? 5.0;
-  const reviewsCount = optionalNumber(b, "reviewsCount", { min: 0 }) ?? 0;
+  // Les notes ne sont créées que par des avis de cours réellement réalisés.
+  const rating = 0;
+  const reviewsCount = 0;
   const accent = optionalEnum(b, "accent", ["green", "orange"]) ?? "green";
   const experience = optionalString(b, "experience", { max: 40 });
   const students = optionalString(b, "students", { max: 40 });
@@ -943,8 +976,8 @@ admin.put("/teachers/:id", wrap(async (req, res) => {
   const subjects = optionalString(b, "subjects", { max: 200 });
   const location = optionalString(b, "location", { max: 120 });
   const pricePerHour = optionalNumber(b, "pricePerHour", { min: 0, max: 1_000_000 });
-  const rating = optionalNumber(b, "rating", { min: 0, max: 5 });
-  const reviewsCount = optionalNumber(b, "reviewsCount", { min: 0 });
+  const rating = null;
+  const reviewsCount = null;
   const accent = optionalEnum(b, "accent", ["green", "orange"]);
   const experience = optionalString(b, "experience", { max: 40 });
   const students = optionalString(b, "students", { max: 40 });
@@ -963,8 +996,8 @@ admin.put("/teachers/:id", wrap(async (req, res) => {
   const r = await pool.query(
     `UPDATE teachers SET
         name = COALESCE($2,name), subjects = COALESCE($3,subjects), location = COALESCE($4,location),
-        price_per_hour = COALESCE($5,price_per_hour), rating = COALESCE($6,rating),
-        reviews_count = COALESCE($7,reviews_count), accent = COALESCE($8,accent),
+        price_per_hour = COALESCE($5,price_per_hour), rating = COALESCE($6,(SELECT COALESCE(round(avg(rating),1),0) FROM reviews WHERE teacher_id=teachers.id)),
+        reviews_count = COALESCE($7,(SELECT count(*) FROM reviews WHERE teacher_id=teachers.id)), accent = COALESCE($8,accent),
         experience = COALESCE($9,experience), students = COALESCE($10,students),
         bac_success = COALESCE($11,bac_success), bio = COALESCE($12,bio),
         levels = COALESCE($13,levels), formats = COALESCE($14,formats),
@@ -983,7 +1016,7 @@ admin.put("/teachers/:id", wrap(async (req, res) => {
 }));
 
 admin.delete("/teachers/:id", wrap(async (req, res) => {
-  const r = await pool.query("DELETE FROM teachers WHERE id=$1 RETURNING id", [req.params.id]);
+  const r = await pool.query("UPDATE teachers SET archived_at=now(),verified=FALSE WHERE id=$1 AND archived_at IS NULL RETURNING id", [req.params.id]);
   if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
   res.status(204).end();
 }));
@@ -1067,7 +1100,7 @@ admin.delete("/groups/:id", wrap(async (req, res) => {
 }));
 
 registerAdminNeedsRoutes(admin, { serveFile });
-registerTeacherApplicationRoutes(api, admin, { wrap, serveFile, consentVersion: CONSENT_VERSION });
+registerTeacherApplicationRoutes(api, admin, { wrap, serveFile });
 
 api.use("/admin", admin);
 
@@ -1077,5 +1110,5 @@ api.get("/referral", wrap(async (_req, res) => {
     "SELECT code, referred, earned FROM referrals WHERE user_id=$1 ORDER BY id DESC LIMIT 1",
     [currentUserId(res)]
   );
-  res.json(r.rows[0] ?? { code: "AYA2026", referred: 0, earned: 0 });
+  res.json({ ...(r.rows[0] ?? { code: "", referred: 0, earned: 0 }), available: false });
 }));

@@ -61,7 +61,7 @@ data class TeacherDto(
     val reviews: List<ReviewDto>? = null,
 ) {
     val priceLabel: String get() = "%,d F".format(pricePerHour).replace(',', ' ')
-    val ratingLabel: String get() = rating.toString().replace('.', ',')
+    val ratingLabel: String get() = if (reviewsCount > 0) rating.toString().replace('.', ',') else "Pas encore noté"
 }
 
 data class ReviewDto(
@@ -95,6 +95,13 @@ data class CourseDto(
     @SerializedName("payment_status") val paymentStatus: String? = null,
     val accepted: Boolean = false,
     @SerializedName("starts_at") val startAt: String? = null,
+    @SerializedName("lifecycle_status") val lifecycleStatus: String? = null,
+    @SerializedName("private_address") val privateAddress: String? = null,
+    @SerializedName("meeting_url") val meetingUrl: String? = null,
+    @SerializedName("access_notes") val accessNotes: String? = null,
+    @SerializedName("parent_name") val parentName: String? = null,
+    @SerializedName("duration_minutes") val durationMinutes: Int? = null,
+    @SerializedName("participant_role") val participantRole: String? = null,
 )
 
 data class BookingResponse(
@@ -145,7 +152,9 @@ data class ProgressDto(
     val trend: String,
     val goal: String,
     val subjects: List<ProgressSubjectDto>,
+    val entries: List<ProgressEntryDto>? = null,
 )
+data class ProgressEntryDto(val courseId: Int, val subject: String, val teacherName: String, val studentName: String?, val completedAt: String?, val summary: String)
 
 data class ProgressSubjectDto(
     val subject: String,
@@ -249,6 +258,7 @@ data class ChildDto(
 
 data class NeedDto(
     val id: Int,
+    val courseId: Int? = null,
     val reference: String,
     @SerializedName("childId") val childId: Int? = null,
     val child: ChildDto? = null,
@@ -276,7 +286,38 @@ data class TeacherEarningsDto(
     val weeks: List<EarningWeekDto>,
     val stats: List<StatDto>,
     val payouts: List<PayoutDto>,
+    val summary: EarningsSummaryDto? = null,
+    val payoutRequests: List<FinanceRequestDto>? = null,
 )
+
+data class EarningsSummaryDto(val expected: Int, val due: Int, val releasable: Int, val reserved: Int, val paid: Int)
+data class FinanceRequestDto(
+    val id: Int, val amount: Int, val status: String, val provider: String?,
+    val providerReference: String?, val createdAt: String?, val reason: String?,
+    val beneficiaryPhone: String? = null,
+)
+data class CourseContactsDto(val parentPhone: String?, val teacherPhone: String?)
+data class ScheduleRequestDto(val id: Int, val startAt: String, val status: String, val proposedBy: Int, val reason: String?, val createdAt: String?)
+data class CourseReportDto(val id: Int, val actorRole: String, val outcome: String, val note: String?, val progressSummary: String?, val createdAt: String?)
+data class CourseEventDto(val id: Int, val type: String, val actorRole: String?, val createdAt: String?)
+data class CourseFinanceDto(
+    val grossAmount: Int, val commissionPct: Double?, val commissionAmount: Int?,
+    val teacherNetAmount: Int?, val capturedAmount: Int, val refundAmount: Int,
+    val refundPendingAmount: Int, val teacherDue: Int?, val teacherReleasable: Int,
+    val teacherReserved: Int, val teacherPaid: Int, val reviewRequired: Boolean,
+)
+data class CourseDetailsDto(
+    val course: CourseDto, val contacts: CourseContactsDto,
+    val scheduleRequests: List<ScheduleRequestDto>, val reports: List<CourseReportDto>,
+    val events: List<CourseEventDto>, val finance: CourseFinanceDto, val permissions: List<String>,
+)
+data class AccountDeletionRequestDto(val id: Int, val status: String, val requestedAt: String, val completedAt: String?, val cancelledAt: String?)
+data class AccountBlockerDto(val code: String, val message: String, val count: Int?)
+data class AccountDeletionDto(val request: AccountDeletionRequestDto?, val blockers: List<AccountBlockerDto>)
+data class NotificationPreferencesDto(val notificationsWhatsapp: Boolean, val notificationsEmail: Boolean, val whatsappAvailable: Boolean, val emailAvailable: Boolean)
+data class ConsentDocumentDto(val slug: String, val title: String, val version: String)
+data class AccountConsentDto(val version: String, val accepted: Boolean, val documents: List<ConsentDocumentDto>)
+data class ApiFailureDto(val error: String?, val message: String?)
 
 data class UserDto(
     val id: Int,
@@ -308,6 +349,7 @@ data class OtpChannelsDto(
     val defaultChannel: String,
     val codeLength: Int,
     val ttlMinutes: Int,
+    val consentVersion: String? = null,
 )
 
 data class RequestOtpResponse(

@@ -14,6 +14,16 @@ val keystoreProperties = Properties().apply {
     }
 }
 
+// CI et poste de publication peuvent fournir les secrets sans fichier versionné.
+fun signingValue(key: String, variable: String): String? =
+    providers.environmentVariable(variable).orNull?.takeIf { it.isNotBlank() }
+        ?: (keystoreProperties[key] as? String)?.takeIf { it.isNotBlank() }
+val releaseStorePath = signingValue("storeFile", "MPP_ANDROID_KEYSTORE")
+val releaseStorePassword = signingValue("storePassword", "MPP_ANDROID_STORE_PASSWORD")
+val releaseKeyAlias = signingValue("keyAlias", "MPP_ANDROID_KEY_ALIAS")
+val releaseKeyPassword = signingValue("keyPassword", "MPP_ANDROID_KEY_PASSWORD")
+val releaseSigningReady = listOf(releaseStorePath, releaseStorePassword, releaseKeyAlias, releaseKeyPassword).all { !it.isNullOrBlank() }
+
 // -PdevApiUrl=... / -PstagingApiUrl=... / -PproductionApiUrl=... pour chaque environnement.
 fun apiUrl(propertyName: String, defaultUrl: String, requireHttps: Boolean = false): String {
     val value = providers.gradleProperty(propertyName).getOrElse(defaultUrl).trimEnd('/') + "/"
@@ -26,14 +36,14 @@ fun apiUrl(propertyName: String, defaultUrl: String, requireHttps: Boolean = fal
 
 android {
     namespace = "ci.monprofperso.app"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "ci.monprofperso.app"
         minSdk = 24
-        targetSdk = 35
-        versionCode = 2
-        versionName = "1.0.1"
+        targetSdk = 36
+        versionCode = providers.gradleProperty("releaseVersionCode").getOrElse("3").toInt()
+        versionName = providers.gradleProperty("releaseVersionName").getOrElse("1.1.0")
         vectorDrawables { useSupportLibrary = true }
         ndk {
             // Symboles natifs inclus dans l'AAB pour Play Console (crash/ANR).
@@ -42,12 +52,12 @@ android {
     }
 
     signingConfigs {
-        if (keystorePropertiesFile.exists()) {
+        if (releaseSigningReady) {
             create("release") {
-                keyAlias = keystoreProperties["keyAlias"] as String
-                keyPassword = keystoreProperties["keyPassword"] as String
-                storeFile = rootProject.file(keystoreProperties["storeFile"] as String)
-                storePassword = keystoreProperties["storePassword"] as String
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+                storeFile = rootProject.file(releaseStorePath!!)
+                storePassword = releaseStorePassword
             }
         }
     }
@@ -73,7 +83,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            if (keystorePropertiesFile.exists()) {
+            if (releaseSigningReady) {
                 signingConfig = signingConfigs.getByName("release")
             }
         }
@@ -86,6 +96,15 @@ android {
     buildFeatures { compose = true; buildConfig = true }
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
+    }
+}
+
+// Une compilation de contrôle reste possible ; un livrable Release doit être signé.
+gradle.taskGraph.whenReady {
+    if (allTasks.any { it.name in setOf("assembleRelease", "bundleRelease", "packageRelease", "signReleaseBundle") }) {
+        check(releaseSigningReady && rootProject.file(releaseStorePath!!).isFile) {
+            "Signature Release absente : configurer MPP_ANDROID_KEYSTORE, MPP_ANDROID_STORE_PASSWORD, MPP_ANDROID_KEY_ALIAS et MPP_ANDROID_KEY_PASSWORD (ou keystore.properties)."
+        }
     }
 }
 

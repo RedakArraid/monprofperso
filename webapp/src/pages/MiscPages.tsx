@@ -71,7 +71,7 @@ export function WalletPage() {
     <AppShell title="Portefeuille" back="/compte" active="compte">
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
       {empty ? (
-        <Empty>Aucun acompte n&apos;est disponible</Empty>
+        <Empty>Aucune transaction n&apos;est disponible</Empty>
       ) : (
         <PageGrid cols={2}>
           {(data.accounts || []).map((a, i) => (
@@ -310,6 +310,8 @@ export function ContactsPage() {
         <ContentCard>
           <SectionHeading>Liens utiles</SectionHeading>
           <DocLink to="/legal">Documents légaux</DocLink>
+          <DocLink to="/informations-service.html" external>Informations et règles du service</DocLink>
+          <DocLink to="/suppression-compte.html" external>Suppression du compte</DocLink>
           <DocLink to="/ressources">{isTeacher ? "Mes documents" : "Ressources pédagogiques"}</DocLink>
           {data.social_whatsapp ? (
             <DocLink to={data.social_whatsapp} external>

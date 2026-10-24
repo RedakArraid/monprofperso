@@ -189,7 +189,10 @@ test("e2e, espace prof scopé par compte : Koffi ≠ Ibrahim", async () => {
 
   assert.equal(dashK.body.name, "Koffi N'Guessan");
   assert.equal(dashI.body.name, "Ibrahim Diallo");
-  assert.notEqual(dashK.body.revenue, dashI.body.revenue, "chaque prof voit ses propres revenus");
+  const earningsK = (await get("/api/teacher/earnings", koffi.body.token)).body;
+  const earningsI = (await get("/api/teacher/earnings", ibra.body.token)).body;
+  assert.equal(dashK.body.revenue, earningsK.summary.due, "revenu issu du registre du professeur connecté");
+  assert.equal(dashI.body.revenue, earningsI.summary.due, "aucun montant de démonstration inventé");
 
   // Un compte non relié à une fiche validée ne peut accéder aux données d’un professeur.
   const fresh = await signup("teacher");

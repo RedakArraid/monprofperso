@@ -18,19 +18,19 @@ struct WelcomeScreen: View {
                 }
                 .padding(.top, 14)
 
-                Text("Le bon prof,\nchez vous ou\nen ligne.")
+                Text("Votre prof,\nvotre rythme,\nvotre réussite.")
                     .font(AkFont.schibstedExtra(39)).foregroundColor(.white)
                     .lineSpacing(2).padding(.top, 48)
-                Text("Soutien scolaire du CP à la Terminale, avec des professeurs vérifiés partout en Côte d'Ivoire.")
+                Text("Trouvez un professeur, organisez vos cours et suivez l’accompagnement de votre enfant en Côte d’Ivoire.")
                     .font(AkFont.regular(15.5)).foregroundColor(Ak.onGreenSoft)
                     .lineSpacing(4).frame(maxWidth: 300, alignment: .leading).padding(.top, 18)
 
                 HStack(spacing: 14) {
-                    stat("2 500+", "professeurs")
+                    stat("Cours", "individuels")
                     Rectangle().fill(Ak.greenLine).frame(width: 1, height: 34)
-                    stat("4,9★", "note moyenne")
+                    stat("Suivi", "personnalisé")
                     Rectangle().fill(Ak.greenLine).frame(width: 1, height: 34)
-                    stat("18", "villes")
+                    stat("Simple", "à organiser")
                 }.padding(.top, 28)
 
                 Spacer()
@@ -84,12 +84,13 @@ struct WelcomeScreen: View {
 struct SignupScreen: View {
     @EnvironmentObject var router: Router
     @State private var consent = false
+    @State private var consentVersion: String?
     @State private var parentalConsent = false
     @State private var sending = false
     @State private var error: String?
     private var isStudent: Bool { router.role == 1 }
     private var canSubmit: Bool {
-        consent && (!isStudent || parentalConsent)
+        consentVersion != nil && consent && (!isStudent || parentalConsent)
             && !router.authFullName.trimmingCharacters(in: .whitespaces).isEmpty
             && router.authPhone.filter(\.isNumber).count >= 10 && !sending
     }
@@ -116,6 +117,7 @@ struct SignupScreen: View {
                         Button("Modifier") { router.back() }.font(AkFont.bold(12)).foregroundColor(Ak.green)
                     }.padding(14).background(Ak.greenSoft).clipShape(RoundedRectangle(cornerRadius: 12))
                     consentCheckboxLinked
+                    if consentVersion == nil { Button("Recharger les conditions") { Task { await loadConsentVersion() } }.disabled(sending) }
                     if isStudent {
                         Toggle("Je confirme avoir le consentement d'un parent ou tuteur légal.", isOn: $parentalConsent)
                             .font(AkFont.regular(12.5)).tint(Ak.green)
@@ -125,7 +127,7 @@ struct SignupScreen: View {
             }
             VStack(spacing: 13) {
                 PrimaryButton(label: sending ? "Envoi…" : "Créer mon compte", color: canSubmit ? Ak.green : Ak.border) {
-                    guard canSubmit else { return }
+                    guard canSubmit, let version = consentVersion else { return }
                     sending = true; error = nil
                     Task { @MainActor in
                         defer { sending = false }
@@ -133,16 +135,23 @@ struct SignupScreen: View {
                             let result = try await ApiClient.shared.signup(
                                 fullName: router.authFullName.trimmingCharacters(in: .whitespaces),
                                 phone: ApiClient.normalizePhone(router.authPhone), roleIndex: router.role,
-                                consent: consent, parentalConsent: parentalConsent,
+                                consent: consent, parentalConsent: parentalConsent, consentVersion: version,
                                 email: router.authEmail.isEmpty ? nil : router.authEmail)
                             router.applyAuth(result)
-                        } catch { self.error = error.localizedDescription }
+                        } catch {
+                            self.error = error.localizedDescription
+                            if (error as? ApiError)?.consentCode == "consent_version_changed" {
+                                consent = false; parentalConsent = false; consentVersion = nil
+                                await loadConsentVersion()
+                            }
+                        }
                     }
                 }.disabled(!canSubmit)
                 Button("Déjà un compte ? Se connecter") { router.go(.login) }
                     .font(AkFont.bold(13)).foregroundColor(Ak.green)
             }.padding(.horizontal, 24).padding(.vertical, 12)
         }
+        .task { await loadConsentVersion() }
         .environment(\.openURL, OpenURLAction { url in
             if url.path.contains("/api/legal/") {
                 let title = url.path.contains("/cgu/") ? "Conditions d'utilisation" : "Politique de confidentialité"
@@ -161,8 +170,19 @@ struct SignupScreen: View {
             Button { consent.toggle() } label: {
                 Image(systemName: consent ? "checkmark.square.fill" : "square")
                     .font(.system(size: 23)).foregroundColor(Ak.green)
-            }.accessibilityLabel("Accepter les CGU et la politique de confidentialité")
+            }.disabled(consentVersion == nil || sending).accessibilityLabel("Accepter les CGU et la politique de confidentialité")
             Text(text).font(AkFont.regular(12.5)).foregroundColor(Ak.muted).tint(Ak.green)
+        }
+    }
+
+    @MainActor private func loadConsentVersion() async {
+        do {
+            let version = try await ApiClient.shared.currentConsentVersion()
+            if version != consentVersion { consent = false; parentalConsent = false }
+            consentVersion = version
+        } catch {
+            consent = false; consentVersion = nil
+            self.error = "Impossible de charger les conditions actuelles. Réessayez avant de créer le compte."
         }
     }
 }

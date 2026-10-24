@@ -1,3 +1,4 @@
+import { useCapabilities } from "@/lib/capabilities";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AppShell, OfflineBanner, Empty, ContentCard, PageStack, PageGrid, SectionHeading } from "@/components/layout";
@@ -18,6 +19,7 @@ type Child = { id: number; name: string; level?: string; school?: string };
 type Need = {
   id: number;
   reference?: string;
+  courseId?: number | null;
   subject: string;
   level: string;
   format?: string;
@@ -123,6 +125,8 @@ export function ChildrenPage() {
 }
 
 export function ExpressNeedPage() {
+  const { capabilities } = useCapabilities();
+  const [format, setFormat] = useState("home");
   const navigate = useNavigate();
   const [children, setChildren] = useState<Child[]>([]);
   const [err, setErr] = useState("");
@@ -192,14 +196,14 @@ export function ExpressNeedPage() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-welcome">Format</Label>
-                <Select name="format" defaultValue="home">
+                <Select name="format" value={format} onChange={(e) => setFormat(e.target.value)}>
                   <option value="home">À domicile</option>
-                  <option value="online">En ligne</option>
+                  {capabilities.onlineCourses ? <option value="online">En ligne (lien externe)</option> : null}
                 </Select>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-welcome">Lieu</Label>
-                <Input name="location" placeholder="Cocody" />
+                <Input name="location" required={format === "home"} maxLength={200} placeholder="Commune / quartier" />
               </div>
               <div className="space-y-1.5 sm:col-span-2">
                 <Label className="text-welcome">Précisions</Label>
@@ -222,6 +226,8 @@ export function ExpressNeedPage() {
 }
 
 export function MyNeedsPage() {
+  const [busy, setBusy] = useState<number | null>(null);
+  const [error, setError] = useState("");
   const { data, offline, reload } = useLive<Need[]>("/api/needs", []);
   const [msg, setMsg] = useState("");
 
@@ -234,6 +240,7 @@ export function MyNeedsPage() {
         </Button>
         {msg ? <p className="text-sm font-semibold text-primary">{msg}</p> : null}
       </div>
+      {error ? <p role="alert" className="mb-4 text-sm text-destructive">{error}</p> : null}
       {!data.length ? <Empty>Aucune demande n&apos;a été trouvée</Empty> : null}
       <PageGrid>
         {data.map((n) => (
@@ -261,22 +268,32 @@ export function MyNeedsPage() {
                 Voir mon document
               </Button>
             ) : null}
+            {n.courseId ? <Button asChild size="sm" variant="outline"><Link to={`/cours/${n.courseId}`}>Ouvrir le cours et son planning</Link></Button> : null}
             {n.status === "priced" ? (
               <Button
                 size="sm"
+                disabled={busy !== null || offline}
                 onClick={async () => {
+                  if (busy !== null) return; setBusy(n.id); setError("");
                   try {
                     await api(`/api/needs/${n.id}/accept-price`, { method: "POST", body: {} });
                     setMsg("Tarif accepté");
                     void reload();
                   } catch (ex) {
-                    setMsg(ex instanceof Error ? ex.message : "Erreur");
-                  }
+                    setError(ex instanceof Error ? ex.message : "Erreur");
+                  } finally { setBusy(null); }
                 }}
               >
                 Accepter le tarif
               </Button>
             ) : null}
+            {["submitted", "priced", "published"].includes(n.status) ? <Button size="sm" variant="outline" disabled={busy !== null || offline} onClick={async () => {
+              if (busy !== null || !window.confirm("Annuler cette demande de cours ?")) return;
+              setBusy(n.id); setError("");
+              try { await api(`/api/needs/${n.id}/cancel`, { method: "POST", body: {} }); setMsg("Demande annulée"); await reload(); }
+              catch (ex) { setError(ex instanceof Error ? ex.message : "Annulation impossible"); }
+              finally { setBusy(null); }
+            }}>Annuler la demande</Button> : null}
           </ContentCard>
         ))}
       </PageGrid>

@@ -4,10 +4,6 @@ import UniformTypeIdentifiers
 private struct DocPick { let name: String; let mime: String; let b64: String }
 private struct ProgramPick: Identifiable { let slug: String; let name: String; var id: String { slug } }
 
-private func normalizePhone(_ raw: String) -> String {
-    ApiClient.normalizePhone(raw)
-}
-
 private let otherLabel = "Autre"
 private let otherProgramSlug = "__autre__"
 private let appLocations = ["Cocody", "Plateau", "Yopougon", "Marcory", "Treichville", "Abobo", "Adjamé", "Koumassi", "Port-Bouët", "Bingerville", "Anyama", "Autre (Abidjan)"]
@@ -38,6 +34,7 @@ struct BecomeTeacherScreen: View {
     @State private var phone = ""
     @State private var email = ""
     @State private var consent = false
+    @State private var consentVersion: String?
     @State private var subjectNames: [String] = ["Maths", "Physique", "Français", "Anglais", "SVT", "Philo", "Hist-Géo"]
     @State private var levelNames: [String] = ["Primaire", "Collège", "Lycée", "Professionnel", "Supérieur", "Université"]
     @State private var selectedSubjects = Set<String>()
@@ -87,6 +84,7 @@ struct BecomeTeacherScreen: View {
             }
         }
         .task { await loadCatalog() }
+        .task { await loadConsentVersion() }
     }
 
     private var stepTitle: String {
@@ -122,7 +120,10 @@ struct BecomeTeacherScreen: View {
                 .font(AkFont.regular(13)).foregroundColor(Ak.muted).padding(.top, 6)
             Toggle(isOn: $consent) {
                 Text("J'accepte les CGU et la politique de confidentialité.").font(AkFont.regular(13)).foregroundColor(Ak.ink)
-            }.padding(.top, 14)
+            }.disabled(consentVersion == nil || loading).padding(.top, 14)
+            Button("Lire les conditions d'utilisation") { router.go(.pdfViewer(url: ApiConfig.baseURL.appendingPathComponent("api/legal/cgu/file").absoluteString, title: "Conditions d'utilisation")) }
+            Button("Lire la politique de confidentialité") { router.go(.pdfViewer(url: ApiConfig.baseURL.appendingPathComponent("api/legal/confidentialite/file").absoluteString, title: "Politique de confidentialité")) }
+            if consentVersion == nil { Button("Recharger les conditions") { Task { await loadConsentVersion() } }.disabled(loading) }
         default:
             EmptyView()
         }
@@ -204,20 +205,33 @@ struct BecomeTeacherScreen: View {
                 err = "Précisez le niveau « Autre »."
             } else { step += 1 }
         case 1:
-            if !consent { err = "Acceptez les conditions." } else { Task { await submit() } }
+            if !consent || consentVersion == nil { err = "Consultez et acceptez les conditions à jour." } else { Task { await submit() } }
         default:
             break
         }
     }
 
-    private func submit() async {
+    @MainActor private func loadConsentVersion() async {
+        do {
+            let version = try await ApiClient.shared.currentConsentVersion()
+            if version != consentVersion { consent = false }
+            consentVersion = version
+        } catch {
+            consentVersion = nil; consent = false
+            err = "Impossible de charger les conditions actuelles. Réessayez avant de candidater."
+        }
+    }
+
+    @MainActor private func submit() async {
+        guard consent, let version = consentVersion else { return }
         loading = true; err = nil
         var json: [String: Any] = [
             "fullName": fullName.trimmingCharacters(in: .whitespaces),
-            "phone": normalizePhone(phone),
+            "phone": ApiClient.normalizePhone(phone),
             "subjects": buildSubjectsString(),
             "levels": buildLevelsList(),
             "consent": true,
+            "consentVersion": version,
         ]
         let em = email.trimmingCharacters(in: .whitespaces)
         if !em.isEmpty { json["email"] = em }
@@ -225,7 +239,10 @@ struct BecomeTeacherScreen: View {
             _ = try await ApiClient.shared.submitTeacherApplication(json)
             done = true
         } catch {
-            err = "Envoi impossible (\(error))"
+            if (error as? ApiError)?.consentCode == "consent_version_changed" {
+                consent = false; consentVersion = nil; await loadConsentVersion()
+            }
+            err = error.localizedDescription
         }
         loading = false
     }

@@ -10,7 +10,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -67,7 +66,7 @@ fun HomeScreen(nav: NavActions, vm: ci.monprofperso.app.data.HomeViewModel = and
         Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 22.dp).padding(top = 8.dp)) {
             // top bar
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                InitialsAvatar("AK", size = 44, radius = 13, fontSize = 17)
+                InitialsAvatar(ci.monprofperso.app.data.AppState.authFullName.split(" ").filter { it.isNotBlank() }.take(2).joinToString("") { it.take(1) }, size = 44, radius = 13, fontSize = 17)
                 Spacer(Modifier.width(11.dp))
                 Column(Modifier.weight(1f)) {
                     Text("Bonjour,", fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted)
@@ -100,23 +99,12 @@ fun HomeScreen(nav: NavActions, vm: ci.monprofperso.app.data.HomeViewModel = and
                 }
                 Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = AkColors.Orange, modifier = Modifier.size(18.dp))
             }
-            // promo banner
             Spacer(Modifier.height(16.dp))
-            Column(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(AkColors.Green).padding(18.dp),
-            ) {
-                Pill("SESSION 2026", AkColors.Green, AkColors.OrangeLight)
-                Spacer(Modifier.height(10.dp))
-                Text("Prépa BEPC & BAC\nen petits groupes", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold,
-                    fontSize = 19.sp, lineHeight = 22.sp, color = AkColors.White)
-                Spacer(Modifier.height(13.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Découvrir", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AkColors.White,
-                        modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(AkColors.Orange)
-                            .clickable { nav.go(Routes.GroupCourses) }.padding(horizontal = 14.dp, vertical = 8.dp))
-                    Spacer(Modifier.width(7.dp))
-                    Text("dès 2 000 F / séance", fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.OnGreenSoft)
-                }
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(AkColors.Green).padding(18.dp)) {
+                Text("Un accompagnement adapté à votre enfant", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold,
+                    fontSize = 19.sp, color = AkColors.White)
+                Text("Choisissez un professeur, convenez d’un créneau et suivez chaque cours depuis votre espace.",
+                    fontFamily = Hanken, color = AkColors.OnGreenSoft, modifier = Modifier.padding(top = 10.dp))
             }
             // matières
             Spacer(Modifier.height(20.dp))
@@ -149,7 +137,7 @@ fun HomeScreen(nav: NavActions, vm: ci.monprofperso.app.data.HomeViewModel = and
             if (data != null && recoTeachers.isEmpty()) Text("Aucun professeur disponible.", fontFamily = Hanken, color = AkColors.Muted)
             recoTeachers.take(2).forEachIndexed { i, t ->
                 if (i > 0) Spacer(Modifier.height(11.dp))
-                RecoTeacher(t.initials, t.name, t.subjects, t.ratingLabel, "${t.reviewsCount} avis", t.location, t.priceLabel, t.accent == "green") { nav.openTeacher(t.id) }
+                RecoTeacher(t.initials, t.name, t.subjects, t.ratingLabel, "${t.reviewsCount} avis", t.location, t.priceLabel, t.accent == "green", t.verified) { nav.openTeacher(t.id) }
             }
             Spacer(Modifier.height(16.dp))
         }
@@ -160,7 +148,7 @@ fun HomeScreen(nav: NavActions, vm: ci.monprofperso.app.data.HomeViewModel = and
 @Composable
 private fun RecoTeacher(
     initials: String, name: String, subjects: String, rating: String, reviews: String,
-    place: String, price: String, green: Boolean, onClick: () -> Unit,
+    place: String, price: String, green: Boolean, verified: Boolean, onClick: () -> Unit,
 ) {
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(AkColors.White)
@@ -168,7 +156,7 @@ private fun RecoTeacher(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         InitialsAvatar(initials, size = 54, bg = if (green) AkColors.GreenSoft else AkColors.OrangeSoft,
-            fg = if (green) AkColors.Green else AkColors.Orange, verified = true)
+            fg = if (green) AkColors.Green else AkColors.Orange, verified = verified)
         Spacer(Modifier.width(13.dp))
         Column(Modifier.weight(1f)) {
             Text(name, fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = AkColors.Ink)
@@ -400,11 +388,10 @@ fun TeacherProfileScreen(nav: NavActions, vm: ci.monprofperso.app.data.TeacherPr
         Column(Modifier.fillMaxWidth().background(AkColors.Green).statusBarsPaddingCompat().padding(horizontal = 22.dp).padding(top = 6.dp, bottom = 22.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 IconSquare(Icons.AutoMirrored.Filled.ArrowBack, bg = AkColors.White.copy(alpha = 0.14f), tint = AkColors.White, onClick = { nav.back() })
-                IconSquare(Icons.Outlined.FavoriteBorder, bg = AkColors.White.copy(alpha = 0.14f), tint = AkColors.White)
             }
             Spacer(Modifier.height(14.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                InitialsAvatar(t.initials, size = 76, radius = 22, fontSize = 27, bg = AkColors.OrangeLight, fg = AkColors.Green, verified = true)
+                InitialsAvatar(t.initials, size = 76, radius = 22, fontSize = 27, bg = AkColors.OrangeLight, fg = AkColors.Green, verified = t.verified)
                 Spacer(Modifier.width(15.dp))
                 Column {
                     Text(t.name, fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, color = AkColors.White)
@@ -427,13 +414,13 @@ fun TeacherProfileScreen(nav: NavActions, vm: ci.monprofperso.app.data.TeacherPr
         }
         Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 22.dp).padding(top = 16.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StatTile(t.experience ?: "8 ans", "expérience", Modifier.weight(1f))
-                StatTile(t.students ?: "340+", "élèves suivis", Modifier.weight(1f))
-                StatTile(t.bacSuccess ?: "94%", "réussite BAC", Modifier.weight(1f))
+                StatTile(t.experience ?: "—", "expérience", Modifier.weight(1f))
+                StatTile(t.students ?: "—", "élèves suivis", Modifier.weight(1f))
+                StatTile(t.bacSuccess ?: "—", "réussite BAC", Modifier.weight(1f))
             }
             Spacer(Modifier.height(18.dp))
             Text("À propos", fontFamily = Schibsted, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = AkColors.Ink)
-            Text(t.bio ?: "Professeur certifié, ancien du Lycée Classique d'Abidjan. J'accompagne les élèves de la 3ᵉ à la Terminale avec une méthode claire et beaucoup d'exercices types examen.",
+            Text(t.bio ?: "Présentation à venir.",
                 fontFamily = Hanken, fontSize = 13.5.sp, lineHeight = 21.sp, color = Color(0xFF4A574F), modifier = Modifier.padding(top = 8.dp))
             Spacer(Modifier.height(14.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -458,41 +445,22 @@ fun TeacherProfileScreen(nav: NavActions, vm: ci.monprofperso.app.data.TeacherPr
             Spacer(Modifier.height(18.dp))
             SectionHeader("Avis des parents")
             Spacer(Modifier.height(11.dp))
-            Card(radius = 16, padding = 14) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    InitialsAvatar(review?.authorInitials ?: "FB", size = 36, radius = 11, fontSize = 13, bg = AkColors.OrangeSoft, fg = AkColors.Orange)
-                    Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(review?.authorName ?: "Fatou B.", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, color = AkColors.Ink)
-                        Text(review?.timeAgo ?: "il y a 2 semaines", fontFamily = Hanken, fontSize = 11.sp, color = AkColors.Faint)
-                    }
-                    Row { repeat(5) { Icon(Icons.Filled.Star, null, tint = AkColors.Star, modifier = Modifier.size(13.dp)) } }
-                }
-                Text(review?.text ?: "Ma fille est passée de 9 à 14 en maths en un trimestre. Très pédagogue et toujours ponctuel. Je recommande vivement !",
-                    fontFamily = Hanken, fontSize = 13.sp, lineHeight = 20.sp, color = Color(0xFF4A574F), modifier = Modifier.padding(top = 9.dp))
-            }
+            if (review != null) Card(radius = 16, padding = 14) {
+                Text(review.authorName, fontFamily = Hanken, fontWeight = FontWeight.Bold, color = AkColors.Ink)
+                Text("${review.rating}/5 · ${review.timeAgo}", fontFamily = Hanken, color = AkColors.Muted)
+                Text(review.text, fontFamily = Hanken, color = AkColors.Ink)
+            } else Text("Aucun avis pour le moment.", fontFamily = Hanken, color = AkColors.Muted)
             Spacer(Modifier.height(16.dp))
         }
         // sticky CTA
         Column(Modifier.fillMaxWidth().background(AkColors.White).padding(horizontal = 22.dp).padding(top = 12.dp, bottom = 24.dp)) {
-            Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(AkColors.GreenSoft)
-                    .clickable { nav.go(Routes.SubscriptionPlans) }.padding(horizontal = 13.dp, vertical = 11.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Filled.WorkspacePremium, null, tint = AkColors.Green, modifier = Modifier.size(19.dp))
-                Spacer(Modifier.width(10.dp))
-                Text("Suivi régulier ? Abonnez-vous dès 14 000 F/mois", fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Ink, modifier = Modifier.weight(1f))
-                Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = AkColors.Green, modifier = Modifier.size(15.dp))
-            }
-            Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column {
                     Row(verticalAlignment = Alignment.Bottom) {
                         Text(t.priceLabel, fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 21.sp, color = AkColors.Ink)
                         Text("/h", fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = AkColors.Faint)
                     }
-                    Text(if (t.negotiable) "Tarif à négocier" else "1ᵉʳ cours d'essai -50%", fontFamily = Hanken, fontSize = 11.5.sp, color = AkColors.Muted)
+                    Text("Tarif par heure", fontFamily = Hanken, fontSize = 11.5.sp, color = AkColors.Muted)
                 }
                 Spacer(Modifier.width(14.dp))
                 PrimaryButton("Réserver un cours", Modifier.weight(1f), onClick = { if (result?.fromApi == true) { ci.monprofperso.app.data.AppState.startBooking(t); nav.go(Routes.Booking) } })

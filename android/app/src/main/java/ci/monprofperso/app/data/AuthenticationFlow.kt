@@ -22,4 +22,6 @@ fun interpretLogin(response: AuthResponse, allowDemo: Boolean): LoginResult {
 }
 
 /** Le serveur reverifie l'éligibilité lors de l'encaissement. */
-fun CourseDto.isPayable(): Boolean = id > 0 && price > 0 && accepted && status == "upcoming" && paymentStatus != "paid"
+fun CourseDto.isPayable(): Boolean = id > 0 && price > 0 && accepted && status == "upcoming" &&
+    (participantRole == null || participantRole == "parent") &&
+    lifecycleStatus == "scheduled" && courseStartsInFuture(startAt) && paymentStatus in listOf("pending", "unpaid")

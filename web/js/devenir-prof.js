@@ -8,11 +8,6 @@
 
   var OTHER = "Autre";
 
-  var FALLBACK = {
-    subjects: ["Maths", "Physique", "Français", "Anglais", "SVT", "Philo", "Hist-Géo", "Musique", "Espagnol", "Allemand"],
-    levels: ["Primaire", "Collège", "Lycée", "Professionnel", "Supérieur", "Université"],
-  };
-
   var form = document.getElementById("candidatureForm");
   var formCard = document.getElementById("formCard");
   var stepEls = document.querySelectorAll(".form-step");
@@ -22,6 +17,20 @@
   var errStep1 = document.getElementById("formErrStep1");
   var successEl = document.getElementById("formSuccess");
   var step = 0;
+  var consentInput = document.getElementById("consent");
+  var consentVersion = "";
+
+  async function loadConsentVersion() {
+    consentVersion = ""; consentInput.checked = false; consentInput.disabled = true;
+    var response = await fetch(API_BASE + "/api/auth/otp-channels", { cache: "no-store" });
+    var data = response.ok ? await response.json() : null;
+    if (!data || typeof data.consentVersion !== "string" || !data.consentVersion.trim()) {
+      throw new Error("La version des documents est indisponible. Actualisez la page avant d’envoyer votre candidature.");
+    }
+    consentVersion = data.consentVersion;
+    consentInput.disabled = false;
+    document.getElementById("consentVersion").textContent = "Version présentée : " + consentVersion;
+  }
 
   function normalizePhone(raw) {
     var p = String(raw || "").trim().replace(/[\s.-]/g, "");
@@ -101,7 +110,7 @@
       chip.type = "button";
       chip.className = "chip";
       chip.setAttribute("aria-pressed", "false");
-      chip.innerHTML = "<span>" + label + "</span>";
+      var caption = document.createElement("span"); caption.textContent = label; chip.appendChild(caption);
       chip.dataset.name = type;
       chip.dataset.value = value;
       var hidden = document.createElement("input");
@@ -171,17 +180,24 @@
   });
 
   async function loadCatalog() {
-    var subjects = finalizeSubjects(FALLBACK.subjects.slice());
-    var levels = finalizeLevels(FALLBACK.levels.slice());
-
+    var nextButton = document.querySelector("[data-next]");
+    if (nextButton) nextButton.disabled = true;
+    document.getElementById("submitBtn").disabled = true;
+    var subjects, levels;
     try {
-      var res = await Promise.all([
-        fetch(API_BASE + "/api/subjects").then(function (r) { return r.ok ? r.json() : []; }),
-        fetch(API_BASE + "/api/levels").then(function (r) { return r.ok ? r.json() : []; }),
-      ]);
-      if (res[0] && res[0].length) subjects = finalizeSubjects(res[0].map(function (s) { return s.name; }));
-      if (res[1] && res[1].length) levels = finalizeLevels(res[1].map(function (l) { return l.name; }));
-    } catch (_) { /* repli local */ }
+      var result = await Promise.all(["/api/subjects", "/api/levels"].map(async function (path) {
+        var response = await fetch(API_BASE + path, { cache: "no-store" });
+        if (!response.ok) throw new Error("Catalogue indisponible");
+        return response.json();
+      }).concat([loadConsentVersion()]));
+      subjects = finalizeSubjects(result[0].map(function (item) { return item.name; }));
+      levels = finalizeLevels(result[1].map(function (item) { return item.name; }));
+      if (nextButton) nextButton.disabled = false;
+      document.getElementById("submitBtn").disabled = false;
+    } catch (error) {
+      showErr(error.message || "Le catalogue n’a pas pu être chargé. Actualisez la page pour réessayer.", 0);
+      return;
+    }
 
     buildChips("subjectsGrid", subjects, "subjects");
     buildChips("levelsGrid", levels, "levels");
@@ -196,10 +212,11 @@
     form.addEventListener("submit", async function (e) {
       e.preventDefault();
       showErr("");
+      var btn = document.getElementById("submitBtn");
+      if (btn.disabled || !consentVersion) return;
       if (!document.getElementById("consent").checked) {
         return showErr("Acceptez les conditions d'utilisation.", 1);
       }
-      var btn = document.getElementById("submitBtn");
       btn.disabled = true;
       btn.textContent = "Envoi en cours…";
       try {
@@ -213,6 +230,7 @@
           pricePerHour: price ? Number(price) : undefined,
           negotiable: document.getElementById("negotiable").checked,
           consent: true,
+          consentVersion: consentVersion,
         };
 
         var res = await fetch(API_BASE + "/api/teacher-applications", {
@@ -221,13 +239,17 @@
           body: JSON.stringify(body),
         });
         var data = await res.json().catch(function () { return {}; });
+        if (res.status === 409 && data.error === "consent_version_changed") {
+          await loadConsentVersion();
+          throw new Error("Les documents ont changé. Consultez-les puis cochez à nouveau votre acceptation avant d’envoyer votre candidature.");
+        }
         if (!res.ok) throw new Error(data.message || data.error || "Erreur " + res.status);
 
         if (formCard) formCard.hidden = true;
         if (successEl) successEl.hidden = false;
       } catch (ex) {
         showErr(ex.message || "Envoi impossible", 1);
-        btn.disabled = false;
+        btn.disabled = !consentVersion;
         btn.textContent = "Envoyer ma candidature";
       }
     });
@@ -302,5 +324,6 @@
     });
   }
 
-  loadCatalog().then(function () { goStep(0); });
+  goStep(0);
+  loadCatalog();
 })();

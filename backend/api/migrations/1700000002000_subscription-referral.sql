@@ -23,11 +23,19 @@ CREATE TABLE referrals (
 );
 
 -- Seed (mêmes valeurs que les anciennes constantes, pour l'utilisateur de démo).
+DO $mpp_demo$ BEGIN
+  IF current_setting('mpp.demo_seed', true) = 'true' THEN
 INSERT INTO user_subscriptions (user_id, plan, status, detail, next_charge, next_amount, used, total) VALUES
   (1, 'Régulier', 'active', '2 cours par semaine · Prof attitré Koffi', '1 juil.', 26000, 5, 8);
+  END IF;
+END $mpp_demo$;
 
+DO $mpp_demo$ BEGIN
+  IF current_setting('mpp.demo_seed', true) = 'true' THEN
 INSERT INTO referrals (user_id, code, referred, earned) VALUES
   (1, 'AYA2026', 3, 6000);
+  END IF;
+END $mpp_demo$;
 
 -- Down Migration
 DROP TABLE IF EXISTS referrals;

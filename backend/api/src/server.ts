@@ -1,20 +1,27 @@
 import express from "express";
 import cors from "cors";
-import path from "path";
-import migrate from "node-pg-migrate";
+import { applyMigrations } from "./migrations";
 import { api } from "./routes";
 import { pool, waitForDb } from "./db";
 import { requestLogger, notFound, errorHandler } from "./http";
 import { ensureBucket } from "./storage";
 import { handlePaystackWebhook, validatePaymentConfiguration } from "./payments";
 import { bootstrapProductionAdmin } from "./adminBootstrap";
+import { productionReadiness, limitPublicForms } from "./production";
+import { startOperationsWorker } from "./jobs";
 
 const app = express();
 validatePaymentConfiguration();
 app.disable("x-powered-by");
 if (process.env.TRUST_PROXY) app.set("trust proxy", process.env.TRUST_PROXY.split(",").map((v) => v.trim()));
-app.use(cors());
+const allowedOrigins = new Set((process.env.CORS_ALLOWED_ORIGINS || process.env.PUBLIC_WEB_URL || "")
+  .split(",").map((origin) => origin.trim()).filter(Boolean));
+app.use(cors({ origin(origin, callback) {
+  callback(null, !origin || process.env.NODE_ENV !== "production" || allowedOrigins.has(origin));
+} }));
+app.use((_req, res, next) => { res.setHeader("X-Content-Type-Options", "nosniff"); next(); });
 app.use(requestLogger);
+app.use(limitPublicForms);
 
 // Webhook Paystack : corps brut pour vérification HMAC SHA512.
 app.post(
@@ -41,8 +48,18 @@ app.get("/health", async (_req, res) => {
   catch { res.status(503).json({ status: "unavailable", service: "monprofperso-api" }); }
 });
 
+app.get("/ready", async (_req, res) => {
+  try {
+    const readiness = await productionReadiness(true);
+    res.setHeader("Cache-Control", "no-store");
+    res.status(readiness.ready && readiness.launchEnabled ? 200 : 503).json({
+      status: readiness.ready && readiness.launchEnabled ? "ready" : "not_ready", service: "monprofperso-api", revision: readiness.revision,
+    });
+  } catch { res.status(503).json({ status: "unavailable", service: "monprofperso-api" }); }
+});
+
 // api.monprofperso.com sert uniquement l'API : redirige vers le site / admin si ouvert dans le navigateur.
-const SITE = "https://www.monprofperso.com";
+const SITE = process.env.PUBLIC_WEB_URL || "https://www.monprofperso.com";
 app.get("/", (req, res, next) => {
   if (String(req.get("host") || "").includes("api.")) {
     res.redirect(302, `${SITE}/admin/`);
@@ -62,30 +79,14 @@ app.use(errorHandler);
 
 const PORT = Number(process.env.PORT ?? 8099);
 
-/** Applique les migrations en attente (schéma + seed) au démarrage. */
-async function runMigrations(): Promise<void> {
-  const client = await pool.connect();
-  try {
-    const applied = await migrate({
-      dbClient: client,
-      dir: path.join(__dirname, "..", "migrations"),
-      direction: "up",
-      count: Infinity,
-      migrationsTable: "pgmigrations",
-    });
-    console.log(applied.length ? `Migrations appliquées : ${applied.map((m) => m.name).join(", ")}` : "Base à jour.");
-  } finally {
-    client.release();
-  }
-}
-
 waitForDb()
-  .then(runMigrations)
+  .then(() => applyMigrations())
   .then(() => bootstrapProductionAdmin())
   .then(() => ensureBucket())
   .then(() => {
+    const stopWorker = startOperationsWorker();
     const server = app.listen(PORT, process.env.HOST ?? "0.0.0.0", () => console.log(`Mon Prof Perso API à l'écoute sur le port ${PORT}`));
-    const stop = () => server.close(() => { void pool.end().then(() => process.exit(0)); });
+    const stop = () => server.close(() => { void stopWorker().then(() => pool.end()).then(() => process.exit(0)); });
     process.once("SIGTERM", stop);
     process.once("SIGINT", stop);
   })

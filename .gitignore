@@ -44,3 +44,11 @@ _maquette/
 # --- Webapp (Vite/React) ---
 webapp/node_modules/
 webapp/dist/
+
+# Exploitation : données, secrets de sauvegarde et états locaux
+!.env.backup.example
+!.env.monitor.example
+.release-state/
+.backups/
+.releases/
+*.dump

@@ -2,6 +2,7 @@ import type { Router, Request, Response, NextFunction } from "express";
 import { pool } from "./db";
 import { AuthError, isDemoMode, normalizeAuthPhone, signJwt } from "./auth";
 import { ValidationError, optionalEmail, optionalEnum, optionalPhone, optionalString, requiredString } from "./validate";
+import { validateConsentVersion } from "./consent";
 import {
   beginLoginChallenge, beginSignupChallenge, getOtpChannels, resendChallenge, verifyChallenge,
   type Registration, type OtpChannel,
@@ -9,7 +10,6 @@ import {
 
 const ROLES = ["parent", "student", "teacher"] as const;
 const CHANNELS = ["whatsapp", "email"] as const;
-const CONSENT_VERSION = "2026-06";
 
 const wrap = (handler: (req: Request, res: Response) => Promise<void>) =>
   (req: Request, res: Response, next: NextFunction) => {
@@ -42,7 +42,7 @@ function session(res: Response, user: any): void {
 }
 
 async function demoLogin(phone: string): Promise<any> {
-  const user = (await pool.query("SELECT * FROM users WHERE phone=$1", [phone])).rows[0];
+  const user = (await pool.query("SELECT * FROM users WHERE phone=$1 AND deleted_at IS NULL", [phone])).rows[0];
   if (!user) throw new AuthError(401, "invalid_credentials", "Compte introuvable");
   return user;
 }
@@ -71,15 +71,16 @@ export function registerAuthRoutes(api: Router): void {
     const parentalConsent = b.parentalConsent === true || b.parentalConsent === "true";
     if (!consent) throw new ValidationError("consent", "acceptation des CGU requise");
     if (role === "student" && !parentalConsent) throw new ValidationError("parentalConsent", "consentement parental requis pour un compte élève");
+    const consentVersion = await validateConsentVersion(b.consentVersion);
     const registration: Registration = {
-      fullName, phone, role, email: optionalEmail(b), parentalConsent, consentVersion: CONSENT_VERSION,
+      fullName, phone, role, email: optionalEmail(b), parentalConsent, consentVersion,
     };
     if (isDemoMode()) {
       const initials = fullName.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
       const inserted = await pool.query(
         `INSERT INTO users (full_name,phone,role,initials,consent_version,consent_at,parental_consent,email)
          VALUES ($1,$2,$3,$4,$5,now(),$6,$7) ON CONFLICT (phone) DO NOTHING RETURNING *`,
-        [fullName,phone,role,initials,CONSENT_VERSION,parentalConsent,registration.email ?? null],
+        [fullName,phone,role,initials,consentVersion,parentalConsent,registration.email ?? null],
       );
       session(res, inserted.rows[0] ?? await demoLogin(phone));
       return;

@@ -24,8 +24,10 @@ after(async () => { globalThis.fetch = originalFetch; await pool.query("DELETE F
 
 async function course() {
   return (await pool.query(`INSERT INTO courses
-    (user_id,teacher_id,teacher_name,subject,level,day_label,day_num,time,duration,format,price,status,accepted,payment_status)
-    VALUES ($1,1,'Fixture','Maths','Lycée','LUN',$2,'12h00','1h30','online',4500,'upcoming',TRUE,'pending') RETURNING *`, [userId,String(++next)])).rows[0];
+    (user_id,teacher_id,teacher_name,subject,level,day_label,day_num,time,duration,format,price,status,accepted,payment_status,
+     starts_at,duration_minutes,lifecycle_status,commission_pct,commission_amount,teacher_net_amount)
+    VALUES ($1,1,'Fixture','Maths','Lycée','LUN',$2,'12h00','1h30','online',4500,'upcoming',TRUE,'pending',
+      now()+interval '30 days',90,'scheduled',15,675,3825) RETURNING *`, [userId,String(++next)])).rows[0];
 }
 const options = (row) => ({ courseId: row.id, userId, phone: "+2250758421903", provider: "mtn" });
 const response = (data) => new Response(JSON.stringify({ status: true, data }), { status: 200, headers: { "Content-Type": "application/json" } });

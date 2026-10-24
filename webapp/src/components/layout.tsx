@@ -19,6 +19,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCapabilities } from "@/lib/capabilities";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 
@@ -28,7 +29,8 @@ const parentTabs: NavItem[] = [
   { to: "/accueil", label: "Accueil", icon: Home },
   { to: "/recherche", label: "Recherche", icon: Search },
   { to: "/cours", label: "Mes cours", icon: BookOpen },
-  { to: "/progres", label: "Progrès", icon: ChartLine },
+  { to: "/agenda", label: "Mon agenda", icon: Calendar },
+  { to: "/progres", label: "Bilans", icon: ChartLine },
   { to: "/mes-besoins", label: "Mes besoins", icon: Inbox },
   { to: "/ressources", label: "Ressources", icon: FileText },
   { to: "/aide", label: "Aide", icon: HelpCircle },
@@ -124,7 +126,14 @@ export function AppShell({
   const { isTeacher, user } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
-  const tabs = isTeacher ? teacherTabs : parentTabs;
+  const { capabilities } = useCapabilities();
+  const tabs = (isTeacher ? teacherTabs : parentTabs).filter((item) => {
+    if (item.to === "/progres") return capabilities.progress;
+    if (item.to === "/agenda") return capabilities.agenda;
+    if (item.to === "/mes-besoins") return capabilities.needs;
+    if (item.to === "/prof-revenus") return capabilities.payouts;
+    return true;
+  });
   const firstName = user?.full_name || "";
   const isHome = active === "accueil" || active === "prof-espace";
   const welcomeText =
@@ -224,6 +233,7 @@ export function AppShell({
         </div>
       ) : null}
 
+      {capabilities.serviceOpen === false ? <p role="status" className="border-b bg-orange-soft px-4 py-3 text-center text-sm">Les nouvelles inscriptions et réservations sont temporairement limitées. Vos cours existants et la gestion de votre compte restent accessibles.</p> : null}
       {welcomeText ? (
         <div className="w-full border-b border-[#e8e8e8] bg-white">
           <div className={cn("w-full py-4 sm:py-5", shellPad)}>

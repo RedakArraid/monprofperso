@@ -1,4 +1,5 @@
 import type { Router } from "express";
+import { validateConsentVersion } from "./consent";
 import { pool } from "./db";
 import { putFile, removeFile } from "./storage";
 import {
@@ -72,7 +73,7 @@ async function seedTeacherProfile(client: any, teacherId: number) {
     `INSERT INTO teacher_profiles
        (teacher_id, revenue, trend, courses_per_week, rating_label, new_students,
         earnings_total, earnings_trend, courses_given, hours_taught, avg_per_hour)
-     VALUES ($1, 0, '0%', '0', '5,0', '0', 0, '0%', '0', '0 h', '0 F')
+     VALUES ($1, 0, '0%', '0', '—', '0', 0, '0%', '0', '0 h', '0 F')
      ON CONFLICT (teacher_id) DO NOTHING`,
     [teacherId],
   );
@@ -92,9 +93,9 @@ async function seedTeacherProfile(client: any, teacherId: number) {
 export function registerTeacherApplicationRoutes(
   api: Router,
   admin: Router,
-  deps: { wrap: any; serveFile: ServeFile; consentVersion: string },
+  deps: { wrap: any; serveFile: ServeFile; consentVersion?: string },
 ) {
-  const { wrap, serveFile, consentVersion } = deps;
+  const { wrap, serveFile } = deps;
 
   // --- Candidat authentifié : suivi de son dossier, sans notes internes ---
   api.get("/teacher-applications/status", requireAuth, wrap(async (req: any, res: any) => {
@@ -147,6 +148,7 @@ export function registerTeacherApplicationRoutes(
     const subjects = requiredString(b, "subjects", { max: 200 });
     const consent = b.consent === true || b.consent === "true";
     if (!consent) throw new ValidationError("consent", "acceptation des CGU requise");
+    const consentVersion = await validateConsentVersion(b.consentVersion);
 
     const pending = await pool.query(
       "SELECT id FROM teacher_applications WHERE phone=$1 AND status IN ('pending','interview','test','training')",
@@ -400,7 +402,7 @@ export function registerTeacherApplicationRoutes(
       const teacherIns = await client.query(
         `INSERT INTO teachers (initials, name, subjects, rating, reviews_count, location, price_per_hour,
            experience, bio, levels, formats, programs, accent, verified, special_bepc, negotiable, needs_confirmed)
-         VALUES ($1,$2,$3,5.0,0,$4,$5,$6,$7,$8,$9,$10,'green',TRUE,FALSE,$11,$12)
+         VALUES ($1,$2,$3,0,0,$4,$5,$6,$7,$8,$9,$10,'green',TRUE,FALSE,$11,$12)
          RETURNING id`,
         [initials, name, subjects, location, pricePerHour, experience ?? null, bio ?? null,
          levels, formats, programs, negotiable, confirmNeeds],

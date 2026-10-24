@@ -8,6 +8,7 @@ enum ApiConfig {
     static let baseURL: URL = {
         guard let value = Bundle.main.object(forInfoDictionaryKey: "APIBaseURL") as? String,
               let url = URL(string: value), let host = url.host,
+              url.user == nil, url.password == nil, url.query == nil, url.fragment == nil,
               url.scheme == "https" || (url.scheme == "http" && ["localhost", "127.0.0.1"].contains(host)) else {
             fatalError("Configurer API_BASE_URL avec une URL HTTPS (HTTP autorisé uniquement en local).")
         }
@@ -116,7 +117,7 @@ struct TeacherDTO: Codable, Identifiable {
     let reviews: [ReviewDTO]?
 
     var priceLabel: String { "\(price_per_hour.formattedFCFA) F" }
-    var ratingLabel: String { String(format: "%.1f", rating).replacingOccurrences(of: ".", with: ",") }
+    var ratingLabel: String { reviews_count > 0 ? String(format: "%.1f", rating).replacingOccurrences(of: ".", with: ",") : "Pas encore noté" }
     var isGreen: Bool { accent == "green" }
     var distanceLabel: String {
         if let d = distance_km { return String(format: "%.1f km", d).replacingOccurrences(of: ".", with: ",") }
@@ -141,8 +142,23 @@ struct CourseDTO: Codable, Identifiable {
     let accepted: Bool?
     let starts_at: String?
     let duration_minutes: Int?
+    var lifecycle_status: String? = nil
+    var private_address: String? = nil
+    var meeting_url: String? = nil
+    var access_notes: String? = nil
+    var parent_name: String? = nil
+    var participant_role: String? = nil
 
-    var canPay: Bool { accepted == true && status == "upcoming" && payment_status != "paid" }
+    func isTeacherParticipant(accountRole: String?) -> Bool {
+        participant_role == "teacher" || (participant_role == nil && accountRole == "teacher")
+    }
+
+    var canPay: Bool {
+        guard participant_role == nil || participant_role == "parent",
+              accepted == true, status == "upcoming", lifecycle_status == "scheduled", ["pending", "unpaid"].contains(payment_status ?? ""), let starts_at,
+              let date = CourseOperations.parseISODate(starts_at) else { return false }
+        return price > 0 && date > Date()
+    }
 }
 
 struct GroupDTO: Codable, Identifiable {
@@ -211,7 +227,17 @@ struct NotificationDTO: Codable, Identifiable {
 }
 
 struct ProgressSubjectDTO: Codable { let subject, grade: String; let fraction: Double; let warn: Bool }
-struct ProgressDTO: Codable { let student, average, trend, goal: String; let subjects: [ProgressSubjectDTO] }
+struct ProgressDTO: Codable {
+    let student, average, trend, goal: String
+    let subjects: [ProgressSubjectDTO]
+    var entries: [ProgressEntryDTO]? = nil
+}
+struct ProgressEntryDTO: Codable, Identifiable {
+    var id: Int { courseId }
+    let courseId: Int
+    let subject, teacherName, summary: String
+    let studentName, completedAt: String?
+}
 
 // --- Espace professeur (live) ---
 struct StatDTO: Codable, Identifiable { let value, label: String; var id: String { label } }
@@ -260,11 +286,87 @@ struct NeedDTO: Codable, Identifiable {
     let parentPrice, netTeacherAmount, netTeacherHourly: Int?
     let startDate: String?
     let durationMinutes: Int?
+    var courseId: Int? = nil
 }
 struct EarningWeekDTO: Codable, Identifiable { let label: String; let f: Double; var id: String { label } }
 struct PayoutDTO: Codable, Identifiable { let provider, date: String; let amount: Int; let color: String; var id: String { provider + date } }
 struct TeacherEarningsDTO: Codable {
     let total: Int; let trend: String; let weeks: [EarningWeekDTO]; let stats: [StatDTO]; let payouts: [PayoutDTO]
+    var summary: EarningsSummaryDTO? = nil
+    var payoutRequests: [FinanceRequestDTO]? = nil
+}
+
+struct EarningsSummaryDTO: Codable { let expected, due, releasable, reserved, paid: Int }
+struct FinanceRequestDTO: Codable, Identifiable {
+    let id, amount: Int
+    let status: String
+    let provider, providerReference, createdAt, reason, beneficiaryPhone: String?
+}
+struct CourseContactsDTO: Codable { let parentPhone, teacherPhone: String? }
+struct ScheduleRequestDTO: Codable, Identifiable {
+    let id, proposedBy: Int
+    let startAt, status: String
+    let reason, createdAt: String?
+}
+struct CourseReportDTO: Codable, Identifiable {
+    let id: Int
+    let actorRole, outcome: String
+    let note, progressSummary, createdAt: String?
+}
+struct CourseEventDTO: Codable, Identifiable { let id: Int; let type: String; let actorRole, createdAt: String? }
+struct CourseFinanceDTO: Codable {
+    let grossAmount, capturedAmount, refundAmount, refundPendingAmount: Int
+    let commissionAmount, teacherNetAmount: Int?
+    let commissionPct: Double?
+    let teacherDue: Int?
+    let teacherReleasable, teacherReserved, teacherPaid: Int
+    let reviewRequired: Bool
+}
+struct CourseDetailsDTO: Codable {
+    let course: CourseDTO
+    let contacts: CourseContactsDTO
+    let scheduleRequests: [ScheduleRequestDTO]
+    let reports: [CourseReportDTO]
+    let events: [CourseEventDTO]
+    let finance: CourseFinanceDTO
+    let permissions: [String]
+}
+struct AccountDeletionRequestDTO: Codable { let id: Int; let status, requestedAt: String; let completedAt, cancelledAt: String? }
+struct AccountBlockerDTO: Codable { let code, message: String; let count: Int? }
+struct AccountDeletionDTO: Codable { let request: AccountDeletionRequestDTO?; let blockers: [AccountBlockerDTO] }
+struct NotificationPreferencesDTO: Codable {
+    var notificationsWhatsapp, notificationsEmail: Bool
+    let whatsappAvailable, emailAvailable: Bool
+}
+struct ConsentDocumentDTO: Codable, Identifiable { let slug, title, version: String; var id: String { slug } }
+struct AccountConsentDTO: Codable { let version: String; let accepted: Bool; let documents: [ConsentDocumentDTO] }
+
+enum CourseOperations {
+    static func parseISODate(_ value: String) -> Date? {
+        let parser = ISO8601DateFormatter()
+        parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = parser.date(from: value) { return date }
+        parser.formatOptions = [.withInternetDateTime]
+        return parser.date(from: value)
+    }
+    static func safeMeetingURL(_ value: String?) -> URL? {
+        guard let value, let url = URL(string: value), url.scheme == "https", let host = url.host,
+              !host.isEmpty, url.user == nil, url.password == nil else { return nil }
+        return url
+    }
+    static func statusLabel(_ value: String?) -> String {
+        switch value {
+        case "requested": return "En attente du professeur"
+        case "awaiting_schedule": return "Créneau à convenir"
+        case "scheduled": return "Cours planifié"
+        case "completion_pending": return "Réalisation à confirmer"
+        case "completed": return "Cours réalisé"
+        case "disputed": return "Signalement en cours de traitement"
+        case "cancelled": return "Cours annulé"
+        case "refused": return "Demande refusée"
+        default: return "Consultez le détail du cours"
+        }
+    }
 }
 
 extension Int {
@@ -279,10 +381,15 @@ extension Int {
 
 enum ApiError: LocalizedError {
     case badStatus(Int, String?)
+    case legalConsent(String, String?)
     case invalidResponse
     case sessionStorage
     var errorDescription: String? {
         switch self {
+        case let .legalConsent(code, _):
+            return code == "consent_version_changed"
+                ? "Les conditions ont changé. Relisez les documents et cochez à nouveau votre accord."
+                : "Acceptez les conditions à jour dans « Mes données et mon compte » avant de poursuivre."
         case let .badStatus(code, message):
             if let message, !message.isEmpty { return message }
             if code == 401 { return "Connectez-vous à nouveau pour continuer." }
@@ -293,6 +400,7 @@ enum ApiError: LocalizedError {
         case .sessionStorage: return "La session n'a pas pu être enregistrée dans le trousseau."
         }
     }
+    var consentCode: String? { if case let .legalConsent(code, _) = self { return code }; return nil }
 }
 
 struct UserDTO: Codable {
@@ -330,6 +438,7 @@ struct OtpChannelsDTO: Codable {
     let defaultChannel: String
     let codeLength: Int
     let ttlMinutes: Int
+    let consentVersion: String?
 }
 
 struct TeacherApplicationResultDTO: Codable {
@@ -377,8 +486,12 @@ struct ApiClient {
         }
         let (data, resp) = try await session.data(for: req)
         if let http = resp as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-            struct ErrorBody: Decodable { let message: String? }
-            throw ApiError.badStatus(http.statusCode, (try? JSONDecoder().decode(ErrorBody.self, from: data))?.message)
+            struct ErrorBody: Decodable { let error, message: String? }
+            let failure = try? JSONDecoder().decode(ErrorBody.self, from: data)
+            if http.statusCode == 409, let code = failure?.error, ["consent_required", "consent_version_changed"].contains(code) {
+                throw ApiError.legalConsent(code, failure?.message)
+            }
+            throw ApiError.badStatus(http.statusCode, failure?.message)
         }
         return data
     }
@@ -425,6 +538,18 @@ struct ApiClient {
         }
     }
 
+    func currentConsentVersion() async throws -> String {
+        let channels: OtpChannelsDTO = try await get("api/auth/otp-channels")
+        guard let version = channels.consentVersion, !version.isEmpty else { throw ApiError.invalidResponse }
+        return version
+    }
+
+    func accountConsent() async throws -> AccountConsentDTO { try await get("api/account/consent") }
+
+    func acceptAccountConsent(version: String, parentalConsent: Bool) async throws {
+        _ = try await request("api/account/consent", method: "POST", json: ["consent": true, "consentVersion": version, "parentalConsent": parentalConsent])
+    }
+
     private func authResult(_ data: Data) throws -> AuthResult {
         let r = try JSONDecoder().decode(AuthResponse.self, from: data)
         if let token = r.token, !token.isEmpty, let user = r.user, r.verified == true {
@@ -444,10 +569,11 @@ struct ApiClient {
     }
 
     func signup(fullName: String, phone: String, roleIndex: Int,
-                consent: Bool, parentalConsent: Bool, email: String? = nil) async throws -> AuthResult {
+                consent: Bool, parentalConsent: Bool, consentVersion: String, email: String? = nil) async throws -> AuthResult {
+        guard consent, !consentVersion.isEmpty else { throw ApiError.legalConsent("consent_required", nil) }
         let role = Self.apiRoles[min(max(roleIndex, 0), 2)]
         var body: [String: Any] = ["fullName": fullName, "phone": phone, "role": role,
-                                  "channel": "whatsapp", "consent": consent, "parentalConsent": parentalConsent]
+                                  "channel": "whatsapp", "consent": consent, "parentalConsent": parentalConsent, "consentVersion": consentVersion]
         if let email, !email.isEmpty { body["email"] = email }
         return try authResult(try await request("api/auth/signup", method: "POST", json: body))
     }
@@ -488,6 +614,30 @@ struct ApiClient {
     func teacher(_ id: Int) async throws -> TeacherDTO { try await get("api/teachers/\(id)") }
     func courses(status: String? = nil) async throws -> [CourseDTO] {
         try await get("api/courses", query: status.map { [URLQueryItem(name: "status", value: $0)] } ?? [])
+    }
+    func me() async throws -> UserDTO { try await get("api/me") }
+    func capabilities() async throws -> [String: Bool] { try await get("api/capabilities") }
+    func exportAccount() async throws -> Data { try await request("api/account/export") }
+    func accountDeletion() async throws -> AccountDeletionDTO { try await get("api/account/deletion-request") }
+    func requestAccountDeletion() async throws -> AccountDeletionDTO {
+        try JSONDecoder().decode(AccountDeletionDTO.self, from: try await request("api/account/deletion-request", method: "POST", json: ["confirmation": "SUPPRIMER"]))
+    }
+    func cancelAccountDeletion() async throws -> AccountDeletionDTO {
+        try JSONDecoder().decode(AccountDeletionDTO.self, from: try await request("api/account/deletion-request", method: "DELETE"))
+    }
+    func accountPreferences() async throws -> NotificationPreferencesDTO { try await get("api/account/preferences") }
+    func updateAccountPreferences(whatsapp: Bool, email: Bool) async throws -> NotificationPreferencesDTO {
+        try JSONDecoder().decode(NotificationPreferencesDTO.self, from: try await request("api/account/preferences", method: "PUT", json: ["notificationsWhatsapp": whatsapp, "notificationsEmail": email]))
+    }
+    func courseDetails(_ id: Int) async throws -> CourseDetailsDTO { try await get("api/courses/\(id)") }
+    func updateCourseDetails(_ id: Int, body: [String: Any]) async throws {
+        _ = try await request("api/courses/\(id)/details", method: "PUT", json: body)
+    }
+    func courseAction(_ id: Int, action: String, body: [String: Any]) async throws {
+        _ = try await request("api/courses/\(id)/\(action)", method: "POST", json: body)
+    }
+    func requestPayout(amount: Int, provider: String, idempotencyKey: String) async throws {
+        _ = try await request("api/teacher/payout-requests", method: "POST", json: ["amount": amount, "provider": provider, "idempotencyKey": idempotencyKey])
     }
     /// Crée une réservation ; renvoie référence + cours (payment_status pending).
     func createBooking(_ body: [String: Any]) async throws -> BookingResult {
@@ -545,6 +695,7 @@ struct ApiClient {
 
     // MARK: Besoins parents
     func children() async throws -> [ChildDTO] { try await get("api/children") }
+    func cancelNeed(id: Int) async throws { _ = try await request("api/needs/\(id)/cancel", method: "POST") }
     func createChild(_ json: [String: Any]) async throws -> ChildDTO {
         let data = try await request("api/children", method: "POST", json: json)
         return try JSONDecoder().decode(ChildDTO.self, from: data)
@@ -705,15 +856,19 @@ final class TeachersStore: ObservableObject {
 /// Store : accueil (matières + profs recommandés).
 @MainActor
 final class HomeStore: ObservableObject {
-    @Published var subjects: [SubjectDTO] = Fallback.subjects
+    @Published var subjects: [SubjectDTO] = []
     @Published var teachers: [TeacherDTO] = []
+    @Published var loading = true
+    @Published var error: String?
     func load() async {
-        async let s = try? ApiClient.shared.subjects()
-        async let t = try? ApiClient.shared.teachers()
-        let loadedSubjects = await s
-        let loadedTeachers = await t
-        if let loadedSubjects { subjects = loadedSubjects }
-        if let loadedTeachers { teachers = loadedTeachers }
+        loading = true
+        defer { loading = false }
+        do {
+            async let s = ApiClient.shared.subjects()
+            async let t = ApiClient.shared.teachers()
+            let result = try await (s, t)
+            subjects = result.0; teachers = result.1; error = nil
+        } catch { subjects = []; teachers = []; self.error = error.localizedDescription }
     }
 }
 
