@@ -1,6 +1,7 @@
 import type { Router } from "express";
+import type { PoolClient } from "pg";
 import { pool } from "./db";
-import { putFile } from "./storage";
+import { putFile, removeFile } from "./storage";
 import {
   ValidationError,
   optionalString,
@@ -60,17 +61,15 @@ export function computeProfileCompletion(teacher: any, app: any | null) {
   };
 }
 
-async function loadTeacherBundle(teacherId: number) {
-  const t = (await pool.query("SELECT * FROM teachers WHERE id=$1", [teacherId])).rows[0];
+async function loadTeacherBundle(teacherId: number, db: Pick<PoolClient, "query"> = pool) {
+  const t = (await db.query("SELECT * FROM teachers WHERE id=$1", [teacherId])).rows[0];
   if (!t) return null;
-  const app = (await pool.query(
+  const app = (await db.query(
     `SELECT * FROM teacher_applications WHERE teacher_id=$1 ORDER BY created_at DESC LIMIT 1`,
     [teacherId],
   )).rows[0] ?? null;
-  const user = app?.user_id
-    ? (await pool.query("SELECT email FROM users WHERE id=$1", [app.user_id])).rows[0]
-    : null;
-  return { teacher: t, app, email: user?.email ?? null };
+  // L'adresse de contact appartient au dossier, pas à une colonne users.email.
+  return { teacher: t, app, email: app?.email ?? null };
 }
 
 function profilePayload(teacher: any, app: any | null, email: string | null) {
@@ -95,18 +94,17 @@ function profilePayload(teacher: any, app: any | null, email: string | null) {
 }
 
 async function upsertApplicationDocs(
-  teacherId: number,
+  client: PoolClient,
+  teacher: any,
   userId: number,
-  teacherName: string,
-  teacherSubjects: string,
-  teacherLevels: string[],
   files: {
     idCard?: Awaited<ReturnType<typeof storeUpload>> & { fileName?: string; mime?: string };
     diploma?: Awaited<ReturnType<typeof storeUpload>> & { fileName?: string; mime?: string };
     photo?: Awaited<ReturnType<typeof storeUpload>> & { fileName?: string; mime?: string };
   },
 ) {
-  const existing = (await pool.query(
+  const teacherId = teacher.id;
+  const existing = (await client.query(
     "SELECT id FROM teacher_applications WHERE teacher_id=$1 ORDER BY created_at DESC LIMIT 1",
     [teacherId],
   )).rows[0];
@@ -130,14 +128,14 @@ async function upsertApplicationDocs(
   if (!sets.length) return;
 
   if (existing) {
-    await pool.query(
+    await client.query(
       `UPDATE teacher_applications SET ${sets.join(", ")} WHERE id=$${i}`,
       [...vals, existing.id],
     );
     return;
   }
 
-  await pool.query(
+  await client.query(
     `INSERT INTO teacher_applications (
        full_name, phone, subjects, location, levels, formats, programs, status,
        teacher_id, user_id, consent_at,
@@ -146,11 +144,11 @@ async function upsertApplicationDocs(
        photo_file_name, photo_mime_type, photo_storage_key, photo_content
      )
      SELECT $1, u.phone, $2, $3, $4, $5, $6, 'approved', $7, $8, now(),
-            $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19
+            $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20
        FROM users u WHERE u.id=$8`,
     [
-      teacherName, teacherSubjects, "Abidjan", teacherLevels,
-      ["home", "online"], ["standard"],
+      teacher.name, teacher.subjects, teacher.location, teacher.levels ?? [],
+      teacher.formats ?? ["home", "online"], teacher.programs ?? ["standard"],
       teacherId, userId,
       files.idCard?.fileName ?? null, files.idCard?.mime ?? null, files.idCard?.storageKey ?? null, files.idCard?.content ?? null,
       files.diploma?.fileName ?? null, files.diploma?.mime ?? null, files.diploma?.storageKey ?? null, files.diploma?.content ?? null,
@@ -224,12 +222,7 @@ export function registerTeacherProfileRoutes(api: Router, deps: Deps) {
       "applications/photos",
     );
 
-    if (fields.length) {
-      vals.push(teacherId);
-      await pool.query(`UPDATE teachers SET ${fields.join(", ")} WHERE id=$${n}`, vals);
-    }
-
-    await upsertApplicationDocs(teacherId, userId, bundle.teacher.name, bundle.teacher.subjects, bundle.teacher.levels ?? [], {
+    const files = {
       idCard: idCard.storageKey || idCard.content
         ? { ...idCard, fileName: optionalString(b, "idCardFileName", { max: 200 }) ?? "cni.pdf", mime: optionalString(b, "idCardMimeType", { max: 100 }) ?? "application/pdf" }
         : undefined,
@@ -239,10 +232,29 @@ export function registerTeacherProfileRoutes(api: Router, deps: Deps) {
       photo: photo.storageKey || photo.content
         ? { ...photo, fileName: optionalString(b, "photoFileName", { max: 200 }) ?? "photo.jpg", mime: optionalString(b, "photoMimeType", { max: 100 }) ?? "image/jpeg" }
         : undefined,
-    });
-
-    const updated = await loadTeacherBundle(teacherId);
-    if (!updated) { res.status(404).json({ error: "not_found" }); return; }
-    res.json(profilePayload(updated.teacher, updated.app, updated.email));
+    };
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      // Sérialise aussi les premiers dépôts concurrents, sans dossier existant.
+      await client.query("SELECT id FROM teachers WHERE id=$1 FOR UPDATE", [teacherId]);
+      if (fields.length) {
+        await client.query(`UPDATE teachers SET ${fields.join(", ")} WHERE id=$${n}`, [...vals, teacherId]);
+      }
+      const teacher = (await client.query("SELECT * FROM teachers WHERE id=$1", [teacherId])).rows[0];
+      if (!teacher) throw new Error("teacher_not_found");
+      await upsertApplicationDocs(client, teacher, userId, files);
+      const updated = await loadTeacherBundle(teacherId, client);
+      if (!updated) throw new Error("teacher_not_found");
+      await client.query("COMMIT");
+      res.json(profilePayload(updated.teacher, updated.app, updated.email));
+    } catch (e) {
+      await client.query("ROLLBACK");
+      // Aucun lien en base ne référence ces nouveaux objets après le rollback.
+      await Promise.all([idCard.storageKey, diploma.storageKey, photo.storageKey].map(removeFile));
+      throw e;
+    } finally {
+      client.release();
+    }
   }));
 }

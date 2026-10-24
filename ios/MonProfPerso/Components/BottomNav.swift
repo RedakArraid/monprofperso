@@ -16,7 +16,7 @@ struct BottomNav: View {
 
     var body: some View {
         HStack {
-            ForEach(ParentTab.allCases, id: \.self) { tab in
+            ForEach(ParentTab.allCases.filter { $0 != .progres || router.featureEnabled("progress") }, id: \.self) { tab in
                 let (icon, label) = item(tab)
                 let active = tab == current
                 VStack(spacing: 4) {

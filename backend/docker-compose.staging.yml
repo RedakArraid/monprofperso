@@ -29,12 +29,23 @@ services:
       - monprofperso_staging_internal
 
   api:
+    image: monprofperso-api:${RELEASE_SHA:-local}
     build: ./api
     container_name: monprofperso-staging-api
     restart: unless-stopped
     env_file:
       - .env.staging
     environment:
+      NODE_ENV: production
+      APP_ENV: staging
+      RELEASE_SHA: ${RELEASE_SHA:?Révision Git complète requise}
+      SERVICE_OPEN: ${SERVICE_OPEN:-false}
+      WORKER_ENABLED: ${WORKER_ENABLED:-true}
+      NOTIFICATIONS_ENABLED: ${NOTIFICATIONS_ENABLED:-false}
+      ONLINE_COURSES_ENABLED: ${ONLINE_COURSES_ENABLED:-false}
+      DEMO_MODE: "false"
+      PAYSTACK_MOCK: "false"
+      TRUST_PROXY: ${TRUST_PROXY:?Adresses ou CIDR des reverse proxies fiables requis}
       PORT: 8099
       PGHOST: db
       PGPORT: 5432
@@ -60,10 +71,13 @@ services:
       retries: 3
       start_period: 40s
     networks:
-      - traefik_network
-      - monprofperso_staging_internal
+      traefik_network:
+      monprofperso_staging_internal:
+        aliases:
+          - mpp-staging-api
     labels:
       - traefik.enable=true
+      - traefik.docker.network=traefik_network
       - traefik.http.middlewares.monprofperso-staging-robots.headers.customResponseHeaders.X-Robots-Tag=noindex, nofollow
       - traefik.http.services.monprofperso-staging-api.loadbalancer.server.port=8099
       - traefik.http.routers.monprofperso-staging-api.rule=Host(`staging-api.monprofperso.com`)
@@ -74,14 +88,14 @@ services:
       - traefik.http.routers.monprofperso-staging-api.service=monprofperso-staging-api
 
   web:
-    image: nginx:alpine
+    image: monprofperso-web:${RELEASE_SHA:-local}
+    build: ../web
     container_name: monprofperso-staging-web
     restart: unless-stopped
+    environment:
+      API_UPSTREAM: mpp-staging-api:8099
     depends_on:
       - api
-    volumes:
-      - ../web:/usr/share/nginx/html:ro
-      - ../web/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/ | grep -qi html || exit 1"]
       interval: 30s
@@ -92,6 +106,7 @@ services:
       - monprofperso_staging_internal
     labels:
       - traefik.enable=true
+      - traefik.docker.network=traefik_network
       - traefik.http.services.monprofperso-staging-web.loadbalancer.server.port=80
       - traefik.http.routers.monprofperso-staging-web.rule=Host(`staging.monprofperso.com`)
       - traefik.http.routers.monprofperso-staging-web.entrypoints=websecure

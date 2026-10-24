@@ -1,38 +1,64 @@
 import Foundation
+import Security
+import Combine
 
 /// URL de base de l'API MonProfPerso commune (mêmes endpoints que côté Android).
 enum ApiConfig {
-    // Dev simulateur + API locale (docker compose up).
-    static let baseURL = URL(string: "http://localhost:8099")!
-    // Production VPS : URL(string: "https://api.monprofperso.com")!
+    /// Renseignée par API_BASE_URL dans project.yml, ou par la configuration Xcode.
+    static let baseURL: URL = {
+        guard let value = Bundle.main.object(forInfoDictionaryKey: "APIBaseURL") as? String,
+              let url = URL(string: value), let host = url.host,
+              url.user == nil, url.password == nil, url.query == nil, url.fragment == nil,
+              url.scheme == "https" || (url.scheme == "http" && ["localhost", "127.0.0.1"].contains(host)) else {
+            fatalError("Configurer API_BASE_URL avec une URL HTTPS (HTTP autorisé uniquement en local).")
+        }
+        return url
+    }()
     /// Numéro de démonstration (= utilisateur seed « Aya Koné »).
     static let demoPhone = "+2250758421903"
     /// Numéro de l'administrateur de démonstration (seed).
     static let adminPhone = "+2250700000001"
 }
 
-/// Stockage du JWT d'authentification (persisté entre lancements via UserDefaults).
-/// Injecté en `Authorization: Bearer` par `ApiClient` ; en son absence, le backend
-/// retombe sur l'utilisateur de démonstration (rétrocompat).
+/// Session conservée dans le trousseau, disponible uniquement sur cet appareil déverrouillé.
 enum TokenStore {
-    private static let key = "mpp_jwt"
-    private static let roleKey = "mpp_role"
-    static var token: String? {
-        get { UserDefaults.standard.string(forKey: key) }
-        set {
-            if let v = newValue { UserDefaults.standard.set(v, forKey: key) }
-            else { UserDefaults.standard.removeObject(forKey: key) }
-        }
+    private struct Session: Codable { let token: String; let user: UserDTO }
+    private static var query: [String: Any] {
+        [kSecClass as String: kSecClassGenericPassword,
+         kSecAttrService as String: "\(Bundle.main.bundleIdentifier ?? "ci.monprofperso.app").session.\(ApiConfig.baseURL.host ?? "")",
+         kSecAttrAccount as String: "current-user"]
     }
-    /// Rôle réel persisté (`parent|student|teacher|admin`), restauré au lancement.
-    static var role: String? {
-        get { UserDefaults.standard.string(forKey: roleKey) }
-        set {
-            if let v = newValue { UserDefaults.standard.set(v, forKey: roleKey) }
-            else { UserDefaults.standard.removeObject(forKey: roleKey) }
-        }
+    private static var saved: Session? {
+        // Les sessions de l'ancien prototype ne sont pas réutilisées.
+        UserDefaults.standard.removeObject(forKey: "mpp_jwt")
+        UserDefaults.standard.removeObject(forKey: "mpp_role")
+        var q = query
+        q[kSecReturnData as String] = true
+        q[kSecMatchLimit as String] = kSecMatchLimitOne
+        var result: CFTypeRef?
+        guard SecItemCopyMatching(q as CFDictionary, &result) == errSecSuccess,
+              let data = result as? Data else { return nil }
+        return try? JSONDecoder().decode(Session.self, from: data)
     }
-    static func clear() { token = nil; role = nil }
+    static var token: String? { saved?.token }
+    static var role: String? { saved?.user.role }
+    static var user: UserDTO? { saved?.user }
+    static func save(token: String, user: UserDTO) throws {
+        let data = try JSONEncoder().encode(Session(token: token, user: user))
+        let attributes: [String: Any] = [kSecValueData as String: data,
+                                       kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly]
+        let updated = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+        if updated == errSecItemNotFound {
+            var item = query
+            attributes.forEach { item[$0.key] = $0.value }
+            guard SecItemAdd(item as CFDictionary, nil) == errSecSuccess else { throw ApiError.sessionStorage }
+        } else if updated != errSecSuccess { throw ApiError.sessionStorage }
+    }
+    static func clear() {
+        SecItemDelete(query as CFDictionary)
+        UserDefaults.standard.removeObject(forKey: "mpp_jwt")
+        UserDefaults.standard.removeObject(forKey: "mpp_role")
+    }
 }
 
 // MARK: - Modèles (Codable), mêmes champs que les DTO Android
@@ -91,7 +117,7 @@ struct TeacherDTO: Codable, Identifiable {
     let reviews: [ReviewDTO]?
 
     var priceLabel: String { "\(price_per_hour.formattedFCFA) F" }
-    var ratingLabel: String { String(format: "%.1f", rating).replacingOccurrences(of: ".", with: ",") }
+    var ratingLabel: String { reviews_count > 0 ? String(format: "%.1f", rating).replacingOccurrences(of: ".", with: ",") : "Pas encore noté" }
     var isGreen: Bool { accent == "green" }
     var distanceLabel: String {
         if let d = distance_km { return String(format: "%.1f km", d).replacingOccurrences(of: ".", with: ",") }
@@ -113,6 +139,26 @@ struct CourseDTO: Codable, Identifiable {
     let counter_frequency: String?
     let negotiation_status: String?
     let payment_status: String?
+    let accepted: Bool?
+    let starts_at: String?
+    let duration_minutes: Int?
+    var lifecycle_status: String? = nil
+    var private_address: String? = nil
+    var meeting_url: String? = nil
+    var access_notes: String? = nil
+    var parent_name: String? = nil
+    var participant_role: String? = nil
+
+    func isTeacherParticipant(accountRole: String?) -> Bool {
+        participant_role == "teacher" || (participant_role == nil && accountRole == "teacher")
+    }
+
+    var canPay: Bool {
+        guard participant_role == nil || participant_role == "parent",
+              accepted == true, status == "upcoming", lifecycle_status == "scheduled", ["pending", "unpaid"].contains(payment_status ?? ""), let starts_at,
+              let date = CourseOperations.parseISODate(starts_at) else { return false }
+        return price > 0 && date > Date()
+    }
 }
 
 struct GroupDTO: Codable, Identifiable {
@@ -181,7 +227,17 @@ struct NotificationDTO: Codable, Identifiable {
 }
 
 struct ProgressSubjectDTO: Codable { let subject, grade: String; let fraction: Double; let warn: Bool }
-struct ProgressDTO: Codable { let student, average, trend, goal: String; let subjects: [ProgressSubjectDTO] }
+struct ProgressDTO: Codable {
+    let student, average, trend, goal: String
+    let subjects: [ProgressSubjectDTO]
+    var entries: [ProgressEntryDTO]? = nil
+}
+struct ProgressEntryDTO: Codable, Identifiable {
+    var id: Int { courseId }
+    let courseId: Int
+    let subject, teacherName, summary: String
+    let studentName, completedAt: String?
+}
 
 // --- Espace professeur (live) ---
 struct StatDTO: Codable, Identifiable { let value, label: String; var id: String { label } }
@@ -213,8 +269,12 @@ struct TeacherRequestDTO: Codable, Identifiable {
     let availabilityWeek, availabilityWeekend, availabilityHolidays: Bool?
     let hasCat, hasDog: Bool?
     let lat, lng: Double?
-    var id: String { courseId.map(String.init) ?? needId.map(String.init) ?? "\(name)-\(slot ?? "")" }
-    var offerKey: String { needId.map(String.init) ?? courseId.map(String.init) ?? id }
+    var id: String {
+        if let needId { return "need:\(needId)" }
+        if let courseId { return "course:\(courseId)" }
+        return "\(name)-\(slot ?? "")"
+    }
+    var offerKey: String { id }
 }
 struct ChildDTO: Codable, Identifiable {
     let id: Int; let name, level: String
@@ -225,11 +285,88 @@ struct NeedDTO: Codable, Identifiable {
     let childId: Int?; let location, frequency, duration, description: String?
     let parentPrice, netTeacherAmount, netTeacherHourly: Int?
     let startDate: String?
+    let durationMinutes: Int?
+    var courseId: Int? = nil
 }
 struct EarningWeekDTO: Codable, Identifiable { let label: String; let f: Double; var id: String { label } }
 struct PayoutDTO: Codable, Identifiable { let provider, date: String; let amount: Int; let color: String; var id: String { provider + date } }
 struct TeacherEarningsDTO: Codable {
     let total: Int; let trend: String; let weeks: [EarningWeekDTO]; let stats: [StatDTO]; let payouts: [PayoutDTO]
+    var summary: EarningsSummaryDTO? = nil
+    var payoutRequests: [FinanceRequestDTO]? = nil
+}
+
+struct EarningsSummaryDTO: Codable { let expected, due, releasable, reserved, paid: Int }
+struct FinanceRequestDTO: Codable, Identifiable {
+    let id, amount: Int
+    let status: String
+    let provider, providerReference, createdAt, reason, beneficiaryPhone: String?
+}
+struct CourseContactsDTO: Codable { let parentPhone, teacherPhone: String? }
+struct ScheduleRequestDTO: Codable, Identifiable {
+    let id, proposedBy: Int
+    let startAt, status: String
+    let reason, createdAt: String?
+}
+struct CourseReportDTO: Codable, Identifiable {
+    let id: Int
+    let actorRole, outcome: String
+    let note, progressSummary, createdAt: String?
+}
+struct CourseEventDTO: Codable, Identifiable { let id: Int; let type: String; let actorRole, createdAt: String? }
+struct CourseFinanceDTO: Codable {
+    let grossAmount, capturedAmount, refundAmount, refundPendingAmount: Int
+    let commissionAmount, teacherNetAmount: Int?
+    let commissionPct: Double?
+    let teacherDue: Int?
+    let teacherReleasable, teacherReserved, teacherPaid: Int
+    let reviewRequired: Bool
+}
+struct CourseDetailsDTO: Codable {
+    let course: CourseDTO
+    let contacts: CourseContactsDTO
+    let scheduleRequests: [ScheduleRequestDTO]
+    let reports: [CourseReportDTO]
+    let events: [CourseEventDTO]
+    let finance: CourseFinanceDTO
+    let permissions: [String]
+}
+struct AccountDeletionRequestDTO: Codable { let id: Int; let status, requestedAt: String; let completedAt, cancelledAt: String? }
+struct AccountBlockerDTO: Codable { let code, message: String; let count: Int? }
+struct AccountDeletionDTO: Codable { let request: AccountDeletionRequestDTO?; let blockers: [AccountBlockerDTO] }
+struct NotificationPreferencesDTO: Codable {
+    var notificationsWhatsapp, notificationsEmail: Bool
+    let whatsappAvailable, emailAvailable: Bool
+}
+struct ConsentDocumentDTO: Codable, Identifiable { let slug, title, version: String; var id: String { slug } }
+struct AccountConsentDTO: Codable { let version: String; let accepted: Bool; let documents: [ConsentDocumentDTO] }
+
+enum CourseOperations {
+    static func parseISODate(_ value: String) -> Date? {
+        let parser = ISO8601DateFormatter()
+        parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = parser.date(from: value) { return date }
+        parser.formatOptions = [.withInternetDateTime]
+        return parser.date(from: value)
+    }
+    static func safeMeetingURL(_ value: String?) -> URL? {
+        guard let value, let url = URL(string: value), url.scheme == "https", let host = url.host,
+              !host.isEmpty, url.user == nil, url.password == nil else { return nil }
+        return url
+    }
+    static func statusLabel(_ value: String?) -> String {
+        switch value {
+        case "requested": return "En attente du professeur"
+        case "awaiting_schedule": return "Créneau à convenir"
+        case "scheduled": return "Cours planifié"
+        case "completion_pending": return "Réalisation à confirmer"
+        case "completed": return "Cours réalisé"
+        case "disputed": return "Signalement en cours de traitement"
+        case "cancelled": return "Cours annulé"
+        case "refused": return "Demande refusée"
+        default: return "Consultez le détail du cours"
+        }
+    }
 }
 
 extension Int {
@@ -242,11 +379,57 @@ extension Int {
 
 // MARK: - Client
 
-enum ApiError: Error { case badStatus(Int) }
+enum ApiError: LocalizedError {
+    case badStatus(Int, String?)
+    case legalConsent(String, String?)
+    case invalidResponse
+    case sessionStorage
+    var errorDescription: String? {
+        switch self {
+        case let .legalConsent(code, _):
+            return code == "consent_version_changed"
+                ? "Les conditions ont changé. Relisez les documents et cochez à nouveau votre accord."
+                : "Acceptez les conditions à jour dans « Mes données et mon compte » avant de poursuivre."
+        case let .badStatus(code, message):
+            if let message, !message.isEmpty { return message }
+            if code == 401 { return "Connectez-vous à nouveau pour continuer." }
+            if code == 403 { return "Votre compte n'a pas accès à cette action." }
+            if code == 429 { return "Patientez avant de réessayer." }
+            return "La demande a échoué (\(code)). Réessayez."
+        case .invalidResponse: return "Réponse du serveur incomplète. Réessayez."
+        case .sessionStorage: return "La session n'a pas pu être enregistrée dans le trousseau."
+        }
+    }
+    var consentCode: String? { if case let .legalConsent(code, _) = self { return code }; return nil }
+}
 
-struct UserDTO: Codable { let id: Int; let role: String }
-struct AuthResponse: Codable { let token: String; let user: UserDTO }
-struct VerifyResponse: Codable { let token: String; let verified: Bool; let user: UserDTO? }
+struct UserDTO: Codable {
+    let id: Int
+    let role: String
+    let phone: String?
+    let full_name: String?
+    let teacher_id: Int?
+}
+struct AuthResponse: Codable {
+    let token: String?
+    let user: UserDTO?
+    let verified: Bool?
+    let otpRequired: Bool?
+    let challengeId: String?
+    let channel: String?
+    let destination: String?
+    let expiresInMinutes: Int?
+}
+struct OtpChallenge: Codable {
+    let challengeId: String
+    let channel: String
+    let destination: String
+    let expiresInMinutes: Int
+}
+enum AuthResult {
+    case authenticated(UserDTO)
+    case challenge(OtpChallenge)
+}
 
 struct OtpChannelsDTO: Codable {
     let demo: Bool
@@ -255,14 +438,7 @@ struct OtpChannelsDTO: Codable {
     let defaultChannel: String
     let codeLength: Int
     let ttlMinutes: Int
-}
-
-struct RequestOtpResponse: Codable {
-    let sent: Bool
-    let demo: Bool
-    let expiresInMinutes: Int
-    let channel: String?
-    let destination: String?
+    let consentVersion: String?
 }
 
 struct TeacherApplicationResultDTO: Codable {
@@ -284,10 +460,25 @@ struct ApiClient {
     private let session = URLSession.shared
 
     /// Requête bas niveau : ajoute l'en-tête `Authorization: Bearer` si un token est connu.
-    private func request(_ path: String, method: String = "GET", json: [String: Any]? = nil) async throws -> Data {
-        let url = ApiConfig.baseURL.appendingPathComponent(path)
+    static func makeURL(base: URL, path: String, query: [URLQueryItem] = []) throws -> URL {
+        guard var components = URLComponents(url: base.appendingPathComponent(path), resolvingAgainstBaseURL: false) else {
+            throw ApiError.invalidResponse
+        }
+        if !query.isEmpty {
+            components.queryItems = query
+            // Express décode « + » comme un espace dans une query de formulaire.
+            components.percentEncodedQuery = components.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
+        }
+        guard let url = components.url else { throw ApiError.invalidResponse }
+        return url
+    }
+
+    private func request(_ path: String, method: String = "GET", json: [String: Any]? = nil,
+                         query: [URLQueryItem] = []) async throws -> Data {
+        let url = try Self.makeURL(base: ApiConfig.baseURL, path: path, query: query)
         var req = URLRequest(url: url)
         req.httpMethod = method
+        req.timeoutInterval = 25
         if let token = TokenStore.token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         if let json = json {
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -295,23 +486,31 @@ struct ApiClient {
         }
         let (data, resp) = try await session.data(for: req)
         if let http = resp as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-            throw ApiError.badStatus(http.statusCode)
+            struct ErrorBody: Decodable { let error, message: String? }
+            let failure = try? JSONDecoder().decode(ErrorBody.self, from: data)
+            if http.statusCode == 409, let code = failure?.error, ["consent_required", "consent_version_changed"].contains(code) {
+                throw ApiError.legalConsent(code, failure?.message)
+            }
+            throw ApiError.badStatus(http.statusCode, failure?.message)
         }
         return data
     }
 
-    private func get<T: Decodable>(_ path: String) async throws -> T {
-        try JSONDecoder().decode(T.self, from: try await request(path))
+    private func get<T: Decodable>(_ path: String, query: [URLQueryItem] = []) async throws -> T {
+        try JSONDecoder().decode(T.self, from: try await request(path, query: query))
     }
 
-    // MARK: Authentification, récupère le JWT et le persiste dans TokenStore.
-    // Tolérant aux pannes : en cas d'échec, l'app continue en mode démo (repli serveur).
+    // MARK: Authentification : seule une réponse contenant une session vérifiée ouvre le compte.
     private static let apiRoles = ["parent", "student", "teacher"]
 
     static func normalizePhone(_ local: String) -> String {
         let digits = local.filter(\.isNumber)
-        if digits.hasPrefix("225") { return "+\(digits)" }
-        return "+225\(digits)"
+        if digits.count == 10 && digits.hasPrefix("0") { return "+225\(digits)" }
+        return "+\(digits)"
+    }
+
+    static func localPhone(_ phone: String) -> String {
+        phone.hasPrefix("+225") ? String(phone.dropFirst(4)) : phone
     }
 
     static func maskPhone(_ e164: String) -> String {
@@ -339,49 +538,57 @@ struct ApiClient {
         }
     }
 
-    /// Renvoie le rôle réel du compte (`parent|student|teacher|admin`) si la connexion réussit.
-    @discardableResult
-    func login(phone: String = ApiConfig.demoPhone) async -> String? {
-        if let data = try? await request("api/auth/login", method: "POST", json: ["phone": phone]),
-           let r = try? JSONDecoder().decode(AuthResponse.self, from: data) {
-            TokenStore.token = r.token; TokenStore.role = r.user.role; return r.user.role
-        }
-        return nil
+    func currentConsentVersion() async throws -> String {
+        let channels: OtpChannelsDTO = try await get("api/auth/otp-channels")
+        guard let version = channels.consentVersion, !version.isEmpty else { throw ApiError.invalidResponse }
+        return version
     }
 
-    @discardableResult
-    func signup(fullName: String, phone: String = ApiConfig.demoPhone, roleIndex: Int,
-                consent: Bool = true, parentalConsent: Bool = false, demo: Bool = true) async -> String? {
+    func accountConsent() async throws -> AccountConsentDTO { try await get("api/account/consent") }
+
+    func acceptAccountConsent(version: String, parentalConsent: Bool) async throws {
+        _ = try await request("api/account/consent", method: "POST", json: ["consent": true, "consentVersion": version, "parentalConsent": parentalConsent])
+    }
+
+    private func authResult(_ data: Data) throws -> AuthResult {
+        let r = try JSONDecoder().decode(AuthResponse.self, from: data)
+        if let token = r.token, !token.isEmpty, let user = r.user, r.verified == true {
+            try TokenStore.save(token: token, user: user)
+            return .authenticated(user)
+        }
+        guard r.otpRequired == true, let id = r.challengeId, !id.isEmpty,
+              let channel = r.channel, let destination = r.destination,
+              let expires = r.expiresInMinutes else { throw ApiError.invalidResponse }
+        return .challenge(OtpChallenge(challengeId: id, channel: channel, destination: destination, expiresInMinutes: expires))
+    }
+
+    func login(phone: String, channel: String = "whatsapp", email: String? = nil) async throws -> AuthResult {
+        var body: [String: Any] = ["phone": phone, "channel": channel]
+        if let email, !email.isEmpty { body["email"] = email }
+        return try authResult(try await request("api/auth/login", method: "POST", json: body))
+    }
+
+    func signup(fullName: String, phone: String, roleIndex: Int,
+                consent: Bool, parentalConsent: Bool, consentVersion: String, email: String? = nil) async throws -> AuthResult {
+        guard consent, !consentVersion.isEmpty else { throw ApiError.legalConsent("consent_required", nil) }
         let role = Self.apiRoles[min(max(roleIndex, 0), 2)]
-        if let data = try? await request("api/auth/signup", method: "POST",
-                                         json: ["fullName": fullName, "phone": phone, "role": role,
-                                                "consent": consent, "parentalConsent": parentalConsent]),
-           let r = try? JSONDecoder().decode(AuthResponse.self, from: data) {
-            if demo {
-                TokenStore.token = r.token; TokenStore.role = r.user.role
-                return r.user.role
-            }
-            return r.user.role
-        }
-        return nil
+        var body: [String: Any] = ["fullName": fullName, "phone": phone, "role": role,
+                                  "channel": "whatsapp", "consent": consent, "parentalConsent": parentalConsent, "consentVersion": consentVersion]
+        if let email, !email.isEmpty { body["email"] = email }
+        return try authResult(try await request("api/auth/signup", method: "POST", json: body))
     }
 
-    func requestOtp(phone: String, channel: String, email: String? = nil) async -> RequestOtpResponse? {
-        var json: [String: Any] = ["phone": phone, "channel": channel]
-        if let email, !email.isEmpty { json["email"] = email }
-        guard let data = try? await request("api/auth/request-otp", method: "POST", json: json) else { return nil }
-        return try? JSONDecoder().decode(RequestOtpResponse.self, from: data)
+    func requestOtp(challengeId: String) async throws -> OtpChallenge {
+        let data = try await request("api/auth/request-otp", method: "POST", json: ["challengeId": challengeId])
+        let challenge = try JSONDecoder().decode(OtpChallenge.self, from: data)
+        guard !challenge.challengeId.isEmpty else { throw ApiError.invalidResponse }
+        return challenge
     }
 
-    @discardableResult
-    func verifyOtp(phone: String, code: String, email: String? = nil) async -> Bool {
-        var json: [String: Any] = ["phone": phone, "code": code]
-        if let email, !email.isEmpty { json["email"] = email }
-        guard let data = try? await request("api/auth/verify-otp", method: "POST", json: json),
-              let r = try? JSONDecoder().decode(VerifyResponse.self, from: data) else { return false }
-        TokenStore.token = r.token
-        if let role = r.user?.role { TokenStore.role = role }
-        return true
+    func verifyOtp(challengeId: String, code: String) async throws -> UserDTO {
+        let data = try await request("api/auth/verify-otp", method: "POST", json: ["challengeId": challengeId, "code": code])
+        guard case let .authenticated(user) = try authResult(data) else { throw ApiError.invalidResponse }
+        return user
     }
 
     func otpSettings() async throws -> [String: String] { try await get("api/admin/otp-settings") }
@@ -397,8 +604,7 @@ struct ApiClient {
     }
 
     func teacherApplicationStatus(phone: String) async throws -> TeacherApplicationStatusDTO {
-        let enc = phone.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? phone
-        return try await get("api/teacher-applications/status?phone=\(enc)")
+        try await get("api/teacher-applications/status", query: [URLQueryItem(name: "phone", value: phone)])
     }
 
     func subjects() async throws -> [SubjectDTO] { try await get("api/subjects") }
@@ -407,7 +613,31 @@ struct ApiClient {
     func teachers() async throws -> [TeacherDTO] { try await get("api/teachers") }
     func teacher(_ id: Int) async throws -> TeacherDTO { try await get("api/teachers/\(id)") }
     func courses(status: String? = nil) async throws -> [CourseDTO] {
-        try await get("api/courses" + (status.map { "?status=\($0)" } ?? ""))
+        try await get("api/courses", query: status.map { [URLQueryItem(name: "status", value: $0)] } ?? [])
+    }
+    func me() async throws -> UserDTO { try await get("api/me") }
+    func capabilities() async throws -> [String: Bool] { try await get("api/capabilities") }
+    func exportAccount() async throws -> Data { try await request("api/account/export") }
+    func accountDeletion() async throws -> AccountDeletionDTO { try await get("api/account/deletion-request") }
+    func requestAccountDeletion() async throws -> AccountDeletionDTO {
+        try JSONDecoder().decode(AccountDeletionDTO.self, from: try await request("api/account/deletion-request", method: "POST", json: ["confirmation": "SUPPRIMER"]))
+    }
+    func cancelAccountDeletion() async throws -> AccountDeletionDTO {
+        try JSONDecoder().decode(AccountDeletionDTO.self, from: try await request("api/account/deletion-request", method: "DELETE"))
+    }
+    func accountPreferences() async throws -> NotificationPreferencesDTO { try await get("api/account/preferences") }
+    func updateAccountPreferences(whatsapp: Bool, email: Bool) async throws -> NotificationPreferencesDTO {
+        try JSONDecoder().decode(NotificationPreferencesDTO.self, from: try await request("api/account/preferences", method: "PUT", json: ["notificationsWhatsapp": whatsapp, "notificationsEmail": email]))
+    }
+    func courseDetails(_ id: Int) async throws -> CourseDetailsDTO { try await get("api/courses/\(id)") }
+    func updateCourseDetails(_ id: Int, body: [String: Any]) async throws {
+        _ = try await request("api/courses/\(id)/details", method: "PUT", json: body)
+    }
+    func courseAction(_ id: Int, action: String, body: [String: Any]) async throws {
+        _ = try await request("api/courses/\(id)/\(action)", method: "POST", json: body)
+    }
+    func requestPayout(amount: Int, provider: String, idempotencyKey: String) async throws {
+        _ = try await request("api/teacher/payout-requests", method: "POST", json: ["amount": amount, "provider": provider, "idempotencyKey": idempotencyKey])
     }
     /// Crée une réservation ; renvoie référence + cours (payment_status pending).
     func createBooking(_ body: [String: Any]) async throws -> BookingResult {
@@ -435,11 +665,12 @@ struct ApiClient {
 
     func pollUntilPaid(paymentId: Int) async -> Bool {
         for _ in 0..<24 {
+            if Task.isCancelled { return false }
             if let st = try? await paymentStatus(paymentId) {
                 if st.paid { return true }
                 if st.status == "failed" { return false }
             }
-            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            do { try await Task.sleep(nanoseconds: 2_500_000_000) } catch { return false }
         }
         return (try? await paymentStatus(paymentId))?.paid ?? false
     }
@@ -459,10 +690,12 @@ struct ApiClient {
         return try JSONDecoder().decode(TeacherProfileDTO.self, from: data)
     }
     func acceptRequest(courseId: Int) async throws { _ = try await request("api/teacher/requests/\(courseId)/accept", method: "POST") }
+    func acceptOpportunity(needId: Int) async throws { _ = try await request("api/teacher/opportunities/\(needId)/accept", method: "POST") }
     func refuseRequest(courseId: Int) async throws { _ = try await request("api/teacher/requests/\(courseId)/refuse", method: "POST") }
 
     // MARK: Besoins parents
     func children() async throws -> [ChildDTO] { try await get("api/children") }
+    func cancelNeed(id: Int) async throws { _ = try await request("api/needs/\(id)/cancel", method: "POST") }
     func createChild(_ json: [String: Any]) async throws -> ChildDTO {
         let data = try await request("api/children", method: "POST", json: json)
         return try JSONDecoder().decode(ChildDTO.self, from: data)
@@ -500,12 +733,12 @@ struct ApiClient {
     func deleteProgram(slug: String) async throws { _ = try await request("api/admin/programs/\(slug)", method: "DELETE") }
 
     func resources(type: String? = nil, subject: String? = nil, level: String? = nil, program: String? = nil) async throws -> [ResourceDTO] {
-        var q: [String] = []
-        if let type { q.append("type=\(type.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? type)") }
-        if let subject { q.append("subject=\(subject.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? subject)") }
-        if let level { q.append("level=\(level.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? level)") }
-        if let program { q.append("program=\(program.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? program)") }
-        return try await get("api/resources" + (q.isEmpty ? "" : "?" + q.joined(separator: "&")))
+        var q: [URLQueryItem] = []
+        if let type { q.append(URLQueryItem(name: "type", value: type)) }
+        if let subject { q.append(URLQueryItem(name: "subject", value: subject)) }
+        if let level { q.append(URLQueryItem(name: "level", value: level)) }
+        if let program { q.append(URLQueryItem(name: "program", value: program)) }
+        return try await get("api/resources", query: q)
     }
     func createResource(type: String, title: String, program: String, subjectSlug: String?, level: String?, description: String?,
                         fileName: String? = nil, mimeType: String? = nil, contentBase64: String? = nil) async throws -> ResourceDTO {
@@ -579,9 +812,9 @@ extension Fallback {
         .init(id: 3, type: "homework", subject_slug: "francais", level: "1ere", program: "francais", title: "Devoir, Commentaire de texte", description: "Sujet type BAC à rendre.", file_name: nil, mime_type: nil, size_bytes: nil, created_at: nil),
     ]
     static let courses: [CourseDTO] = [
-        .init(id: 1, teacher_name: "Koffi N'Guessan", subject: "Maths", level: "3ᵉ", day_label: "SAM", day_num: "22", time: "16h00", duration: "1h30", format: "home", location: "À domicile, Cocody", price: 6000, status: "upcoming", badge: "Dans 2 jours", negotiable: nil, proposed_price: nil, proposed_frequency: nil, counter_price: nil, counter_frequency: nil, negotiation_status: nil, payment_status: nil),
-        .init(id: 2, teacher_name: "Mariam Touré", subject: "Anglais", level: "3ᵉ", day_label: "LUN", day_num: "24", time: "17h00", duration: "1h", format: "online", location: nil, price: 4500, status: "upcoming", badge: nil, negotiable: nil, proposed_price: nil, proposed_frequency: nil, counter_price: nil, counter_frequency: nil, negotiation_status: nil, payment_status: nil),
-        .init(id: 3, teacher_name: "Koffi N'Guessan", subject: "Maths", level: "3ᵉ", day_label: "VEN", day_num: "14", time: "15h00", duration: "1h30", format: "home", location: "À domicile, Cocody", price: 6000, status: "done", badge: nil, negotiable: nil, proposed_price: nil, proposed_frequency: nil, counter_price: nil, counter_frequency: nil, negotiation_status: nil, payment_status: nil),
+        .init(id: 1, teacher_name: "Koffi N'Guessan", subject: "Maths", level: "3ᵉ", day_label: "SAM", day_num: "22", time: "16h00", duration: "1h30", format: "home", location: "À domicile, Cocody", price: 6000, status: "upcoming", badge: "Dans 2 jours", negotiable: nil, proposed_price: nil, proposed_frequency: nil, counter_price: nil, counter_frequency: nil, negotiation_status: nil, payment_status: nil, accepted: false, starts_at: nil, duration_minutes: nil),
+        .init(id: 2, teacher_name: "Mariam Touré", subject: "Anglais", level: "3ᵉ", day_label: "LUN", day_num: "24", time: "17h00", duration: "1h", format: "online", location: nil, price: 4500, status: "upcoming", badge: nil, negotiable: nil, proposed_price: nil, proposed_frequency: nil, counter_price: nil, counter_frequency: nil, negotiation_status: nil, payment_status: nil, accepted: false, starts_at: nil, duration_minutes: nil),
+        .init(id: 3, teacher_name: "Koffi N'Guessan", subject: "Maths", level: "3ᵉ", day_label: "VEN", day_num: "14", time: "15h00", duration: "1h30", format: "home", location: "À domicile, Cocody", price: 6000, status: "done", badge: nil, negotiable: nil, proposed_price: nil, proposed_frequency: nil, counter_price: nil, counter_frequency: nil, negotiation_status: nil, payment_status: nil, accepted: false, starts_at: nil, duration_minutes: nil),
     ]
     static let groups: [GroupDTO] = [
         .init(id: 1, tag: "PRÉPA BAC", tag_accent: "orange", price: 2000, title: "Maths & Physique-Chimie", detail: "Terminale D · 8 semaines · Sam & Dim", teacher_initials: "KN", teacher_name: "Koffi N'Guessan", teacher_accent: "green", enrolled: 9, capacity: 12, places_left: 3, kind: "regular", start_date: nil, end_date: nil),
@@ -615,7 +848,7 @@ final class TeachersStore: ObservableObject {
     func load() async {
         loading = true
         do { teachers = try await ApiClient.shared.teachers(); fromApi = true }
-        catch { teachers = Fallback.teachers; fromApi = false }
+        catch { teachers = []; fromApi = false }
         loading = false
     }
 }
@@ -623,22 +856,33 @@ final class TeachersStore: ObservableObject {
 /// Store : accueil (matières + profs recommandés).
 @MainActor
 final class HomeStore: ObservableObject {
-    @Published var subjects: [SubjectDTO] = Fallback.subjects
+    @Published var subjects: [SubjectDTO] = []
     @Published var teachers: [TeacherDTO] = []
+    @Published var loading = true
+    @Published var error: String?
     func load() async {
-        async let s = try? ApiClient.shared.subjects()
-        async let t = try? ApiClient.shared.teachers()
-        if let s = await s { subjects = s }
-        if let t = await t { teachers = t }
+        loading = true
+        defer { loading = false }
+        do {
+            async let s = ApiClient.shared.subjects()
+            async let t = ApiClient.shared.teachers()
+            let result = try await (s, t)
+            subjects = result.0; teachers = result.1; error = nil
+        } catch { subjects = []; teachers = []; self.error = error.localizedDescription }
     }
 }
 
 /// Store : mes cours.
 @MainActor
 final class CoursesStore: ObservableObject {
-    @Published var courses: [CourseDTO] = Fallback.courses
+    @Published var courses: [CourseDTO] = []
+    @Published var loading = false
+    @Published var error: String?
     func load() async {
-        if let c = try? await ApiClient.shared.courses() { courses = c }
+        loading = true
+        defer { loading = false }
+        do { courses = try await ApiClient.shared.courses(); error = nil }
+        catch { courses = []; self.error = error.localizedDescription }
     }
 }
 
@@ -654,8 +898,10 @@ final class ProgressStore: ObservableObject {
 /// Store : profil d'un professeur.
 @MainActor
 final class TeacherStore: ObservableObject {
-    @Published var teacher: TeacherDTO = Fallback.teacherDetail
-    func load(_ id: Int = 1) async {
-        if let t = try? await ApiClient.shared.teacher(id) { teacher = t }
+    @Published var teacher: TeacherDTO?
+    @Published var error: String?
+    func load(_ id: Int) async {
+        do { teacher = try await ApiClient.shared.teacher(id); error = nil }
+        catch { teacher = nil; self.error = error.localizedDescription }
     }
 }

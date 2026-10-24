@@ -125,7 +125,7 @@ struct GroupDetailScreen: View {
                     HStack(spacing: 0) { Text("2 000 F").font(AkFont.schibstedExtra(20)).foregroundColor(Ak.ink); Text("/séance").font(AkFont.semibold(13)).foregroundColor(Ak.faint) }
                     Text("payable par séance").font(AkFont.regular(11.5)).foregroundColor(Ak.muted)
                 }
-                PrimaryButton(label: "Réserver ma place", trailingSystemIcon: nil) { router.go(.payment) }
+                PrimaryButton(label: "Demander des informations", trailingSystemIcon: nil) { router.go(.helpFaq) }
             }.padding(.horizontal, 22).padding(.top, 14).padding(.bottom, 12).background(.white)
         }
     }

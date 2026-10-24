@@ -103,10 +103,11 @@ private let noVehicleMaxKm = 12.0
 
 struct CourseRequestsScreen: View {
     @EnvironmentObject var router: Router
-    @State private var reqs: [TeacherRequestDTO] = Fallback.teacherRequests
+    @State private var reqs: [TeacherRequestDTO] = []
     @State private var isLive = false
     @State private var attempted = false
-    @State private var needsConfirmed = true
+    @State private var needsConfirmed = false
+    @State private var acting = false
     @State private var showFilters = false
     @State private var filterWeek = true
     @State private var filterWeekend = true
@@ -119,7 +120,7 @@ struct CourseRequestsScreen: View {
     @State private var marksTick = 0
 
     private var marksStore: UserDefaults { UserDefaults.standard }
-    private let marksKey = "mpp_offer_marks"
+    private var marksKey: String { "mpp_offer_marks_\(TokenStore.user?.id ?? 0)" }
 
     private var marks: [String: String] {
         marksTick
@@ -128,7 +129,7 @@ struct CourseRequestsScreen: View {
 
     private var filtered: [TeacherRequestDTO] {
         reqs.filter { r in
-            guard r.isOpportunity == true || r.needId != nil else { return false }
+            if r.isOpportunity != true && r.needId == nil { return true }
             if marks[r.offerKey] == "refused" { return false }
             let whenOk = (filterWeek && (r.availabilityWeek ?? true))
                 || (filterWeekend && (r.availabilityWeekend ?? false))
@@ -198,7 +199,8 @@ struct CourseRequestsScreen: View {
     }
 
     private func reload() async {
-        if let live = try? await ApiClient.shared.teacherRequests() { reqs = live; isLive = true } else { isLive = false }
+        if let live = try? await ApiClient.shared.teacherRequests() { reqs = live; isLive = true }
+        else { reqs = []; isLive = false }
         if let d = try? await ApiClient.shared.teacherDashboard() { needsConfirmed = d.needsConfirmed != false }
         attempted = true
     }
@@ -225,10 +227,18 @@ struct CourseRequestsScreen: View {
     }
 
     private func accept(_ r: TeacherRequestDTO) {
-        guard let id = r.needId ?? r.courseId else { return }
+        guard isLive, !acting else { return }
+        acting = true
         Task { @MainActor in
+            defer { acting = false }
             do {
-                try await ApiClient.shared.acceptRequest(courseId: id)
+                if r.isOpportunity == true || r.needId != nil {
+                    guard let id = r.needId else { throw ApiError.invalidResponse }
+                    try await ApiClient.shared.acceptOpportunity(needId: id)
+                } else {
+                    guard let id = r.courseId else { throw ApiError.invalidResponse }
+                    try await ApiClient.shared.acceptRequest(courseId: id)
+                }
                 setMark(r, nil)
                 toast = "Offre acceptée"
                 consulting = nil
@@ -240,11 +250,19 @@ struct CourseRequestsScreen: View {
     }
 
     private func refuse(_ r: TeacherRequestDTO) {
-        if r.isOpportunity != true, let id = r.courseId {
+        guard !acting, isLive else { return }
+        if r.isOpportunity != true && r.needId == nil, let id = r.courseId {
+            acting = true
             Task { @MainActor in
-                try? await ApiClient.shared.refuseRequest(courseId: id)
-                await reload()
+                defer { acting = false }
+                do {
+                    try await ApiClient.shared.refuseRequest(courseId: id)
+                    toast = "Demande refusée"
+                    consulting = nil
+                    await reload()
+                } catch { toast = error.localizedDescription }
             }
+            return
         }
         setMark(r, "refused")
         toast = "Offre masquée"

@@ -10,6 +10,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
+import ci.monprofperso.app.data.isPayable
+import ci.monprofperso.app.data.isTeacherParticipant
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -17,7 +20,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import ci.monprofperso.app.data.Auth
 import ci.monprofperso.app.data.Api
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+import java.util.TimeZone
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
@@ -46,111 +54,102 @@ import ci.monprofperso.app.ui.theme.Schibsted
 @Composable
 fun BookingScreen(nav: NavActions) {
     val app = ci.monprofperso.app.data.AppState
-    var format by remember { mutableIntStateOf(0) }
-    var day by remember { mutableIntStateOf(1) }
+    val scope = rememberCoroutineScope()
+    var format by remember { mutableStateOf(app.bkFormats.firstOrNull().orEmpty()) }
+    var day by remember { mutableIntStateOf(0) }
     var time by remember { mutableIntStateOf(2) }
     var duration by remember { mutableIntStateOf(1) }
-    var proposeOn by remember { mutableStateOf(false) }
-    var propPrice by remember { mutableStateOf("") }
-    var propFreq by remember { mutableStateOf("") }
-    val days = listOf("VEN" to "21", "SAM" to "22", "DIM" to "23", "LUN" to "24", "MAR" to "25")
-    val daysFull = listOf("Ven.", "Sam.", "Dim.", "Lun.", "Mar.")
+    var location by remember { mutableStateOf(app.bkLocation) }
+    var level by remember { mutableStateOf(app.bkLevel) }
+    var busy by remember { mutableStateOf(false) }
+    var bookingError by remember { mutableStateOf<String?>(null) }
+    var consentRequired by remember { mutableStateOf(false) }
+    val timezone = remember { TimeZone.getTimeZone("Africa/Abidjan") }
+    val days = remember { List(5) { offset -> Calendar.getInstance(timezone).apply { add(Calendar.DAY_OF_YEAR, offset + 1) }.time } }
+    val shortDay = remember { SimpleDateFormat("EEE", Locale.FRENCH).apply { timeZone = timezone } }
+    val dayNumber = remember { SimpleDateFormat("dd", Locale.FRENCH).apply { timeZone = timezone } }
+    val fullDay = remember { SimpleDateFormat("EEE dd MMM yyyy", Locale.FRENCH).apply { timeZone = timezone } }
     val times = listOf("10:00", "14:00", "16:00", "17:30")
     val durations = listOf("1h", "1h30", "2h")
-    val durationFactors = listOf(1.0, 1.5, 2.0)
-    val price = (app.bkPricePerHour * durationFactors[duration]).toInt()
-    val priceLabel = "%,d F".format(price).replace(',', ' ')
+    val estimatedPrice = (app.bkPricePerHour * listOf(1.0, 1.5, 2.0)[duration]).toInt()
+    val priceLabel = "%,d F".format(estimatedPrice).replace(',', ' ')
     AkScreen {
-        TopBar("Réserver un cours", onBack = { nav.back() })
+        TopBar("Demander un cours", onBack = { nav.back() })
         Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 22.dp).padding(top = 16.dp)) {
-            // prof mini
-            Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(AkColors.White)
-                    .border(1.dp, AkColors.Border, RoundedCornerShape(15.dp)).padding(11.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(AkColors.White)
+                .border(1.dp, AkColors.Border, RoundedCornerShape(15.dp)).padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
                 InitialsAvatar(app.bkTeacherInitials, size = 42, radius = 12, fontSize = 15)
                 Spacer(Modifier.width(11.dp))
                 Column(Modifier.weight(1f)) {
                     Text(app.bkTeacherName, fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AkColors.Ink)
                     Text(app.bkSubjectsLine, fontFamily = Hanken, fontSize = 12.sp, color = AkColors.Muted)
                 }
-                Icon(Icons.Filled.Verified, null, tint = AkColors.Green, modifier = Modifier.size(20.dp))
             }
             SubLabel("Format du cours")
+            if (app.bkFormats.isEmpty()) Text("Aucun format de cours disponible pour ce professeur dans la version actuelle.", color = AkColors.Orange)
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                FormatCard(Icons.Filled.Home, "À domicile", "Cocody · chez vous", format == 0, Modifier.weight(1f)) { format = 0 }
-                FormatCard(Icons.Filled.Videocam, "En ligne", "visio Mon Prof Perso", format == 1, Modifier.weight(1f)) { format = 1 }
+                if ("home" in app.bkFormats) FormatCard(Icons.Filled.Home, "À domicile", "Adresse du cours", format == "home", Modifier.weight(1f)) { format = "home" }
+                if ("online" in app.bkFormats) FormatCard(Icons.Filled.Videocam, "En ligne", "À convenir avec le prof", format == "online", Modifier.weight(1f)) { format = "online" }
+            }
+            if (format == "home") {
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(location, { location = it }, label = { Text("Adresse du cours") }, modifier = Modifier.fillMaxWidth())
             }
             SubLabel("Matière & niveau")
+            Text(app.bkSubject, fontFamily = Hanken, color = AkColors.Ink)
+            OutlinedTextField(level, { level = it }, label = { Text("Niveau de l'élève") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            SubLabel("Proposer un créneau · heure d'Abidjan")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Chip(app.bkSubject, true); Chip(app.bkLevel, false)
+                days.forEachIndexed { i, date -> DayCell(shortDay.format(date).uppercase(Locale.FRENCH), dayNumber.format(date), day == i, Modifier.weight(1f)) { day = i } }
             }
-            SubLabel("Choisir un créneau")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                days.forEachIndexed { i, (d, n) -> DayCell(d, n, day == i, Modifier.weight(1f)) { day = i } }
-            }
+            Text(fullDay.format(days[day]), fontFamily = Hanken, color = AkColors.Muted, modifier = Modifier.padding(top = 8.dp))
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                times.forEachIndexed { i, t ->
-                    val st = when { i == 0 -> TimeState.Disabled; time == i -> TimeState.Selected; else -> TimeState.Idle }
-                    TimeChip(t, state = st) { if (i != 0) time = i }
-                }
+                times.forEachIndexed { i, label -> TimeChip(label, if (time == i) TimeState.Selected else TimeState.Idle) { time = i } }
             }
             SubLabel("Durée")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                durations.forEachIndexed { i, d -> DurationChip(d, duration == i, Modifier.weight(1f)) { duration = i } }
+                durations.forEachIndexed { i, label -> DurationChip(label, duration == i, Modifier.weight(1f)) { duration = i } }
             }
-            if (app.bkNegotiable) {
-                SubLabel("Proposer mon tarif")
-                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(AkColors.OrangeSoft).padding(14.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Ce professeur accepte la négociation", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AkColors.Ink)
-                            Text("Proposez un tarif et une fréquence", fontFamily = Hanken, fontSize = 11.5.sp, color = Color(0xFF8A5B33))
-                        }
-                        androidx.compose.material3.Switch(
-                            checked = proposeOn, onCheckedChange = { proposeOn = it },
-                            colors = androidx.compose.material3.SwitchDefaults.colors(checkedTrackColor = AkColors.Orange),
-                        )
-                    }
-                    if (proposeOn) {
-                        Spacer(Modifier.height(10.dp))
-                        androidx.compose.material3.OutlinedTextField(
-                            value = propPrice, onValueChange = { propPrice = it.filter { c -> c.isDigit() } },
-                            label = { Text("Tarif souhaité (F / h)") }, singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        androidx.compose.material3.OutlinedTextField(
-                            value = propFreq, onValueChange = { propFreq = it }, label = { Text("Fréquence (ex. 2 cours / sem)") },
-                            singleLine = true, modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                }
-            }
+            Text("Le professeur doit accepter votre demande. Le paiement sera ensuite disponible dans Mes cours.",
+                fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Muted, modifier = Modifier.padding(top = 18.dp))
+            bookingError?.let { Text(it, color = AkColors.Orange, modifier = Modifier.padding(top = 12.dp)) }
+            if (consentRequired) TextButton(onClick = { nav.go(Routes.Settings) }) { Text("Lire et accepter les conditions dans mes paramètres") }
             Spacer(Modifier.height(16.dp))
         }
         Column(Modifier.fillMaxWidth().background(AkColors.White).padding(horizontal = 22.dp).padding(top = 14.dp, bottom = 24.dp)) {
-            Row(Modifier.fillMaxWidth().padding(bottom = 11.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("${daysFull[day]} ${days[day].second} juin · ${times[time]} · ${durations[duration]}", fontFamily = Hanken, fontSize = 13.5.sp, color = AkColors.Muted)
-                Text(priceLabel, fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = AkColors.Ink)
-            }
-            PrimaryButton("Continuer vers le paiement", Modifier.fillMaxWidth(), onClick = {
-                app.bkFormat = if (format == 0) "home" else "online"
-                app.bkDayLabel = days[day].first
-                app.bkDayNum = days[day].second
-                app.bkDayFull = "${daysFull[day]} ${days[day].second} juin"
-                app.bkTime = times[time]
-                app.bkDuration = durations[duration]
-                app.bkPrice = price
-                val pp = if (proposeOn) propPrice.toIntOrNull() else null
-                val pf = if (proposeOn) propFreq.ifBlank { null } else null
-                app.bkProposedPrice = pp
-                app.bkProposedFrequency = pf
-                app.bkHasProposal = app.bkNegotiable && (pp != null || pf != null)
-                nav.go(Routes.Payment)
+            RecapRow("Estimation (${durations[duration]})", priceLabel)
+            PrimaryButton(if (busy) "Envoi…" else "Envoyer la demande", Modifier.fillMaxWidth(), enabled = !busy && format.isNotBlank() && (format != "home" || location.trim().length >= 5), onClick = {
+                if (busy) return@PrimaryButton
+                if (ci.monprofperso.app.data.TokenStore.token.isNullOrBlank()) { nav.go(Routes.Login); return@PrimaryButton }
+                busy = true
+                bookingError = null
+                scope.launch {
+                    try {
+                        val requestedTime = times[time].split(":")
+                        val requestedDate = Calendar.getInstance(timezone).apply {
+                            this.time = days[day]
+                            set(Calendar.HOUR_OF_DAY, requestedTime[0].toInt())
+                            set(Calendar.MINUTE, requestedTime[1].toInt())
+                            set(Calendar.SECOND, 0)
+                            set(Calendar.MILLISECOND, 0)
+                        }.time
+                        val startAt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }.format(requestedDate)
+                        val booking = Api.service.book(mapOf(
+                            "teacherId" to app.bkTeacherId, "subject" to app.bkSubject, "level" to level,
+                            "format" to format, "duration" to durations[duration], "startAt" to startAt,
+                            "location" to location.takeIf { format == "home" },
+                        ))
+                        app.resumePayment(booking.course)
+                        app.bkReference = booking.reference
+                        app.bkPaymentConfirmed = false
+                        nav.go(Routes.Confirmed)
+                    } catch (error: Exception) {
+                        if (error is kotlinx.coroutines.CancellationException) throw error
+                        bookingError = Auth.errorMessage(error)
+                        consentRequired = Auth.errorCode(error) == "consent_required"
+                    } finally { busy = false }
+                }
             })
         }
     }
@@ -233,13 +232,34 @@ fun PaymentScreen(nav: NavActions) {
     var otpPaymentId by remember { mutableIntStateOf(0) }
     var otpCode by remember { mutableStateOf("") }
     var payError by remember { mutableStateOf<String?>(null) }
+    var consentRequired by remember { mutableStateOf(false) }
+    var payable by remember { mutableStateOf(false) }
+    var loading by remember { mutableStateOf(true) }
+    var payerPhone by remember { mutableStateOf(app.authPhone) }
+    LaunchedEffect(app.bkCourseId) {
+        try {
+            val course = Api.service.courses().firstOrNull { it.id == app.bkCourseId }
+            if (course == null) payError = "Retrouvez votre cours dans Mes cours pour le payer."
+            else {
+                app.resumePayment(course)
+                payable = course.isPayable() && !course.isTeacherParticipant(app.authRole)
+                if (!payable) payError = if (course.paymentStatus == "paid") "Ce cours est déjà payé." else "Le professeur doit d'abord accepter ce cours."
+            }
+        } catch (error: Exception) {
+            if (error is kotlinx.coroutines.CancellationException) throw error
+            consentRequired = Auth.errorCode(error) == "consent_required"; payError = Auth.errorMessage(error)
+        } finally { loading = false }
+    }
+
+    fun paymentConfirmed() {
+        app.bkPaymentConfirmed = true
+        payable = false
+        nav.go(Routes.Confirmed)
+    }
     val priceLabel = "%,d F".format(app.bkPrice).replace(',', ' ')
     val lieu = if (app.bkFormat == "online") "En ligne" else "À domicile · ${app.bkLocation}"
 
-    fun paymentPhone(): String {
-        val raw = app.authPhone.trim()
-        return if (raw.startsWith("+")) raw else "+225$raw"
-    }
+    fun paymentPhone(): String = Auth.normalizePhone(payerPhone)
 
     fun providerForMethod() = when (method) {
         1 -> "wave"
@@ -249,12 +269,12 @@ fun PaymentScreen(nav: NavActions) {
 
     suspend fun pollUntilPaid(paymentId: Int): Boolean {
         repeat(24) {
-            val st = runCatching { Api.service.paymentStatus(paymentId) }.getOrNull()
-            if (st?.paid == true) return true
-            if (st?.status == "failed") return false
+            val st = Api.service.paymentStatus(paymentId)
+            if (st.paid) return true
+            if (st.status == "failed") return false
             delay(2500)
         }
-        return runCatching { Api.service.paymentStatus(paymentId).paid }.getOrDefault(false)
+        return Api.service.paymentStatus(paymentId).paid
     }
 
     if (showOtp) {
@@ -264,6 +284,7 @@ fun PaymentScreen(nav: NavActions) {
             text = {
                 Column {
                     Text("Saisissez le code reçu sur votre téléphone.", fontFamily = Hanken, fontSize = 13.sp)
+                    payError?.let { Text(it, color = AkColors.Orange) }
                     Spacer(Modifier.height(10.dp))
                     OutlinedTextField(
                         value = otpCode,
@@ -280,16 +301,16 @@ fun PaymentScreen(nav: NavActions) {
                     onClick = {
                         sending = true
                         scope.launch {
-                            val r = runCatching {
-                                Api.service.submitPaymentOtp(mapOf("paymentId" to otpPaymentId, "otp" to otpCode))
-                            }
-                            sending = false
-                            r.onSuccess { res ->
-                                if (res.status == "success" || pollUntilPaid(otpPaymentId)) {
+                            try {
+                                val response = Api.service.submitPaymentOtp(mapOf("paymentId" to otpPaymentId, "otp" to otpCode))
+                                if (pollUntilPaid(otpPaymentId)) {
                                     showOtp = false
-                                    nav.go(Routes.Confirmed)
-                                } else payError = res.message ?: "Code refusé"
-                            }.onFailure { payError = it.message ?: "Code refusé" }
+                                    paymentConfirmed()
+                                } else payError = response.message ?: "Paiement en attente ou code refusé. Consultez Mes cours."
+                            } catch (error: Exception) {
+                                if (error is kotlinx.coroutines.CancellationException) throw error
+                                consentRequired = Auth.errorCode(error) == "consent_required"; payError = Auth.errorMessage(error)
+                            } finally { sending = false }
                         }
                     },
                 ) { Text("Valider") }
@@ -316,90 +337,57 @@ fun PaymentScreen(nav: NavActions) {
                 Divider13()
                 RecapRow("Date", "${app.bkDayFull} · ${app.bkTime}")
                 RecapRow("Durée", app.bkDuration)
-                if (app.bkHasProposal) {
-                    app.bkProposedPrice?.let { RecapRow("Tarif proposé", "%,d F".format(it).replace(',', ' ')) }
-                    app.bkProposedFrequency?.let { RecapRow("Fréquence", it) }
-                }
                 RecapRow("Lieu", lieu, last = true)
             }
+            if (loading) Text("Vérification du cours…", fontFamily = Hanken, color = AkColors.Muted)
+            SubLabel2("Numéro Mobile Money")
+            PhoneField(value = payerPhone, onValueChange = { payerPhone = it })
             SubLabel2("Moyen de paiement")
             PaymentMethod(Color(0xFFF2761A), Icons.Filled.PhoneAndroid, "Orange Money", paymentPhone(), selected = method == 0) { method = 0 }
             Spacer(Modifier.height(10.dp))
-            PaymentMethod(Color(0xFF1D9BD8), Icons.Filled.Waves, "Wave", "Sans frais", selected = method == 1) { method = 1 }
+            PaymentMethod(Color(0xFF1D9BD8), Icons.Filled.Waves, "Wave", "Mobile Money", selected = method == 1) { method = 1 }
             Spacer(Modifier.height(10.dp))
-            PaymentMethod(Color(0xFFF5C518), Icons.Filled.PhoneAndroid, "MTN MoMo", "Sans frais", selected = method == 2, iconTint = AkColors.Ink) { method = 2 }
+            PaymentMethod(Color(0xFFF5C518), Icons.Filled.PhoneAndroid, "MTN MoMo", "Mobile Money", selected = method == 2, iconTint = AkColors.Ink) { method = 2 }
             payError?.let {
                 Spacer(Modifier.height(12.dp))
                 Text(it, fontFamily = Hanken, fontSize = 12.sp, color = Color(0xFFB42318))
             }
+            if (consentRequired) TextButton(onClick = { nav.go(Routes.Settings) }) { Text("Lire et accepter les conditions dans mes paramètres") }
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Lock, null, tint = AkColors.Green, modifier = Modifier.size(14.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Paiement 100% sécurisé · argent libéré après le cours", fontFamily = Hanken, fontSize = 12.sp, color = AkColors.Muted)
+                Text("Paiement Mobile Money", fontFamily = Hanken, fontSize = 12.sp, color = AkColors.Muted)
             }
             Spacer(Modifier.height(16.dp))
         }
         Column(Modifier.fillMaxWidth().background(AkColors.White).padding(horizontal = 22.dp).padding(top = 14.dp, bottom = 24.dp)) {
             RecapRow("Cours (${app.bkDuration})", priceLabel, valueColor = AkColors.Ink)
-            Row(Modifier.fillMaxWidth().padding(bottom = 11.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Frais de service", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Muted)
-                Text("Offert", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AkColors.Green)
-            }
-            PrimaryButton(if (sending) "Validation…" else "Payer $priceLabel", Modifier.fillMaxWidth(), color = AkColors.Green, trailingIcon = Icons.Filled.Lock, onClick = {
-                if (sending) return@PrimaryButton
+            PrimaryButton(if (sending) "Validation…" else "Payer $priceLabel", Modifier.fillMaxWidth(), color = if (payable && !loading) AkColors.Green else AkColors.Border, trailingIcon = Icons.Filled.Lock, onClick = {
+                if (sending || loading || !payable) return@PrimaryButton
                 sending = true
+                payError = null
                 scope.launch {
                     try {
-                        val body = buildMap<String, Any?> {
-                            put("teacherId", app.bkTeacherId)
-                            put("teacherName", app.bkTeacherName)
-                            put("subject", app.bkSubject)
-                            put("level", app.bkLevel)
-                            put("dayLabel", app.bkDayLabel)
-                            put("dayNum", app.bkDayNum)
-                            put("time", app.bkTime)
-                            put("duration", app.bkDuration)
-                            put("format", app.bkFormat)
-                            if (app.bkFormat == "home") put("location", "À domicile, ${app.bkLocation}")
-                            put("price", app.bkPrice)
-                            if (app.bkHasProposal) {
-                                app.bkProposedPrice?.let { put("proposedPrice", it) }
-                                app.bkProposedFrequency?.let { put("proposedFrequency", it) }
-                            }
-                        }
-                        val booking = runCatching { Api.service.book(body) }.getOrElse {
-                            payError = it.message ?: "Réservation impossible"
-                            return@launch
-                        }
-                        app.bkReference = booking.reference
-                        val charge = runCatching {
-                            Api.service.chargeMobile(
-                                mapOf(
-                                    "courseId" to booking.course.id,
-                                    "provider" to providerForMethod(),
-                                    "phone" to paymentPhone(),
-                                )
-                            )
-                        }.getOrElse {
-                            payError = it.message ?: "Paiement impossible"
-                            return@launch
-                        }
+                        val courseId = app.bkCourseId ?: throw IllegalStateException("Cours introuvable")
+                        val charge = Api.service.chargeMobile(mapOf(
+                            "courseId" to courseId, "provider" to providerForMethod(), "phone" to paymentPhone(),
+                        ))
                         when (charge.status) {
-                            "success" -> nav.go(Routes.Confirmed)
                             "otp_required" -> {
                                 otpPaymentId = charge.paymentId
                                 otpCode = ""
                                 showOtp = true
                             }
                             else -> {
-                                if (pollUntilPaid(charge.paymentId)) nav.go(Routes.Confirmed)
+                                if (pollUntilPaid(charge.paymentId)) paymentConfirmed()
                                 else payError = charge.message ?: "Paiement en attente ou refusé"
                             }
                         }
-                    } finally {
-                        sending = false
-                    }
+                    } catch (error: Exception) {
+                        if (error is kotlinx.coroutines.CancellationException) throw error
+                        consentRequired = Auth.errorCode(error) == "consent_required"; payError = Auth.errorMessage(error)
+                    } finally { sending = false }
                 }
             })
         }
@@ -462,12 +450,12 @@ fun ConfirmedScreen(nav: NavActions) {
                 }
             }
             Spacer(Modifier.height(22.dp))
-            Text(if (app.bkHasProposal) "Demande envoyée !" else "C'est confirmé !", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 26.sp, color = AkColors.Ink)
+            Text(if (app.bkPaymentConfirmed) "Paiement confirmé" else "Demande envoyée", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 26.sp, color = AkColors.Ink)
             Text(
-                if (app.bkHasProposal)
-                    "Votre proposition a été transmise à ${app.bkTeacherName}. Vous serez notifié de sa réponse."
+                if (app.bkPaymentConfirmed)
+                    "Votre paiement pour le cours avec ${app.bkTeacherName} a été confirmé."
                 else
-                    "Votre demande de cours avec ${app.bkTeacherName} est envoyée. Il va la confirmer.",
+                    "Votre demande a été transmise à ${app.bkTeacherName}. Le paiement sera disponible après son acceptation.",
                 fontFamily = Hanken, fontSize = 14.sp, lineHeight = 21.sp, color = AkColors.Muted,
                 textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp).widthIn(max = 280.dp))
             Spacer(Modifier.height(24.dp))
@@ -478,15 +466,15 @@ fun ConfirmedScreen(nav: NavActions) {
                 RecapRow("Date", "${app.bkDayFull} · ${app.bkTime}"); Spacer(Modifier.height(3.dp))
                 RecapRow("Lieu", lieu); Spacer(Modifier.height(3.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(if (app.bkHasProposal) "Tarif proposé" else "Montant", fontFamily = Hanken, fontSize = 13.sp, color = Color(0xFF4A574F))
-                    Text("%,d F".format(app.bkProposedPrice ?: app.bkPrice).replace(',', ' '), fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, color = AkColors.Green)
+                    Text(if (app.bkPaymentConfirmed) "Montant payé" else "Montant du cours", fontFamily = Hanken, fontSize = 13.sp, color = Color(0xFF4A574F))
+                    Text("%,d F".format(app.bkPrice).replace(',', ' '), fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, color = AkColors.Green)
                 }
             }
             Spacer(Modifier.height(16.dp))
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { nav.go(Routes.MyCourses) }) {
                 Icon(Icons.Filled.CalendarMonth, null, tint = AkColors.Green, modifier = Modifier.size(17.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Ajouter à mon agenda", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, color = AkColors.Green)
+                Text("Consulter mes cours", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, color = AkColors.Green)
             }
             Spacer(Modifier.height(16.dp))
         }

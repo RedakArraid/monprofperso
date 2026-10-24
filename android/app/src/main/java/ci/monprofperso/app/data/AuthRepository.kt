@@ -1,120 +1,182 @@
 package ci.monprofperso.app.data
 
-/**
- * Authentification : appelle les endpoints `api/auth/...`, récupère le JWT et le
- * persiste via [TokenStore]. Les appels suivants l'envoient en `Authorization: Bearer`.
- *
- * Tolérant aux pannes : si l'API est injoignable, on n'échoue pas (l'app continue
- * en mode démo, le backend retombant alors sur l'utilisateur de démonstration).
- */
+import ci.monprofperso.app.BuildConfig
+import kotlinx.coroutines.CancellationException
+import com.google.gson.Gson
+import retrofit2.HttpException
+
+/** Une session existe seulement après preuve OTP ou réponse explicite d'un serveur de démonstration. */
 object Auth {
-    /** Numéro de démonstration (= utilisateur seed « Aya Koné »). */
-    const val DEMO_PHONE = "+2250758421903"
-
-    /** Numéro de l'administrateur de démonstration (seed). */
     const val ADMIN_PHONE = "+2250700000001"
-
-    /** Index de rôle UI (0/1/2) -> valeur attendue par l'API. */
     private val apiRole = listOf("parent", "student", "teacher")
 
-    /** Formate un numéro local (8–10 chiffres) en E.164 ivoirien. */
     fun normalizePhone(local: String): String {
         val digits = local.filter { it.isDigit() }
-        return when {
-            digits.startsWith("225") -> "+$digits"
-            else -> "+225$digits"
-        }
+        return if (digits.length == 10 && digits.startsWith("0")) "+225$digits" else "+$digits"
     }
 
-    /** Masque un numéro pour l'affichage OTP (ex. +225 07 58 ** ** 03). */
     fun maskPhone(e164: String): String {
-        val d = e164.filter { it.isDigit() }
-        if (d.length < 8) return e164
-        val local = if (d.startsWith("225")) d.drop(3) else d
-        val a = local.take(2)
-        val b = local.drop(2).take(2)
-        val last = local.takeLast(2)
-        return "+225 $a $b ** ** $last"
+        val digits = e164.filter { it.isDigit() }
+        return if (digits.length < 8) e164 else "+${digits.take(5)} ** ** ${digits.takeLast(2)}"
     }
 
-    suspend fun refreshOtpChannels(): OtpChannelsDto? {
-        return runCatching { Api.service.otpChannels() }.onSuccess { c ->
-            AppState.otpDemo = c.demo
-            AppState.otpCodeLength = c.codeLength
-            AppState.otpTtlMinutes = c.ttlMinutes
-            AppState.otpWhatsappEnabled = c.whatsapp
-            AppState.otpEmailEnabled = c.email
-            if (c.defaultChannel == "email" || c.defaultChannel == "whatsapp") {
-                AppState.authOtpChannel = c.defaultChannel
+    private fun apiFailure(error: Throwable): ApiFailureDto? = if (error is HttpException) runCatching {
+        error.response()?.errorBody()?.source()?.peek()?.use { Gson().fromJson(it.readUtf8(), ApiFailureDto::class.java) }
+    }.getOrNull() else null
+
+    fun errorCode(error: Throwable): String? = apiFailure(error)?.error
+
+    fun errorMessage(error: Throwable): String {
+        if (error is HttpException) {
+            val failure = apiFailure(error)
+            if (failure?.error == "consent_required") return "Acceptez les conditions à jour dans « Mes données et mon compte » avant de poursuivre."
+            if (failure?.error == "consent_version_changed") return "Les conditions ont changé. Relisez les documents et cochez à nouveau votre accord."
+            val message = failure?.message
+            if (!message.isNullOrBlank()) return message
+            return when (error.code()) {
+                401 -> "Connexion nécessaire ou code incorrect."
+                403 -> "Cette opération n'est pas autorisée pour ce compte."
+                429 -> "Trop de tentatives. Patientez avant de réessayer."
+                503 -> "Le service de vérification est indisponible. Réessayez plus tard."
+                else -> "La demande a échoué. Réessayez."
             }
-        }.getOrNull()
+        }
+        return "Impossible de joindre le service ou de conserver la session. Vérifiez votre connexion puis réessayez."
     }
 
-    suspend fun login(phone: String = DEMO_PHONE) {
-        runCatching { Api.service.login(mapOf("phone" to phone)) }
-            .onSuccess { TokenStore.save(it.token, it.user.role); AppState.authRole = it.user.role }
+    private fun fail(error: Throwable) {
+        if (error is CancellationException) throw error
+        AppState.authErrorCode = errorCode(error)
+        AppState.authError = errorMessage(error)
     }
 
-    suspend fun signup(
-        fullName: String,
-        phone: String = DEMO_PHONE,
-        roleIndex: Int,
-        consent: Boolean = true,
-        parentalConsent: Boolean = false,
-    ): Boolean {
-        val channels = refreshOtpChannels()
-        val demo = channels?.demo != false
-        return runCatching {
-            Api.service.signup(
-                mapOf(
-                    "fullName" to fullName, "phone" to phone, "role" to apiRole[roleIndex.coerceIn(0, 2)],
-                    "consent" to consent.toString(), "parentalConsent" to parentalConsent.toString(),
-                )
-            )
-        }.onSuccess { r ->
-            if (demo) {
-                TokenStore.save(r.token, r.user.role)
-                AppState.authRole = r.user.role
+    private fun saveSession(token: String, user: UserDto) {
+        TokenStore.save(token, user.role)
+        AppState.authRole = user.role
+        AppState.authTeacherId = user.teacherId
+        AppState.authPhone = user.phone
+        AppState.authFullName = user.fullName
+        AppState.authChallengeId = null
+        AppState.authError = null
+    }
+
+    private fun acceptResponse(response: AuthResponse) {
+        when (val result = interpretLogin(response, allowDemo = BuildConfig.DEBUG)) {
+            is LoginResult.AwaitingOtp -> {
+                TokenStore.clear()
+                AppState.authRole = null
+                AppState.authTeacherId = null
+                AppState.authChallengeId = result.challengeId
+                AppState.authDestination = result.destination
+                AppState.authOtpChannel = result.channel
+                AppState.otpTtlMinutes = result.expiresInMinutes
             }
-        }.isSuccess
-    }
-
-    suspend fun requestOtp(
-        phone: String,
-        channel: String = AppState.authOtpChannel,
-        email: String? = null,
-    ): RequestOtpResponse? {
-        val body = mutableMapOf("phone" to phone, "channel" to channel)
-        email?.takeIf { it.isNotBlank() }?.let { body["email"] = it }
-        return runCatching { Api.service.requestOtp(body) }.getOrNull()
-    }
-
-    suspend fun verifyOtp(
-        phone: String,
-        code: String,
-        email: String? = null,
-    ): Boolean {
-        val body = mutableMapOf("phone" to phone, "code" to code)
-        email?.takeIf { it.isNotBlank() }?.let { body["email"] = it }
-        return runCatching { Api.service.verifyOtp(body) }
-            .onSuccess { r ->
-                val role = r.user?.role
-                TokenStore.save(r.token, role)
-                if (role != null) AppState.authRole = role
-            }
-            .isSuccess
-    }
-
-    /** Connexion : OTP si activé côté serveur, sinon JWT direct. */
-    suspend fun loginOrRequestOtp(phone: String): Boolean {
-        val channels = refreshOtpChannels()
-        return if (channels?.demo != false) {
-            login(phone)
-            true
-        } else {
-            requestOtp(phone, AppState.authOtpChannel, AppState.authEmail.takeIf { it.isNotBlank() }) != null
+            is LoginResult.Authenticated -> saveSession(result.token, result.user)
         }
     }
 
-    fun logout() = TokenStore.clear()
+    suspend fun refreshOtpChannels(): OtpChannelsDto? = try {
+        Api.service.otpChannels().also { channels ->
+            AppState.otpDemo = channels.demo && BuildConfig.DEBUG
+            AppState.otpCodeLength = channels.codeLength
+            AppState.otpTtlMinutes = channels.ttlMinutes
+            AppState.otpWhatsappEnabled = channels.whatsapp
+            AppState.otpEmailEnabled = channels.email
+        }
+    } catch (error: Exception) {
+        if (error is CancellationException) throw error
+        AppState.otpDemo = false
+        null
+    }
+
+    suspend fun login(phone: String, channel: String = AppState.authOtpChannel, email: String? = null): Boolean {
+        AppState.authError = null
+        AppState.authChallengeId = null
+        TokenStore.clear()
+        AppState.authRole = null
+        return try {
+            val body = mutableMapOf("phone" to phone, "channel" to channel)
+            email?.takeIf { it.isNotBlank() }?.let { body["email"] = it.trim() }
+            acceptResponse(Api.service.login(body))
+            true
+        } catch (error: Exception) { fail(error); false }
+    }
+
+    suspend fun signup(fullName: String, phone: String, roleIndex: Int, consent: Boolean, parentalConsent: Boolean, consentVersion: String): Boolean {
+        AppState.authError = null
+        AppState.authErrorCode = null
+        AppState.authChallengeId = null
+        TokenStore.clear()
+        AppState.authRole = null
+        return try {
+            require(consent && consentVersion.isNotBlank()) { "Consultez et acceptez les conditions à jour." }
+            val body = mutableMapOf(
+                "fullName" to fullName.trim(), "phone" to phone, "role" to apiRole[roleIndex.coerceIn(0, 2)],
+                "consent" to consent.toString(), "parentalConsent" to parentalConsent.toString(),
+                "consentVersion" to consentVersion,
+            )
+            AppState.authEmail.takeIf { it.isNotBlank() }?.let { body["email"] = it.trim() }
+            acceptResponse(Api.service.signup(body))
+            true
+        } catch (error: Exception) { fail(error); false }
+    }
+
+    /** Le renvoi conserve l'identité et l'opération liées au challenge côté serveur. */
+    suspend fun resendOtp(): Boolean {
+        AppState.authError = null
+        val challengeId = AppState.authChallengeId ?: return false
+        return try {
+            val response = Api.service.requestOtp(mapOf("challengeId" to challengeId))
+            check(response.sent && response.otpRequired && !response.challengeId.isNullOrBlank())
+            AppState.authChallengeId = response.challengeId
+            AppState.authDestination = response.destination.orEmpty()
+            AppState.authOtpChannel = response.channel ?: AppState.authOtpChannel
+            AppState.otpTtlMinutes = response.expiresInMinutes
+            true
+        } catch (error: Exception) { fail(error); false }
+    }
+
+    suspend fun verifyOtp(code: String): Boolean {
+        AppState.authError = null
+        val challengeId = AppState.authChallengeId ?: run {
+            AppState.authError = "La vérification a expiré. Recommencez la connexion."
+            return false
+        }
+        return try {
+            val response = Api.service.verifyOtp(mapOf("challengeId" to challengeId, "code" to code))
+            check(response.verified && response.token.isNotBlank() && response.user != null)
+            saveSession(response.token, response.user!!)
+            true
+        } catch (error: Exception) { fail(error); false }
+    }
+
+    suspend fun restoreSession(): Boolean {
+        val token = TokenStore.token ?: return false
+        return try {
+            saveSession(token, Api.service.me())
+            true
+        } catch (error: Exception) {
+            if (error is CancellationException) throw error
+            if (error is HttpException && error.code() in listOf(401, 403)) logout()
+            AppState.authError = errorMessage(error)
+            false
+        }
+    }
+
+    fun logout() {
+        TokenStore.clear()
+        AppState.authRole = null
+        AppState.authTeacherId = null
+        AppState.authChallengeId = null
+        AppState.authError = null
+        AppState.bkCourseId = null
+        AppState.selectedCourseId = null
+        AppState.selectedTeacherId = 0
+        AppState.authPhone = ""
+        AppState.authEmail = ""
+        AppState.authFullName = ""
+        AppState.bkTeacherName = ""
+        AppState.bkLocation = ""
+        AppState.bkPaymentConfirmed = false
+    }
 }

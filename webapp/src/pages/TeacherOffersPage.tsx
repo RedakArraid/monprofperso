@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import {
   AppShell,
   OfflineBanner,
@@ -7,10 +8,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { fallback } from "@/lib/fallback";
 import { fcfa } from "@/lib/utils";
 import { useLive } from "@/hooks/useLive";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Briefcase,
   Cat,
@@ -22,7 +24,8 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { CoteIvoireOffersMap, distanceKmFromHome, resolveCoords, TEACHER_HOME } from "@/components/OffersMap";
+import { CoteIvoireOffersMap } from "@/components/OffersMap";
+import { distanceKmFromHome, resolveCoords } from "@/lib/geography";
 
 export type OfferReq = {
   courseId?: number;
@@ -60,11 +63,9 @@ type ListFilters = {
 };
 type SortMode = "recent" | "price_desc" | "price_asc" | "distance";
 type OfferMark = "option" | "thinking" | "refused";
-type Channels = { sms: boolean; notif: boolean };
 type PropFilters = { option: boolean; thinking: boolean; refused: boolean };
 
 const LS_MARKS = "mpp_offer_marks";
-const LS_CHANNELS = "mpp_offer_channels";
 const LS_SEARCH = "mpp_offer_search";
 const NO_VEHICLE_MAX_KM = 12;
 
@@ -78,16 +79,16 @@ function loadJson<T>(key: string, fallbackVal: T): T {
   }
 }
 
-function loadMarks(): Record<string, OfferMark> {
+function loadMarks(key: string): Record<string, OfferMark> {
   try {
-    return JSON.parse(localStorage.getItem(LS_MARKS) || "{}") as Record<string, OfferMark>;
+    return JSON.parse(localStorage.getItem(key) || "{}") as Record<string, OfferMark>;
   } catch {
     return {};
   }
 }
 
 function offerId(r: OfferReq) {
-  return String(r.needId || r.courseId);
+  return r.needId != null ? `need-${r.needId}` : `course-${r.courseId}`;
 }
 
 function parseStudent(student?: string) {
@@ -134,14 +135,14 @@ function OfferCard({
 }: {
   r: OfferReq;
   onConsult: () => void;
-  home?: [number, number];
+  home?: [number, number] | null;
   selected?: boolean;
   cardRef?: (el: HTMLElement | null) => void;
   onSelect?: () => void;
   mark?: OfferMark | null;
 }) {
-  const place = (r.name || r.slot || "Abidjan").replace(/,?\s*Côte d'Ivoire/i, "").trim();
-  const title = place.toUpperCase() || "ABIDJAN";
+  const place = (r.name || r.slot || "Localisation à préciser").replace(/,?\s*Côte d'Ivoire/i, "").trim();
+  const title = place.toUpperCase() || "LOCALISATION À PRÉCISER";
   const dist = distanceKmFromHome(r.slot || r.name || place, home, r.lat, r.lng);
   const { name: pupil, level, gender } = parseStudent(r.student);
   const freq =
@@ -286,14 +287,14 @@ function OfferDetailModal({
   onMark,
 }: {
   r: OfferReq;
-  home: [number, number];
+  home: [number, number] | null;
   mark?: OfferMark | null;
   busy?: boolean;
   onClose: () => void;
   onAccept: () => void;
   onMark: (m: OfferMark) => void;
 }) {
-  const place = (r.name || r.slot || "Abidjan").replace(/,?\s*Côte d'Ivoire/i, "").trim();
+  const place = (r.name || r.slot || "Localisation à préciser").replace(/,?\s*Côte d'Ivoire/i, "").trim();
   const dist = distanceKmFromHome(r.slot || r.name || place, home, r.lat, r.lng);
   const { name: pupil, level, gender } = parseStudent(r.student);
   const start = formatStart(r.startDate);
@@ -380,7 +381,7 @@ function OfferDetailModal({
               disabled={busy}
               onClick={() => onMark("option")}
             >
-              Prendre une option
+              Enregistrer pour plus tard
             </Button>
             <Button
               type="button"
@@ -433,19 +434,23 @@ function PopMenu({
 }
 
 export function TeacherRequestsPage() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const storageKey = useCallback((name: string) => `${name}:${user?.id ?? "anonymous"}`, [user?.id]);
   const { data: rawData, offline, reload } = useLive<OfferReq[]>(
     "/api/teacher/requests",
     fallback.teacherRequests as OfferReq[],
   );
-  // Page Completude « Mes offres » = besoins publiés uniquement (pas les réservations legacy)
+  // Published opportunities and direct booking requests have distinct identifiers and actions.
+  const bookings = rawData.filter((r) => !r.isOpportunity && r.needId == null);
   const data = useMemo(
     () => rawData.filter((r) => Boolean(r.isOpportunity) || r.needId != null),
     [rawData],
   );
   const { data: profile } = useLive<{ location?: string } | null>("/api/teacher/profile", null);
 
-  const savedSearch = loadJson(LS_SEARCH, {
-    location: "Cocody, Abidjan",
+  const savedSearch = loadJson(storageKey(LS_SEARCH), {
+    location: "",
     when: { week: true, weekend: true, vacations: true } as WhenOpts,
     prefs: { vehicle: false, acceptDogs: true, acceptCats: true } as Prefs,
   });
@@ -459,7 +464,6 @@ export function TeacherRequestsPage() {
   const [location, setLocation] = useState(savedSearch.location);
   const [whenOpts, setWhenOpts] = useState<WhenOpts>(savedSearch.when);
   const [prefs, setPrefs] = useState<Prefs>(savedSearch.prefs);
-  const [channels, setChannels] = useState<Channels>(() => loadJson(LS_CHANNELS, { sms: true, notif: true }));
   const [propFilters, setPropFilters] = useState<PropFilters>({ option: true, thinking: true, refused: false });
 
   // Filtres appliqués (après « Voir les offres »)
@@ -475,7 +479,7 @@ export function TeacherRequestsPage() {
   const [sortOpen, setSortOpen] = useState(false);
   const [draftList, setDraftList] = useState<ListFilters>(applied.list);
 
-  const [marks, setMarks] = useState<Record<string, OfferMark>>(loadMarks);
+  const [marks, setMarks] = useState<Record<string, OfferMark>>(() => loadMarks(storageKey(LS_MARKS)));
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
   const [consultId, setConsultId] = useState<string | null>(null);
   const cardEls = useRef<Record<string, HTMLElement | null>>({});
@@ -490,15 +494,11 @@ export function TeacherRequestsPage() {
   }, [profile?.location]);
 
   useEffect(() => {
-    localStorage.setItem(LS_CHANNELS, JSON.stringify(channels));
-  }, [channels]);
-
-  useEffect(() => {
-    localStorage.setItem(LS_MARKS, JSON.stringify(marks));
-  }, [marks]);
+    localStorage.setItem(storageKey(LS_MARKS), JSON.stringify(marks));
+  }, [marks, storageKey]);
 
   const homeCoords = useMemo(
-    () => resolveCoords(applied.location) || resolveCoords(profile?.location) || TEACHER_HOME,
+    () => resolveCoords(applied.location) || resolveCoords(profile?.location),
     [applied.location, profile?.location],
   );
 
@@ -568,8 +568,8 @@ export function TeacherRequestsPage() {
   }, [selectedOfferId, filtered]);
 
   const consultOffer = useMemo(
-    () => (consultId ? data.find((r) => offerId(r) === consultId) || null : null),
-    [consultId, data],
+    () => (consultId ? rawData.find((r) => offerId(r) === consultId) || null : null),
+    [consultId, rawData],
   );
 
   function applySearch() {
@@ -581,7 +581,7 @@ export function TeacherRequestsPage() {
     };
     setApplied(next);
     localStorage.setItem(
-      LS_SEARCH,
+      storageKey(LS_SEARCH),
       JSON.stringify({ location, when: whenOpts, prefs }),
     );
     setShowResults(true);
@@ -606,8 +606,12 @@ export function TeacherRequestsPage() {
     if (!id) return;
     setBusy(true);
     try {
-      await api(`/api/teacher/requests/${id}/accept`, { method: "POST", body: {} });
-      setMsg("Offre acceptée — elle apparaît dans vos cours");
+      const path = r.needId != null
+        ? `/api/teacher/opportunities/${r.needId}/accept`
+        : `/api/teacher/requests/${r.courseId}/accept`;
+      const result = await api<{ courseId?: number }>(path, { method: "POST", body: {} });
+      const acceptedCourseId = r.needId != null ? result.courseId : r.courseId;
+      setMsg("Demande acceptée. Le parent a été informé.");
       setConsultId(null);
       setMarks((m) => {
         const next = { ...m };
@@ -615,6 +619,7 @@ export function TeacherRequestsPage() {
         return next;
       });
       void reload();
+      if (acceptedCourseId) navigate(`/cours/${acceptedCourseId}`);
     } catch (ex) {
       setMsg(ex instanceof Error ? ex.message : "Erreur");
     } finally {
@@ -624,7 +629,7 @@ export function TeacherRequestsPage() {
 
   async function markOffer(r: OfferReq, mark: OfferMark) {
     const id = offerId(r);
-    if (mark === "refused" && !r.isOpportunity) {
+    if (mark === "refused" && !r.isOpportunity && r.needId == null) {
       setBusy(true);
       try {
         await api(`/api/teacher/requests/${Number(r.courseId)}/refuse`, { method: "POST", body: {} });
@@ -642,9 +647,9 @@ export function TeacherRequestsPage() {
     setMarks((m) => ({ ...m, [id]: mark }));
     setMsg(
       mark === "option"
-        ? "Option prise sur cette offre"
+        ? "Offre enregistrée pour plus tard sur cet appareil"
         : mark === "thinking"
-          ? "Offre mise en réflexion"
+          ? "Offre classée en réflexion sur cet appareil"
           : "Offre masquée",
     );
     setConsultId(null);
@@ -691,6 +696,26 @@ export function TeacherRequestsPage() {
             Fermer
           </button>
         </p>
+      ) : null}
+
+
+      {bookings.length ? (
+        <section className="space-y-3 border-b bg-white p-4" aria-labelledby="direct-bookings-title">
+          <h2 id="direct-bookings-title" className="text-lg font-bold">Réservations directes à traiter</h2>
+          <div className="grid gap-3 md:grid-cols-2">
+            {bookings.map((booking) => (
+              <article key={`booking-${booking.courseId}`} className="rounded-lg border p-4">
+                <h3 className="font-semibold">{booking.name} · {booking.subject}</h3>
+                <p className="text-sm text-muted-foreground">{booking.student} · {booking.slot} · {booking.format}</p>
+                <p className="mt-2 text-sm">Tarif de la séance : {fcfa(booking.price)} F</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button disabled={busy || offline} onClick={() => void acceptOffer(booking)}>Accepter</Button>
+                  <Button variant="outline" disabled={busy || offline} onClick={() => void markOffer(booking, "refused")}>Refuser</Button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
       ) : null}
 
       <div className="flex flex-col lg:flex-row lg:items-start">
@@ -786,14 +811,8 @@ export function TeacherRequestsPage() {
                   />
                 </div>
                 <div className="rounded-lg bg-white p-3 shadow-sm">
-                  <div className="mb-1 text-[14px] font-semibold text-welcome">Propositions reçues</div>
-                  <CheckRow label="SMS" checked={channels.sms} onChange={(v) => setChannels((s) => ({ ...s, sms: v }))} />
-                  <CheckRow
-                    label="Notification application"
-                    checked={channels.notif}
-                    onChange={(v) => setChannels((s) => ({ ...s, notif: v }))}
-                  />
-                  <p className="mt-2 text-[11px] text-[#888]">Préférences enregistrées sur cet appareil.</p>
+                  <div className="mb-1 text-[14px] font-semibold text-welcome">Notifications</div>
+                  <a className="link-green text-sm" href="/espace/#/parametres">Régler mes alertes de cours et de paiement</a>
                 </div>
                 <div className="rounded-lg bg-white p-3 shadow-sm">
                   <div className="mb-1 text-[14px] font-semibold text-welcome">Mes préférences</div>
@@ -813,7 +832,7 @@ export function TeacherRequestsPage() {
                     onChange={(v) => setPropFilters((s) => ({ ...s, refused: v }))}
                   />
                   <p className="mt-2 text-[11px] text-[#888]">
-                    Issues de « Consulter » → option / réflexion / refus.
+                    Classement conservé sur cet appareil. Seule l’acceptation transmet votre décision.
                   </p>
                 </div>
               </>

@@ -1,95 +1,70 @@
 import SwiftUI
 
-// MARK: - Écran 12, Mes cours (données live via l'API commune)
+// MARK: - Mes cours : données réelles et paiement après acceptation
 struct MyCoursesScreen: View {
     @EnvironmentObject var router: Router
     @StateObject private var store = CoursesStore()
+    @State private var selectedStatus = "upcoming"
+    private var visible: [CourseDTO] {
+        store.courses.filter { $0.status == selectedStatus || (selectedStatus == "cancelled" && $0.status == "refused") }
+            .sorted { $0.id > $1.id }
+    }
+
     var body: some View {
-        let upcoming = store.courses.filter { $0.status == "upcoming" }
-        let done = store.courses.first { $0.status == "done" }
-        return AkScreen(ignoresBottom: true) {
+        AkScreen(ignoresBottom: true) {
             Text("Mes cours").font(AkFont.schibstedExtra(23)).foregroundColor(Ak.ink)
                 .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 22).padding(.vertical, 8)
-            HStack(spacing: 8) { PillTab(label: "À venir", selected: true); PillTab(label: "Terminés", selected: false); Spacer() }
-                .padding(.horizontal, 22).padding(.bottom, 4)
+            Picker("Statut", selection: $selectedStatus) {
+                Text("À venir").tag("upcoming")
+                Text("Terminés").tag("done")
+                Text("Annulés / refusés").tag("cancelled")
+            }.pickerStyle(.segmented).padding(.horizontal, 22)
             ScrollView {
                 VStack(alignment: .leading, spacing: 13) {
-                    if let c = upcoming.first {
-                        VStack(alignment: .leading, spacing: 0) {
-                            HStack(spacing: 13) {
-                                dateTile(c.day_label, c.day_num, true)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("\(c.subject) · \(c.level)").font(AkFont.bold(15)).foregroundColor(Ak.ink)
-                                    Text("avec \(c.teacher_name)").font(AkFont.regular(12.5)).foregroundColor(Ak.muted)
-                                }
-                                Spacer()
-                                if let b = c.badge { Tag(label: b, fg: Ak.orange, bg: Ak.orangeSoft) }
-                            }
-                            courseMeta(c)
-                            HStack(spacing: 9) {
-                                Button { router.go(.manageCourse) } label: {
-                                    Text("Détails du cours").font(AkFont.bold(13.5)).foregroundColor(.white)
-                                        .frame(maxWidth: .infinity).padding(.vertical, 12).background(Ak.green).clipShape(RoundedRectangle(cornerRadius: 12))
-                                }.buttonStyle(.plain)
-                                Button { router.go(.messaging) } label: {
-                                    Image(systemName: "bubble.left").font(.system(size: 18)).foregroundColor(Ak.green)
-                                        .frame(width: 46, height: 44).background(.white).clipShape(RoundedRectangle(cornerRadius: 12))
-                                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Ak.border, lineWidth: 1))
-                                }.buttonStyle(.plain)
-                            }.padding(.top, 14)
-                        }.padding(16).background(.white).clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Ak.green, lineWidth: 1.5))
+                    if store.loading { LoadingRow() }
+                    if let error = store.error {
+                        Text(error).font(AkFont.regular(13)).foregroundColor(Ak.danger)
+                        Button("Réessayer") { Task { await store.load() } }.foregroundColor(Ak.green)
+                    } else if !store.loading && visible.isEmpty {
+                        Text("Aucun cours dans cette catégorie.").font(AkFont.regular(14)).foregroundColor(Ak.muted)
                     }
-
-                    if upcoming.count > 1 {
-                        let c = upcoming[1]
-                        VStack(alignment: .leading, spacing: 0) {
-                            HStack(spacing: 13) {
-                                dateTile(c.day_label, c.day_num, false)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("\(c.subject) · \(c.level)").font(AkFont.bold(15)).foregroundColor(Ak.ink)
-                                    Text("avec \(c.teacher_name)").font(AkFont.regular(12.5)).foregroundColor(Ak.muted)
+                    ForEach(visible) { course in
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack(spacing: 12) {
+                                VStack(spacing: 3) {
+                                    Text(course.day_label).font(AkFont.semibold(10))
+                                    Text(course.day_num).font(AkFont.schibstedExtra(15))
+                                }.foregroundColor(Ak.green).padding(10).background(Ak.greenSoft)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("\(course.subject) · \(course.level)").font(AkFont.bold(15)).foregroundColor(Ak.ink)
+                                    Text(course.isTeacherParticipant(accountRole: router.authRole) ? "Parent : \(course.parent_name ?? "")" : "avec \(course.teacher_name)").font(AkFont.regular(12.5)).foregroundColor(Ak.muted)
                                 }
                                 Spacer()
                             }
-                            courseMeta(c)
-                        }.akCard(radius: 20, padding: 16).onTapGesture { router.go(.onlineCourse) }
+                            Text("\(course.time) · \(course.duration) · \(course.format == "online" ? "En ligne" : course.location ?? "À domicile")")
+                                .font(AkFont.regular(12.5)).foregroundColor(Ak.muted)
+                            HStack {
+                                Text(course.status == "refused" ? "Refusé" : course.status == "cancelled" ? "Annulé" : course.payment_status == "paid" ? "Payé" : course.accepted == true ? "Accepté par le professeur" : "En attente du professeur")
+                                    .font(AkFont.semibold(12)).foregroundColor(Ak.green)
+                                Spacer()
+                                Text("\(course.price.formattedFCFA) F").font(AkFont.bold(14)).foregroundColor(Ak.ink)
+                            }
+                            Button("Détails et suivi") { router.selectedCourseId = course.id; router.go(.manageCourse) }
+                                .buttonStyle(.bordered)
+                            Text(CourseOperations.statusLabel(course.lifecycle_status)).font(AkFont.semibold(12)).foregroundColor(Ak.green)
+                            if course.canPay && !course.isTeacherParticipant(accountRole: router.authRole) {
+                                PrimaryButton(label: "Payer ce cours", color: Ak.green, trailingSystemIcon: "lock.fill") {
+                                    router.loadCourse(course)
+                                    router.go(.payment)
+                                }
+                            }
+                        }.akCard(radius: 18, padding: 16)
                     }
-
-                    Text("Terminé récemment").font(AkFont.schibstedBold(14.5)).foregroundColor(Ak.ink).padding(.top, 7)
-                    HStack(spacing: 13) {
-                        Image(systemName: "checkmark.circle.fill").font(.system(size: 22)).foregroundColor(Ak.faint)
-                            .frame(width: 44, height: 44).background(Ak.cardField).clipShape(RoundedRectangle(cornerRadius: 13))
-                        VStack(alignment: .leading, spacing: 0) {
-                            Text("\(done?.subject ?? "Maths") · 14 juin").font(AkFont.bold(14)).foregroundColor(Ak.ink)
-                            Text("avec \(done?.teacher_name ?? "Koffi N'Guessan")").font(AkFont.regular(12)).foregroundColor(Ak.muted)
-                        }
-                        Spacer()
-                        Text("Noter").font(AkFont.bold(12)).foregroundColor(Ak.orange)
-                            .padding(.horizontal, 12).padding(.vertical, 7)
-                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color(hex: 0xF3C9A8), lineWidth: 1))
-                            .onTapGesture { router.go(.review) }
-                    }.akCard(radius: 18, padding: 14)
-                }.padding(.horizontal, 22).padding(.top, 16)
-            }
-            .task { await store.load() }
-            BottomNav(current: .cours)
-        }
-    }
-    func courseMeta(_ c: CourseDTO) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: "clock").font(.system(size: 12)).foregroundColor(Ak.green)
-            Text("\(c.time) · \(c.duration)").font(AkFont.regular(12.5)).foregroundColor(Ak.textBody)
-            Text("·").foregroundColor(Color(hex: 0xD8D2C8))
-            Image(systemName: c.format == "online" ? "video.fill" : "house.fill").font(.system(size: 12)).foregroundColor(Ak.green)
-            Text(c.format == "online" ? "En ligne" : (c.location ?? "À domicile")).font(AkFont.regular(12.5)).foregroundColor(Ak.textBody)
-        }.padding(.top, 12)
-    }
-    func dateTile(_ d: String, _ n: String, _ green: Bool) -> some View {
-        VStack(spacing: 0) {
-            Text(d).font(AkFont.semibold(10)).foregroundColor(green ? Ak.green : Ak.orange)
-            Text(n).font(AkFont.schibstedExtra(18)).foregroundColor(green ? Ak.green : Ak.orange)
-        }.frame(width: 50, height: 50).background(green ? Ak.greenSoft : Ak.orangeSoft).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }.padding(22)
+            }.refreshable { await store.load() }
+            if router.isTeacher { TeacherBottomNav(current: .agenda) } else { BottomNav(current: .cours) }
+        }.task { await store.load() }
     }
 }
 

@@ -1,4 +1,8 @@
 name: MonProfPerso
+configs:
+  Debug: debug
+  Staging: release
+  Release: release
 options:
   bundleIdPrefix: ci.monprofperso
   deploymentTarget:
@@ -7,10 +11,17 @@ options:
 
 settings:
   base:
-    MARKETING_VERSION: "1.0"
-    CURRENT_PROJECT_VERSION: "1"
+    MARKETING_VERSION: "1.1.0"
+    CURRENT_PROJECT_VERSION: "3"
     DEVELOPMENT_TEAM: ""
     SWIFT_VERSION: "5.9"
+  configs:
+    Debug:
+      API_BASE_URL: "http://localhost:8099"
+    Staging:
+      API_BASE_URL: "https://staging-api.monprofperso.com"
+    Release:
+      API_BASE_URL: "https://api.monprofperso.com"
 
 targets:
   MonProfPerso:
@@ -25,4 +36,43 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: ci.monprofperso.app
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_USER_SCRIPT_SANDBOXING: NO
+        CODE_SIGN_STYLE: Automatic
         TARGETED_DEVICE_FAMILY: "1"
+      configs:
+        Debug:
+          PRODUCT_BUNDLE_IDENTIFIER: ci.monprofperso.app.dev
+        Staging:
+          PRODUCT_BUNDLE_IDENTIFIER: ci.monprofperso.app.staging
+  MonProfPersoTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: MonProfPerso
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: ci.monprofperso.app.tests
+
+schemes:
+  MonProfPerso:
+    build:
+      targets:
+        MonProfPerso: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - MonProfPersoTests
+    archive:
+      config: Release
+  MonProfPerso-Staging:
+    build:
+      targets:
+        MonProfPerso: all
+    run:
+      config: Staging
+    archive:
+      config: Staging

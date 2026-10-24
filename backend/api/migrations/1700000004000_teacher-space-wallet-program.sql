@@ -14,9 +14,13 @@ CREATE TABLE payment_accounts (
   is_default BOOLEAN NOT NULL DEFAULT FALSE,
   ord        INT NOT NULL DEFAULT 0
 );
+DO $mpp_demo$ BEGIN
+  IF current_setting('mpp.demo_seed', true) = 'true' THEN
 INSERT INTO payment_accounts (user_id, provider, number, color, is_default, ord) VALUES
   (1, 'Orange Money', '07 ** ** ** 42', 'orange', TRUE,  1),
   (1, 'Wave',         '05 ** ** ** 11', 'wave',   FALSE, 2);
+  END IF;
+END $mpp_demo$;
 
 -- Programme détaillé par cours en groupe (auparavant identique et figé pour tous).
 CREATE TABLE group_programs (
@@ -25,6 +29,8 @@ CREATE TABLE group_programs (
   line     TEXT NOT NULL,
   ord      INT NOT NULL DEFAULT 0
 );
+DO $mpp_demo$ BEGIN
+  IF current_setting('mpp.demo_seed', true) = 'true' THEN
 INSERT INTO group_programs (group_id, line, ord) VALUES
   (1, 'Fonctions, limites & continuité', 1),
   (1, 'Probabilités & suites',           2),
@@ -35,6 +41,8 @@ INSERT INTO group_programs (group_id, line, ord) VALUES
   (3, 'Lecture & compréhension',         1),
   (3, 'Grammaire & conjugaison',         2),
   (3, 'Expression écrite',               3);
+  END IF;
+END $mpp_demo$;
 
 -- Profil « espace prof » : agrégats affichés sur le dashboard et les revenus.
 CREATE TABLE teacher_profiles (
@@ -50,10 +58,14 @@ CREATE TABLE teacher_profiles (
   hours_taught     TEXT NOT NULL,
   avg_per_hour     TEXT NOT NULL
 );
+DO $mpp_demo$ BEGIN
+  IF current_setting('mpp.demo_seed', true) = 'true' THEN
 INSERT INTO teacher_profiles
   (teacher_id, revenue, trend, courses_per_week, rating_label, new_students,
    earnings_total, earnings_trend, courses_given, hours_taught, avg_per_hour) VALUES
   (1, 184000, '+12%', '14', '4,9', '3', 184000, '+12%', '38', '52 h', '3 800');
+  END IF;
+END $mpp_demo$;
 
 -- Histogramme des revenus hebdomadaires (espace prof / revenus).
 CREATE TABLE teacher_earning_weeks (
@@ -63,8 +75,12 @@ CREATE TABLE teacher_earning_weeks (
   fraction   NUMERIC(4,2) NOT NULL,
   ord        INT NOT NULL DEFAULT 0
 );
+DO $mpp_demo$ BEGIN
+  IF current_setting('mpp.demo_seed', true) = 'true' THEN
 INSERT INTO teacher_earning_weeks (teacher_id, label, fraction, ord) VALUES
   (1, 'S1', 0.48, 1), (1, 'S2', 0.66, 2), (1, 'S3', 0.58, 3), (1, 'S4', 0.88, 4);
+  END IF;
+END $mpp_demo$;
 
 -- Demandes de cours en attente côté professeur.
 CREATE TABLE teacher_requests (
@@ -74,10 +90,14 @@ CREATE TABLE teacher_requests (
   student    TEXT, subject TEXT, slot TEXT, format TEXT,
   ord        INT NOT NULL DEFAULT 0
 );
+DO $mpp_demo$ BEGIN
+  IF current_setting('mpp.demo_seed', true) = 'true' THEN
 INSERT INTO teacher_requests
   (teacher_id, initials, accent, name, ago, price, student, subject, slot, format, ord) VALUES
   (1, 'FB', 'green',  'Fatou Bamba', 'il y a 1 h', 6000, 'Awa · 2nde',    'Mathématiques',   'Sam. 28 juin · 15h00', 'À domicile · Marcory', 1),
   (1, 'YK', 'orange', 'Yao Kouamé',  'il y a 3 h', 4000, 'Junior · 3ᵉ',   'Physique-Chimie', 'Dim. 29 juin · 10h00', 'En ligne',             2);
+  END IF;
+END $mpp_demo$;
 
 -- Retraits / versements (espace prof / revenus).
 CREATE TABLE teacher_payouts (
@@ -89,9 +109,13 @@ CREATE TABLE teacher_payouts (
   color       TEXT NOT NULL,
   ord         INT NOT NULL DEFAULT 0
 );
+DO $mpp_demo$ BEGIN
+  IF current_setting('mpp.demo_seed', true) = 'true' THEN
 INSERT INTO teacher_payouts (teacher_id, provider, payout_date, amount, color, ord) VALUES
   (1, 'Retrait Wave',         '15 juin', 60000, 'wave',   1),
   (1, 'Retrait Orange Money', '1 juin',  80000, 'orange', 2);
+  END IF;
+END $mpp_demo$;
 
 -- Down Migration
 DROP TABLE IF EXISTS teacher_payouts;

@@ -1,0 +1,11 @@
+[Unit]
+Description=Contrôle régulier Mon Prof Perso (%i)
+
+[Timer]
+OnBootSec=2m
+OnUnitActiveSec=60s
+RandomizedDelaySec=5s
+Unit=monprofperso-monitor@%i.service
+
+[Install]
+WantedBy=timers.target

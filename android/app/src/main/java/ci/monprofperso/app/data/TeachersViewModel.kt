@@ -1,5 +1,8 @@
 package ci.monprofperso.app.data
 
+import ci.monprofperso.app.BuildConfig
+import kotlinx.coroutines.CancellationException
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,8 +19,8 @@ sealed interface UiState<out T> {
 
 /**
  * Charge la liste des professeurs depuis l'API commune.
- * En cas d'échec réseau, repli sur les données locales de la maquette
- * pour que l'écran reste utilisable hors-ligne.
+ * En cas d'échec réseau, présente une erreur. Les exemples sont réservés à
+ * la variante debug compilée avec enableDemoData=true.
  */
 class TeachersViewModel : ViewModel() {
 
@@ -32,7 +35,8 @@ class TeachersViewModel : ViewModel() {
             _state.value = try {
                 UiState.Success(Api.service.teachers(), fromApi = true)
             } catch (e: Exception) {
-                UiState.Success(FallbackData.teachers, fromApi = false)
+                if (e is CancellationException) throw e
+                if (BuildConfig.DEBUG && BuildConfig.DEMO_DATA_ENABLED) UiState.Success(FallbackData.teachers, fromApi = false) else UiState.Error(Auth.errorMessage(e))
             }
         }
     }

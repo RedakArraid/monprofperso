@@ -1,5 +1,9 @@
 -- Up Migration
 -- Schéma initial (repris de l'ancien db/init.sql, désormais versionné).
+-- Les fixtures ne sont chargées que par un bootstrap explicitement en démo locale.
+CREATE TABLE installation_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+INSERT INTO installation_metadata (key,value) VALUES
+  ('data_origin', CASE WHEN current_setting('mpp.demo_seed', true)='true' THEN 'demo' ELSE 'clean' END);
 
 CREATE TABLE subjects (
   id      SERIAL PRIMARY KEY,

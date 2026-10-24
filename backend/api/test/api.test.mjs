@@ -16,15 +16,18 @@ async function get(path, token) {
   const body = res.headers.get("content-type")?.includes("json") ? await res.json() : await res.text();
   return { status: res.status, body };
 }
-async function post(path, payload) {
+async function post(path, payload, token) {
   const res = await fetch(BASE + path, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     body: JSON.stringify(payload),
   });
   const body = res.headers.get("content-type")?.includes("json") ? await res.json() : await res.text();
   return { status: res.status, body };
 }
+
+const parentToken = async () => (await post("/api/auth/login", { phone: "+2250758421903" })).body.token;
+const teacherToken = async () => (await post("/api/auth/login", { phone: "+2250707001234" })).body.token;
 
 // ----------------------------------------------------------------- Sonde
 test("GET /health -> ok", async () => {
@@ -67,26 +70,26 @@ test("GET /api/teachers/:id inexistant -> 404", async () => {
 });
 
 test("GET /api/courses -> liste", async () => {
-  const { status, body } = await get("/api/courses");
+  const { status, body } = await get("/api/courses", await parentToken());
   assert.equal(status, 200);
   assert.ok(Array.isArray(body));
 });
 
 test("GET /api/progress -> structure attendue", async () => {
-  const { status, body } = await get("/api/progress");
+  const { status, body } = await get("/api/progress", await parentToken());
   assert.equal(status, 200);
   assert.ok(Array.isArray(body.subjects));
   assert.ok("average" in body);
 });
 
 test("GET /api/wallet -> comptes + transactions", async () => {
-  const { status, body } = await get("/api/wallet");
+  const { status, body } = await get("/api/wallet", await parentToken());
   assert.equal(status, 200);
   assert.ok(Array.isArray(body.accounts) && Array.isArray(body.transactions));
 });
 
 test("GET /api/wallet -> comptes Mobile Money issus de la base (user démo)", async () => {
-  const { body } = await get("/api/wallet");
+  const { body } = await get("/api/wallet", await parentToken());
   assert.ok(body.accounts.length >= 1, "l'utilisateur de démo a des comptes seedés");
   assert.ok("provider" in body.accounts[0] && "isDefault" in body.accounts[0]);
   assert.ok(body.accounts.some((a) => a.isDefault === true), "un compte par défaut");
@@ -105,15 +108,15 @@ test("GET /api/groups/:id -> programme propre à chaque groupe (DB)", async () =
 });
 
 test("GET /api/teacher/dashboard + requests : offres et réservations", async () => {
-  const dash = (await get("/api/teacher/dashboard")).body;
-  const requests = (await get("/api/teacher/requests")).body;
+  const dash = (await get("/api/teacher/dashboard", await teacherToken())).body;
+  const requests = (await get("/api/teacher/requests", await teacherToken())).body;
   assert.equal(typeof dash.pendingRequests, "number");
   assert.ok(Array.isArray(requests));
   assert.ok(requests.every((r) => r.courseId != null), "chaque entrée a un identifiant courseId/needId");
 });
 
 test("GET /api/subscription/mine -> abonnement de l'utilisateur (DB)", async () => {
-  const { status, body } = await get("/api/subscription/mine");
+  const { status, body } = await get("/api/subscription/mine", await parentToken());
   assert.equal(status, 200);
   // Valeurs seedées pour l'utilisateur de démo + forme attendue par les apps.
   assert.equal(body.plan, "Régulier");
@@ -123,7 +126,7 @@ test("GET /api/subscription/mine -> abonnement de l'utilisateur (DB)", async () 
 });
 
 test("GET /api/referral -> parrainage de l'utilisateur (DB)", async () => {
-  const { status, body } = await get("/api/referral");
+  const { status, body } = await get("/api/referral", await parentToken());
   assert.equal(status, 200);
   assert.equal(body.code, "AYA2026");
   assert.equal(typeof body.referred, "number");
@@ -131,10 +134,11 @@ test("GET /api/referral -> parrainage de l'utilisateur (DB)", async () => {
 });
 
 // ----------------------------------------------------------- Validation
-test("POST /api/auth/login body vide -> 200 (repli sur défaut)", async () => {
+test("POST /api/auth/login body vide -> 400, aucun compte implicite", async () => {
   const { status, body } = await post("/api/auth/login", {});
-  assert.equal(status, 200);
-  assert.ok(body.user && body.token);
+  assert.equal(status, 400);
+  assert.equal(body.field, "phone");
+  assert.equal(body.token, undefined);
 });
 
 test("POST /api/auth/login téléphone invalide -> 400", async () => {
@@ -145,33 +149,33 @@ test("POST /api/auth/login téléphone invalide -> 400", async () => {
 });
 
 test("POST /api/auth/signup rôle invalide -> 400", async () => {
-  const { status, body } = await post("/api/auth/signup", { fullName: "Test", role: "hacker" });
+  const { status, body } = await post("/api/auth/signup", { fullName: "Test", phone: "+2250700000000", role: "hacker", consent: true });
   assert.equal(status, 400);
   assert.equal(body.field, "role");
 });
 
 test("POST /api/auth/signup valide -> 200", async () => {
   const { status, body } = await post("/api/auth/signup", {
-    fullName: "Awa Diallo", phone: "+2250700000000", role: "teacher",
+    fullName: "Awa Diallo", phone: "+2250700000000", role: "teacher", consent: true,
   });
   assert.equal(status, 200);
   assert.equal(body.user.role, "teacher");
 });
 
 test("POST /api/bookings prix non-numérique -> 400", async () => {
-  const { status, body } = await post("/api/bookings", { price: "gratuit" });
+  const { status, body } = await post("/api/bookings", { teacherId: 1, price: "gratuit" }, await parentToken());
   assert.equal(status, 400);
   assert.equal(body.field, "price");
 });
 
 test("POST /api/bookings format hors énumération -> 400", async () => {
-  const { status, body } = await post("/api/bookings", { format: "téléportation" });
+  const { status, body } = await post("/api/bookings", { teacherId: 1, format: "téléportation" }, await parentToken());
   assert.equal(status, 400);
   assert.equal(body.field, "format");
 });
 
 test("POST /api/bookings valide -> 201 + référence", async () => {
-  const { status, body } = await post("/api/bookings", { teacherId: 2, price: 5000, format: "online" });
+  const { status, body } = await post("/api/bookings", { teacherId: 2, price: 5000, format: "online", startAt: new Date(Date.now()+30*86400000).toISOString() }, await parentToken());
   assert.equal(status, 201);
   assert.ok(typeof body.reference === "string" && body.reference.startsWith("AKW-"));
   assert.equal(body.course.status, "upcoming");
@@ -179,15 +183,15 @@ test("POST /api/bookings valide -> 201 + référence", async () => {
 
 // ----------------------------------------------------------- Auth (JWT)
 test("POST /api/auth/login -> JWT à 3 segments", async () => {
-  const { status, body } = await post("/api/auth/login", {});
+  const { status, body } = await post("/api/auth/login", { phone: "+2250758421903" });
   assert.equal(status, 200);
   assert.equal(body.token.split(".").length, 3, "doit être un JWT, plus 'demo-token'");
 });
 
 test("auth bout-en-bout : /me avec le token reflète l'utilisateur du token", async () => {
   // Téléphone unique pour ne pas collisionner avec d'autres exécutions.
-  const phone = "+22507" + String(Date.now()).slice(-7);
-  const signup = await post("/api/auth/signup", { fullName: "E2E Auth", phone, role: "teacher" });
+  const phone = "+22507" + String(Date.now()).slice(-8);
+  const signup = await post("/api/auth/signup", { fullName: "E2E Auth", phone, role: "teacher", consent: true });
   assert.equal(signup.status, 200);
   const token = signup.body.token;
   const newId = signup.body.user.id;
@@ -197,28 +201,28 @@ test("auth bout-en-bout : /me avec le token reflète l'utilisateur du token", as
   assert.equal(me.body.id, newId, "le token doit scoper /me sur son utilisateur");
 });
 
-test("/me sans token -> repli sur l'utilisateur de démo (id 1)", async () => {
+test("/me sans token -> 401 même en démo", async () => {
   const { status, body } = await get("/api/me");
-  assert.equal(status, 200);
-  assert.equal(body.id, 1);
+  assert.equal(status, 401);
+  assert.equal(body.error, "unauthorized");
 });
 
-test("/me avec ancien 'demo-token' -> repli (id 1, rétrocompat)", async () => {
-  const { body } = await get("/api/me", "demo-token");
-  assert.equal(body.id, 1);
+test("/me avec ancien demo-token -> 401", async () => {
+  const { status } = await get("/api/me", "demo-token");
+  assert.equal(status, 401);
 });
 
-test("/me avec JWT falsifié -> rejeté, repli (id 1)", async () => {
-  const login = await post("/api/auth/login", {});
+test("/me avec JWT falsifié -> 401", async () => {
+  const login = await post("/api/auth/login", { phone: "+2250758421903" });
   const parts = login.body.token.split(".");
   const forged = `${parts[0]}.${parts[1]}.AAAAdeadbeef`;
-  const { body } = await get("/api/me", forged);
-  assert.equal(body.id, 1, "signature invalide -> ne doit pas authentifier");
+  const { status } = await get("/api/me", forged);
+  assert.equal(status, 401, "signature invalide -> ne doit pas authentifier");
 });
 
 // ----------------------------------------------- Standardisation HTTP (codes/logs)
 test("route inconnue -> 404 JSON cohérent", async () => {
-  const { status, body } = await get("/api/route-qui-nexiste-pas");
+  const { status, body } = await get("/api/route-qui-nexiste-pas", await parentToken());
   assert.equal(status, 404);
   assert.equal(body.error, "not_found");
 });

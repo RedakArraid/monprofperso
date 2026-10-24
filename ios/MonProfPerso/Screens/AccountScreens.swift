@@ -183,11 +183,14 @@ struct AccountScreen: View {
                             InitialsAvatar(initials: "KN", size: 44, radius: 13, fontSize: 15, verified: true)
                             VStack(alignment: .leading, spacing: 0) {
                                 Text("Voir mon profil public").font(AkFont.bold(14)).foregroundColor(Ak.ink)
-                                Text("Maths · Physique-Chimie · 4,9★").font(AkFont.regular(12)).foregroundColor(Ak.muted)
+                                Text("Informations visibles par les familles").font(AkFont.regular(12)).foregroundColor(Ak.muted)
                             }
                             Spacer()
                             Image(systemName: "chevron.right").font(.system(size: 13)).foregroundColor(Ak.faint)
-                        }.akCard(radius: 15).padding(.top, 11).onTapGesture { router.go(.teacherProfile) }
+                        }.akCard(radius: 15).padding(.top, 11).onTapGesture {
+                            router.selectedTeacherId = TokenStore.user?.teacher_id
+                            router.go(.teacherProfile)
+                        }
                     } else {
                         Text("Mes enfants").font(AkFont.schibstedBold(14.5)).foregroundColor(Ak.ink).padding(.top, 20)
                         HStack(spacing: 13) {
@@ -249,7 +252,13 @@ struct AccountScreen: View {
                     }.background(.white).clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: 18).stroke(Ak.border, lineWidth: 1)).padding(.top, 20)
 
-                    Text("Se déconnecter").font(AkFont.bold(13.5)).foregroundColor(Ak.danger).frame(maxWidth: .infinity).padding(.top, 14).onTapGesture { router.role = 0; router.authRole = nil; TokenStore.clear(); router.popToRoot() }
+                    Text("Se déconnecter").font(AkFont.bold(13.5)).foregroundColor(Ak.danger).frame(maxWidth: .infinity).padding(.top, 14).onTapGesture {
+                        TokenStore.clear()
+                        router.role = 0; router.authRole = nil; router.authChallengeId = nil
+                        router.authPhone = ""; router.authFullName = ""; router.authEmail = ""
+                        router.selectedTeacherId = nil; router.bkCourseId = nil
+                        router.popToRoot()
+                    }
                     if !isTeacher {
                         Text("Devenir professeur →").font(AkFont.bold(12.5)).foregroundColor(Ak.muted).frame(maxWidth: .infinity).padding(.top, 8).onTapGesture { router.go(.becomeTeacher) }
                     }

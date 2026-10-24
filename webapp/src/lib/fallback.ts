@@ -1,107 +1,37 @@
+/** Empty initial states. Network failures must never manufacture people, courses or revenue. */
 export const fallback = {
-  teachers: [
-    {
-      id: 1,
-      initials: "KN",
-      name: "Koffi N'Guessan",
-      subjects: "Maths · Physique-Chimie",
-      rating: 4.9,
-      reviews_count: 128,
-      location: "Cocody",
-      price_per_hour: 4000,
-    },
-    {
-      id: 2,
-      initials: "MT",
-      name: "Mariam Touré",
-      subjects: "Anglais · Espagnol",
-      rating: 5.0,
-      reviews_count: 74,
-      location: "Plateau",
-      price_per_hour: 4500,
-    },
-  ],
-  courses: [
-    {
-      id: 1,
-      teacher_name: "Koffi N'Guessan",
-      subject: "Maths",
-      level: "3ème",
-      day_label: "SAM",
-      day_num: "22",
-      time: "16h00",
-      price: 6000,
-      badge: "Confirmé",
-      status: "upcoming",
-    },
-  ],
+  teachers: [] as {
+    id: number; initials: string; name: string; subjects: string; rating: number;
+    reviews_count: number; location: string; price_per_hour: number;
+  }[],
+  courses: [] as {
+    id: number; teacher_name: string; subject: string; level: string; day_label: string;
+    day_num: string; time: string; price: number; badge: string; status: string;
+    payment_status?: string; accepted?: boolean;
+    student_name?: string; parent_name?: string;
+  }[],
   progress: {
-    average: "14,2",
-    trend: "+0,8",
-    goal: "Objectif : 15/20 au BEPC",
-    subjects: [
-      { subject: "Maths", grade: "15/20", fraction: 0.75, warn: false },
-      { subject: "Français", grade: "13/20", fraction: 0.65, warn: false },
-      { subject: "Physique", grade: "11/20", fraction: 0.55, warn: true },
-    ],
+    average: "—", trend: "", goal: "Aucune progression disponible",
+    subjects: [] as { subject: string; grade: string; fraction: number; warn: boolean }[],
   },
-  notifications: [
-    { text: "Rappel : cours de Maths demain à 16h", time_ago: "il y a 2 h", unread: true },
-  ],
-  wallet: { accounts: [{ provider: "orange", number: "07 XX XX XX" }], transactions: [] as { title: string; amount: number; subtitle?: string }[] },
+  notifications: [] as { text: string; time_ago: string; unread: boolean }[],
+  wallet: {
+    accounts: [] as { provider: string; number: string }[],
+    transactions: [] as { title: string; amount: number; subtitle?: string }[],
+  },
   teacherDashboard: {
-    name: "Koffi N'Guessan",
-    revenue: 184000,
-    trend: "+12%",
-    stats: [
-      { value: "14", label: "cours / semaine" },
-      { value: "4,9", label: "note moyenne" },
-      { value: "3", label: "nouveaux élèves" },
-    ],
-    pendingRequests: 2,
-    needsConfirmed: true,
+    name: "", revenue: 0, trend: "", stats: [] as { value: string; label: string }[],
+    pendingRequests: 0, needsConfirmed: false,
   },
-  teacherRequests: [
-    {
-      courseId: 1,
-      needId: 1,
-      initials: "CO",
-      accent: "green",
-      name: "Cocody",
-      ago: "nouveau",
-      price: 8500,
-      netHourly: 5667,
-      student: "Aya · 3ème",
-      subject: "Maths",
-      slot: "Cocody",
-      format: "À domicile",
-      frequency: "2× / semaine",
-      duration: "1h30",
-      startDate: "2026-07-28",
-      isOpportunity: true,
-      hasCat: true,
-      hasDog: false,
-    },
-  ] as Record<string, unknown>[],
+  teacherRequests: [] as Record<string, unknown>[],
   teacherEarnings: {
-    total: 184000,
-    trend: "+12%",
-    stats: [
-      { value: "38", label: "cours donnés" },
-      { value: "52 h", label: "enseignées" },
-      { value: "3 800", label: "F / h moyen" },
-    ],
+    total: 0, trend: "", stats: [] as { value: string; label: string }[],
     payouts: [] as { provider: string; date: string; amount: number }[],
   },
-  groups: [
-    { id: 1, title: "Maths & Physique-Chimie", detail: "Terminale D · 8 semaines", price: 2000, teacher_name: "Koffi N'Guessan" },
-  ],
-  plans: [
-    { name: "Essentiel", detail: "1 matière", price: 15000, popular: false, suffix: "/ mois" },
-    { name: "Famille", detail: "3 matières", price: 35000, popular: true, suffix: "/ mois" },
-  ],
-  referral: { code: "MP2-KOADIO", referred: 2, earned: 4000 },
-  resources: [{ id: 1, type: "course", title: "Fiche, Théorème de Thalès", level: "3eme" }],
+  groups: [] as { id: number; title: string; detail: string; price: number; teacher_name: string }[],
+  plans: [] as { name: string; detail: string; price: number; popular: boolean; suffix: string }[],
+  referral: { code: "", referred: 0, earned: 0 },
+  resources: [] as { id: number; type: string; title: string; level: string }[],
   needs: [] as Record<string, unknown>[],
   children: [] as Record<string, unknown>[],
 };

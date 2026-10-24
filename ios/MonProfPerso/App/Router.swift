@@ -47,39 +47,51 @@ final class Router: ObservableObject {
     @Published var authRole: String? = nil
 
     var isAdmin: Bool { authRole == "admin" }
+    var isTeacher: Bool { authRole == "teacher" && TokenStore.user?.teacher_id != nil }
 
     // MARK: Brouillon de réservation (fiche prof → Réservation → Paiement → Confirmé)
-    @Published var bkTeacherId = 1
-    @Published var bkTeacherName = "Koffi N'Guessan"
-    @Published var bkTeacherInitials = "KN"
-    @Published var bkSubjectsLine = "Maths · Physique-Chimie"
-    @Published var bkSubject = "Maths"
-    @Published var bkLevel = "3ᵉ"
-    @Published var bkPricePerHour = 4000
-    @Published var bkLocation = "Cocody"
+    @Published var selectedTeacherId: Int? = nil
+    @Published var selectedCourseId: Int? = nil
+    @Published var capabilities: [String: Bool] = [:]
+    func featureEnabled(_ key: String) -> Bool { capabilities[key] == true }
+    @Published var bkTeacherId = 0
+    @Published var bkTeacherName = ""
+    @Published var bkTeacherInitials = ""
+    @Published var bkSubjectsLine = ""
+    @Published var bkSubject = "Cours"
+    @Published var bkLevel = "Non précisé"
+    @Published var bkPricePerHour = 0
+    @Published var bkLocation = ""
     @Published var bkNegotiable = false
+    @Published var bkFormats: [String] = ["home", "online"]
+    @Published var bkCourseId: Int? = nil
+    @Published var bkAccepted = false
+    @Published var bkPaid = false
     @Published var bkFormat = "home"
-    @Published var bkDayLabel = "SAM"
-    @Published var bkDayNum = "22"
-    @Published var bkDayFull = "Sam. 22 juin"
-    @Published var bkTime = "16:00"
+    @Published var bkDayLabel = ""
+    @Published var bkDayNum = ""
+    @Published var bkDayFull = ""
+    @Published var bkTime = ""
     @Published var bkDuration = "1h30"
-    @Published var bkPrice = 6000
+    @Published var bkPrice = 0
     @Published var bkProposedPrice: Int? = nil
     @Published var bkProposedFrequency: String? = nil
     @Published var bkHasProposal = false
-    @Published var bkReference = "AKW-2058"
+    @Published var bkReference = ""
 
     // MARK: Session OTP (inscription / connexion)
-    @Published var authPhone = "0758421903"
+    @Published var authPhone = ""
     @Published var authEmail = ""
-    @Published var authFullName = "Aya Koné"
+    @Published var authFullName = ""
     @Published var authOtpChannel = "whatsapp"
-    @Published var otpDemo = true
+    @Published var otpDemo = false
     @Published var otpCodeLength = 6
     @Published var otpTtlMinutes = 10
     @Published var otpWhatsappEnabled = false
     @Published var otpEmailEnabled = false
+    @Published var authChallengeId: String? = nil
+    @Published var authDestination = ""
+    @Published var otpResendAt = Date()
 
     func startBooking(_ t: TeacherDTO) {
         bkTeacherId = t.id
@@ -88,22 +100,82 @@ final class Router: ObservableObject {
         bkSubjectsLine = t.subjects
         bkSubject = t.subjects.split(separator: "·").first.map { $0.trimmingCharacters(in: .whitespaces) } ?? "Cours"
         bkPricePerHour = t.price_per_hour
-        bkLocation = t.location
+        bkLocation = ""
         bkNegotiable = t.negotiable ?? false
+        bkFormats = (t.formats ?? ["home"]).filter { $0 == "home" || ($0 == "online" && featureEnabled("onlineCourses")) }
+        bkCourseId = nil
+        bkAccepted = false
+        bkPaid = false
+        bkReference = ""
         bkProposedPrice = nil
         bkProposedFrequency = nil
         bkHasProposal = false
+    }
+
+    func loadCourse(_ course: CourseDTO, reference: String? = nil) {
+        bkCourseId = course.id
+        bkAccepted = course.accepted == true
+        bkPaid = course.payment_status == "paid"
+        bkReference = reference ?? "AKW-\(2000 + course.id)"
+        bkTeacherName = course.teacher_name
+        bkTeacherInitials = course.teacher_name.split(separator: " ").compactMap { $0.first }.prefix(2).map(String.init).joined().uppercased()
+        bkSubject = course.subject
+        bkLevel = course.level
+        bkFormat = course.format
+        bkLocation = course.location ?? "À domicile"
+        bkDayLabel = course.day_label
+        bkDayNum = course.day_num
+        bkDayFull = "\(course.day_label) \(course.day_num)"
+        bkTime = course.time
+        bkDuration = course.duration
+        bkPrice = course.price
+        bkHasProposal = false
+        bkProposedPrice = nil
+        bkProposedFrequency = nil
+    }
+
+    func applyChallenge(_ challenge: OtpChallenge) {
+        authChallengeId = challenge.challengeId
+        authOtpChannel = challenge.channel
+        authDestination = challenge.destination
+        otpTtlMinutes = challenge.expiresInMinutes
+        otpResendAt = Date().addingTimeInterval(60)
+    }
+
+    func applyAuth(_ result: AuthResult) {
+        switch result {
+        case let .authenticated(user):
+            authRole = user.role
+            role = user.role == "teacher" && user.teacher_id != nil ? 2 : user.role == "student" ? 1 : 0
+            authPhone = user.phone.map(ApiClient.localPhone) ?? authPhone
+            authFullName = user.full_name ?? authFullName
+            authChallengeId = nil
+            enterApp()
+        case let .challenge(challenge):
+            applyChallenge(challenge)
+            go(.otp)
+        }
     }
 
     func go(_ route: Route) { path.append(route) }
     func back() { if !path.isEmpty { path.removeLast() } }
     func popToRoot() { path = NavigationPath() }
 
+    func logout() {
+        TokenStore.clear()
+        authRole = nil
+        authPhone = ""; authEmail = ""; authFullName = ""; authChallengeId = nil
+        selectedCourseId = nil; selectedTeacherId = nil; bkCourseId = nil
+        bkTeacherName = ""; bkLocation = ""; bkPaid = false
+        popToRoot()
+    }
+
     /// Entrée dans l'app après authentification : un professeur arrive sur
     /// l'espace prof, un parent/élève sur l'accueil.
     func enterApp() {
+        guard TokenStore.token != nil, authRole != nil else { return }
         popToRoot()
-        go(role == 2 ? .teacherDashboard : .home)
+        if authRole == "teacher" && !isTeacher { go(.becomeTeacher) }
     }
 
     func selectTab(_ tab: ParentTab) {
