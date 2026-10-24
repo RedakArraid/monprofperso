@@ -1,7 +1,4 @@
-# Mon Prof Perso, Android (Kotlin + Jetpack Compose)
-
-Application native Android reproduisant fidèlement la maquette « Akwaba, Cours
-particuliers » (soutien scolaire à domicile / en ligne en Côte d'Ivoire).
+# Mon Prof Perso, Android
 
 ## Stack
 - **Kotlin** 2.0.20 · **Jetpack Compose** (Material 3, BOM 2024.09)
@@ -10,21 +7,44 @@ particuliers » (soutien scolaire à domicile / en ligne en Côte d'Ivoire).
 - Icônes : **Material Icons Extended** (équivalents des Phosphor de la maquette)
 - `minSdk = 24`, `targetSdk = 35`, `compileSdk = 35`
 
-## Ouvrir / compiler
-✅ **Build vérifié** : `app-debug.apk` produit et lancé sur émulateur (écran Bienvenue
-rendu correctement, polices chargées, aucun crash).
 
-1. Le plus simple : ouvrir `android/` dans **Android Studio** → Run.
-2. En ligne de commande (le wrapper Gradle est déjà versionné) :
-   ```bash
-   cd android
-   export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"  # JDK 17/21
-   ./gradlew assembleDebug
-   # installer + lancer sur un émulateur démarré :
-   adb install -r app/build/outputs/apk/debug/app-debug.apk
-   adb shell am start -n ci.monprofperso.app/.MainActivity
-   ```
-   `local.properties` doit pointer le SDK (`sdk.dir=$HOME/Library/Android/sdk`).
+## Environnements
+
+Prérequis : JDK 17 et SDK Android 35. Ouvrir ce dossier dans Android Studio, ou utiliser le wrapper Gradle.
+
+| Variante | API par défaut | Identifiant de l'application |
+| --- | --- | --- |
+| `debug` | `http://10.0.2.2:8099/` | `ci.monprofperso.app.dev` |
+| `staging` | `https://staging-api.monprofperso.com/` | `ci.monprofperso.app.staging` |
+| `release` | `https://api.monprofperso.com/` | `ci.monprofperso.app` |
+
+L'URL est injectée dans `BuildConfig.API_BASE_URL`. Les options Gradle `-PdevApiUrl=...`, `-PstagingApiUrl=...` et `-PproductionApiUrl=...` la remplacent lors de la compilation. Les URLs staging/production doivent utiliser HTTPS. Le HTTP est réservé aux hôtes locaux de la variante debug. Retrofit ajoute le préfixe `api/` dans les chemins des requêtes.
+
+```sh
+./gradlew :app:testDebugUnitTest :app:assembleDebug
+./gradlew :app:assembleStaging
+./gradlew :app:assembleRelease
+```
+
+La signature release utilise le fichier de configuration de signature existant ; aucun secret ne doit être ajouté au dépôt.
+
+## Connexion et session
+
+Une réponse `202` de login/signup ouvre la saisie du code lié à `challengeId`. Elle ne crée pas de session. La vérification envoie exclusivement `{challengeId, code}` ; le renvoi conserve ce contexte et remplace l'identifiant de challenge. Le premier code est déjà envoyé par login/signup.
+
+Un JWT direct de login/signup est accepté seulement si le serveur déclare explicitement `demo:true` et si l'application est une compilation de débogage. Le serveur doit aussi avoir `DEMO_MODE=true` hors production. L'absence de réseau ne déclenche jamais une connexion de démonstration.
+
+Le JWT et le rôle sont chiffrés ensemble en AES-GCM avec une clé non exportable de l'Android Keystore. Les anciennes préférences contenant des JWT en clair sont supprimées. La session restaurée est vérifiée par `/api/me` avant de rejoindre l'espace utilisateur. Les sauvegardes Android de l'application sont désactivées.
+
+Les exemples de données nécessitent explicitement `-PenableDemoData=true` pour debug. Ils sont désactivés dans staging et release et ne permettent pas de réserver ni de payer.
+
+## Réservation et paiement
+
+La fiche affiche le professeur sélectionné. Une demande de cours contient une date future `startAt` avec fuseau horaire, une durée et l'identifiant du professeur. Le montant retenu est celui retourné par le serveur. La demande reste en attente jusqu'à l'acceptation du professeur.
+
+Le paiement reprend l'identifiant d'un cours accepté depuis « Mes cours » et ne recrée jamais de réservation. L'écran de confirmation de paiement n'apparaît qu'après lecture d'un statut payé sur l'API. Les demandes de cours directs et les opportunités issues de besoins utilisent leurs routes d'acceptation respectives.
+
+Les tests JVM de `AuthenticationFlowTest` couvrent les réponses d'authentification sans preuve, les challenges incomplets, le mode démo et l'éligibilité d'un cours au paiement. Ils ne remplacent pas un test sur émulateur du Keystore, des écrans Compose et du fournisseur de paiement configuré.
 
 ## Architecture
 ```
@@ -50,15 +70,6 @@ app/src/main/java/ci/monprofperso/app/
     └── MiscScreens.kt           # 34-37 Aide/FAQ, Paramètres, Parrainage, État vide
 ```
 
-## Navigation
-- Démarrage : **Bienvenue** → Inscription/Connexion → Accueil.
-- Barre inférieure parent : Accueil · Recherche · Cours · Progrès · Profil.
-- Barre inférieure prof : Tableau · Demandes · Agenda · Revenus · Profil
-  (accessible via « Espace professeur → » au bas de l'écran Compte).
-- Les écrans secondaires (paiement, reçu, abonnement, etc.) sont poussés sur la pile.
-
-Les écrans sont **statiques/fidèles à la maquette** (pas de back-end) : les boutons
-naviguent mais les données sont celles de la maquette.
 
 ## App Bundle (Google Play)
 

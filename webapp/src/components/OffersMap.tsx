@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import L from "leaflet";
+import { offerPopupContent } from "@/lib/map-popup";
 import "leaflet/dist/leaflet.css";
 
 /** Coordonnées approximatives des communes / zones CI */
@@ -176,9 +177,7 @@ export function CoteIvoireOffersMap({
     for (const m of markers) {
       const selected = selectedId != null && selectedId === m.id;
       const marker = L.marker(m.coords, { icon: makeOfferDot(selected), zIndexOffset: selected ? 500 : 0 });
-      marker.bindPopup(
-        `<strong>${m.label}</strong><br/>${m.subject || ""}${m.priceLabel ? `<br/>${m.priceLabel}` : ""}<br/><span style="color:#0E5A43">Côte d'Ivoire</span>`,
-      );
+      marker.bindPopup(offerPopupContent(m));
       marker.on("click", () => {
         onSelectRef.current?.(m.id);
       });

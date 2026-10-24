@@ -2,6 +2,7 @@ package ci.monprofperso.app.nav
 
 import androidx.navigation.NavHostController
 import ci.monprofperso.app.data.AppState
+import ci.monprofperso.app.data.TokenStore
 import ci.monprofperso.app.ui.components.NavTab
 import ci.monprofperso.app.ui.components.TeacherTab
 
@@ -17,6 +18,11 @@ class NavActions(private val nav: NavHostController) {
         nav.navigate(route) { launchSingleTop = true }
     }
 
+    fun openTeacher(id: Int) {
+        AppState.selectedTeacherId = id
+        go(Routes.TeacherProfile)
+    }
+
     /** Ouvre un PDF dans le visualiseur in-app (mémorise la cible puis navigue). */
     fun openPdf(url: String, title: String) {
         AppState.pdfUrl = url
@@ -29,7 +35,15 @@ class NavActions(private val nav: NavHostController) {
      * l'espace prof, un parent/élève sur l'accueil. Vide la pile d'auth.
      */
     fun enterApp() {
-        val dest = if (AppState.role == 2) Routes.TeacherDashboard else Routes.Home
+        if (TokenStore.token.isNullOrBlank()) {
+            go(Routes.Login)
+            return
+        }
+        val dest = when {
+            AppState.authRole != "teacher" -> Routes.Home
+            AppState.authTeacherId != null -> Routes.TeacherDashboard
+            else -> Routes.BecomeTeacher
+        }
         nav.navigate(dest) {
             popUpTo(Routes.Welcome) { inclusive = true }
             launchSingleTop = true

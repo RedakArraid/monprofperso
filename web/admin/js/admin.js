@@ -11,7 +11,7 @@ const API_BASE = window.MPP_API_BASE || ((location.hostname === "localhost" || l
 
 function normalizePhone(raw) {
   let p = String(raw ?? "").trim().replace(/[\s.-]/g, "");
-  if (/^0\d{9}$/.test(p)) p = "+225" + p.slice(1);
+  if (/^0\d{9}$/.test(p)) p = "+225" + p;
   else if (/^225\d{8,12}$/.test(p)) p = "+" + p;
   return p;
 }
@@ -132,34 +132,127 @@ function modal(title, innerHTML, onMount) {
 /* =====================================================================
  * Connexion
  * ===================================================================== */
+let loginChallenge = null;
+let loginExpiresAt = 0;
+let loginResendAt = 0;
+let loginBusy = false;
+let loginTimer;
+
+function resetLoginChallenge() {
+  loginChallenge = null;
+  clearInterval(loginTimer);
+  $("#otpFields").hidden = true;
+  $("#otpActions").hidden = true;
+  $("#loginChannelFields").hidden = false;
+  $("#phone").readOnly = false;
+  $("#loginOtp").disabled = true;
+  $("#loginOtp").required = false;
+  $("#loginOtp").value = "";
+  $("#loginBtn").textContent = "Se connecter";
+  $("#loginBtn").disabled = false;
+}
+
+function refreshOtpControls() {
+  if (!loginChallenge) return;
+  const now = Date.now();
+  const expired = now >= loginExpiresAt;
+  $("#otpExpiry").textContent = expired ? "Code expiré. Demandez un nouveau code." : `Code valable encore ${Math.ceil((loginExpiresAt - now) / 60000)} minute(s).`;
+  $("#resendOtpBtn").disabled = loginBusy || now < loginResendAt;
+  $("#resendOtpBtn").textContent = now < loginResendAt ? `Renvoyer dans ${Math.ceil((loginResendAt - now) / 1000)} s` : "Renvoyer le code";
+  $("#loginBtn").disabled = loginBusy || expired;
+}
+
+function receiveLoginResponse(r) {
+  if (r?.otpRequired === true && typeof r.challengeId === "string" && r.challengeId.length > 0
+      && ["whatsapp", "email"].includes(r.channel) && typeof r.destination === "string"
+      && Number.isFinite(r.expiresInMinutes) && r.expiresInMinutes > 0 && r.sent === true && r.demo === false) {
+    loginChallenge = r;
+    loginExpiresAt = Date.now() + Number(r.expiresInMinutes) * 60000;
+    loginResendAt = Date.now() + 60000;
+    $("#otpFields").hidden = false;
+    $("#otpActions").hidden = false;
+    $("#loginChannelFields").hidden = true;
+    $("#phone").readOnly = true;
+    $("#loginOtp").disabled = false;
+    $("#loginOtp").required = true;
+    $("#loginOtp").value = "";
+    $("#loginOtp").focus();
+    $("#otpDestination").textContent = `Code envoyé par ${r.channel === "email" ? "e-mail" : "WhatsApp"} à ${r.destination}.`;
+    $("#loginBtn").textContent = "Valider le code";
+    clearInterval(loginTimer);
+    loginTimer = setInterval(refreshOtpControls, 1000);
+    refreshOtpControls();
+    return;
+  }
+  if (!r?.token || r.user?.role !== "admin") throw new Error("Ce compte n'est pas administrateur.");
+  token.set(r.token);
+  resetLoginChallenge();
+  enterApp(r.user);
+}
+
+$("#loginChannel").addEventListener("change", () => {
+  const email = $("#loginChannel").value === "email";
+  $("#loginEmailField").hidden = !email;
+  $("#loginEmail").required = email;
+});
+$("#resetOtpBtn").addEventListener("click", () => {
+  if (loginBusy) return;
+  resetLoginChallenge();
+  $("#loginErr").hidden = true;
+});
+$("#resendOtpBtn").addEventListener("click", async () => {
+  if (!loginChallenge || loginBusy || Date.now() < loginResendAt) return;
+  loginBusy = true;
+  $("#loginErr").hidden = true;
+  refreshOtpControls();
+  try {
+    receiveLoginResponse(await api("/api/auth/request-otp", { method: "POST", body: { challengeId: loginChallenge.challengeId } }));
+  } catch (e) {
+    $("#loginErr").textContent = e.message || "Envoi impossible";
+    $("#loginErr").hidden = false;
+  } finally {
+    loginBusy = false;
+    refreshOtpControls();
+  }
+});
 $("#loginForm").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const phone = normalizePhone($("#phone").value);
+  if (loginBusy) return;
   const btn = $("#loginBtn");
   const err = $("#loginErr");
   err.hidden = true;
+  loginBusy = true;
   btn.disabled = true;
-  btn.textContent = "Connexion…";
   try {
-    if (!phone) throw new Error("Indiquez votre numéro administrateur.");
-    const r = await api("/api/auth/login", { method: "POST", body: { phone } });
-    if (!r || !r.token) throw new Error("Réponse invalide");
-    if (!r.user || r.user.role !== "admin") {
-      throw new Error("Ce compte n'est pas administrateur.");
+    if (loginChallenge) {
+      if (Date.now() >= loginExpiresAt) throw new Error("Ce code a expiré. Demandez un nouveau code.");
+      receiveLoginResponse(await api("/api/auth/verify-otp", {
+        method: "POST", body: { challengeId: loginChallenge.challengeId, code: $("#loginOtp").value.trim() },
+      }));
+    } else {
+      const phone = normalizePhone($("#phone").value);
+      if (!phone) throw new Error("Indiquez votre numéro administrateur.");
+      const channel = $("#loginChannel").value;
+      receiveLoginResponse(await api("/api/auth/login", {
+        method: "POST", body: { phone, channel, email: channel === "email" ? $("#loginEmail").value.trim() : undefined },
+      }));
     }
-    token.set(r.token);
-    enterApp(r.user);
   } catch (ex) {
     err.textContent = ex.message || "Connexion impossible";
     err.hidden = false;
   } finally {
-    btn.disabled = false;
-    btn.textContent = "Se connecter";
+    loginBusy = false;
+    if (loginChallenge) refreshOtpControls();
+    else btn.disabled = false;
   }
 });
 
 function logout() {
   token.clear();
+  localStorage.removeItem("mpp_user_jwt");
+  localStorage.removeItem("mpp_user_role");
+  sessionStorage.removeItem("mpp_payment_session");
+  resetLoginChallenge();
   $("#app").hidden = true;
   $("#login").hidden = false;
   $("#phone").value = "";
@@ -174,6 +267,17 @@ async function enterApp(user) {
 
 // --- Reprise de session : vérifie le token via /api/me. ---
 async function boot() {
+  try {
+    const channels = await api("/api/auth/otp-channels");
+    const select = $("#loginChannel");
+    select.querySelector('[value="whatsapp"]').disabled = !channels.whatsapp && !channels.demo;
+    select.querySelector('[value="email"]').disabled = !channels.email;
+    select.value = channels.defaultChannel === "email" && channels.email ? "email" : "whatsapp";
+    select.dispatchEvent(new Event("change"));
+  } catch (_) {
+    $("#loginErr").textContent = "Les moyens de vérification sont indisponibles. Réessayez dans un instant.";
+    $("#loginErr").hidden = false;
+  }
   if (!token.get()) return;
   try {
     const me = await api("/api/me");

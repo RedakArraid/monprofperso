@@ -15,12 +15,25 @@ struct RootView: View {
 
     init() {
         // Restaure le rôle réel persisté (l'espace admin réapparaît au lancement).
-        _router = StateObject(wrappedValue: { let r = Router(); r.authRole = TokenStore.role; return r }())
+        _router = StateObject(wrappedValue: {
+            let r = Router()
+            if let user = TokenStore.user {
+                r.authRole = user.role
+                r.role = user.role == "teacher" && user.teacher_id != nil ? 2 : user.role == "student" ? 1 : 0
+                r.authPhone = user.phone.map(ApiClient.localPhone) ?? ""
+                r.authFullName = user.full_name ?? ""
+            }
+            return r
+        }())
     }
 
     var body: some View {
         NavigationStack(path: $router.path) {
-            WelcomeScreen()                       // écran 1 = racine
+            Group {
+                if router.authRole == nil { WelcomeScreen() }
+                else if router.isTeacher { TeacherDashboardScreen() }
+                else { HomeScreen() }
+            }
                 .navigationDestination(for: Route.self) { route in
                     destination(route)
                         .navigationBarBackButtonHidden(true)

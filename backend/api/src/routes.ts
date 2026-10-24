@@ -1,17 +1,15 @@
 import { Router } from "express";
 import { pool } from "./db";
 import { ValidationError, optionalString, optionalPhone, optionalEmail, optionalEnum, optionalNumber, requiredString, requiredEnum } from "./validate";
-import { optionalAuth, currentUserId, signJwt, requireAdmin, DEMO_USER } from "./auth";
+import { optionalAuth, currentUserId, requireAuth, requireTeacher, requireAdmin, isDemoMode, AuthError } from "./auth";
+import { registerAuthRoutes } from "./authRoutes";
 import { putFile, getFileStream, removeFile } from "./storage";
 import { registerTeacherApplicationRoutes } from "./teacherApplications";
 import { registerTeacherProfileRoutes, computeProfileCompletion } from "./teacherProfile";
-import { registerNeedsRoutes, registerAdminNeedsRoutes, acceptNeedForTeacher } from "./needs";
+import { registerNeedsRoutes, registerAdminNeedsRoutes, parseDurationHours } from "./needs";
 import {
-  createAndSendOtp,
-  verifyOtpCode,
   loadOtpSettings,
   maskOtpSettings,
-  getOtpChannels,
   mergeOtpSettingsBody,
   saveOtpSettings,
   runOtpIntegrationTest,
@@ -20,16 +18,16 @@ import {
   initiateMobileCharge,
   submitPaymentOtp,
   getPaymentStatus,
-  handlePaystackWebhook,
+  PaymentUnavailableError,
   PAYMENT_PROVIDERS,
 } from "./payments";
 
 export const api = Router();
 
-// Résout l'utilisateur courant (token JWT) ou retombe sur DEMO_USER (rétrocompat).
+// Résout la session vérifiée, sans repli vers un autre compte.
 api.use(optionalAuth);
 
-const ROLES = ["parent", "student", "teacher"] as const;
+const OTP_CHANNELS = ["whatsapp", "email"] as const;
 
 // Version courante des CGU / politique de confidentialité (cf. docs/COMPLIANCE.md).
 // À incrémenter à chaque révision pour re-solliciter le consentement.
@@ -41,106 +39,26 @@ const wrap = (fn: (req: any, res: any) => Promise<void>) => (req: any, res: any)
       res.status(400).json({ error: "validation_error", field: e.field, message: e.message });
       return;
     }
+    if (e instanceof AuthError || e instanceof PaymentUnavailableError) {
+      res.status(e.statusCode).json({ error: e.code, message: e.message });
+      return;
+    }
     // Détail consigné côté serveur, jamais renvoyé au client (pas de fuite interne).
     console.error(`[${req.method} ${req.originalUrl}]`, e);
     res.status(500).json({ error: "internal_error", message: "erreur interne" });
   });
 
-// ---------------------------------------------------------------- Auth (mock)
-// GET /api/auth/login : souvent ouvert par erreur dans le navigateur (la connexion est un POST).
-api.get("/auth/login", (req, res) => {
-  const host = req.get("host") || "";
-  const proto = req.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
-  const base = host ? `${proto}://${host}` : "https://www.monprofperso.com";
-  res.redirect(302, `${base}/connexion.html`);
+// Authentification publique ; toute autre route est privée sauf catalogue explicite.
+registerAuthRoutes(api);
+const PUBLIC_READ = /^\/(?:subjects|levels|programs|teachers(?:\/[^/]+)?|groups(?:\/[^/]+)?|resources|files\/[^/]+|legal(?:\/[^/]+\/file)?|settings|subscription\/plans)\/?$/;
+api.use((req, res, next) => {
+  const publicRead = (req.method === "GET" || req.method === "HEAD") && PUBLIC_READ.test(req.path);
+  const publicSubmission = req.method === "POST" && ["/needs/public", "/teacher-applications"].includes(req.path.replace(/\/$/, ""));
+  if (publicRead || publicSubmission) { next(); return; }
+  res.setHeader("Cache-Control", "no-store");
+  requireAuth(req, res, next);
 });
-
-api.post("/auth/login", wrap(async (req, res) => {
-  const phone = optionalPhone(req.body);
-  const r = await pool.query("SELECT * FROM users WHERE phone = $1", [phone ?? "+2250758421903"]);
-  const user = r.rows[0] ?? (await pool.query("SELECT * FROM users WHERE id=$1", [DEMO_USER])).rows[0];
-  res.json({ token: signJwt(user.id, user.role), user });
-}));
-
-api.post("/auth/signup", wrap(async (req, res) => {
-  const fullName = optionalString(req.body, "fullName", { max: 120 });
-  const phone = optionalPhone(req.body);
-  const role = optionalEnum(req.body, "role", ROLES);
-  // Consentement (CGU + confidentialité) ; consentement parental pour les élèves.
-  const consent = req.body?.consent === true || req.body?.consent === "true";
-  const parentalConsent = req.body?.parentalConsent === true || req.body?.parentalConsent === "true";
-  const initials = (fullName ?? "Aya Koné").split(" ").map((s: string) => s[0]).join("").slice(0, 2).toUpperCase();
-  const r = await pool.query(
-    `INSERT INTO users (full_name, phone, role, initials, consent_version, consent_at, parental_consent)
-     VALUES ($1,$2,$3,$4,$5,$6,$7)
-     ON CONFLICT (phone) DO UPDATE SET full_name = EXCLUDED.full_name,
-       consent_version = COALESCE(EXCLUDED.consent_version, users.consent_version),
-       consent_at = COALESCE(EXCLUDED.consent_at, users.consent_at),
-       parental_consent = users.parental_consent OR EXCLUDED.parental_consent
-     RETURNING *`,
-    [fullName ?? "Aya Koné", phone ?? "+2250758421903", role ?? "parent", initials,
-     consent ? CONSENT_VERSION : null, consent ? new Date() : null, parentalConsent]
-  );
-  const user = r.rows[0];
-  res.json({ token: signJwt(user.id, user.role), user });
-}));
-
-api.post("/auth/verify-otp", wrap(async (req, res) => {
-  const phone = optionalPhone(req.body);
-  const email = optionalEmail(req.body);
-  const code = optionalString(req.body, "code", { max: 10 });
-  const channels = await getOtpChannels();
-  const destination = email ?? phone;
-
-  if (!channels.demo) {
-    if (!destination) {
-      throw new ValidationError("phone", "téléphone ou e-mail requis");
-    }
-    if (!code?.trim()) {
-      throw new ValidationError("code", "code requis");
-    }
-    const ok = await verifyOtpCode(destination, code);
-    if (!ok) {
-      res.status(401).json({ error: "invalid_otp", message: "Code invalide ou expiré" });
-      return;
-    }
-  }
-
-  const r = phone
-    ? await pool.query("SELECT * FROM users WHERE phone=$1", [phone])
-    : { rows: [] as any[] };
-  const user = r.rows[0] ?? (await pool.query("SELECT * FROM users WHERE id=$1", [DEMO_USER])).rows[0];
-  res.json({ token: signJwt(user.id, user.role), verified: true, user });
-}));
-
-const OTP_CHANNELS = ["whatsapp", "email"] as const;
-
-api.get("/auth/otp-channels", wrap(async (_req, res) => {
-  res.json(await getOtpChannels());
-}));
-
-api.post("/auth/request-otp", wrap(async (req, res) => {
-  const phone = optionalPhone(req.body);
-  const email = optionalEmail(req.body);
-  const channels = await getOtpChannels();
-  const channel = (optionalEnum(req.body, "channel", OTP_CHANNELS) ?? channels.defaultChannel) as
-    | "whatsapp"
-    | "email";
-
-  if (channel === "email" && !email) {
-    throw new ValidationError("email", "e-mail requis pour l'envoi par mail");
-  }
-  if (channel === "whatsapp" && !phone) {
-    throw new ValidationError("phone", "téléphone requis pour WhatsApp");
-  }
-
-  const result = await createAndSendOtp({ phone, email, channel });
-  res.json({
-    ...result,
-    channel,
-    destination: channel === "email" ? email : phone,
-  });
-}));
+api.use("/teacher", requireTeacher);
 
 api.get("/me", wrap(async (_req, res) => {
   const r = await pool.query("SELECT * FROM users WHERE id=$1", [currentUserId(res)]);
@@ -225,11 +143,17 @@ api.get("/resources", wrap(async (req, res) => {
 // Sert un fichier stocké (objet MinIO/S3, sinon repli BYTEA). `row` doit porter
 // file_name, mime_type, content, storage_key.
 async function serveFile(res: any, row: any): Promise<void> {
-  res.setHeader("Content-Type", row.mime_type ?? "application/octet-stream");
-  res.setHeader("Content-Disposition", `inline; filename="${row.file_name ?? "fichier"}"`);
+  const mime = String(row.mime_type ?? "application/octet-stream").toLowerCase();
+  const safeInline = ["application/pdf", "image/png", "image/jpeg", "image/webp"].includes(mime);
+  const fileName = String(row.file_name ?? "fichier").replace(/[^\x20-\x7e]|["\\/]/g, "_").slice(0, 180);
+  res.setHeader("Content-Type", safeInline ? mime : "application/octet-stream");
+  res.setHeader("Content-Disposition", `${safeInline ? "inline" : "attachment"}; filename="${fileName}"`);
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Content-Security-Policy", "sandbox; default-src 'none'");
+  res.setHeader("Cache-Control", "no-store");
   if (row.storage_key) {
     const stream = await getFileStream(row.storage_key);
-    stream.on("error", () => { if (!res.headersSent) res.status(502).json({ error: "storage_error" }); });
+    stream.on("error", () => { if (!res.headersSent) res.status(502).json({ error: "storage_error" }); else res.destroy(); });
     stream.pipe(res);
     return;
   }
@@ -296,10 +220,15 @@ api.get("/teachers/:id", wrap(async (req, res) => {
 // ------------------------------------------------------------------------ Cours
 api.get("/courses", wrap(async (req, res) => {
   const status = req.query.status as string | undefined;
-  const params: any[] = [currentUserId(res)];
-  let sql = "SELECT * FROM courses WHERE user_id=$1";
-  if (status) { params.push(status); sql += ` AND status=$${params.length}`; }
-  sql += " ORDER BY id";
+  const teacher = res.locals.userRole === "teacher";
+  const params: any[] = [teacher ? await currentTeacherId(res) : currentUserId(res)];
+  let sql = `SELECT c.*, u.full_name AS parent_name, ch.name AS student_name
+    FROM courses c JOIN users u ON u.id=c.user_id
+    LEFT JOIN course_needs n ON n.course_id=c.id
+    LEFT JOIN children ch ON ch.id=n.child_id
+    WHERE ${teacher ? "c.teacher_id=$1 AND c.accepted=TRUE" : "c.user_id=$1"}`;
+  if (status) { params.push(status); sql += ` AND c.status=$${params.length}`; }
+  sql += " ORDER BY c.starts_at NULLS LAST,c.id";
   const r = await pool.query(sql, params);
   res.json(r.rows);
 }));
@@ -307,24 +236,50 @@ api.get("/courses", wrap(async (req, res) => {
 api.post("/bookings", wrap(async (req, res) => {
   const b = req.body ?? {};
   const teacherId = optionalNumber(b, "teacherId", { min: 1 });
-  const price = optionalNumber(b, "price", { min: 0 });
-  const format = optionalEnum(b, "format", ["home", "online"]);
-  const teacherName = optionalString(b, "teacherName", { max: 120 });
+  if (!Number.isSafeInteger(teacherId)) throw new ValidationError("teacherId", "professeur requis");
+  // Champ historique accepté/validé mais jamais utilisé comme autorité de prix.
+  optionalNumber(b, "price", { min: 0 });
+  const format = optionalEnum(b, "format", ["home", "online"]) ?? "home";
   const subject = optionalString(b, "subject", { max: 80 });
-  const level = optionalString(b, "level", { max: 40 });
-  const dayLabel = optionalString(b, "dayLabel", { max: 20 });
-  const dayNum = optionalString(b, "dayNum", { max: 10 });
-  const time = optionalString(b, "time", { max: 20 });
-  const duration = optionalString(b, "duration", { max: 20 });
+  const level = optionalString(b, "level", { max: 40 }) ?? "Non précisé";
   const location = optionalString(b, "location", { max: 200 });
-  const r = await pool.query(
-    `INSERT INTO courses (user_id,teacher_id,teacher_name,subject,level,day_label,day_num,time,duration,format,location,price,status,badge,accepted,payment_status)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'upcoming',$13,FALSE,'pending') RETURNING *`,
-    [currentUserId(res), teacherId ?? 1, teacherName ?? "Koffi N'Guessan", subject ?? "Maths", level ?? "3ᵉ",
-     dayLabel ?? "SAM", dayNum ?? "22", time ?? "16h00", duration ?? "1h30",
-     format ?? "home", location ?? "À domicile, Cocody", price ?? 6000, "En attente"]
-  );
-  res.status(201).json({ reference: "AKW-" + (2000 + r.rows[0].id), course: r.rows[0] });
+  const duration = optionalString(b, "duration", { max: 20 }) ?? "1h30";
+  const minutes = Math.round(parseDurationHours(duration) * 60);
+  const startAt = optionalString(b, "startAt", { max: 40 });
+  if (!startAt && !isDemoMode()) throw new ValidationError("startAt", "date et heure du cours requises");
+  const startsAt = startAt ? new Date(startAt) : new Date(Date.now() + 86_400_000);
+  if (!Number.isFinite(startsAt.getTime()) || startsAt.getTime() <= Date.now()
+      || (startAt && !/^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/.test(startAt))) {
+    throw new ValidationError("startAt", "date future avec fuseau horaire requise");
+  }
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const teacher = (await client.query("SELECT * FROM teachers WHERE id=$1 FOR UPDATE", [teacherId])).rows[0];
+    if (!teacher) throw new ValidationError("teacherId", "professeur introuvable");
+    if (Array.isArray(teacher.formats) && !teacher.formats.includes(format)) throw new ValidationError("format", "modalité non proposée par ce professeur");
+    const price = Math.round(Number(teacher.price_per_hour) * minutes / 60);
+    if (!Number.isSafeInteger(price) || price <= 0 || price > 20_000_000) throw new ValidationError("teacherId", "tarif professeur indisponible");
+    const conflicts = await client.query(
+      `SELECT id FROM courses WHERE teacher_id=$1 AND status='upcoming' AND accepted=TRUE
+       AND starts_at < $2::timestamptz + ($3 * interval '1 minute')
+       AND starts_at + (COALESCE(duration_minutes,90) * interval '1 minute') > $2::timestamptz`,
+      [teacherId, startsAt, minutes],
+    );
+    if (conflicts.rowCount) throw new AuthError(409, "slot_unavailable", "Ce créneau est déjà réservé");
+    const dayLabel = new Intl.DateTimeFormat("fr-FR", { weekday: "short", timeZone: "Africa/Abidjan" }).format(startsAt).replace(".", "").toUpperCase();
+    const dayNum = new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "short", timeZone: "Africa/Abidjan" }).format(startsAt);
+    const time = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Africa/Abidjan" }).format(startsAt);
+    const r = await client.query(
+      `INSERT INTO courses (user_id,teacher_id,teacher_name,subject,level,day_label,day_num,time,duration,format,location,price,status,badge,accepted,payment_status,starts_at,duration_minutes)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'upcoming','En attente',FALSE,'pending',$13,$14) RETURNING *`,
+      [currentUserId(res),teacherId,teacher.name,subject?.trim() || teacher.subjects,level,dayLabel,dayNum,time,
+        `${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, "0")}`, format,location ?? teacher.location,price,startsAt,minutes],
+    );
+    await client.query("COMMIT");
+    res.status(201).json({ reference: "AKW-" + (2000 + r.rows[0].id), course: r.rows[0] });
+  } catch (error) { await client.query("ROLLBACK"); throw error; }
+  finally { client.release(); }
 }));
 
 registerNeedsRoutes(api, { consentVersion: CONSENT_VERSION, serveFile });
@@ -364,7 +319,7 @@ api.get("/wallet", wrap(async (_req, res) => {
     [currentUserId(res)]
   );
   const tx = await pool.query(
-    "SELECT title, subtitle, amount, credit FROM transactions WHERE user_id=$1 ORDER BY id",
+    "SELECT id, payment_id, title, subtitle, amount, credit FROM transactions WHERE user_id=$1 ORDER BY id",
     [currentUserId(res)]
   );
   res.json({ accounts: accounts.rows, transactions: tx.rows });
@@ -387,7 +342,7 @@ api.post("/payments/charge-mobile", wrap(async (req, res) => {
     });
     res.json(result);
   } catch (e: any) {
-    if (e instanceof ValidationError) throw e;
+    if (e instanceof ValidationError || e instanceof PaymentUnavailableError) throw e;
     res.status(502).json({
       error: "payment_error",
       message: String(e?.message ?? "échec du paiement").slice(0, 300),
@@ -409,7 +364,7 @@ api.post("/payments/submit-otp", wrap(async (req, res) => {
     });
     res.json(result);
   } catch (e: any) {
-    if (e instanceof ValidationError) throw e;
+    if (e instanceof ValidationError || e instanceof PaymentUnavailableError) throw e;
     res.status(502).json({
       error: "payment_error",
       message: String(e?.message ?? "échec validation OTP").slice(0, 300),
@@ -458,8 +413,8 @@ api.get("/subscription/mine", wrap(async (_req, res) => {
     [currentUserId(res)]
   );
   res.json(r.rows[0] ?? {
-    plan: "Régulier", status: "active", detail: "2 cours par semaine · Prof attitré Koffi",
-    nextCharge: "1 juil.", nextAmount: 26000, used: 5, total: 8,
+    plan: "Aucun abonnement", status: "inactive", detail: "Aucun abonnement actif",
+    nextCharge: "—", nextAmount: 0, used: 0, total: 0,
   });
 }));
 
@@ -470,21 +425,18 @@ api.get("/progress", wrap(async (_req, res) => {
     [currentUserId(res)]
   );
   res.json({
-    student: "Kouadio, 3ᵉ", average: "13,2", trend: "+1,4",
-    goal: "Objectif BEPC : 14/20, vous y êtes presque !",
+    student: "Suivi des progrès", average: "—", trend: "—",
+    goal: subs.rows.length ? "Résultats enregistrés" : "Aucun résultat enregistré pour ce compte",
     subjects: subs.rows,
   });
 }));
 
 // --------------------------------------------------------------- Espace prof
-// Professeur par défaut si le compte courant n'est pas relié à une fiche prof
-// (repli démo : compte non-prof, ou prof fraîchement inscrit sans fiche).
-const DEMO_TEACHER = 1;
-
-/** Fiche `teachers` du compte connecté, ou le prof de démo en repli. */
+/** La garde requireTeacher a déjà vérifié le rôle et le lien utilisateur/professeur. */
 async function currentTeacherId(res: any): Promise<number> {
-  const r = await pool.query("SELECT teacher_id FROM users WHERE id=$1", [currentUserId(res)]);
-  return (r.rows[0]?.teacher_id as number | null) ?? DEMO_TEACHER;
+  const id = res.locals.teacherId;
+  if (!Number.isSafeInteger(id) || id < 1) throw new AuthError(403, "forbidden", "Profil professeur requis");
+  return id;
 }
 
 api.get("/teacher/dashboard", wrap(async (_req, res) => {
@@ -598,41 +550,38 @@ async function notifyParent(userId: number, icon: string, accent: string, text: 
   );
 }
 
-// Validation d'une demande : offre besoin parent ou réservation legacy.
+// Cette route ne traite que les réservations. Les besoins ont leur route /opportunities/:id/accept.
 api.post("/teacher/requests/:id/accept", wrap(async (req, res) => {
   const teacherId = await currentTeacherId(res);
-  const needId = Number(req.params.id);
-  const needCheck = await pool.query(
-    "SELECT id FROM course_needs WHERE id=$1 AND status='published' AND teacher_id IS NULL",
-    [needId],
-  );
-  if (needCheck.rows[0]) {
-    const confirmed = (await pool.query(
-      "SELECT needs_confirmed FROM teachers WHERE id=$1",
-      [teacherId],
-    )).rows[0]?.needs_confirmed;
-    if (!confirmed) {
-      res.status(403).json({
-        error: "needs_not_confirmed",
-        message: "Votre accès aux offres sera activé après validation par l'équipe.",
-      });
-      return;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SELECT id FROM teachers WHERE id=$1 FOR UPDATE", [teacherId]);
+    const course = (await client.query(
+      "SELECT * FROM courses WHERE id=$1 AND teacher_id=$2 AND accepted=FALSE AND status='upcoming' FOR UPDATE",
+      [req.params.id,teacherId],
+    )).rows[0];
+    if (!course) { await client.query("ROLLBACK"); res.status(404).json({ error: "not_found" }); return; }
+    if (course.starts_at) {
+      if (new Date(course.starts_at).getTime() <= Date.now()) throw new AuthError(409, "slot_expired", "Ce créneau est passé");
+      const conflict = await client.query(
+        `SELECT id FROM courses WHERE teacher_id=$1 AND accepted=TRUE AND status='upcoming'
+         AND starts_at < $2::timestamptz + ($3 * interval '1 minute')
+         AND starts_at + (COALESCE(duration_minutes,90) * interval '1 minute') > $2::timestamptz`,
+        [teacherId,course.starts_at,course.duration_minutes ?? 90],
+      );
+      if (conflict.rowCount) throw new AuthError(409, "slot_unavailable", "Ce créneau est déjà réservé");
     }
-    const result = await acceptNeedForTeacher(needId, teacherId);
-    if (!result) { res.status(404).json({ error: "not_found" }); return; }
-    res.json({ ok: true, ...result });
-    return;
-  }
-  const r = await pool.query(
-    `UPDATE courses SET accepted = TRUE, badge = 'Confirmé'
-      WHERE id = $1 AND teacher_id = $2 AND accepted = FALSE RETURNING id, user_id, subject`,
-    [req.params.id, teacherId]
-  );
-  const c = r.rows[0];
-  if (!c) { res.status(404).json({ error: "not_found" }); return; }
-  await notifyParent(c.user_id, "seal", "green",
-    `Votre demande de cours${c.subject ? ` de ${c.subject}` : ""} a été acceptée`);
-  res.json({ ok: true, courseId: c.id });
+    await client.query("UPDATE courses SET accepted=TRUE,badge='Confirmé' WHERE id=$1", [course.id]);
+    await client.query(
+      `INSERT INTO notifications(user_id,icon,accent,text,time_ago,unread,section)
+       VALUES ($1,'seal','green',$2,'à l''instant',TRUE,'today')`,
+      [course.user_id,`Votre demande de cours${course.subject ? ` de ${course.subject}` : ""} a été acceptée`],
+    );
+    await client.query("COMMIT");
+    res.json({ ok: true, courseId: course.id });
+  } catch (error) { await client.query("ROLLBACK"); throw error; }
+  finally { client.release(); }
 }));
 
 // Refus d'une demande réelle : le prof décline la réservation (status='refused').
@@ -936,7 +885,7 @@ admin.post("/otp-settings/test", wrap(async (req, res) => {
     });
     res.json(result);
   } catch (e: any) {
-    if (e instanceof ValidationError) throw e;
+    if (e instanceof ValidationError || e instanceof PaymentUnavailableError) throw e;
     res.status(502).json({
       error: "provider_error",
       message: String(e?.message ?? "échec de l'envoi de test").slice(0, 300),

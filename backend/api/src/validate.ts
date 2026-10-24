@@ -80,6 +80,7 @@ export function optionalNumber(
 ): number | undefined {
   const v = body?.[field];
   if (v === undefined || v === null || v === "") return undefined;
+  if (typeof v !== "number" && typeof v !== "string") throw new ValidationError(field, `${field} doit être un nombre`);
   const n = typeof v === "number" ? v : Number(v);
   if (!Number.isFinite(n)) throw new ValidationError(field, `${field} doit être un nombre`);
   if (min !== undefined && n < min) throw new ValidationError(field, `${field} < ${min}`);

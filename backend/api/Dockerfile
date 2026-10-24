@@ -1,19 +1,20 @@
 # ---- build ----
-FROM node:20-alpine AS build
+FROM node:24-alpine AS build
 WORKDIR /app
-COPY package.json ./
-RUN npm install
+COPY package.json package-lock.json ./
+RUN npm ci --ignore-scripts
 COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build
 
 # ---- runtime ----
-FROM node:20-alpine
+FROM node:24-alpine
 WORKDIR /app
 ENV NODE_ENV=production
-COPY package.json ./
-RUN npm install --omit=dev
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts
 COPY --from=build /app/dist ./dist
 COPY migrations ./migrations
 EXPOSE 8099
+USER node
 CMD ["node", "dist/server.js"]

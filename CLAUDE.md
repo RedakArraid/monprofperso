@@ -10,7 +10,10 @@ Implémentation native de la maquette **« Akwaba, Cours particuliers »** :
 **37 écrans** reproduits fidèlement sur **deux apps natives** qui consomment
 **une seule API REST commune**.
 
-Statut : **prototype démo fonctionnel** (auth et paiement simulés, mono-utilisateur).
+Statut : prototype intégré avec authentification OTP obligatoire hors démo locale,
+contrôle des rôles et paiement Paystack vérifié. Avant toute mise en service,
+lire `docs/SECURITY-RELEASE.md` (configuration réelle, migrations et validation native).
+Node.js 24 et les lockfiles npm sont requis pour les builds reproductibles.
 
 ## Structure du monorepo
 ```
@@ -21,7 +24,7 @@ web/        Page vitrine (HTML/CSS/JS statique, sans build), présentation,
             téléchargement des apps, réseaux sociaux (chargés depuis `/api/settings`).
             **Connexion** (`connexion.html` → redirect) et **espace utilisateur**
             (`webapp/` = Vite + React + Tailwind/shadcn, build → `web/espace/`,
-            JWT `mpp_user_jwt`, parité ~37 écrans apps, live API + fallback).
+            JWT `mpp_user_jwt`, parité ~37 écrans apps, live API + états de panne explicites).
             Section « Décrivez votre besoin » (`#besoin`, `js/besoin.js`) : formulaire
             public de demande de devis (façon Completude), sans compte, → `POST
             /api/needs/public`. Section « Confiance » (note moyenne réelle calculée
@@ -149,8 +152,8 @@ docs/       Présentation .docx + assets, ROADMAP.md, COMPLIANCE.md (légal CI :
   le rôle réel renvoyé par le serveur (`AppState.authRole` Android / `Router.authRole`
   iOS → `isAdmin`) ; les entrées admin n'apparaissent dans « Mon compte » que pour un
   admin. Le rôle est désormais **persisté** (Android `TokenStore.role` →
-  SharedPreferences, restauré dans `MainActivity` ; iOS `TokenStore.role` →
-  UserDefaults, restauré dans `RootView` init), l'espace admin survit au redémarrage.
+  stockage chiffré Android Keystore, restauré dans `MainActivity` ; iOS `TokenStore.role` →
+  Keychain, restauré dans `RootView` init), l'espace admin survit au redémarrage.
   La **déconnexion efface le JWT + le rôle** des deux côtés (`Auth.logout()` Android /
   `TokenStore.clear()` iOS). Un raccourci « Démo administrateur » sur l'écran de
   connexion logue le seed admin (`+2250700000001`). La gestion complète des **profs**
@@ -159,21 +162,25 @@ docs/       Présentation .docx + assets, ROADMAP.md, COMPLIANCE.md (légal CI :
   détail, téléchargement pièces, approve/reject) ; page vitrine `web/devenir-prof.html`
   ; écran app « Devenir professeur » (Android `BecomeTeacherScreen` / iOS `.becomeTeacher`,
   3 étapes + upload → `POST /api/teacher-applications`).
-- **Auth JWT** (`api/src/auth.ts`, HS256 via `crypto` natif, secret `JWT_SECRET`).
-  login/signup/verify-otp émettent un vrai JWT (`sub` = id user). Middleware
-  `optionalAuth` : si `Authorization: Bearer <jwt>` valide → utilisateur courant = `sub`,
-  sinon **repli sur `DEMO_USER = 1`**. Les **deux apps envoient désormais l'en-tête** :
-  login/signup/verify-otp appellent l'API, persistent le JWT (TokenStore →
-  SharedPreferences Android / UserDefaults iOS) et l'injectent sur tous les appels
-  (intercepteur OkHttp côté Android, `URLRequest` côté iOS). Sans token → repli démo
-  (rétrocompat). Endpoints user-scoped utilisent `currentUserId(res)`. Le rôle est
-  porté par le JWT ; `requireAdmin` garde l'espace admin (401 sans token, 403 si non-admin).
-  Utilisateur admin de démo : `+2250700000001`.
-  ⚠️ Reste à faire : OTP SMS réel, paiement réel (Phase 1/2, voir docs/ROADMAP.md).
-- **Tests** : `api/test/*.test.mjs` (runner natif Node, `npm test`, stack live requise), 55 tests.
-  `api.test.mjs` = intégration par endpoint ; `e2e.test.mjs` = parcours bout-en-bout
-  (inscription→réservation→relecture, isolation JWT entre comptes, repli démo, prof,
-  catalogue). Les 20 endpoints sont couverts.
+- **Auth JWT v2** (`api/src/auth.ts`, HS256 natif, secret `JWT_SECRET`).
+  Login/signup réels renvoient HTTP 202 et un `challengeId`, jamais de jeton avant
+  vérification OTP. `verify-otp` accepte `challengeId` + `code` et émet une session
+  de 24 heures. Les anciens JWT sans preuve sont rejetés. `optionalAuth` ne crée
+  aucune identité de repli ; `requireAuth` protège les routes privées ; les rôles
+  et liens professeur sont relus en base. Démo seulement si `DEMO_MODE=true` hors
+  production, connexion explicite obligatoire. Le rôle/JWT sont stockés avec
+  Android Keystore et iOS Keychain. Web : même contrat HTTP, JWT navigateur.
+- **Réservation et paiement** : date `startAt` future avec fuseau ; prix calculé
+  depuis le tarif professeur et la durée. Le parent paie après acceptation.
+  `/teacher/requests/:courseId/accept` concerne une réservation ;
+  `/teacher/opportunities/:needId/accept` concerne une offre de besoin.
+  `PAYSTACK_MOCK=true` est interdit en production ; une clé absente renvoie 503.
+  Succès confirmé seulement après preuve du montant, de la devise et de la
+  référence. Une relance d’un paiement en attente réutilise le même paiement.
+- **Tests** : `api/test/*.test.mjs`, runner Node natif séquentiel avec PostgreSQL
+  isolé et API locale. Les tests auth réelle utilisent un faux service WhatsApp
+  local ; les tests Paystack substituent fetch, sans débit ni envoi réels.
+  CI dans `.github/workflows/ci.yml` : API/PostgreSQL, web, Android, iOS.
 - Détail NUMERIC : l'API parse les colonnes `NUMERIC` en nombres (pas en chaînes)
   pour que le décodage strict de `JSONDecoder` (iOS) marche comme Gson (Android).
 

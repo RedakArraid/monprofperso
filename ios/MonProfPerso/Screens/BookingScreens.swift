@@ -1,350 +1,273 @@
 import SwiftUI
 
-// MARK: - Écran 9, Réservation du cours
+// MARK: - Réservation : demande au professeur, puis paiement après son accord
 struct BookingScreen: View {
     @EnvironmentObject var router: Router
-    @State private var format = 0
-    @State private var day = 1
-    @State private var time = 1
+    @State private var format = "home"
+    @State private var startAt = Date().addingTimeInterval(86_400)
     @State private var duration = 1
-    @State private var proposeOn = false
-    @State private var propPrice = ""
-    @State private var propFreq = ""
-
-    private let days = [("VEN", "21"), ("SAM", "22"), ("DIM", "23"), ("LUN", "24"), ("MAR", "25")]
-    private let daysFull = ["Ven.", "Sam.", "Dim.", "Lun.", "Mar."]
+    @State private var sending = false
+    @State private var error: String?
     private let durations = ["1h", "1h30", "2h"]
     private let durationFactors = [1.0, 1.5, 2.0]
+    private let abidjan = TimeZone(identifier: "Africa/Abidjan")!
 
     var body: some View {
-        let price = Int(Double(router.bkPricePerHour) * durationFactors[duration])
+        let estimate = Int(Double(router.bkPricePerHour) * durationFactors[duration])
         return AkScreen {
             TopBar(title: "Réserver un cours", onBack: { router.back() })
             ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 18) {
                     HStack(spacing: 11) {
                         InitialsAvatar(initials: router.bkTeacherInitials, size: 42, radius: 12, fontSize: 15)
-                        VStack(alignment: .leading, spacing: 0) {
+                        VStack(alignment: .leading, spacing: 3) {
                             Text(router.bkTeacherName).font(AkFont.bold(14)).foregroundColor(Ak.ink)
                             Text(router.bkSubjectsLine).font(AkFont.regular(12)).foregroundColor(Ak.muted)
                         }
                         Spacer()
-                        Image(systemName: "checkmark.seal.fill").font(.system(size: 20)).foregroundColor(Ak.green)
-                    }.akCard(radius: 15, padding: 11)
-
-                    subLabel("Format du cours")
-                    HStack(spacing: 10) {
-                        formatCard("house.fill", "À domicile", "\(router.bkLocation) · chez vous", format == 0).onTapGesture { format = 0 }
-                        formatCard("video.fill", "En ligne", "visio Mon Prof Perso", format == 1).onTapGesture { format = 1 }
-                    }
-                    subLabel("Matière & niveau")
-                    HStack(spacing: 8) { Chip(label: router.bkSubject, selected: true); Chip(label: router.bkLevel); Spacer() }
-                    subLabel("Choisir un créneau")
-                    HStack(spacing: 8) {
-                        dayCell("VEN", "21", 0); dayCell("SAM", "22", 1); dayCell("DIM", "23", 2); dayCell("LUN", "24", 3); dayCell("MAR", "25", 4)
-                    }
-                    HStack(spacing: 8) {
-                        timeChip("10:00", -1); timeChip("14:00", 0); timeChip("16:00", 1); timeChip("17:30", 2); Spacer()
-                    }.padding(.top, 10)
-                    subLabel("Durée")
-                    HStack(spacing: 8) { durChip("1h", 0); durChip("1h30", 1); durChip("2h", 2) }
-
-                    if router.bkNegotiable {
-                        subLabel("Proposer mon tarif")
-                        VStack(alignment: .leading, spacing: 0) {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 0) {
-                                    Text("Ce professeur accepte la négociation").font(AkFont.bold(13)).foregroundColor(Ak.ink)
-                                    Text("Proposez un tarif et une fréquence").font(AkFont.regular(11.5)).foregroundColor(Color(hex: 0x8A5B33))
-                                }
-                                Spacer()
-                                Toggle("", isOn: $proposeOn).labelsHidden().tint(Ak.orange)
-                            }
-                            if proposeOn {
-                                TextField("Tarif souhaité (F / h)", text: $propPrice).keyboardType(.numberPad)
-                                    .padding(.horizontal, 12).padding(.vertical, 10).background(.white)
-                                    .clipShape(RoundedRectangle(cornerRadius: 11)).overlay(RoundedRectangle(cornerRadius: 11).stroke(Ak.border, lineWidth: 1)).padding(.top, 10)
-                                TextField("Fréquence (ex. 2 cours / sem)", text: $propFreq)
-                                    .padding(.horizontal, 12).padding(.vertical, 10).background(.white)
-                                    .clipShape(RoundedRectangle(cornerRadius: 11)).overlay(RoundedRectangle(cornerRadius: 11).stroke(Ak.border, lineWidth: 1)).padding(.top, 8)
-                            }
-                        }.padding(14).background(Ak.orangeSoft).clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
-                    }
+                    }.akCard(radius: 15, padding: 14)
+                    Text("Format du cours").font(AkFont.schibstedBold(14.5)).foregroundColor(Ak.ink)
+                    Picker("Format", selection: $format) {
+                        if router.bkFormats.contains("home") { Text("À domicile").tag("home") }
+                        if router.bkFormats.contains("online") { Text("En ligne").tag("online") }
+                    }.pickerStyle(.segmented)
+                    Text("\(router.bkSubject) · \(router.bkLevel)").font(AkFont.bold(14)).foregroundColor(Ak.ink)
+                    Text("Choisir une date et une heure").font(AkFont.schibstedBold(14.5)).foregroundColor(Ak.ink)
+                    DatePicker("Créneau souhaité", selection: $startAt, in: Date()...,
+                               displayedComponents: [.date, .hourAndMinute])
+                        .datePickerStyle(.compact).environment(\.timeZone, abidjan)
+                        .environment(\.locale, Locale(identifier: "fr_CI"))
+                    Text("Heure de Côte d'Ivoire. Le professeur confirmera sa disponibilité.")
+                        .font(AkFont.regular(12)).foregroundColor(Ak.muted)
+                    Text("Durée").font(AkFont.schibstedBold(14.5)).foregroundColor(Ak.ink)
+                    Picker("Durée", selection: $duration) {
+                        ForEach(durations.indices, id: \.self) { Text(durations[$0]).tag($0) }
+                    }.pickerStyle(.segmented)
+                    Text("Vous pourrez payer depuis Mes cours dès que le professeur aura accepté la demande.")
+                        .font(AkFont.regular(13)).foregroundColor(Ak.muted)
+                    if let error { Text(error).font(AkFont.regular(13)).foregroundColor(Ak.danger) }
                 }.padding(.horizontal, 22).padding(.top, 16)
             }
-            VStack(spacing: 11) {
+            VStack(spacing: 12) {
                 HStack {
-                    Text("\(daysFull[day]) \(days[day].1) juin · \(times2(time)) · \(durations[duration])").font(AkFont.regular(13.5)).foregroundColor(Ak.muted)
+                    Text("Estimation pour \(durations[duration])").font(AkFont.regular(13)).foregroundColor(Ak.muted)
                     Spacer()
-                    Text("\(price.formattedFCFA) F").font(AkFont.schibstedExtra(18)).foregroundColor(Ak.ink)
+                    Text("\(estimate.formattedFCFA) F").font(AkFont.schibstedExtra(18)).foregroundColor(Ak.ink)
                 }
-                PrimaryButton(label: "Continuer vers le paiement") {
-                    router.bkFormat = format == 0 ? "home" : "online"
-                    router.bkDayLabel = days[day].0
-                    router.bkDayNum = days[day].1
-                    router.bkDayFull = "\(daysFull[day]) \(days[day].1) juin"
-                    router.bkTime = times2(time)
-                    router.bkDuration = durations[duration]
-                    router.bkPrice = price
-                    let pp = proposeOn ? Int(propPrice) : nil
-                    let pf = proposeOn ? (propFreq.trimmingCharacters(in: .whitespaces).isEmpty ? nil : propFreq.trimmingCharacters(in: .whitespaces)) : nil
-                    router.bkProposedPrice = pp
-                    router.bkProposedFrequency = pf
-                    router.bkHasProposal = router.bkNegotiable && (pp != nil || pf != nil)
-                    router.go(.payment)
-                }
-            }.padding(.horizontal, 22).padding(.top, 14).padding(.bottom, 12).background(.white)
+                PrimaryButton(label: sending ? "Envoi…" : "Envoyer ma demande", color: Ak.green) { submit() }
+                    .disabled(sending || startAt <= Date() || router.bkTeacherId < 1)
+            }.padding(22).background(.white)
         }
+        .onAppear { format = router.bkFormats.contains("home") ? "home" : "online" }
     }
 
-    private func times2(_ idx: Int) -> String { ["14:00", "16:00", "17:30"][max(0, min(idx, 2))] }
-
-    func subLabel(_ t: String) -> some View {
-        Text(t).font(AkFont.schibstedBold(14.5)).foregroundColor(Ak.ink).padding(.top, 18).padding(.bottom, 10)
-    }
-    func formatCard(_ icon: String, _ title: String, _ sub: String, _ sel: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Image(systemName: icon).font(.system(size: 20)).foregroundColor(sel ? Ak.green : Ak.faint)
-            Text(title).font(AkFont.bold(13.5)).foregroundColor(sel ? Ak.ink : Ak.inkSoft)
-            Text(sub).font(AkFont.regular(11)).foregroundColor(sel ? Ak.muted : Ak.faint)
-        }.padding(13).frame(maxWidth: .infinity, alignment: .leading)
-        .background(sel ? Ak.greenSoft : .white).clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 15).stroke(sel ? Ak.green : Ak.border, lineWidth: sel ? 2 : 1.5))
-    }
-    func dayCell(_ d: String, _ n: String, _ idx: Int) -> some View {
-        let sel = day == idx
-        return VStack(spacing: 0) {
-            Text(d).font(AkFont.regular(11)).foregroundColor(sel ? Ak.onGreenSoft : Ak.faint)
-            Text(n).font(AkFont.schibstedExtra(17)).foregroundColor(sel ? .white : Ak.ink)
-        }.frame(maxWidth: .infinity).padding(.vertical, 10)
-        .background(sel ? Ak.green : .white).clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 13).stroke(sel ? Ak.green : Ak.border, lineWidth: sel ? 2 : 1.5))
-        .onTapGesture { day = idx }
-    }
-    func timeChip(_ t: String, _ idx: Int) -> some View {
-        let disabled = idx == -1
-        let sel = time == idx
-        return Text(t).font(sel ? AkFont.bold(12.5) : AkFont.semibold(12.5))
-            .foregroundColor(disabled ? Ak.faint : (sel ? .white : Ak.inkSoft))
-            .strikethrough(disabled)
-            .padding(.horizontal, 14).padding(.vertical, 9)
-            .background(disabled ? Ak.cardField : (sel ? Ak.orange : .white))
-            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 11).stroke(Ak.border, lineWidth: (!disabled && !sel) ? 1.5 : 0))
-            .onTapGesture { if !disabled { time = idx } }
-    }
-    func durChip(_ t: String, _ idx: Int) -> some View {
-        let sel = duration == idx
-        return Text(t).font(sel ? AkFont.bold(12.5) : AkFont.semibold(12.5)).foregroundColor(sel ? .white : Ak.inkSoft)
-            .frame(maxWidth: .infinity).padding(.vertical, 10)
-            .background(sel ? Ak.green : .white).clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 11).stroke(Ak.border, lineWidth: sel ? 0 : 1.5))
-            .onTapGesture { duration = idx }
+    private func submit() {
+        guard !sending, startAt > Date(), router.bkTeacherId > 0 else { return }
+        sending = true; error = nil
+        let ownerToken = TokenStore.token
+        Task { @MainActor in
+            defer { sending = false }
+            var body: [String: Any] = [
+                "teacherId": router.bkTeacherId, "subject": router.bkSubject, "level": router.bkLevel,
+                "duration": durations[duration], "format": format,
+                "startAt": ISO8601DateFormatter().string(from: startAt),
+            ]
+            if format == "home" { body["location"] = router.bkLocation }
+            do {
+                let booking = try await ApiClient.shared.createBooking(body)
+                guard ownerToken != nil, ownerToken == TokenStore.token else { return }
+                router.loadCourse(booking.course, reference: booking.reference)
+                router.go(.confirmed)
+            } catch { self.error = error.localizedDescription }
+        }
     }
 }
 
-// MARK: - Écran 10, Paiement Mobile Money
+// MARK: - Paiement d'un cours existant et accepté
 struct PaymentScreen: View {
     @EnvironmentObject var router: Router
     @State private var method = 0
+    @State private var phone = ""
     @State private var sending = false
+    @State private var loading = true
+    @State private var eligible = false
     @State private var showOtp = false
-    @State private var otpPaymentId = 0
+    @State private var needsOtp = false
+    @State private var pendingPaymentId: Int?
     @State private var otpCode = ""
     @State private var payError: String?
+    @State private var ownerToken: String?
+    @State private var selectedCourseId: Int?
+    @State private var active = false
 
-    private var paymentPhone: String {
-        let raw = router.authPhone.trimmingCharacters(in: .whitespaces)
-        return raw.hasPrefix("+") ? raw : "+225\(raw)"
+    private var provider: String { method == 1 ? "wave" : method == 2 ? "mtn" : "orange" }
+    private var isCurrentSession: Bool {
+        active && ownerToken != nil && ownerToken == TokenStore.token && selectedCourseId == router.bkCourseId
     }
-
-    private func providerForMethod() -> String {
-        switch method {
-        case 1: return "wave"
-        case 2: return "mtn"
-        default: return "orange"
-        }
-    }
+    private var canSubmit: Bool { isCurrentSession && !sending && !loading && eligible && phone.filter(\.isNumber).count >= 10 }
 
     var body: some View {
-        let lieu = router.bkFormat == "online" ? "En ligne" : "À domicile · \(router.bkLocation)"
-        return AkScreen {
+        AkScreen {
             TopBar(title: "Paiement", onBack: { router.back() })
             ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 9) {
                         Text("RÉCAPITULATIF").font(AkFont.bold(12)).foregroundColor(Ak.faint)
-                        HStack(spacing: 11) {
-                            InitialsAvatar(initials: router.bkTeacherInitials, size: 42, radius: 12, fontSize: 15)
-                            VStack(alignment: .leading, spacing: 0) {
-                                Text("Cours de \(router.bkSubject) · \(router.bkLevel)").font(AkFont.bold(14)).foregroundColor(Ak.ink)
-                                Text("avec \(router.bkTeacherName)").font(AkFont.regular(12)).foregroundColor(Ak.muted)
-                            }
-                            Spacer()
-                        }.padding(.top, 11)
-                        divider()
+                        Text("\(router.bkSubject) · \(router.bkLevel)").font(AkFont.bold(16)).foregroundColor(Ak.ink)
+                        Text("avec \(router.bkTeacherName)").font(AkFont.regular(13)).foregroundColor(Ak.muted)
                         recapRow("Date", "\(router.bkDayFull) · \(router.bkTime)")
                         recapRow("Durée", router.bkDuration)
-                        if router.bkHasProposal {
-                            if let pp = router.bkProposedPrice { recapRow("Tarif proposé", "\(pp.formattedFCFA) F") }
-                            if let pf = router.bkProposedFrequency { recapRow("Fréquence", pf) }
-                        }
-                        recapRow("Lieu", lieu)
+                        recapRow("Lieu", router.bkFormat == "online" ? "En ligne" : router.bkLocation)
+                        recapRow("Montant confirmé", "\(router.bkPrice.formattedFCFA) F")
                     }.akCard(radius: 18, padding: 16)
-
-                    subLabel("Moyen de paiement")
-                    method0(Ak.orangeMoney, "iphone", "Orange Money", paymentPhone, 0)
-                    method0(Ak.wave, "waveform", "Wave", "Sans frais", 1).padding(.top, 10)
-                    method0(Ak.mtn, "iphone", "MTN MoMo", "Sans frais", 2, tint: Ak.ink).padding(.top, 10)
-                    if let payError {
-                        Text(payError).font(AkFont.regular(12)).foregroundColor(Color(hex: 0xB42318)).padding(.top, 12)
+                    if loading { LoadingRow() }
+                    Text("Moyen de paiement").font(AkFont.schibstedBold(14.5)).foregroundColor(Ak.ink)
+                    Picker("Moyen de paiement", selection: $method) {
+                        Text("Orange Money").tag(0)
+                        Text("Wave").tag(1)
+                        Text("MTN MoMo").tag(2)
+                    }.pickerStyle(.segmented).disabled(pendingPaymentId != nil)
+                    PhoneField(value: $phone).disabled(pendingPaymentId != nil)
+                    Text("Validez la demande sur votre téléphone. Le statut sera confirmé par le service de paiement.")
+                        .font(AkFont.regular(12)).foregroundColor(Ak.muted)
+                    if let payError { Text(payError).font(AkFont.regular(13)).foregroundColor(Ak.danger) }
+                    if needsOtp {
+                        Button("Saisir le code de paiement") { showOtp = true }
+                            .font(AkFont.bold(14)).foregroundColor(Ak.green).disabled(sending)
                     }
-                    HStack(spacing: 8) {
-                        Image(systemName: "lock.fill").font(.system(size: 12)).foregroundColor(Ak.green)
-                        Text("Paiement 100% sécurisé · argent libéré après le cours").font(AkFont.regular(12)).foregroundColor(Ak.muted)
-                    }.frame(maxWidth: .infinity).padding(.top, 14)
                 }.padding(.horizontal, 22).padding(.top, 16)
             }
-            VStack(spacing: 0) {
-                recapRow("Cours (\(router.bkDuration))", "\(router.bkPrice.formattedFCFA) F", valueColor: Ak.ink)
-                HStack { Text("Frais de service").font(AkFont.regular(13)).foregroundColor(Ak.muted); Spacer(); Text("Offert").font(AkFont.bold(13)).foregroundColor(Ak.green) }.padding(.bottom, 11)
-                PrimaryButton(label: sending ? "Validation…" : "Payer \(router.bkPrice.formattedFCFA) FCFA", color: Ak.green, trailingSystemIcon: "lock.fill") {
-                    guard !sending else { return }
-                    sending = true
-                    payError = nil
-                    Task { @MainActor in
-                        defer { sending = false }
-                        var body: [String: Any] = [
-                            "teacherId": router.bkTeacherId, "teacherName": router.bkTeacherName,
-                            "subject": router.bkSubject, "level": router.bkLevel,
-                            "dayLabel": router.bkDayLabel, "dayNum": router.bkDayNum,
-                            "time": router.bkTime, "duration": router.bkDuration,
-                            "format": router.bkFormat, "price": router.bkPrice,
-                        ]
-                        if router.bkFormat == "home" { body["location"] = "À domicile, \(router.bkLocation)" }
-                        if router.bkHasProposal {
-                            if let pp = router.bkProposedPrice { body["proposedPrice"] = pp }
-                            if let pf = router.bkProposedFrequency { body["proposedFrequency"] = pf }
-                        }
-                        do {
-                            let booking = try await ApiClient.shared.createBooking(body)
-                            router.bkReference = booking.reference
-                            let charge = try await ApiClient.shared.chargeMobile(
-                                courseId: booking.course.id,
-                                provider: providerForMethod(),
-                                phone: paymentPhone
-                            )
-                            switch charge.status {
-                            case "success":
-                                router.go(.confirmed)
-                            case "otp_required":
-                                otpPaymentId = charge.paymentId
-                                otpCode = ""
-                                showOtp = true
-                            default:
-                                if await ApiClient.shared.pollUntilPaid(paymentId: charge.paymentId) {
-                                    router.go(.confirmed)
-                                } else {
-                                    payError = charge.message ?? "Paiement en attente ou refusé"
-                                }
-                            }
-                        } catch {
-                            payError = error.localizedDescription
-                        }
-                    }
-                }
-            }.padding(.horizontal, 22).padding(.top, 14).padding(.bottom, 12).background(.white)
+            PrimaryButton(label: sending ? "Vérification…" : pendingPaymentId != nil ? "Vérifier le paiement" : "Payer \(router.bkPrice.formattedFCFA) FCFA",
+                          color: Ak.green, trailingSystemIcon: "lock.fill") { pay() }
+                .disabled(!canSubmit).padding(22).background(.white)
         }
-        .alert("Code de confirmation", isPresented: $showOtp) {
-            TextField("000000", text: $otpCode)
-                .keyboardType(.numberPad)
-            Button("Valider") {
-                Task { @MainActor in
-                    sending = true
-                    defer { sending = false }
-                    do {
-                        let res = try await ApiClient.shared.submitPaymentOtp(paymentId: otpPaymentId, otp: otpCode)
-                        let paid = res.status == "success"
-                            ? true
-                            : await ApiClient.shared.pollUntilPaid(paymentId: otpPaymentId)
-                        if paid {
-                            showOtp = false
-                            router.go(.confirmed)
-                        } else {
-                            payError = res.message ?? "Code refusé"
-                        }
-                    } catch {
-                        payError = error.localizedDescription
-                    }
-                }
-            }
-            Button("Annuler", role: .cancel) { showOtp = false }
-        } message: {
-            Text("Saisissez le code reçu sur votre téléphone.")
+        .task {
+            loading = true
+            active = true
+            ownerToken = TokenStore.token
+            selectedCourseId = router.bkCourseId
+            phone = router.authPhone
+            do { try await refreshCourse() }
+            catch { payError = error.localizedDescription }
+            loading = false
+        }
+        .onDisappear { active = false }
+        .alert("Code de paiement", isPresented: $showOtp) {
+            TextField("Code reçu", text: $otpCode).keyboardType(.numberPad)
+            Button("Valider") { submitOtp() }
+            Button("Annuler", role: .cancel) { }
+        } message: { Text("Saisissez le code reçu sur le téléphone utilisé pour ce paiement.") }
+    }
+
+    @MainActor private func refreshCourse() async throws {
+        guard isCurrentSession, let id = selectedCourseId else { throw CancellationError() }
+        let courses = try await ApiClient.shared.courses()
+        guard isCurrentSession else { throw CancellationError() }
+        guard let course = courses.first(where: { $0.id == id }) else {
+            eligible = false
+            throw ApiError.badStatus(404, "Cours introuvable. Retrouvez-le dans Mes cours.")
+        }
+        router.loadCourse(course)
+        eligible = course.canPay
+        if course.payment_status == "paid" {
+            router.go(.confirmed)
+        } else if !eligible {
+            throw ApiError.badStatus(409, "Le professeur doit accepter le cours avant le paiement.")
         }
     }
-    func subLabel(_ t: String) -> some View { Text(t).font(AkFont.schibstedBold(14.5)).foregroundColor(Ak.ink).padding(.top, 18).padding(.bottom, 11) }
-    func divider() -> some View { Rectangle().fill(Ak.cardField).frame(height: 1).padding(.vertical, 13) }
-    func recapRow(_ l: String, _ v: String, valueColor: Color = Ak.ink) -> some View {
-        HStack { Text(l).font(AkFont.regular(13)).foregroundColor(Ak.textBody); Spacer(); Text(v).font(AkFont.semibold(13)).foregroundColor(valueColor) }.padding(.bottom, 6)
+
+    private func pay() {
+        guard canSubmit else { return }
+        sending = true; payError = nil
+        Task { @MainActor in
+            defer { sending = false }
+            do {
+                if let id = pendingPaymentId { await checkPayment(id); return }
+                try await refreshCourse()
+                guard eligible, let id = router.bkCourseId else { return }
+                let charge = try await ApiClient.shared.chargeMobile(courseId: id, provider: provider,
+                                                                    phone: ApiClient.normalizePhone(phone))
+                await handleCharge(charge)
+            } catch { payError = error.localizedDescription }
+        }
     }
-    func method0(_ badge: Color, _ icon: String, _ title: String, _ sub: String, _ idx: Int, tint: Color = .white) -> some View {
-        let sel = method == idx
-        return HStack(spacing: 12) {
-            Image(systemName: icon).font(.system(size: 18)).foregroundColor(tint)
-                .frame(width: 38, height: 38).background(badge).clipShape(RoundedRectangle(cornerRadius: 10))
-            VStack(alignment: .leading, spacing: 0) {
-                Text(title).font(AkFont.bold(14)).foregroundColor(Ak.ink)
-                Text(sub).font(AkFont.regular(12)).foregroundColor(Ak.muted)
-            }
+
+    @MainActor private func handleCharge(_ charge: ChargeMobileResponse) async {
+        guard isCurrentSession else { return }
+        pendingPaymentId = charge.paymentId
+        if charge.status == "otp_required" {
+            needsOtp = true; otpCode = ""; showOtp = true
+        } else {
+            needsOtp = false
+            await checkPayment(charge.paymentId)
+        }
+    }
+
+    @MainActor private func checkPayment(_ id: Int) async {
+        guard isCurrentSession else { return }
+        let paid = await ApiClient.shared.pollUntilPaid(paymentId: id)
+        guard isCurrentSession else { return }
+        if paid {
+            router.bkPaid = true
+            eligible = false
+            router.go(.confirmed)
+            return
+        }
+        if let status = try? await ApiClient.shared.paymentStatus(id), status.status == "failed" {
+            pendingPaymentId = nil; needsOtp = false
+            payError = "Le paiement a été refusé. Vous pouvez réessayer."
+        } else {
+            payError = "Le paiement n'est pas encore confirmé. Vérifiez son statut avant toute nouvelle tentative."
+        }
+    }
+
+    private func submitOtp() {
+        guard !sending, let id = pendingPaymentId, !otpCode.isEmpty else { return }
+        sending = true; payError = nil
+        Task { @MainActor in
+            defer { sending = false }
+            do {
+                let response = try await ApiClient.shared.submitPaymentOtp(paymentId: id, otp: otpCode)
+                await handleCharge(response)
+            } catch { payError = error.localizedDescription }
+        }
+    }
+
+    private func recapRow(_ label: String, _ value: String) -> some View {
+        HStack {
+            Text(label).font(AkFont.regular(13)).foregroundColor(Ak.muted)
             Spacer()
-            if sel { Image(systemName: "checkmark.circle.fill").font(.system(size: 21)).foregroundColor(Ak.orange) }
-            else { Circle().stroke(Color(hex: 0xD8D2C8), lineWidth: 2).frame(width: 21, height: 21) }
-        }.padding(14).background(.white).clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 15).stroke(sel ? Ak.orange : Ak.border, lineWidth: sel ? 2 : 1.5))
-        .onTapGesture { method = idx }
+            Text(value).font(AkFont.semibold(13)).foregroundColor(Ak.ink)
+        }
     }
 }
 
-// MARK: - Écran 11, Cours confirmé
+// MARK: - Confirmation distincte de la demande et du paiement
 struct ConfirmedScreen: View {
     @EnvironmentObject var router: Router
     var body: some View {
         AkScreen {
-            HStack { Spacer(); IconSquare(system: "xmark") { router.popToRoot() } }.padding(.horizontal, 22).padding(.vertical, 6)
+            HStack { Spacer(); IconSquare(system: "xmark") { router.popToRoot() } }.padding(22)
             ScrollView {
-                VStack(spacing: 0) {
-                    ZStack {
-                        Circle().fill(Ak.greenSoft).frame(width: 96, height: 96)
-                        Circle().fill(Ak.green).frame(width: 66, height: 66)
-                        Image(systemName: "checkmark").font(.system(size: 34, weight: .bold)).foregroundColor(.white)
-                    }.padding(.top, 16)
-                    Text(router.bkHasProposal ? "Demande envoyée !" : "C'est confirmé !").font(AkFont.schibstedExtra(26)).foregroundColor(Ak.ink).padding(.top, 22)
-                    Text(router.bkHasProposal
-                        ? "Votre proposition a été transmise à \(router.bkTeacherName). Vous serez notifié de sa réponse."
-                        : "Votre demande de cours avec \(router.bkTeacherName) est envoyée. Il va la confirmer.")
-                        .font(AkFont.regular(14)).foregroundColor(Ak.muted).multilineTextAlignment(.center).lineSpacing(3).frame(maxWidth: 280).padding(.top, 8)
-                    VStack(alignment: .leading, spacing: 0) {
+                VStack(spacing: 18) {
+                    Image(systemName: "checkmark.circle.fill").font(.system(size: 72)).foregroundColor(Ak.green)
+                    Text(router.bkPaid ? "Paiement confirmé" : "Demande envoyée")
+                        .font(AkFont.schibstedExtra(26)).foregroundColor(Ak.ink)
+                    Text(router.bkPaid ? "Le paiement de votre cours a été confirmé."
+                         : "\(router.bkTeacherName) doit confirmer votre créneau. Vous pourrez ensuite payer depuis Mes cours.")
+                        .font(AkFont.regular(14)).foregroundColor(Ak.muted).multilineTextAlignment(.center)
+                    VStack(alignment: .leading, spacing: 12) {
                         Text("RÉF. #\(router.bkReference)").font(AkFont.bold(11.5)).foregroundColor(Ak.faint)
-                        Rectangle().fill(Ak.cardField).frame(height: 1).padding(.vertical, 11)
-                        row("Matière", "\(router.bkSubject) · \(router.bkLevel)")
-                        row("Date", "\(router.bkDayFull) · \(router.bkTime)")
-                        row("Lieu", router.bkFormat == "online" ? "En ligne" : "À domicile · \(router.bkLocation)")
-                        HStack { Text(router.bkHasProposal ? "Tarif proposé" : "Montant").font(AkFont.regular(13)).foregroundColor(Ak.textBody); Spacer(); Text("\((router.bkProposedPrice ?? router.bkPrice).formattedFCFA) F").font(AkFont.schibstedExtra(14)).foregroundColor(Ak.green) }
-                    }.akCard(radius: 18, padding: 16).padding(.top, 24)
-                    HStack(spacing: 8) {
-                        Image(systemName: "calendar.badge.plus").font(.system(size: 15)).foregroundColor(Ak.green)
-                        Text("Ajouter à mon agenda").font(AkFont.bold(13.5)).foregroundColor(Ak.green)
-                    }.padding(.top, 16).onTapGesture { router.go(.myCourses) }
-                }.padding(.horizontal, 26)
+                        Text("\(router.bkSubject) · \(router.bkLevel)").font(AkFont.bold(15)).foregroundColor(Ak.ink)
+                        Text("\(router.bkDayFull) · \(router.bkTime) · \(router.bkDuration)")
+                            .font(AkFont.regular(13)).foregroundColor(Ak.muted)
+                        Text("\(router.bkPrice.formattedFCFA) F").font(AkFont.schibstedExtra(20)).foregroundColor(Ak.green)
+                    }.frame(maxWidth: .infinity, alignment: .leading).akCard(radius: 18, padding: 18)
+                }.padding(26)
             }
-            VStack(spacing: 8) {
-                PrimaryButton(label: "Voir mon cours", trailingSystemIcon: nil) { router.go(.myCourses) }
-                Text("Retour à l'accueil").font(AkFont.bold(14)).foregroundColor(Ak.muted).padding(6).onTapGesture { router.popToRoot() }
-            }.padding(.horizontal, 26).padding(.bottom, 12)
+            PrimaryButton(label: "Voir mes cours", trailingSystemIcon: nil) {
+                router.popToRoot(); router.go(.myCourses)
+            }.padding(26)
         }
-    }
-    func row(_ l: String, _ v: String) -> some View {
-        HStack { Text(l).font(AkFont.regular(13)).foregroundColor(Ak.textBody); Spacer(); Text(v).font(AkFont.semibold(13)).foregroundColor(Ak.ink) }.padding(.bottom, 9)
     }
 }

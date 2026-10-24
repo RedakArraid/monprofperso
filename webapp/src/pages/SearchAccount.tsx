@@ -1,4 +1,4 @@
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams, useLocation } from "react-router-dom";
 import { AppShell, OfflineBanner, Empty, MenuRow, PageGrid, PageStack, ContentCard, SectionHeading } from "@/components/layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,8 @@ import { fallback } from "@/lib/fallback";
 import { fcfa } from "@/lib/utils";
 import { useLive } from "@/hooks/useLive";
 import { apiBase } from "@/lib/api";
+import { readPaymentSession, savePaymentSession } from "@/lib/payment-session";
+import { canPayCourse } from "@/lib/flows";
 
 type Teacher = {
   id: number;
@@ -29,7 +31,7 @@ export function SearchPage() {
   const qs = [format && `format=${encodeURIComponent(format)}`, level && `level=${encodeURIComponent(level)}`]
     .filter(Boolean)
     .join("&");
-  const { data, offline, reload } = useLive<Teacher[]>(`/api/teachers${qs ? `?${qs}` : ""}`, fallback.teachers);
+  const { data, loading, offline, reload } = useLive<Teacher[]>(`/api/teachers${qs ? `?${qs}` : ""}`, fallback.teachers);
 
   return (
     <AppShell title="Recherche" active="recherche">
@@ -45,7 +47,7 @@ export function SearchPage() {
           </Button>
         </div>
       </ContentCard>
-      {!data.length ? <Empty>Aucun professeur trouvé.</Empty> : null}
+      {!data.length ? <Empty>{loading ? "Chargement des professeurs…" : "Aucun professeur trouvé."}</Empty> : null}
       <PageGrid cols={4}>
         {data.map((t) => (
           <Link key={t.id} to={`/prof/${t.id}`} className="block h-full">
@@ -120,14 +122,15 @@ export function FiltersPage() {
 
 export function TeacherProfilePage() {
   const { id } = useParams();
-  const { data, offline, reload } = useLive<Teacher | null>(
+  const { data, loading, offline, reload } = useLive<Teacher | null>(
     id ? `/api/teachers/${id}` : null,
-    fallback.teachers[0],
+    null,
   );
   if (!data) {
     return (
       <AppShell title="Profil" back active="recherche">
-        <Empty>Professeur introuvable.</Empty>
+        {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
+        <Empty>{loading ? "Chargement du professeur…" : "Professeur introuvable."}</Empty>
       </AppShell>
     );
   }
@@ -149,7 +152,7 @@ export function TeacherProfilePage() {
               <div className="mt-3 text-xl font-bold text-primary">{fcfa(data.price_per_hour)} F/h</div>
               <Button asChild className="mt-5 w-full sm:w-auto">
                 <Link
-                  to={`/reservation?teacherId=${data.id}&name=${encodeURIComponent(data.name)}&price=${data.price_per_hour || 6000}`}
+                  to={`/reservation?teacherId=${data.id}`}
                 >
                   Réserver un cours
                 </Link>
@@ -179,11 +182,15 @@ export function TeacherProfilePage() {
 }
 
 export function CoursesPage() {
-  const { isTeacher } = useAuth();
+  const { isTeacher, user } = useAuth();
+  const navigate = useNavigate();
   const { data, offline, reload } = useLive<typeof fallback.courses>("/api/courses", fallback.courses);
   const title = isTeacher ? "Mes élèves" : "Mes cours";
+  const location = useLocation();
+  const notice = (location.state as { notice?: string } | null)?.notice;
   return (
     <AppShell title={title} active="cours">
+      {notice ? <p role="status" className="mb-4 rounded-lg bg-secondary p-3 text-sm">{notice}</p> : null}
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
       {!data.length ? (
         <Empty>{isTeacher ? "Aucun élève n'a été trouvé" : "Aucun cours n'a été trouvé"}</Empty>
@@ -194,7 +201,7 @@ export function CoursesPage() {
               <SectionHeading>
                 {c.subject} · {c.level}
               </SectionHeading>
-              <div className="text-[15px] text-[#444]">{c.teacher_name}</div>
+              <div className="text-[15px] text-[#444]">{isTeacher ? c.student_name || c.parent_name || "Élève" : c.teacher_name}</div>
               <div className="mt-1 text-sm text-[#666]">
                 {c.day_label} {c.day_num} · {c.time}
               </div>
@@ -202,6 +209,13 @@ export function CoursesPage() {
                 {c.badge ? <Badge>{c.badge}</Badge> : <span />}
                 <strong className="text-[15px] text-primary">{fcfa(c.price)} F</strong>
               </div>
+              {!isTeacher && canPayCourse(c) && user ? (
+                <Button className="mt-3" variant="outline" disabled={offline} onClick={() => {
+                  const current = readPaymentSession(user.id);
+                  savePaymentSession(current?.courseId === c.id ? current : { userId: user.id, courseId: c.id, amount: c.price });
+                  navigate("/paiement");
+                }}>Consulter / régler le paiement</Button>
+              ) : null}
             </ContentCard>
           ))}
         </PageGrid>

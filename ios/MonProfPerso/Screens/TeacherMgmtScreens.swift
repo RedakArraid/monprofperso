@@ -5,10 +5,7 @@ private struct DocPick { let name: String; let mime: String; let b64: String }
 private struct ProgramPick: Identifiable { let slug: String; let name: String; var id: String { slug } }
 
 private func normalizePhone(_ raw: String) -> String {
-    var p = raw.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: " ", with: "").replacingOccurrences(of: ".", with: "").replacingOccurrences(of: "-", with: "")
-    if p.range(of: #"^0\d{9}$"#, options: .regularExpression) != nil { p = "+225" + String(p.dropFirst()) }
-    else if p.range(of: #"^225\d{8,12}$"#, options: .regularExpression) != nil { p = "+" + p }
-    return p
+    ApiClient.normalizePhone(raw)
 }
 
 private let otherLabel = "Autre"

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { pool } from "./db";
 import { ValidationError, optionalString, optionalNumber, optionalEnum, optionalPhone, requiredString, requiredEnum } from "./validate";
-import { currentUserId } from "./auth";
+import { currentUserId, normalizeAuthPhone } from "./auth";
 import { putFile } from "./storage";
 
 type ServeFile = (res: any, row: any) => Promise<void>;
@@ -13,18 +13,41 @@ const GENDERS = ["garcon", "fille"] as const;
 export async function getCommissionPct(): Promise<number> {
   const r = await pool.query("SELECT value FROM app_settings WHERE key = 'commission_pct'");
   const v = parseFloat(r.rows[0]?.value ?? "15");
-  return Number.isFinite(v) ? v : 15;
+  if (!Number.isFinite(v) || v < 0 || v > 100) {
+    throw new ValidationError("commission_pct", "commission invalide (0 à 100 %) ");
+  }
+  return v;
+}
+
+/** Durée de séance, stockée en minutes. Une durée omise vaut 90 minutes. */
+export function parseDurationMinutes(duration: string | null | undefined): number {
+  const value = duration?.trim().toLowerCase() || "1h30";
+  const hourMatch = value.match(/^(\d+(?:[.,]\d+)?)\s*h(?:\s*(\d{1,2})(?:\s*min(?:ute)?s?)?)?$/);
+  const minuteMatch = value.match(/^(\d+)\s*min(?:ute)?s?$/);
+  let minutes = NaN;
+  if (hourMatch) {
+    const extraMinutes = Number(hourMatch[2] ?? 0);
+    if (extraMinutes >= 60 || (hourMatch[2] !== undefined && /[.,]/.test(hourMatch[1]))) {
+      throw new ValidationError("duration", "durée invalide, par exemple 1h30 ou 90 min");
+    }
+    minutes = Number(hourMatch[1].replace(",", ".")) * 60 + extraMinutes;
+  } else if (minuteMatch) {
+    minutes = Number(minuteMatch[1]);
+  }
+  if (!Number.isInteger(minutes) || minutes < 15 || minutes > 1440) {
+    throw new ValidationError("duration", "durée requise entre 15 minutes et 24 heures, par exemple 1h30");
+  }
+  return minutes;
 }
 
 export function parseDurationHours(duration: string | null | undefined): number {
-  if (!duration) return 1;
-  const m = String(duration).match(/(\d+(?:[.,]\d+)?)\s*h/i);
-  if (m) return Math.max(0.25, parseFloat(m[1].replace(",", ".")));
-  if (/30\s*min/i.test(duration)) return 0.5;
-  return 1;
+  return parseDurationMinutes(duration) / 60;
 }
 
 export function computeNetAmounts(parentPrice: number, commissionPct: number, duration: string | null | undefined) {
+  if (!Number.isFinite(parentPrice) || parentPrice < 0 || !Number.isFinite(commissionPct) || commissionPct < 0 || commissionPct > 100) {
+    throw new ValidationError("price", "montant ou commission invalide");
+  }
   const netTeacherAmount = Math.round(parentPrice * (1 - commissionPct / 100));
   const hours = parseDurationHours(duration);
   const netTeacherHourly = Math.round(netTeacherAmount / hours);
@@ -59,6 +82,7 @@ function mapNeed(row: any, child?: any) {
     location: row.location,
     frequency: row.frequency,
     duration: row.duration,
+    durationMinutes: row.duration_minutes ?? null,
     availabilityWeek: row.availability_week,
     availabilityWeekend: row.availability_weekend,
     availabilityHolidays: row.availability_holidays,
@@ -141,15 +165,16 @@ const wrap = (fn: (req: any, res: any) => Promise<void>) => (req: any, res: any)
   });
 
 export async function acceptNeedForTeacher(needId: number, teacherId: number): Promise<{ needId: number; courseId: number } | null> {
-  const teacher = (await pool.query(
-    "SELECT name, needs_confirmed FROM teachers WHERE id=$1",
-    [teacherId],
-  )).rows[0];
-  if (!teacher || !teacher.needs_confirmed) return null;
-
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    const teacher = (await client.query(
+      "SELECT name, needs_confirmed FROM teachers WHERE id=$1 FOR SHARE", [teacherId],
+    )).rows[0];
+    if (!teacher || !teacher.needs_confirmed) {
+      await client.query("ROLLBACK");
+      return null;
+    }
     const needR = await client.query(
       `SELECT * FROM course_needs
         WHERE id = $1 AND status = 'published' AND teacher_id IS NULL
@@ -166,11 +191,12 @@ export async function acceptNeedForTeacher(needId: number, teacherId: number): P
       `INSERT INTO courses (
          user_id, teacher_id, teacher_name, subject, level,
          day_label, day_num, time, duration, format, location,
-         price, status, badge, accepted, payment_status
-       ) VALUES ($1,$2,$3,$4,$5,'—','—','—',$6,$7,$8,$9,'upcoming','Confirmé',TRUE,'pending')
+         price, status, badge, accepted, payment_status, duration_minutes
+       ) VALUES ($1,$2,$3,$4,$5,'—','—','—',$6,$7,$8,$9,'upcoming','Confirmé',TRUE,'pending',$10)
        RETURNING id`,
       [need.user_id, teacherId, teacher.name, need.subject, need.level,
-        need.duration ?? "1h30", need.format, need.location, need.parent_price],
+        need.duration ?? "1h30", need.format, need.location, need.parent_price,
+        need.duration_minutes ?? parseDurationMinutes(need.duration)],
     );
     const courseId = courseR.rows[0].id;
 
@@ -180,10 +206,12 @@ export async function acceptNeedForTeacher(needId: number, teacherId: number): P
         WHERE id = $1`,
       [need.id, teacherId, courseId],
     );
+    await client.query(
+      `INSERT INTO notifications (user_id, icon, accent, text, time_ago, unread, section)
+       VALUES ($1, 'seal', 'green', $2, 'à l''instant', TRUE, 'today')`,
+      [need.user_id, `Un professeur a accepté votre besoin en ${need.subject}. Réf. ${needRef(need.id)}`],
+    );
     await client.query("COMMIT");
-
-    await notifyUser(need.user_id, "seal", "green",
-      `Un professeur a accepté votre besoin en ${need.subject}. Réf. ${needRef(need.id)}`);
 
     return { needId: need.id, courseId };
   } catch (e) {
@@ -267,7 +295,8 @@ export function registerNeedsRoutes(api: Router, deps: { consentVersion: string;
     const format = requiredEnum(b, "format", FORMATS);
     const location = optionalString(b, "location", { max: 200 });
     const frequency = optionalString(b, "frequency", { max: 60 });
-    const duration = optionalString(b, "duration", { max: 20 });
+    const duration = optionalString(b, "duration", { max: 20 }) ?? "1h30";
+    const durationMinutes = parseDurationMinutes(duration);
     const description = optionalString(b, "description", { max: 2000 });
     const availabilityWeek = b.availabilityWeek !== false;
     const availabilityWeekend = b.availabilityWeekend === true || b.availabilityWeekend === "true";
@@ -285,25 +314,30 @@ export function registerNeedsRoutes(api: Router, deps: { consentVersion: string;
     let documentKey: string | null = null;
     let documentName: string | null = null;
     let documentMimeType: string | null = null;
+    let documentContent: Buffer | null = null;
     if (documentBase64) {
       documentName = optionalString(b, "documentFileName", { max: 200 }) ?? "document.pdf";
       documentMimeType = optionalString(b, "documentMimeType", { max: 100 }) ?? "application/pdf";
       const buffer = Buffer.from(documentBase64, "base64");
+      if (!buffer.length || buffer.toString("base64").replace(/=+$/, "") !== documentBase64.replace(/\s/g, "").replace(/=+$/, "")) {
+        throw new ValidationError("documentBase64", "fichier base64 invalide ou vide");
+      }
       if (buffer.length > 8_000_000) throw new ValidationError("documentBase64", "fichier trop volumineux (max 8 Mo)");
       documentKey = await putFile(buffer, documentMimeType, documentName, "needs/documents");
+      documentContent = documentKey ? null : buffer;
     }
 
     const r = await pool.query(
       `INSERT INTO course_needs (
          user_id, child_id, subject, level, format, location, frequency, duration,
          availability_week, availability_weekend, availability_holidays, description, status,
-         document_key, document_name, document_mime_type
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'submitted',$13,$14,$15)
+         document_key, document_name, document_mime_type, document_content, duration_minutes
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'submitted',$13,$14,$15,$16,$17)
        RETURNING *`,
       [currentUserId(res), childId ?? null, subject, level, format, location ?? null,
         frequency ?? null, duration ?? null, availabilityWeek, availabilityWeekend,
         availabilityHolidays, description ?? null,
-        documentKey, documentName, documentMimeType],
+        documentKey, documentName, documentMimeType, documentContent, durationMinutes],
     );
     const row = await loadNeed(r.rows[0].id);
     res.status(201).json(mapNeed(row));
@@ -312,17 +346,16 @@ export function registerNeedsRoutes(api: Router, deps: { consentVersion: string;
   // --- Document joint à un besoin (le parent propriétaire uniquement ; côté admin, voir registerAdminNeedsRoutes) ---
   api.get("/needs/:id/document", wrap(async (req, res) => {
     const r = await pool.query(
-      "SELECT user_id, document_key, document_name, document_mime_type FROM course_needs WHERE id=$1",
-      [req.params.id],
+      "SELECT document_key, document_name, document_mime_type, document_content FROM course_needs WHERE id=$1 AND user_id=$2",
+      [req.params.id, currentUserId(res)],
     );
     const row = r.rows[0];
-    if (!row || !row.document_key) { res.status(404).json({ error: "not_found" }); return; }
-    if (row.user_id !== currentUserId(res)) { res.status(403).json({ error: "forbidden" }); return; }
+    if (!row || (!row.document_key && !row.document_content)) { res.status(404).json({ error: "not_found" }); return; }
     await serveFile(res, {
       file_name: row.document_name,
       mime_type: row.document_mime_type,
       storage_key: row.document_key,
-      content: null,
+      content: row.document_content,
     });
   }));
 
@@ -330,8 +363,9 @@ export function registerNeedsRoutes(api: Router, deps: { consentVersion: string;
   api.post("/needs/public", wrap(async (req, res) => {
     const b = req.body ?? {};
     const parentName = requiredString(b, "parentName", { max: 120 });
-    const parentPhone = optionalPhone(b, "parentPhone");
-    if (!parentPhone) throw new ValidationError("parentPhone", "téléphone requis");
+    const rawPhone = optionalPhone(b, "parentPhone");
+    if (!rawPhone) throw new ValidationError("parentPhone", "téléphone requis");
+    const parentPhone = normalizeAuthPhone(rawPhone);
     const subject = requiredString(b, "subject", { max: 80 });
     const level = requiredString(b, "level", { max: 40 });
     const format = requiredEnum(b, "format", FORMATS);
@@ -344,17 +378,17 @@ export function registerNeedsRoutes(api: Router, deps: { consentVersion: string;
     const userR = await pool.query(
       `INSERT INTO users (full_name, phone, role, initials, consent_version, consent_at)
        VALUES ($1,$2,'parent',$3,$4,now())
-       ON CONFLICT (phone) DO UPDATE SET full_name = EXCLUDED.full_name,
-         consent_version = COALESCE(users.consent_version, EXCLUDED.consent_version),
-         consent_at = COALESCE(users.consent_at, EXCLUDED.consent_at)
+       ON CONFLICT (phone) DO NOTHING
        RETURNING id`,
       [parentName, parentPhone, initials, consentVersion],
     );
-    const userId = userR.rows[0].id;
+    // Un formulaire public ne peut ni renommer un compte ni modifier son consentement.
+    const userId = userR.rows[0]?.id ?? (await pool.query("SELECT id FROM users WHERE phone=$1", [parentPhone])).rows[0]?.id;
+    if (!userId) throw new Error("lead_account_unavailable");
 
     const r = await pool.query(
-      `INSERT INTO course_needs (user_id, subject, level, format, location, description, status, source)
-       VALUES ($1,$2,$3,$4,$5,$6,'submitted','web')
+      `INSERT INTO course_needs (user_id, subject, level, format, location, description, status, source, duration, duration_minutes)
+       VALUES ($1,$2,$3,$4,$5,$6,'submitted','web','1h30',90)
        RETURNING id`,
       [userId, subject, level, format, location ?? null, description ?? null],
     );
@@ -388,8 +422,9 @@ export function registerNeedsRoutes(api: Router, deps: { consentVersion: string;
   // --- Offres pour les profs (gains nets affichés) ---
   api.get("/teacher/opportunities", wrap(async (_req, res) => {
     const userId = currentUserId(res);
-    const u = await pool.query("SELECT teacher_id FROM users WHERE id=$1", [userId]);
-    const teacherId = (u.rows[0]?.teacher_id as number | null) ?? 1;
+    const u = await pool.query("SELECT teacher_id FROM users WHERE id=$1 AND role='teacher'", [userId]);
+    const teacherId = u.rows[0]?.teacher_id as number | null;
+    if (!teacherId) { res.status(403).json({ error: "forbidden" }); return; }
     const t = await pool.query("SELECT needs_confirmed FROM teachers WHERE id=$1", [teacherId]);
     if (!t.rows[0]?.needs_confirmed) {
       res.json([]);
@@ -407,9 +442,10 @@ export function registerNeedsRoutes(api: Router, deps: { consentVersion: string;
 
   api.post("/teacher/opportunities/:id/accept", wrap(async (req, res) => {
     const teacherId = await (async () => {
-      const r = await pool.query("SELECT teacher_id FROM users WHERE id=$1", [currentUserId(res)]);
-      return (r.rows[0]?.teacher_id as number | null) ?? 1;
+      const r = await pool.query("SELECT teacher_id FROM users WHERE id=$1 AND role='teacher'", [currentUserId(res)]);
+      return r.rows[0]?.teacher_id as number | null;
     })();
+    if (!teacherId) { res.status(403).json({ error: "forbidden" }); return; }
 
     const confirmed = (await pool.query(
       "SELECT needs_confirmed FROM teachers WHERE id=$1",
@@ -437,16 +473,16 @@ export function registerAdminNeedsRoutes(admin: Router, deps: { serveFile: Serve
   // --- Admin : document joint à un besoin ---
   admin.get("/needs/:id/document", wrap(async (req, res) => {
     const r = await pool.query(
-      "SELECT document_key, document_name, document_mime_type FROM course_needs WHERE id=$1",
+      "SELECT document_key, document_name, document_mime_type, document_content FROM course_needs WHERE id=$1",
       [req.params.id],
     );
     const row = r.rows[0];
-    if (!row || !row.document_key) { res.status(404).json({ error: "not_found" }); return; }
+    if (!row || (!row.document_key && !row.document_content)) { res.status(404).json({ error: "not_found" }); return; }
     await serveFile(res, {
       file_name: row.document_name,
       mime_type: row.document_mime_type,
       storage_key: row.document_key,
-      content: null,
+      content: row.document_content,
     });
   }));
 
@@ -481,8 +517,9 @@ export function registerAdminNeedsRoutes(admin: Router, deps: { serveFile: Serve
       res.status(404).json({ error: "not_found", message: "besoin introuvable ou déjà traité" });
       return;
     }
-    const duration = frequency ? need.duration : need.duration;
-    const { netTeacherAmount, netTeacherHourly } = computeNetAmounts(parentPrice, commissionPct, need.duration);
+    const duration = optionalString(req.body, "duration", { max: 20 }) ?? need.duration ?? "1h30";
+    const durationMinutes = parseDurationMinutes(duration);
+    const { netTeacherAmount, netTeacherHourly } = computeNetAmounts(parentPrice, commissionPct, duration);
 
     const r = await pool.query(
       `UPDATE course_needs
@@ -492,12 +529,13 @@ export function registerAdminNeedsRoutes(admin: Router, deps: { serveFile: Serve
               start_date = COALESCE($7::date, start_date),
               recommended_teacher_id = COALESCE($9, recommended_teacher_id),
               recommended_note = COALESCE($10, recommended_note),
+              duration = $11, duration_minutes = $12,
               status = 'priced', priced_at = now(), priced_by = $8, updated_at = now()
         WHERE id = $1 AND status = 'submitted'
         RETURNING *`,
       [req.params.id, parentPrice, commissionPct, netTeacherAmount, netTeacherHourly,
         frequency ?? null, startDate ?? null, currentUserId(res),
-        recommendedTeacherId ?? null, recommendedNote ?? null],
+        recommendedTeacherId ?? null, recommendedNote ?? null, duration, durationMinutes],
     );
     if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
 

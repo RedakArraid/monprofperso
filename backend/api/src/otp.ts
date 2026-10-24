@@ -2,6 +2,7 @@ import crypto from "crypto";
 import nodemailer from "nodemailer";
 import { pool } from "./db";
 import { ValidationError } from "./validate";
+import { AuthError, isDemoMode } from "./auth";
 
 export const OTP_SETTING_KEYS = [
   "otp_enabled",
@@ -31,9 +32,14 @@ function isTrue(v: string | undefined): boolean {
   return v === "true" || v === "1";
 }
 
-function hashCode(code: string): string {
-  const pepper = process.env.JWT_SECRET || "otp-pepper";
-  return crypto.createHash("sha256").update(`${code}:${pepper}`).digest("hex");
+function hashCode(challengeId: string, code: string): string {
+  const pepper = process.env.JWT_SECRET || "local-development-secret-do-not-use-in-production";
+  return crypto.createHmac("sha256", pepper).update(`${challengeId}:${code}`).digest("hex");
+}
+
+function ipHash(ip: string): string {
+  const pepper = process.env.JWT_SECRET || "local-development-secret-do-not-use-in-production";
+  return crypto.createHmac("sha256", pepper).update(`otp-ip:${ip}`).digest("hex");
 }
 
 function generateCode(length = 6): string {
@@ -106,6 +112,11 @@ export async function loadOtpSettings(): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
   for (const k of OTP_SETTING_KEYS) out[k] = "";
   for (const row of r.rows) out[row.key] = row.value ?? "";
+  // Configuration possible avant la première connexion administrateur.
+  for (const key of OTP_SETTING_KEYS) {
+    const configured = process.env[key.toUpperCase()];
+    if (configured !== undefined) out[key] = configured;
+  }
   return out;
 }
 
@@ -135,14 +146,17 @@ export async function saveOtpSettings(
 
 export async function getOtpChannels() {
   const s = await loadOtpSettings();
-  const demo = isTrue(s.otp_demo_mode) || !isTrue(s.otp_enabled);
-  const whatsapp = isTrue(s.otp_whatsapp_enabled) && !!s.otp_whatsapp_base_url.trim();
-  const email = isTrue(s.otp_smtp_enabled) && !!s.otp_smtp_host.trim();
-  const defaultChannel = OTP_CHANNELS.includes(s.otp_default_channel as OtpChannel)
-    ? s.otp_default_channel
-    : "whatsapp";
-  const ttl = Math.max(1, parseInt(s.otp_code_ttl_minutes || "10", 10) || 10);
-  return { demo, whatsapp, email, defaultChannel, codeLength: 6, ttlMinutes: ttl };
+  const demo = isDemoMode();
+  const enabled = isTrue(s.otp_enabled);
+  const whatsapp = enabled && isTrue(s.otp_whatsapp_enabled)
+    && !!s.otp_whatsapp_base_url.trim() && !!s.otp_whatsapp_session_id.trim();
+  const email = enabled && isTrue(s.otp_smtp_enabled) && !!s.otp_smtp_host.trim();
+  const configuredDefault = OTP_CHANNELS.includes(s.otp_default_channel as OtpChannel)
+    ? s.otp_default_channel : "whatsapp";
+  const defaultChannel = configuredDefault === "email" && email ? "email" : "whatsapp";
+  const parsedTtl = parseInt(s.otp_code_ttl_minutes || "10", 10);
+  const ttl = Number.isFinite(parsedTtl) ? Math.min(30, Math.max(1, parsedTtl)) : 10;
+  return { demo, enabled, whatsapp, email, defaultChannel, codeLength: 6, ttlMinutes: ttl };
 }
 
 async function sendWhatsApp(settings: Record<string, string>, phone: string, code: string, ttl: number) {
@@ -154,6 +168,8 @@ async function sendEmail(settings: Record<string, string>, email: string, code: 
   const port = parseInt(settings.otp_smtp_port || "587", 10) || 587;
   const transporter = nodemailer.createTransport({
     host: settings.otp_smtp_host.trim(),
+    connectionTimeout: 10_000, greetingTimeout: 10_000, socketTimeout: 15_000,
+    disableFileAccess: true, disableUrlAccess: true,
     port,
     secure: isTrue(settings.otp_smtp_secure),
     auth: settings.otp_smtp_user.trim()
@@ -168,69 +184,220 @@ async function sendEmail(settings: Record<string, string>, email: string, code: 
   });
 }
 
-export async function createAndSendOtp(opts: {
-  phone?: string;
+export type Registration = {
+  fullName: string;
+  phone: string;
+  role: "parent" | "student" | "teacher";
   email?: string;
+  consentVersion: string;
+  parentalConsent: boolean;
+};
+
+export type ChallengeResponse = {
+  otpRequired: true;
+  challengeId: string;
   channel: OtpChannel;
-}): Promise<{ sent: boolean; demo: boolean; expiresInMinutes: number }> {
-  const settings = await loadOtpSettings();
-  const channels = await getOtpChannels();
-  if (channels.demo) {
-    return { sent: false, demo: true, expiresInMinutes: channels.ttlMinutes };
-  }
+  destination: string;
+  expiresInMinutes: number;
+  sent: true;
+  demo: false;
+};
 
-  const ttl = channels.ttlMinutes;
-  const destination = opts.channel === "email" ? opts.email?.trim() : opts.phone?.trim();
-  if (!destination) {
-    throw new ValidationError(
-      opts.channel === "email" ? "email" : "phone",
-      opts.channel === "email" ? "e-mail requis" : "téléphone requis"
-    );
+/** La destination réelle reste dans le challenge et chez le fournisseur uniquement. */
+export function maskOtpDestination(channel: OtpChannel, destination: string): string {
+  if (channel === "email") {
+    const [local, domain = ""] = destination.split("@");
+    const suffix = domain.includes(".") ? `.${domain.split(".").pop()}` : "";
+    return `${local.slice(0, 1)}***@${domain.slice(0, 1)}***${suffix}`;
   }
-
-  if (opts.channel === "whatsapp" && !channels.whatsapp) {
-    throw new ValidationError("channel", "WhatsApp OTP non configuré");
-  }
-  if (opts.channel === "email" && !channels.email) {
-    throw new ValidationError("channel", "e-mail OTP non configuré");
-  }
-
-  const code = generateCode(6);
-  await pool.query(
-    `UPDATE otp_codes SET consumed_at = now()
-     WHERE destination = $1 AND consumed_at IS NULL`,
-    [destination]
-  );
-  await pool.query(
-    `INSERT INTO otp_codes (destination, channel, code_hash, expires_at)
-     VALUES ($1, $2, $3, now() + ($4::text || ' minutes')::interval)`,
-    [destination, opts.channel, hashCode(code), String(ttl)]
-  );
-
-  if (opts.channel === "whatsapp") {
-    await sendWhatsApp(settings, opts.phone!, code, ttl);
-  } else {
-    await sendEmail(settings, opts.email!, code, ttl);
-  }
-
-  return { sent: true, demo: false, expiresInMinutes: ttl };
+  const digits = destination.replace(/\D/g, "");
+  return `+${digits.slice(0, 3)} ******${digits.slice(-2)}`;
 }
 
-export async function verifyOtpCode(destination: string, code: string): Promise<boolean> {
+type ChallengeInput = {
+  phone: string;
+  userId: number | null;
+  purpose: "login" | "signup";
+  channel: OtpChannel;
+  destination: string;
+  registration?: Registration;
+  ip: string;
+};
+
+/** Réserve le challenge avant l'envoi ; les limites sont partagées entre processus API. */
+async function issueChallenge(input: ChallengeInput): Promise<ChallengeResponse> {
+  const settings = await loadOtpSettings();
   const channels = await getOtpChannels();
-  if (channels.demo) return true;
+  if (!channels.enabled || !(input.channel === "whatsapp" ? channels.whatsapp : channels.email)) {
+    throw new AuthError(503, "otp_unavailable", "La vérification n'est pas configurée pour ce canal. Contactez l'assistance.");
+  }
+  const id = crypto.randomUUID();
+  const code = generateCode();
+  const hashedIp = ipHash(input.ip);
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`otp-phone:${input.phone}`]);
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`otp-ip:${hashedIp}`]);
+    const recent = (await client.query(
+      `SELECT count(*)::int AS count,
+              COALESCE(extract(epoch FROM (now() - max(created_at))), 9999) AS elapsed
+         FROM auth_challenges WHERE phone=$1 AND created_at > now() - interval '15 minutes'`,
+      [input.phone],
+    )).rows[0];
+    const ipCount = (await client.query(
+      "SELECT count(*)::int AS count FROM auth_challenges WHERE client_ip_hash=$1 AND created_at > now() - interval '15 minutes'",
+      [hashedIp],
+    )).rows[0].count;
+    if (recent.count >= 5 || ipCount >= 25) {
+      throw new AuthError(429, "otp_rate_limited", "Trop de demandes. Réessayez dans quelques minutes.", 900);
+    }
+    const elapsed = Number(recent.elapsed);
+    if (elapsed < 60) {
+      throw new AuthError(429, "otp_rate_limited", "Patientez une minute avant de demander un nouveau code.", Math.ceil(60 - elapsed));
+    }
+    await client.query("UPDATE auth_challenges SET consumed_at=now() WHERE phone=$1 AND consumed_at IS NULL", [input.phone]);
+    await client.query(
+      `INSERT INTO auth_challenges (id, phone, user_id, purpose, channel, destination, registration,
+                                    code_hash, expires_at, client_ip_hash)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,now() + ($9 * interval '1 minute'),$10)`,
+      [id, input.phone, input.userId, input.purpose, input.channel, input.destination,
+        input.registration ? JSON.stringify(input.registration) : null, hashCode(id, code), channels.ttlMinutes, hashedIp],
+    );
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+  try {
+    if (input.channel === "whatsapp") await sendWhatsApp(settings, input.destination, code, channels.ttlMinutes);
+    else await sendEmail(settings, input.destination, code, channels.ttlMinutes);
+    await pool.query("UPDATE auth_challenges SET delivered_at=now() WHERE id=$1 AND consumed_at IS NULL", [id]);
+  } catch {
+    await pool.query("UPDATE auth_challenges SET consumed_at=now() WHERE id=$1", [id]);
+    throw new AuthError(503, "otp_delivery_failed", "L'envoi du code a échoué. Réessayez plus tard.");
+  }
+  return {
+    otpRequired: true, challengeId: id, channel: input.channel, destination: maskOtpDestination(input.channel, input.destination),
+    expiresInMinutes: channels.ttlMinutes, sent: true, demo: false,
+  };
+}
 
-  const r = await pool.query(
-    `SELECT id, code_hash FROM otp_codes
-     WHERE destination = $1 AND consumed_at IS NULL AND expires_at > now()
-     ORDER BY created_at DESC LIMIT 1`,
-    [destination]
-  );
-  const row = r.rows[0];
-  if (!row || hashCode(code.trim()) !== row.code_hash) return false;
+export async function beginLoginChallenge(opts: {
+  phone: string; email?: string; channel?: OtpChannel; ip: string;
+}): Promise<ChallengeResponse> {
+  const channels = await getOtpChannels();
+  if (!channels.enabled || (!channels.whatsapp && !channels.email)) {
+    throw new AuthError(503, "otp_unavailable", "La vérification n'est pas configurée. Contactez l'assistance.");
+  }
+  const user = (await pool.query("SELECT id, phone, email, email_verified_at FROM users WHERE phone=$1", [opts.phone])).rows[0];
+  if (!user) throw new AuthError(401, "invalid_credentials", "Compte introuvable. Inscrivez-vous pour continuer.");
+  const channel = opts.channel ?? (channels.defaultChannel as OtpChannel);
+  let destination = user.phone;
+  if (channel === "email") {
+    if (!user.email_verified_at || !user.email || (opts.email && opts.email !== user.email.toLowerCase())) {
+      throw new AuthError(400, "unverified_email", "Utilisez WhatsApp : aucune adresse e-mail vérifiée n'est liée à ce compte.");
+    }
+    destination = user.email.toLowerCase();
+  }
+  return issueChallenge({ phone: user.phone, userId: user.id, purpose: "login", channel, destination, ip: opts.ip });
+}
 
-  await pool.query("UPDATE otp_codes SET consumed_at = now() WHERE id = $1", [row.id]);
-  return true;
+export async function beginSignupChallenge(registration: Registration, ip: string, channel: OtpChannel = "whatsapp"): Promise<ChallengeResponse> {
+  // Posséder une adresse e-mail ne prouve jamais la possession du numéro revendiqué à l'inscription.
+  if (channel !== "whatsapp") throw new ValidationError("channel", "L'inscription nécessite la vérification du téléphone par WhatsApp");
+  const existing = (await pool.query("SELECT id FROM users WHERE phone=$1", [registration.phone])).rows[0];
+  if (existing) return beginLoginChallenge({ phone: registration.phone, channel: "whatsapp", ip });
+  return issueChallenge({ phone: registration.phone, userId: null, purpose: "signup", channel: "whatsapp",
+    destination: registration.phone, registration, ip });
+}
+
+export function isChallengeId(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+export async function resendChallenge(challengeId: string, ip: string): Promise<ChallengeResponse> {
+  if (!isChallengeId(challengeId)) throw new ValidationError("challengeId", "Identifiant de vérification invalide");
+  const row = (await pool.query(
+    `SELECT * FROM auth_challenges WHERE id=$1 AND consumed_at IS NULL
+      AND created_at > now() - interval '1 hour'`, [challengeId],
+  )).rows[0];
+  if (!row) throw new AuthError(401, "invalid_challenge", "Vérification expirée. Recommencez la connexion.");
+  if (row.purpose === "login") {
+    return beginLoginChallenge({ phone: row.phone, channel: row.channel, email: row.channel === "email" ? row.destination : undefined, ip });
+  }
+  return beginSignupChallenge(row.registration, ip, "whatsapp");
+}
+
+/** Consomme un challenge sous verrou, et crée le compte uniquement après la preuve. */
+export async function verifyChallenge(challengeId: string, code: string): Promise<any> {
+  if (!isChallengeId(challengeId)) throw new ValidationError("challengeId", "Identifiant de vérification invalide");
+  if (!/^\d{6}$/.test(code)) throw new ValidationError("code", "Le code doit contenir 6 chiffres");
+  const client = await pool.connect();
+  let transactionOpen = false;
+  try {
+    await client.query("BEGIN");
+    transactionOpen = true;
+    const row = (await client.query(
+      `SELECT *, expires_at > now() AS unexpired FROM auth_challenges WHERE id=$1 FOR UPDATE`, [challengeId],
+    )).rows[0];
+    if (!row || row.consumed_at || !row.delivered_at || !row.unexpired || row.attempts >= 5) {
+      throw new AuthError(401, "invalid_otp", "Code invalide ou expiré");
+    }
+    const expected = Buffer.from(row.code_hash, "hex");
+    const supplied = Buffer.from(hashCode(challengeId, code), "hex");
+    const valid = expected.length === supplied.length && crypto.timingSafeEqual(expected, supplied);
+    await client.query(
+      `UPDATE auth_challenges SET attempts=attempts+1,
+        consumed_at=CASE WHEN attempts+1 >= 5 THEN now() ELSE consumed_at END WHERE id=$1`, [challengeId],
+    );
+    if (!valid) {
+      // Les tentatives incorrectes doivent persister malgré le refus HTTP.
+      await client.query("COMMIT");
+      transactionOpen = false;
+      throw new AuthError(401, "invalid_otp", "Code invalide ou expiré");
+    }
+    let user;
+    if (row.purpose === "login") {
+      user = (await client.query("SELECT * FROM users WHERE id=$1 AND phone=$2 FOR UPDATE", [row.user_id, row.phone])).rows[0];
+      if (!user || (row.channel === "email" && (!user.email_verified_at || user.email?.toLowerCase() !== row.destination))) {
+        throw new AuthError(401, "invalid_otp", "Le compte associé à cette vérification a changé");
+      }
+    } else {
+      const registration = row.registration as Registration;
+      const initials = registration.fullName.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
+      const inserted = await client.query(
+        `INSERT INTO users (full_name, phone, role, initials, consent_version, consent_at, parental_consent, email)
+         VALUES ($1,$2,$3,$4,$5,now(),$6,$7) ON CONFLICT (phone) DO NOTHING RETURNING *`,
+        [registration.fullName, row.phone, registration.role, initials, registration.consentVersion,
+          registration.parentalConsent, registration.email ?? null],
+      );
+      // Un autre processus a pu créer le compte ; la preuve est bien celle du même téléphone.
+      // Ne modifier ni son nom ni son rôle ni son e-mail avec le formulaire d'inscription.
+      user = inserted.rows[0] ?? (await client.query("SELECT * FROM users WHERE phone=$1 FOR UPDATE", [row.phone])).rows[0];
+      if (!user) throw new AuthError(401, "invalid_otp", "Compte introuvable");
+    }
+    await client.query("UPDATE auth_challenges SET consumed_at=now() WHERE id=$1", [challengeId]);
+    await client.query("COMMIT");
+    transactionOpen = false;
+    return user;
+  } catch (error) {
+    if (transactionOpen) await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/** Compatibilité d'import : les anciens codes par destination ne peuvent plus ouvrir de session. */
+export async function createAndSendOtp(opts: { phone?: string; email?: string; channel: OtpChannel; ip?: string }) {
+  if (!opts.phone) throw new ValidationError("phone", "téléphone requis");
+  return beginLoginChallenge({ ...opts, phone: opts.phone, ip: opts.ip ?? "unknown" });
+}
+export async function verifyOtpCode(_destination: string, _code: string): Promise<boolean> {
+  return false;
 }
 
 export function mergeOtpSettingsBody(

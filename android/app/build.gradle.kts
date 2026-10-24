@@ -5,12 +5,23 @@ plugins {
 }
 
 import java.util.Properties
+import java.net.URI
 
 val keystorePropertiesFile = rootProject.file("keystore.properties")
 val keystoreProperties = Properties().apply {
     if (keystorePropertiesFile.exists()) {
         keystorePropertiesFile.inputStream().use { load(it) }
     }
+}
+
+// -PdevApiUrl=... / -PstagingApiUrl=... / -PproductionApiUrl=... pour chaque environnement.
+fun apiUrl(propertyName: String, defaultUrl: String, requireHttps: Boolean = false): String {
+    val value = providers.gradleProperty(propertyName).getOrElse(defaultUrl).trimEnd('/') + "/"
+    val uri = URI(value)
+    require(uri.host != null && uri.userInfo == null && uri.query == null && uri.fragment == null)
+    require(uri.scheme == "https" || (!requireHttps && uri.scheme == "http"))
+    require(value.none { it == '"' || it == '\\' || it.isISOControl() })
+    return "\"$value\""
 }
 
 android {
@@ -42,7 +53,21 @@ android {
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".dev"
+            buildConfigField("String", "API_BASE_URL", apiUrl("devApiUrl", "http://10.0.2.2:8099/"))
+            buildConfigField("boolean", "DEMO_DATA_ENABLED", (providers.gradleProperty("enableDemoData").orNull == "true").toString())
+        }
+        create("staging") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".staging"
+            matchingFallbacks += listOf("debug")
+            buildConfigField("String", "API_BASE_URL", apiUrl("stagingApiUrl", "https://staging-api.monprofperso.com/", true))
+            buildConfigField("boolean", "DEMO_DATA_ENABLED", "false")
+        }
         release {
+            buildConfigField("String", "API_BASE_URL", apiUrl("productionApiUrl", "https://api.monprofperso.com/", true))
+            buildConfigField("boolean", "DEMO_DATA_ENABLED", "false")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -58,13 +83,14 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
     }
 }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
     val composeBom = platform("androidx.compose:compose-bom:2024.09.02")
     implementation(composeBom)
 

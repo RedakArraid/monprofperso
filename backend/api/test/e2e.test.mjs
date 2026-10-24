@@ -27,16 +27,18 @@ async function call(method, path, { token, body } = {}) {
   return { status: res.status, body: data };
 }
 const get = (path, token) => call("GET", path, { token });
-const post = (path, body, token) => call("POST", path, { body, token });
+let slot = 45;
+const post = (path, body, token) => call("POST", path, { body: path === "/api/bookings" ? { teacherId: 1, startAt: new Date(Date.now() + (++slot)*86400000).toISOString(), ...body } : body, token });
+const parentToken = async () => (await post("/api/auth/login", { phone: "+2250758421903" })).body.token;
 
 let seq = 0;
 /** Téléphone ivoirien unique par appel (évite les collisions entre exécutions). */
-const uniquePhone = () => "+22501" + String(Date.now()).slice(-7) + String(seq++).padStart(1, "0");
+const uniquePhone = () => "+22501" + String((Date.now() % 10000000) * 10 + seq++).padStart(8, "0").slice(-8);
 
 /** Inscrit un nouvel utilisateur et renvoie { token, user }. */
 async function signup(role = "parent") {
   const { status, body } = await post("/api/auth/signup", {
-    fullName: "E2E Test", phone: uniquePhone(), role,
+    fullName: "E2E Test", phone: uniquePhone(), role, consent: true, parentalConsent: role === "student",
   });
   assert.equal(status, 200, "signup doit réussir");
   assert.ok(body.token && body.user?.id);
@@ -55,7 +57,8 @@ test("e2e, le consentement (CGU + parental) est enregistré à l'inscription", a
   const noConsent = await post("/api/auth/signup", {
     fullName: "Sans Consent", phone: uniquePhone(), role: "parent",
   });
-  assert.equal(noConsent.body.user.consent_version, null, "pas de consentement -> non daté");
+  assert.equal(noConsent.status, 400, "inscription sans consentement refusée");
+  assert.equal(noConsent.body.field, "consent");
 });
 
 // ======================================================================
@@ -137,21 +140,12 @@ test("e2e, les données d'un utilisateur ne fuitent pas vers un autre", async ()
 });
 
 // ======================================================================
-// Parcours 3, Repli démo sans token (utilisateur de la maquette)
+// Parcours 3, aucun accès privé anonyme, même sur une instance de démo
 // ======================================================================
-test("e2e, sans token, on retombe sur les données de démo seedées", async () => {
-  const me = await get("/api/me");
-  assert.equal(me.body.id, 1);
-
-  // L'utilisateur de démo a des cours seedés (cf. migration 002_seed-data)
-  const courses = await get("/api/courses");
-  assert.ok(courses.body.length >= 3, "le compte démo a des cours seedés");
-  const notifs = await get("/api/notifications");
-  assert.ok(notifs.body.length > 0);
-  const wallet = await get("/api/wallet");
-  assert.ok(wallet.body.transactions.length > 0);
-  const progress = await get("/api/progress");
-  assert.ok(progress.body.subjects.length > 0);
+test("e2e, les données privées exigent une connexion explicite", async () => {
+  for (const path of ["me", "courses", "notifications", "wallet", "progress", "teacher/dashboard"]) {
+    assert.equal((await get(`/api/${path}`)).status, 401, path);
+  }
 });
 
 // ======================================================================
@@ -173,7 +167,7 @@ test("e2e, verify-otp renvoie un token exploitable", async () => {
 // Parcours 5, Prof : tableau de bord / demandes / revenus
 // ======================================================================
 test("e2e, parcours prof (dashboard, requests, earnings)", async () => {
-  const { token } = await signup("teacher");
+  const { body: { token } } = await post("/api/auth/login", { phone: "+2250707001234" });
 
   const dash = await get("/api/teacher/dashboard", token);
   assert.equal(dash.status, 200);
@@ -197,10 +191,10 @@ test("e2e, espace prof scopé par compte : Koffi ≠ Ibrahim", async () => {
   assert.equal(dashI.body.name, "Ibrahim Diallo");
   assert.notEqual(dashK.body.revenue, dashI.body.revenue, "chaque prof voit ses propres revenus");
 
-  // Un compte non relié à une fiche prof retombe sur le prof de démo (rétrocompat).
+  // Un compte non relié à une fiche validée ne peut accéder aux données d’un professeur.
   const fresh = await signup("teacher");
   const dashFresh = await get("/api/teacher/dashboard", fresh.token);
-  assert.equal(dashFresh.body.name, "Koffi N'Guessan", "repli démo si pas de fiche prof");
+  assert.equal(dashFresh.status, 403);
 });
 
 test("e2e, réservation parent -> demande chez le prof -> validation", async () => {
@@ -312,12 +306,23 @@ test("e2e, cours en groupe : liste puis détail", async () => {
 test("e2e, abonnement : plans + abonnement courant", async () => {
   const plans = await get("/api/subscription/plans");
   assert.ok(plans.body.length > 0 && "price" in plans.body[0]);
-  const mine = await get("/api/subscription/mine");
+  const mine = await get("/api/subscription/mine", await parentToken());
   assert.ok("plan" in mine.body && "status" in mine.body);
 });
 
 test("e2e, parrainage : code + compteurs", async () => {
-  const { status, body } = await get("/api/referral");
+  const { status, body } = await get("/api/referral", await parentToken());
   assert.equal(status, 200);
   assert.ok(typeof body.code === "string" && "referred" in body && "earned" in body);
+});
+
+
+test("e2e, un compte neuf n'a ni abonnement actif ni progrès inventés", async () => {
+  const { token } = await signup();
+  const subscription = await get("/api/subscription/mine", token);
+  assert.equal(subscription.body.status, "inactive");
+  assert.equal(subscription.body.nextAmount, 0);
+  const progress = await get("/api/progress", token);
+  assert.equal(progress.body.average, "—");
+  assert.deepEqual(progress.body.subjects, []);
 });

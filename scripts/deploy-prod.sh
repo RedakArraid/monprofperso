@@ -13,15 +13,17 @@ git fetch origin
 git checkout "${BRANCH}" 2>/dev/null || git checkout -b "${BRANCH}" "origin/${BRANCH}"
 git pull --ff-only origin "${BRANCH}"
 
-if [ -d webapp ] && command -v npm >/dev/null 2>&1; then
-  NODE_MAJOR="$(node -p "process.versions.node.split('.')[0]" 2>/dev/null || echo 0)"
-  if [ "$NODE_MAJOR" -ge 20 ]; then
-    echo "==> Build espace React (webapp → web/espace)"
-    (cd webapp && npm ci && npm run build)
-  else
-    echo "==> Skip build webapp (Node ${NODE_MAJOR} < 20) — assets commités dans web/espace/"
-  fi
+if ! command -v node >/dev/null || ! command -v npm >/dev/null; then
+  echo "ERREUR: Node.js 24 et npm sont requis pour construire les assets de cette révision."
+  exit 1
 fi
+NODE_MAJOR="$(node -p "process.versions.node.split('.')[0]")"
+if [ "$NODE_MAJOR" -lt 24 ]; then
+  echo "ERREUR: Node.js 24 minimum requis (version actuelle : ${NODE_MAJOR})."
+  exit 1
+fi
+echo "==> Build espace React (webapp → web/espace)"
+(cd webapp && npm ci --ignore-scripts && npm run build)
 
 echo "==> Build & start (prod)"
 $COMPOSE up -d --build
@@ -37,14 +39,15 @@ for i in $(seq 1 30); do
     break
   fi
   if [ "$i" -eq 30 ]; then
-    echo "  WARN: API health timeout"
+    echo "ERREUR: API indisponible après 60 secondes"
     docker logs monprofperso-api --tail 30 2>&1 || true
+    exit 1
   fi
   sleep 2
 done
 
 if [ -f scripts/smoke.sh ]; then
-  bash scripts/smoke.sh https://www.monprofperso.com || echo "WARN: smoke prod échoué"
+  bash scripts/smoke.sh https://www.monprofperso.com
 fi
 
 echo "Done. Web: https://www.monprofperso.com | API: https://api.monprofperso.com"

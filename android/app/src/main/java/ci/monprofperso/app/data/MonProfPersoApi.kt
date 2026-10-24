@@ -1,5 +1,6 @@
 package ci.monprofperso.app.data
 
+import ci.monprofperso.app.BuildConfig
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -15,12 +16,13 @@ import java.util.concurrent.TimeUnit
 
 /** Configuration de l'URL de base de l'API commune. */
 object ApiConfig {
-    // Production VPS (Traefik + Let's Encrypt).
-    const val BASE_URL = "https://api.monprofperso.com/"
-    // Dev local émulateur : "http://10.0.2.2:8099/"
+    const val BASE_URL = BuildConfig.API_BASE_URL
 }
 
 interface MonProfPersoApi {
+    @GET("api/me")
+    suspend fun me(): UserDto
+
     @GET("api/subjects")
     suspend fun subjects(): List<SubjectDto>
 
@@ -138,6 +140,9 @@ interface MonProfPersoApi {
     @POST("api/teacher/requests/{id}/accept")
     suspend fun acceptRequest(@Path("id") id: Int): Response<Unit>
 
+    @POST("api/teacher/opportunities/{id}/accept")
+    suspend fun acceptOpportunity(@Path("id") id: Int): Response<Unit>
+
     @POST("api/teacher/requests/{id}/refuse")
     suspend fun refuseRequest(@Path("id") id: Int): Response<Unit>
 
@@ -187,7 +192,9 @@ interface MonProfPersoApi {
 
 object Api {
     val service: MonProfPersoApi by lazy {
-        val logging = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC }
+        val logging = HttpLoggingInterceptor().apply {
+            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BASIC else HttpLoggingInterceptor.Level.NONE
+        }
         val auth = okhttp3.Interceptor { chain ->
             val token = TokenStore.token
             val req = if (token != null)

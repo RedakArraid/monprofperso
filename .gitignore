@@ -1,10 +1,13 @@
 # --- Backend (Node) ---
 backend/api/node_modules/
 backend/api/dist/
-backend/api/package-lock.json
 *.log
 # Secrets locaux (garder .env.example versionné)
 .env
+.env.*
+!.env.example
+!.env.production.example
+!.env.staging.example
 
 # --- Android ---
 android/.gradle/

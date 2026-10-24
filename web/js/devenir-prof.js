@@ -25,7 +25,7 @@
 
   function normalizePhone(raw) {
     var p = String(raw || "").trim().replace(/[\s.-]/g, "");
-    if (/^0\d{9}$/.test(p)) p = "+225" + p.slice(1);
+    if (/^0\d{9}$/.test(p)) p = "+225" + p;
     else if (/^225\d{8,12}$/.test(p)) p = "+" + p;
     return p;
   }
@@ -252,7 +252,22 @@
       statusBtn.disabled = true;
       statusBtn.textContent = "Recherche…";
       try {
-        var res = await fetch(API_BASE + "/api/teacher-applications/status?phone=" + encodeURIComponent(phone));
+        var userToken = localStorage.getItem("mpp_user_jwt");
+        if (!userToken) {
+          statusResult.innerHTML = '<p>Connectez-vous ou créez votre compte avec le numéro de votre candidature pour consulter son suivi.</p><a class="btn" href="/espace/#/login?next=candidature">Accéder à mon compte</a>';
+          return;
+        }
+        var res = await fetch(API_BASE + "/api/teacher-applications/status?phone=" + encodeURIComponent(phone), {
+          headers: { Authorization: "Bearer " + userToken }, cache: "no-store",
+        });
+        if (res.status === 401) {
+          statusResult.innerHTML = '<p class="form-err">Votre session a expiré. Reconnectez-vous pour consulter le suivi.</p><a href="/espace/#/login?next=candidature">Se reconnecter</a>';
+          return;
+        }
+        if (res.status === 403) {
+          statusResult.innerHTML = '<p class="form-err">Ce compte ne correspond pas au numéro de cette candidature. Consultez votre compte pour vérifier votre numéro ou changer de compte.</p><a href="/espace/#/compte">Mon compte</a>';
+          return;
+        }
         var data = await res.json();
         if (!res.ok || data.status === "none") {
           statusResult.innerHTML = '<p class="form-err">Aucune candidature trouvée pour ce numéro.</p>';
@@ -267,8 +282,10 @@
           STATUS_STEPS.map(function (s, i) { return '<div class="progress-bar"><span' + (i <= currentIdx ? ' class="done"' : "") + '></span></div>'; }).join("") +
           "</div>" +
           '<p class="step-kicker">' + esc(STATUS_LABEL[data.status] || data.status) + "</p>";
-        if (data.interviewNotes) html += "<p>Entretien : " + esc(data.interviewNotes) + "</p>";
-        if (data.testNotes) html += "<p>Test : " + esc(data.testNotes) + "</p>";
+        if (data.interviewAt) {
+          var interview = new Date(data.interviewAt);
+          if (Number.isFinite(interview.getTime())) html += "<p>Entretien prévu : " + esc(interview.toLocaleString("fr-FR", { timeZone: "Africa/Abidjan" })) + " (heure de Côte d’Ivoire).</p>";
+        }
         statusResult.innerHTML = html;
       } catch (ex) {
         statusResult.innerHTML = '<p class="form-err">Recherche impossible, réessayez.</p>';

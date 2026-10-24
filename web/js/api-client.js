@@ -11,7 +11,7 @@
 
   function normalizePhone(raw) {
     var p = String(raw ?? "").trim().replace(/[\s.-]/g, "");
-    if (/^0\d{9}$/.test(p)) p = "+225" + p.slice(1);
+    if (/^0\d{9}$/.test(p)) p = "+225" + p;
     else if (/^225\d{8,12}$/.test(p)) p = "+" + p;
     return p;
   }
@@ -36,6 +36,8 @@
     clear: function () {
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(ROLE_KEY);
+      localStorage.removeItem("mpp_admin_jwt");
+      sessionStorage.removeItem("mpp_payment_session");
     },
   };
 

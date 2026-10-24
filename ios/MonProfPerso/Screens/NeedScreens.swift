@@ -63,6 +63,8 @@ struct ExpressNeedScreen: View {
 struct MyNeedsScreen: View {
     @EnvironmentObject var router: Router
     @State private var needs: [NeedDTO]?
+    @State private var error: String?
+    @State private var accepting = false
 
     var body: some View {
         AkScreen {
@@ -70,6 +72,10 @@ struct MyNeedsScreen: View {
             ScrollView {
                 VStack(spacing: 12) {
                     if needs == nil { LoadingRow() }
+                    if let error {
+                        Text(error).font(AkFont.regular(13)).foregroundColor(Ak.danger)
+                        Button("Réessayer") { Task { await reload() } }.foregroundColor(Ak.green)
+                    }
                     ForEach(needs ?? []) { n in
                         VStack(alignment: .leading, spacing: 6) {
                             Text(n.reference).font(AkFont.regular(11)).foregroundColor(Ak.faint)
@@ -80,8 +86,14 @@ struct MyNeedsScreen: View {
                             }
                             if n.status == "priced" {
                                 AkButton("Accepter ce tarif") {
-                                    Task { _ = try? await ApiClient.shared.acceptNeedPrice(id: n.id); await reload() }
-                                }
+                                    guard !accepting else { return }
+                                    accepting = true; error = nil
+                                    Task { @MainActor in
+                                        defer { accepting = false }
+                                        do { _ = try await ApiClient.shared.acceptNeedPrice(id: n.id); await reload() }
+                                        catch { self.error = error.localizedDescription }
+                                    }
+                                }.disabled(accepting)
                             }
                         }.akCard()
                     }
@@ -92,7 +104,10 @@ struct MyNeedsScreen: View {
         .task { await reload() }
     }
 
-    private func reload() async { needs = try? await ApiClient.shared.needs() }
+    private func reload() async {
+        do { needs = try await ApiClient.shared.needs(); error = nil }
+        catch { needs = []; self.error = error.localizedDescription }
+    }
 }
 
 struct MyChildrenScreen: View {

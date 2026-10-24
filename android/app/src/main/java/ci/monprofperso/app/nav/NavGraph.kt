@@ -75,6 +75,9 @@ object Routes {
 fun MonProfPersoNavGraph() {
     val nav = rememberNavController()
     val actions = NavActions(nav)
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        if (ci.monprofperso.app.data.Auth.restoreSession()) actions.enterApp()
+    }
 
     NavHost(navController = nav, startDestination = Routes.Welcome) {
         composable(Routes.Welcome) { WelcomeScreen(actions) }

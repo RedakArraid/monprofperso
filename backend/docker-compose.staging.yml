@@ -35,6 +35,11 @@ services:
     env_file:
       - .env.staging
     environment:
+      NODE_ENV: production
+      APP_ENV: staging
+      DEMO_MODE: "false"
+      PAYSTACK_MOCK: "false"
+      TRUST_PROXY: ${TRUST_PROXY:?Adresses ou CIDR des reverse proxies fiables requis}
       PORT: 8099
       PGHOST: db
       PGPORT: 5432

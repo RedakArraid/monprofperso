@@ -16,6 +16,8 @@ monprofperso/
 ## 1. Démarrer le backend (API + DB)
 ```bash
 cd backend
+cp .env.example .env
+# Configurer l’OTP réel, ou DEMO_MODE=true et PAYSTACK_MOCK=true en local seulement.
 docker compose up --build -d
 curl http://localhost:8099/health
 ```
@@ -38,12 +40,15 @@ Les deux apps consomment **exactement les mêmes endpoints** (mêmes modèles) :
 `/api/bookings`, `/api/progress`, `/api/groups`, `/api/subscription/plans`,
 `/api/notifications`, `/api/wallet`, `/api/teacher/*`, `/api/referral`, `/api/auth/*`.
 
-Écrans branchés en **live** sur l'API des deux côtés (ViewModels Android /
-Stores iOS), avec **repli automatique sur les données locales de la maquette**
-si l'API est injoignable :
-**Accueil** (matières + profs reco), **Résultats de recherche**, **Profil du
-professeur**, **Mes cours**, **Suivi des progrès**. Les autres écrans suivent le
-même patron et restent fidèles à la maquette hors-ligne.
+L’authentification réelle exige un code à usage unique avant de délivrer un JWT.
+Les routes privées exigent une session valide ; les comptes professeur doivent
+être reliés à une fiche validée. La réservation utilise le tarif serveur et une
+date future ; le paiement intervient après l’acceptation du professeur.
+Les erreurs d’accès ou de paiement ne deviennent jamais une session ou un paiement
+simulés. Les intégrations externes nécessitent les configurations OTP et Paystack.
+
+Voir [le guide de mise en service sécurisée](docs/SECURITY-RELEASE.md) pour les
+variables, les migrations, les contrôles et les limites de validation.
 
 > Note : l'API parse les colonnes `NUMERIC` en nombres (et non en chaînes) pour
 > que le décodage strict de `JSONDecoder` (iOS) fonctionne comme Gson (Android).

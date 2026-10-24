@@ -15,6 +15,7 @@ object AppState {
 
     /** Rôle réel renvoyé par le serveur à la connexion (`parent|student|teacher|admin`). */
     var authRole by mutableStateOf<String?>(null)
+    var authTeacherId by mutableStateOf<Int?>(null)
 
     val isAdmin: Boolean get() = authRole == "admin"
 
@@ -23,17 +24,21 @@ object AppState {
     var pdfTitle by mutableStateOf("Document")
 
     // --- Session OTP (inscription / connexion) ---
-    var authPhone by mutableStateOf("0758421903")
+    var authPhone by mutableStateOf("")
     var authEmail by mutableStateOf("")
-    var authFullName by mutableStateOf("Aya Koné")
+    var authFullName by mutableStateOf("")
     var authOtpChannel by mutableStateOf("whatsapp")
-    var otpDemo by mutableStateOf(true)
+    var authChallengeId by mutableStateOf<String?>(null)
+    var authDestination by mutableStateOf("")
+    var authError by mutableStateOf<String?>(null)
+    var otpDemo by mutableStateOf(false)
     var otpCodeLength by mutableIntStateOf(6)
     var otpTtlMinutes by mutableIntStateOf(10)
     var otpWhatsappEnabled by mutableStateOf(false)
     var otpEmailEnabled by mutableStateOf(false)
 
     // --- Brouillon de réservation (rempli depuis la fiche prof, lu par Réservation → Paiement → Confirmé) ---
+    var selectedTeacherId by mutableIntStateOf(1)
     var bkTeacherId by mutableIntStateOf(1)
     var bkTeacherName by mutableStateOf("Koffi N'Guessan")
     var bkTeacherInitials by mutableStateOf("KN")
@@ -43,6 +48,7 @@ object AppState {
     var bkPricePerHour by mutableIntStateOf(4000)
     var bkLocation by mutableStateOf("Cocody")
     var bkNegotiable by mutableStateOf(false)
+    var bkFormats by mutableStateOf(listOf("home", "online"))
 
     // Détails confirmés au fil des écrans
     var bkFormat by mutableStateOf("home")
@@ -56,6 +62,9 @@ object AppState {
     var bkProposedFrequency by mutableStateOf<String?>(null)
     var bkHasProposal by mutableStateOf(false)
     var bkReference by mutableStateOf("AKW-2058")
+    var bkCourseId by mutableStateOf<Int?>(null)
+    var bkStartAt by mutableStateOf<String?>(null)
+    var bkPaymentConfirmed by mutableStateOf(false)
 
     /** Renseigne le brouillon depuis un professeur sélectionné. */
     fun startBooking(t: TeacherDto) {
@@ -67,9 +76,34 @@ object AppState {
         bkPricePerHour = t.pricePerHour
         bkLocation = t.location
         bkNegotiable = t.negotiable
+        bkFormats = t.formats?.takeIf { it.isNotEmpty() } ?: listOf("home", "online")
         bkProposedPrice = null
         bkProposedFrequency = null
         bkHasProposal = false
+        bkCourseId = null
+        bkStartAt = null
+        bkPaymentConfirmed = false
+        bkReference = ""
+    }
+
+    /** Le paiement reprend exclusivement un cours renvoyé par le serveur. */
+    fun resumePayment(course: CourseDto) {
+        bkCourseId = course.id
+        bkTeacherName = course.teacherName
+        bkTeacherInitials = course.teacherName.split(" ").filter { it.isNotBlank() }.take(2).joinToString("") { it.take(1) }
+        bkSubject = course.subject
+        bkLevel = course.level
+        bkFormat = course.format
+        bkDayLabel = course.dayLabel
+        bkDayNum = course.dayNum
+        bkDayFull = "${course.dayLabel} ${course.dayNum}"
+        bkTime = course.time
+        bkDuration = course.duration
+        bkLocation = course.location.orEmpty()
+        bkPrice = course.price
+        bkStartAt = course.startAt
+        bkReference = "Cours #${course.id}"
+        bkPaymentConfirmed = course.paymentStatus == "paid"
     }
 }
 

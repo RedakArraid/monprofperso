@@ -93,6 +93,8 @@ data class CourseDto(
     @SerializedName("counter_frequency") val counterFrequency: String? = null,
     @SerializedName("negotiation_status") val negotiationStatus: String = "none",
     @SerializedName("payment_status") val paymentStatus: String? = null,
+    val accepted: Boolean = false,
+    @SerializedName("starts_at") val startAt: String? = null,
 )
 
 data class BookingResponse(
@@ -282,9 +284,20 @@ data class UserDto(
     val phone: String,
     val role: String,
     val initials: String,
+    @SerializedName("teacher_id") val teacherId: Int? = null,
 )
 
-data class AuthResponse(val token: String, val user: UserDto)
+data class AuthResponse(
+    val token: String? = null,
+    val user: UserDto? = null,
+    val otpRequired: Boolean = false,
+    val challengeId: String? = null,
+    val channel: String? = null,
+    val destination: String? = null,
+    val expiresInMinutes: Int? = null,
+    val sent: Boolean = false,
+    val demo: Boolean = false,
+)
 
 data class VerifyResponse(val token: String, val verified: Boolean, val user: UserDto? = null)
 
@@ -303,6 +316,8 @@ data class RequestOtpResponse(
     val expiresInMinutes: Int,
     val channel: String? = null,
     val destination: String? = null,
+    val challengeId: String? = null,
+    val otpRequired: Boolean = false,
 )
 
 data class TeacherApplicationResultDto(

@@ -1,51 +1,109 @@
-import { api } from "@/lib/api";
+import { api, apiBase } from "@/lib/api";
 import { redirectAfterLogin, useAuth, type User } from "@/lib/auth";
 import { normalizePhone } from "@/lib/utils";
+import { isOtpChallenge, type OtpChallenge } from "@/lib/flows";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useEffect, useState } from "react";
+import { Select } from "@/components/ui/select";
+import { useEffect, useState, type FormEvent } from "react";
 
-type AuthRes = { token: string; user: User };
+type Session = { token: string; user: User };
+type Channels = { demo: boolean; whatsapp: boolean; email: boolean; defaultChannel: "whatsapp" | "email" };
+
+function finishLogin(user: User) {
+  const next = new URLSearchParams(window.location.hash.split("?")[1] || "").get("next");
+  if (next === "candidature") window.location.href = "/devenir-prof.html#suivi";
+  else redirectAfterLogin(user);
+}
 
 export function LoginPage() {
   const { login, user, loading } = useAuth();
   const [tab, setTab] = useState<"login" | "signup">(
-    typeof window !== "undefined" && window.location.hash.includes("inscription") ? "signup" : "login",
+    window.location.hash.includes("inscription") ? "signup" : "login",
   );
-
-  useEffect(() => {
-    if (!loading && user) redirectAfterLogin(user);
-  }, [loading, user]);
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
-  const [role, setRole] = useState("");
-  const [signupStep, setSignupStep] = useState<0 | 1>(0);
+  const [role, setRole] = useState("parent");
   const [consent, setConsent] = useState(false);
+  const [parentalConsent, setParentalConsent] = useState(false);
+  const [channels, setChannels] = useState<Channels | null>(null);
+  const [channel, setChannel] = useState<"whatsapp" | "email">("whatsapp");
+  const [email, setEmail] = useState("");
+  const [challenge, setChallenge] = useState<OtpChallenge | null>(null);
+  const [code, setCode] = useState("");
+  const [expiresAt, setExpiresAt] = useState(0);
+  const [resendAt, setResendAt] = useState(0);
+  const [now, setNow] = useState(Date.now());
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
 
-  function chooseProfile(r: string) {
-    setRole(r);
-    setSignupStep(1);
+  useEffect(() => {
+    if (!loading && user) finishLogin(user);
+  }, [loading, user]);
+
+  useEffect(() => {
+    let active = true;
+    api<Channels>("/api/auth/otp-channels").then((c) => {
+      if (!active) return;
+      setChannels(c);
+      setChannel(c.defaultChannel === "email" && c.email ? "email" : "whatsapp");
+    }).catch(() => {
+      if (active) setErr("Les moyens de vérification sont indisponibles. Réessayez dans un instant.");
+    });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!challenge) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [challenge]);
+
+  function acceptResponse(result: unknown) {
+    if (isOtpChallenge(result)) {
+      setChallenge(result);
+      setCode("");
+      const time = Date.now();
+      setExpiresAt(time + result.expiresInMinutes * 60_000);
+      setResendAt(time + 60_000);
+      setNow(time);
+      return;
+    }
+    const session = result as Partial<Session> | null;
+    if (!session?.token || !session.user || !Number.isInteger(session.user.id)) {
+      throw new Error("La connexion n'a pas été confirmée. Réessayez.");
+    }
+    login(session.token, session.user);
+    finishLogin(session.user);
   }
 
-  async function onLogin(e: React.FormEvent) {
+  async function submit(e: FormEvent) {
     e.preventDefault();
+    if (busy) return;
     setErr("");
     setBusy(true);
     try {
-      const p = normalizePhone(phone);
-      const channels = await api<{ demo?: boolean; enabled?: boolean }>("/api/auth/otp-channels").catch(() => null);
-      if (channels && !channels.demo && channels.enabled) {
-        await api("/api/auth/request-otp", { method: "POST", body: { phone: p, channel: "whatsapp" } });
-        setErr("OTP activé — utilisez l'app native pour le moment, ou mode démo.");
-        return;
+      if (challenge) {
+        if (Date.now() >= expiresAt) throw new Error("Ce code a expiré. Demandez un nouveau code.");
+        acceptResponse(await api("/api/auth/verify-otp", {
+          method: "POST", body: { challengeId: challenge.challengeId, code },
+        }));
+      } else if (tab === "signup") {
+        if (!consent || (role === "student" && !parentalConsent)) {
+          throw new Error("Confirmez les consentements requis pour créer votre compte.");
+        }
+        acceptResponse(await api("/api/auth/signup", {
+          method: "POST",
+          body: { fullName: name.trim(), phone: normalizePhone(phone), role, consent, parentalConsent },
+        }));
+      } else {
+        acceptResponse(await api("/api/auth/login", {
+          method: "POST",
+          body: { phone: normalizePhone(phone), channel, email: channel === "email" ? email.trim() : undefined },
+        }));
       }
-      const r = await api<AuthRes>("/api/auth/login", { method: "POST", body: { phone: p } });
-      login(r.token, r.user);
-      redirectAfterLogin(r.user);
     } catch (ex) {
       setErr(ex instanceof Error ? ex.message : "Connexion impossible");
     } finally {
@@ -53,28 +111,18 @@ export function LoginPage() {
     }
   }
 
-  async function onSignup(e: React.FormEvent) {
-    e.preventDefault();
+  async function resend() {
+    if (!challenge || busy || Date.now() < resendAt) return;
     setErr("");
-    if (!consent) {
-      setErr("Acceptez les CGU pour continuer.");
-      return;
-    }
     setBusy(true);
     try {
-      const r = await api<AuthRes>("/api/auth/signup", {
-        method: "POST",
-        body: {
-          fullName: name.trim(),
-          phone: normalizePhone(phone),
-          role,
-          consent: true,
-        },
+      const result = await api("/api/auth/request-otp", {
+        method: "POST", body: { challengeId: challenge.challengeId },
       });
-      login(r.token, r.user);
-      redirectAfterLogin(r.user);
+      if (!isOtpChallenge(result)) throw new Error("Impossible de renouveler la vérification.");
+      acceptResponse(result);
     } catch (ex) {
-      setErr(ex instanceof Error ? ex.message : "Inscription impossible");
+      setErr(ex instanceof Error ? ex.message : "Envoi impossible");
     } finally {
       setBusy(false);
     }
@@ -83,105 +131,94 @@ export function LoginPage() {
   return (
     <div className="relative min-h-dvh overflow-hidden bg-background">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_#e2efe9_0%,_transparent_50%),radial-gradient(ellipse_at_bottom_left,_#fbe9da_0%,_transparent_45%)]" />
-      <div className="relative mx-auto grid min-h-dvh w-full max-w-[1400px] items-center gap-8 px-4 py-8 sm:px-6 sm:py-10 lg:grid-cols-2 lg:gap-12 lg:px-10 xl:px-14">
+      <div className="relative mx-auto grid min-h-dvh w-full max-w-[1400px] items-center gap-8 px-4 py-8 sm:px-6 lg:grid-cols-2 lg:gap-12 lg:px-10">
         <div className="hidden lg:block">
           <img src="/assets/mp2-logo.png" alt="MP²" className="mb-6 h-16 w-16 rounded-2xl" />
-          <h1 className="font-display text-4xl font-black leading-tight text-primary xl:text-5xl">
-            Mon Prof Perso
-          </h1>
-          <p className="mt-4 max-w-md text-lg text-muted-foreground">
-            Soutien scolaire à domicile en Côte d&apos;Ivoire. Profs vérifiés, Mobile Money, suivi des progrès.
-          </p>
+          <h1 className="font-display text-4xl font-black leading-tight text-primary xl:text-5xl">Mon Prof Perso</h1>
+          <p className="mt-4 max-w-md text-lg text-muted-foreground">Soutien scolaire à domicile en Côte d&apos;Ivoire.</p>
         </div>
         <div>
-          <a href="/" className="mb-4 inline-block text-sm text-muted-foreground hover:text-foreground">
-            ← Retour au site
-          </a>
+          <a href="/" className="mb-4 inline-block text-sm text-muted-foreground hover:text-foreground">← Retour au site</a>
           <Card className="shadow-lg">
             <CardHeader>
-              <img
-                src="/assets/mp2-logo.png"
-                alt="MP²"
-                className="mb-2 h-12 w-12 rounded-2xl lg:hidden"
-                onError={(e) => ((e.target as HTMLImageElement).style.display = "none")}
-              />
-              <CardTitle className="text-2xl">Connexion</CardTitle>
+              <CardTitle className="text-2xl">{challenge ? "Vérifiez votre identité" : tab === "signup" ? "Créer un compte" : "Connexion"}</CardTitle>
               <CardDescription>Accédez à votre espace parent ou professeur.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-2">
-                <Button variant={tab === "login" ? "secondary" : "outline"} onClick={() => setTab("login")}>
-                  Connexion
-                </Button>
-                <Button
-                  variant={tab === "signup" ? "secondary" : "outline"}
-                  onClick={() => { setTab("signup"); setSignupStep(0); }}
-                >
-                  Inscription
-                </Button>
-              </div>
-
-              {tab === "login" ? (
-                <form className="space-y-3" onSubmit={onLogin}>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="phone">Numéro de téléphone</Label>
-                    <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+2250700000000" />
-                  </div>
-                  <Button className="w-full" disabled={busy} type="submit">
-                    Se connecter
-                  </Button>
-                  <p className="text-xs text-muted-foreground">
-                    Démo parent : <code>+2250758421903</code> · prof : <code>+2250707001234</code>
-                  </p>
-                </form>
-              ) : signupStep === 0 ? (
-                <div className="space-y-3">
-                  <Label>Je suis</Label>
-                  <button
-                    type="button"
-                    onClick={() => chooseProfile("parent")}
-                    className="w-full rounded-lg border border-input p-4 text-left transition hover:border-primary hover:bg-accent"
-                  >
-                    <div className="font-semibold">Un parent / responsable</div>
-                    <div className="text-sm text-muted-foreground">Je cherche un prof pour un enfant.</div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => chooseProfile("student")}
-                    className="w-full rounded-lg border border-input p-4 text-left transition hover:border-primary hover:bg-accent"
-                  >
-                    <div className="font-semibold">Un élève</div>
-                    <div className="text-sm text-muted-foreground">Je révise pour réussir mes examens.</div>
-                  </button>
+              {!challenge ? (
+                <div className="grid grid-cols-2 gap-2">
+                  {(["login", "signup"] as const).map((value) => (
+                    <Button key={value} variant={tab === value ? "secondary" : "outline"} disabled={busy}
+                      onClick={() => { setTab(value); setErr(""); }}>
+                      {value === "login" ? "Connexion" : "Inscription"}
+                    </Button>
+                  ))}
                 </div>
-              ) : (
-                <form className="space-y-3" onSubmit={onSignup}>
-                  <button
-                    type="button"
-                    onClick={() => setSignupStep(0)}
-                    className="text-sm text-muted-foreground hover:text-foreground"
-                  >
-                    ← Changer de profil ({role === "parent" ? "Parent" : "Élève"})
-                  </button>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="name">Nom complet</Label>
-                    <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Aya Koné" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="sphone">Téléphone</Label>
-                    <Input id="sphone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+22507…" />
-                  </div>
-                  <label className="flex items-start gap-2 text-sm">
-                    <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1" />
-                    <span>J&apos;accepte les CGU et la confidentialité.</span>
-                  </label>
-                  <Button className="w-full" disabled={busy} type="submit">
-                    Créer mon compte
+              ) : null}
+              <form className="space-y-4" onSubmit={submit}>
+                {challenge ? (
+                  <>
+                    <p className="text-sm">Un code a été envoyé par {challenge.channel === "email" ? "e-mail" : "WhatsApp"} à {challenge.destination}.</p>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="code">Code à 6 chiffres</Label>
+                      <Input id="code" autoFocus required inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6}
+                        value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} />
+                    </div>
+                    <p className="text-xs text-muted-foreground">{now >= expiresAt ? "Code expiré." : `Code valable encore ${Math.ceil((expiresAt - now) / 60_000)} minute(s).`}</p>
+                  </>
+                ) : (
+                  <>
+                    {tab === "signup" ? (
+                      <>
+                        <div className="space-y-1.5"><Label htmlFor="role">Je suis</Label>
+                          <Select id="role" value={role} onChange={(e) => setRole(e.target.value)}>
+                            <option value="parent">Un parent / responsable</option><option value="student">Un élève</option>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5"><Label htmlFor="name">Nom complet</Label>
+                          <Input id="name" required maxLength={120} autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />
+                        </div>
+                      </>
+                    ) : null}
+                    <div className="space-y-1.5"><Label htmlFor="phone">Téléphone</Label>
+                      <Input id="phone" type="tel" required autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+2250700000000" />
+                    </div>
+                    {tab === "login" && channels?.email ? (
+                      <>
+                        <div className="space-y-1.5"><Label htmlFor="channel">Recevoir le code</Label>
+                          <Select id="channel" value={channel} onChange={(e) => setChannel(e.target.value as "whatsapp" | "email")}>
+                            <option value="whatsapp" disabled={!channels.whatsapp}>WhatsApp</option><option value="email">Adresse e-mail vérifiée</option>
+                          </Select>
+                        </div>
+                        {channel === "email" ? <div className="space-y-1.5"><Label htmlFor="email">E-mail déjà vérifié sur votre compte</Label>
+                          <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" /></div> : null}
+                      </>
+                    ) : null}
+                    {tab === "signup" ? (
+                      <>
+                        <p className="text-xs text-muted-foreground">Votre numéro sera vérifié par WhatsApp.</p>
+                        <label className="flex items-start gap-2 text-sm"><input type="checkbox" required checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1" />
+                          <span>J&apos;accepte les <a href={`${apiBase()}/api/legal/cgu/file`} target="_blank" rel="noreferrer" className="underline">CGU</a> et la <a href={`${apiBase()}/api/legal/confidentialite/file`} target="_blank" rel="noreferrer" className="underline">politique de confidentialité</a>.</span>
+                        </label>
+                        {role === "student" ? <label className="flex items-start gap-2 text-sm"><input type="checkbox" required checked={parentalConsent} onChange={(e) => setParentalConsent(e.target.checked)} className="mt-1" />
+                          <span>Je dispose de l&apos;accord de mon responsable légal.</span></label> : null}
+                      </>
+                    ) : null}
+                  </>
+                )}
+                {err ? <p role="alert" className="text-sm font-semibold text-destructive">{err}</p> : null}
+                <Button className="w-full" disabled={busy || (Boolean(challenge) && now >= expiresAt)} type="submit">
+                  {busy ? "Vérification…" : challenge ? "Valider le code" : tab === "signup" ? "Créer mon compte" : "Se connecter"}
+                </Button>
+              </form>
+              {challenge ? (
+                <div className="flex flex-wrap gap-3">
+                  <Button variant="outline" disabled={busy || now < resendAt} onClick={() => void resend()}>
+                    {now < resendAt ? `Renvoyer dans ${Math.ceil((resendAt - now) / 1000)} s` : "Renvoyer un code"}
                   </Button>
-                </form>
-              )}
-
-              {err ? <p className="text-sm font-semibold text-destructive">{err}</p> : null}
+                  <Button variant="ghost" disabled={busy} onClick={() => { setChallenge(null); setCode(""); setErr(""); }}>Recommencer</Button>
+                </div>
+              ) : channels?.demo ? <p className="text-xs text-muted-foreground">Environnement de démonstration activé par le serveur.</p> : null}
             </CardContent>
           </Card>
         </div>

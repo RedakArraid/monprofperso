@@ -6,9 +6,13 @@ import { api } from "./routes";
 import { pool, waitForDb } from "./db";
 import { requestLogger, notFound, errorHandler } from "./http";
 import { ensureBucket } from "./storage";
-import { handlePaystackWebhook } from "./payments";
+import { handlePaystackWebhook, validatePaymentConfiguration } from "./payments";
+import { bootstrapProductionAdmin } from "./adminBootstrap";
 
 const app = express();
+validatePaymentConfiguration();
+app.disable("x-powered-by");
+if (process.env.TRUST_PROXY) app.set("trust proxy", process.env.TRUST_PROXY.split(",").map((v) => v.trim()));
 app.use(cors());
 app.use(requestLogger);
 
@@ -22,7 +26,7 @@ app.post(
       await handlePaystackWebhook(raw, req.headers["x-paystack-signature"] as string | undefined);
       res.status(200).json({ ok: true });
     } catch (e: any) {
-      const code = e?.statusCode === 401 ? 401 : 500;
+      const code = [400, 401, 503].includes(e?.statusCode) ? e.statusCode : 500;
       if (code === 500) console.error("[POST /api/payments/paystack/webhook]", e);
       res.status(code).json({ error: code === 401 ? "invalid_signature" : "webhook_error" });
     }
@@ -32,7 +36,10 @@ app.post(
 // Limite relevée pour accepter les fichiers de ressources encodés en base64.
 app.use(express.json({ limit: "15mb" }));
 
-app.get("/health", (_req, res) => res.json({ status: "ok", service: "monprofperso-api" }));
+app.get("/health", async (_req, res) => {
+  try { await pool.query("SELECT 1"); res.json({ status: "ok", service: "monprofperso-api" }); }
+  catch { res.status(503).json({ status: "unavailable", service: "monprofperso-api" }); }
+});
 
 // api.monprofperso.com sert uniquement l'API : redirige vers le site / admin si ouvert dans le navigateur.
 const SITE = "https://www.monprofperso.com";
@@ -74,9 +81,13 @@ async function runMigrations(): Promise<void> {
 
 waitForDb()
   .then(runMigrations)
+  .then(() => bootstrapProductionAdmin())
   .then(() => ensureBucket())
   .then(() => {
-    app.listen(PORT, () => console.log(`Mon Prof Perso API à l'écoute sur le port ${PORT}`));
+    const server = app.listen(PORT, process.env.HOST ?? "0.0.0.0", () => console.log(`Mon Prof Perso API à l'écoute sur le port ${PORT}`));
+    const stop = () => server.close(() => { void pool.end().then(() => process.exit(0)); });
+    process.once("SIGTERM", stop);
+    process.once("SIGINT", stop);
   })
   .catch((e) => {
     console.error("Démarrage impossible :", e);

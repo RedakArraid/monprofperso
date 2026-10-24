@@ -80,11 +80,11 @@ struct HomeScreen: View {
 
                     SectionHeader(title: "Profs recommandés") { router.go(.searchResults) }.padding(.top, 20)
                     if store.teachers.isEmpty {
-                        recoTeacher("KN", "Koffi N'Guessan", "Maths · Physique-Chimie", "4,9", "128 avis", "Cocody", "4 000 F", true).padding(.top, 13)
-                        recoTeacher("MT", "Mariam Touré", "Anglais · Espagnol", "5,0", "74 avis", "Plateau", "4 500 F", false).padding(.top, 11)
+                        Text("Consultez la recherche pour voir les professeurs disponibles.")
+                            .font(AkFont.regular(13)).foregroundColor(Ak.muted).padding(.top, 13)
                     } else {
                         ForEach(Array(store.teachers.prefix(2).enumerated()), id: \.element.id) { i, t in
-                            recoTeacher(t.initials, t.name, t.subjects, t.ratingLabel, "\(t.reviews_count) avis", t.location, t.priceLabel, t.isGreen).padding(.top, i == 0 ? 13 : 11)
+                            recoTeacher(t.id, t.initials, t.name, t.subjects, t.ratingLabel, "\(t.reviews_count) avis", t.location, t.priceLabel, t.isGreen).padding(.top, i == 0 ? 13 : 11)
                         }
                     }
                 }.padding(.horizontal, 22).padding(.top, 8).padding(.bottom, 16)
@@ -94,7 +94,7 @@ struct HomeScreen: View {
         }
     }
 
-    func recoTeacher(_ ini: String, _ name: String, _ subj: String, _ rating: String, _ reviews: String, _ place: String, _ price: String, _ green: Bool) -> some View {
+    func recoTeacher(_ id: Int, _ ini: String, _ name: String, _ subj: String, _ rating: String, _ reviews: String, _ place: String, _ price: String, _ green: Bool) -> some View {
         HStack(spacing: 13) {
             InitialsAvatar(initials: ini, size: 54, bg: green ? Ak.greenSoft : Ak.orangeSoft, fg: green ? Ak.green : Ak.orange, verified: true)
             VStack(alignment: .leading, spacing: 1) {
@@ -109,7 +109,7 @@ struct HomeScreen: View {
             }
         }
         .akCard(radius: 18)
-        .onTapGesture { router.go(.teacherProfile) }
+        .onTapGesture { router.selectedTeacherId = id; router.go(.teacherProfile) }
     }
 }
 
@@ -136,7 +136,7 @@ struct SearchResultsScreen: View {
                     Spacer()
                 }
                 if !store.loading {
-                    Text(store.fromApi ? "● Données en direct (API Mon Prof Perso)" : "○ Mode hors-ligne (données locales)")
+                    Text(store.fromApi ? "● Professeurs disponibles" : "Chargement des professeurs indisponible")
                         .font(AkFont.semibold(11)).foregroundColor(store.fromApi ? Ak.green : Ak.faint)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -188,7 +188,7 @@ struct SearchResultsScreen: View {
             }.padding(.top, 12)
         }
         .akCard(radius: 20, padding: 15)
-        .onTapGesture { router.go(.teacherProfile) }
+        .onTapGesture { router.selectedTeacherId = t.id; router.go(.teacherProfile) }
     }
 }
 
@@ -254,8 +254,28 @@ struct TeacherProfileScreen: View {
     @EnvironmentObject var router: Router
     @StateObject private var store = TeacherStore()
     var body: some View {
-        let t = store.teacher
-        let levels = t.levels ?? ["Collège", "Lycée", "Prépa BEPC", "Prépa BAC"]
+        Group {
+            if let teacher = store.teacher { profile(teacher) }
+            else {
+                AkScreen {
+                    TopBar(title: "Profil professeur", onBack: { router.back() })
+                    if let error = store.error {
+                        Text(error).font(AkFont.regular(14)).foregroundColor(Ak.danger).padding(22)
+                        Button("Réessayer") { Task { await load() } }.foregroundColor(Ak.green)
+                    } else { LoadingRow() }
+                    Spacer()
+                }
+            }
+        }.task { await load() }
+    }
+
+    private func load() async {
+        guard let id = router.selectedTeacherId else { store.error = "Sélectionnez un professeur dans la recherche."; return }
+        await store.load(id)
+    }
+
+    private func profile(_ t: TeacherDTO) -> some View {
+        let levels = t.levels ?? []
         let review = t.reviews?.first
         return AkScreen(ignoresBottom: true) {
             // header vert
@@ -288,10 +308,10 @@ struct TeacherProfileScreen: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(spacing: 10) {
-                        statTile(t.experience ?? "8 ans", "expérience"); statTile(t.students ?? "340+", "élèves suivis"); statTile(t.bac_success ?? "94%", "réussite BAC")
+                        statTile(t.experience ?? "—", "expérience"); statTile(t.students ?? "—", "élèves suivis"); statTile(t.bac_success ?? "—", "réussite BAC")
                     }
                     Text("À propos").font(AkFont.schibstedBold(16)).foregroundColor(Ak.ink).padding(.top, 18)
-                    Text(t.bio ?? "Professeur certifié, ancien du Lycée Classique d'Abidjan. J'accompagne les élèves de la 3ᵉ à la Terminale avec une méthode claire et beaucoup d'exercices types examen.")
+                    Text(t.bio ?? "Présentation à venir.")
                         .font(AkFont.regular(13.5)).foregroundColor(Ak.textBody).lineSpacing(4).padding(.top, 8)
                     HStack(spacing: 7) { ForEach(levels, id: \.self) { neutralTag($0) } }.padding(.top, 14)
                     if let progs = t.programs, !progs.isEmpty {
@@ -299,22 +319,23 @@ struct TeacherProfileScreen: View {
                         HStack(spacing: 7) { ForEach(progs, id: \.self) { neutralTag(programLabel($0)) } }.padding(.top, 7)
                     }
                     SectionHeader(title: "Avis des parents").padding(.top, 18)
+                    if let review {
                     VStack(alignment: .leading, spacing: 0) {
                         HStack(spacing: 10) {
-                            InitialsAvatar(initials: review?.author_initials ?? "FB", size: 36, bg: Ak.orangeSoft, fg: Ak.orange, radius: 11, fontSize: 13)
+                            InitialsAvatar(initials: review.author_initials, size: 36, bg: Ak.orangeSoft, fg: Ak.orange, radius: 11, fontSize: 13)
                             VStack(alignment: .leading, spacing: 0) {
-                                Text(review?.author_name ?? "Fatou B.").font(AkFont.bold(13.5)).foregroundColor(Ak.ink)
-                                Text(review?.time_ago ?? "il y a 2 semaines").font(AkFont.regular(11)).foregroundColor(Ak.faint)
+                                Text(review.author_name).font(AkFont.bold(13.5)).foregroundColor(Ak.ink)
+                                Text(review.time_ago).font(AkFont.regular(11)).foregroundColor(Ak.faint)
                             }
                             Spacer()
                             HStack(spacing: 1) { ForEach(0..<5, id: \.self) { _ in Image(systemName: "star.fill").font(.system(size: 11)).foregroundColor(Ak.star) } }
                         }
-                        Text(review?.text ?? "Ma fille est passée de 9 à 14 en maths en un trimestre. Très pédagogue et toujours ponctuel. Je recommande vivement !")
+                        Text(review.text)
                             .font(AkFont.regular(13)).foregroundColor(Ak.textBody).lineSpacing(3).padding(.top, 9)
                     }.akCard(radius: 16, padding: 14).padding(.top, 11)
+                    } else { Text("Aucun avis pour le moment.").font(AkFont.regular(13)).foregroundColor(Ak.muted).padding(.top, 11) }
                 }.padding(.horizontal, 22).padding(.top, 16)
             }
-            .task { await store.load() }
             // CTA collant
             VStack(spacing: 12) {
                 HStack(spacing: 10) {
@@ -329,7 +350,7 @@ struct TeacherProfileScreen: View {
                             Text(t.priceLabel).font(AkFont.schibstedExtra(21)).foregroundColor(Ak.ink)
                             Text("/h").font(AkFont.semibold(13)).foregroundColor(Ak.faint)
                         }
-                        Text(t.negotiable == true ? "Tarif sur devis" : "1ᵉʳ cours d'essai -50%").font(AkFont.regular(11.5)).foregroundColor(Ak.muted)
+                        Text("Tarif par heure").font(AkFont.regular(11.5)).foregroundColor(Ak.muted)
                     }
                     PrimaryButton(label: "Réserver un cours") { router.startBooking(t); router.go(.booking) }
                 }

@@ -383,7 +383,7 @@ export function DocLink({ to, children, external }: { to: string; children: Reac
 export function OfflineBanner({ onRetry }: { onRetry?: () => void }) {
   return (
     <div className="mb-4 rounded-lg bg-orange-soft px-4 py-3 text-sm text-[#8a5b33]">
-      Hors-ligne — données de démonstration.{" "}
+      Les données n’ont pas pu être chargées.{" "}
       {onRetry ? (
         <button type="button" className="font-bold underline" onClick={onRetry}>
           Réessayer

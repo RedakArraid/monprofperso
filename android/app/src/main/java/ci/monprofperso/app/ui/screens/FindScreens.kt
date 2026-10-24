@@ -61,7 +61,7 @@ private val subjects = listOf(
 fun HomeScreen(nav: NavActions, vm: ci.monprofperso.app.data.HomeViewModel = androidx.lifecycle.viewmodel.compose.viewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
     val data = (state as? ci.monprofperso.app.data.UiState.Success)?.data
-    val subjectItems = data?.subjects?.map { it.toSubject() } ?: subjects
+    val subjectItems = data?.subjects?.map { it.toSubject() } ?: emptyList()
     val recoTeachers = data?.teachers ?: emptyList()
     AkScreen(applyBottomInset = false) {
         Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 22.dp).padding(top = 8.dp)) {
@@ -71,7 +71,7 @@ fun HomeScreen(nav: NavActions, vm: ci.monprofperso.app.data.HomeViewModel = and
                 Spacer(Modifier.width(11.dp))
                 Column(Modifier.weight(1f)) {
                     Text("Bonjour,", fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted)
-                    Text("Aya Koné", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = AkColors.Ink)
+                    Text(ci.monprofperso.app.data.AppState.authFullName.ifBlank { "Mon compte" }, fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = AkColors.Ink)
                 }
                 NotificationBell(nav)
             }
@@ -144,15 +144,12 @@ fun HomeScreen(nav: NavActions, vm: ci.monprofperso.app.data.HomeViewModel = and
             Spacer(Modifier.height(20.dp))
             SectionHeader("Profs recommandés", onAction = { nav.go(Routes.SearchResults) })
             Spacer(Modifier.height(13.dp))
-            if (recoTeachers.isEmpty()) {
-                RecoTeacher("KN", "Koffi N'Guessan", "Maths · Physique-Chimie", "4,9", "128 avis", "Cocody", "4 000 F", true) { nav.go(Routes.TeacherProfile) }
-                Spacer(Modifier.height(11.dp))
-                RecoTeacher("MT", "Mariam Touré", "Anglais · Espagnol", "5,0", "74 avis", "Plateau", "4 500 F", false) { nav.go(Routes.TeacherProfile) }
-            } else {
-                recoTeachers.take(2).forEachIndexed { i, t ->
-                    if (i > 0) Spacer(Modifier.height(11.dp))
-                    RecoTeacher(t.initials, t.name, t.subjects, t.ratingLabel, "${t.reviewsCount} avis", t.location, t.priceLabel, t.accent == "green") { nav.go(Routes.TeacherProfile) }
-                }
+            if (state is ci.monprofperso.app.data.UiState.Loading) LoadingRow()
+            if (state is ci.monprofperso.app.data.UiState.Error) OfflineBanner(onRetry = { vm.load() })
+            if (data != null && recoTeachers.isEmpty()) Text("Aucun professeur disponible.", fontFamily = Hanken, color = AkColors.Muted)
+            recoTeachers.take(2).forEachIndexed { i, t ->
+                if (i > 0) Spacer(Modifier.height(11.dp))
+                RecoTeacher(t.initials, t.name, t.subjects, t.ratingLabel, "${t.reviewsCount} avis", t.location, t.priceLabel, t.accent == "green") { nav.openTeacher(t.id) }
             }
             Spacer(Modifier.height(16.dp))
         }
@@ -257,7 +254,7 @@ fun SearchResultsScreen(nav: NavActions, vm: ci.monprofperso.app.data.TeachersVi
                     is ci.monprofperso.app.data.UiState.Error ->
                         Text(s.message, fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Orange, modifier = Modifier.padding(top = 40.dp))
                     is ci.monprofperso.app.data.UiState.Success -> s.data.forEach { t ->
-                        SearchTeacherCard(t.toCard()) { nav.go(Routes.TeacherProfile) }
+                        SearchTeacherCard(t.toCard()) { nav.openTeacher(t.id) }
                         Spacer(Modifier.height(12.dp))
                     }
                 }
@@ -384,8 +381,19 @@ private fun SingleChips(options: List<String>, selected: Int, onSelect: (Int) ->
 @Composable
 fun TeacherProfileScreen(nav: NavActions, vm: ci.monprofperso.app.data.TeacherProfileViewModel = androidx.lifecycle.viewmodel.compose.viewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
-    val t = (state as? ci.monprofperso.app.data.UiState.Success)?.data ?: ci.monprofperso.app.data.FallbackData.teacherDetail
-    val levels = t.levels ?: listOf("Collège", "Lycée", "Prépa BEPC", "Prépa BAC")
+    val teacherId = ci.monprofperso.app.data.AppState.selectedTeacherId
+    androidx.compose.runtime.LaunchedEffect(teacherId) { vm.load(teacherId) }
+    val result = state as? ci.monprofperso.app.data.UiState.Success
+    val t = result?.data
+    if (t == null) {
+        AkScreen {
+            TopBar("Professeur", onBack = { nav.back() })
+            if (state is ci.monprofperso.app.data.UiState.Loading) LoadingRow()
+            else OfflineBanner(onRetry = { vm.load(teacherId) })
+        }
+        return
+    }
+    val levels = t.levels.orEmpty()
     val review = t.reviews?.firstOrNull()
     AkScreen(applyTopInset = false, applyBottomInset = false) {
         // header banner green
@@ -487,7 +495,7 @@ fun TeacherProfileScreen(nav: NavActions, vm: ci.monprofperso.app.data.TeacherPr
                     Text(if (t.negotiable) "Tarif à négocier" else "1ᵉʳ cours d'essai -50%", fontFamily = Hanken, fontSize = 11.5.sp, color = AkColors.Muted)
                 }
                 Spacer(Modifier.width(14.dp))
-                PrimaryButton("Réserver un cours", Modifier.weight(1f), onClick = { ci.monprofperso.app.data.AppState.startBooking(t); nav.go(Routes.Booking) })
+                PrimaryButton("Réserver un cours", Modifier.weight(1f), onClick = { if (result?.fromApi == true) { ci.monprofperso.app.data.AppState.startBooking(t); nav.go(Routes.Booking) } })
             }
         }
     }

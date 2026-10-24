@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { LoginPage } from "@/pages/LoginPage";
@@ -47,7 +48,12 @@ function RequireAuth({ children }: { children: import("react").ReactNode }) {
     window.location.href = "/admin/";
     return null;
   }
-  return children;
+  return <Fragment key={user.id}>{children}</Fragment>;
+}
+
+function RequireTeacher({ children }: { children: import("react").ReactNode }) {
+  const { isTeacher } = useAuth();
+  return isTeacher ? children : <Navigate to="/accueil" replace />;
 }
 
 function DefaultRedirect() {
@@ -88,10 +94,10 @@ export default function App() {
               <Route path="/paiement" element={<PaymentPage />} />
               <Route path="/paiement-otp" element={<PaymentOtpPage />} />
               <Route path="/confirmation" element={<ConfirmationPage />} />
-              <Route path="/prof-espace" element={<TeacherDashboardPage />} />
-              <Route path="/prof-offres" element={<TeacherRequestsPage />} />
-              <Route path="/prof-revenus" element={<TeacherEarningsPage />} />
-              <Route path="/prof-profil" element={<TeacherProfileEditPage />} />
+              <Route path="/prof-espace" element={<RequireTeacher><TeacherDashboardPage /></RequireTeacher>} />
+              <Route path="/prof-offres" element={<RequireTeacher><TeacherRequestsPage /></RequireTeacher>} />
+              <Route path="/prof-revenus" element={<RequireTeacher><TeacherEarningsPage /></RequireTeacher>} />
+              <Route path="/prof-profil" element={<RequireTeacher><TeacherProfileEditPage /></RequireTeacher>} />
               <Route
                 path="/prof-retrait"
                 element={<MockPage title="Retrait" text="Demande de retrait vers Mobile Money." active="prof-revenus" />}

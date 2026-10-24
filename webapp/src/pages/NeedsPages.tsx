@@ -11,6 +11,8 @@ import { api, apiBase, tokenStore } from "@/lib/api";
 import { fallback } from "@/lib/fallback";
 import { fcfa, needStatusLabel } from "@/lib/utils";
 import { useLive } from "@/hooks/useLive";
+import { needFields } from "@/lib/flows";
+import { fileToBase64 } from "@/lib/uploads";
 
 type Child = { id: number; name: string; level?: string; school?: string };
 type Need = {
@@ -27,21 +29,12 @@ type Need = {
   recommendedNote?: string | null;
 };
 
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result).split(",").pop() || "");
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
 async function openOwnDocument(needId: number, fileName: string) {
   const t = tokenStore.get();
   const res = await fetch(`${apiBase()}/api/needs/${needId}/document`, {
     headers: t ? { Authorization: `Bearer ${t}` } : {},
   });
-  if (!res.ok) return;
+  if (!res.ok) throw new Error("Téléchargement du document impossible.");
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
   const w = window.open(url, "_blank", "noopener");
@@ -57,6 +50,7 @@ async function openOwnDocument(needId: number, fileName: string) {
 export function ChildrenPage() {
   const { data, offline, reload } = useLive<Child[]>("/api/children", fallback.children as Child[]);
   const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
 
   return (
     <AppShell title="Mes enfants" back="/compte" active="compte">
@@ -69,7 +63,10 @@ export function ChildrenPage() {
             onSubmit={async (e) => {
               e.preventDefault();
               setErr("");
-              const fd = new FormData(e.currentTarget);
+              if (busy) return;
+              const form = e.currentTarget;
+              const fd = new FormData(form);
+              setBusy(true);
               try {
                 await api("/api/children", {
                   method: "POST",
@@ -77,14 +74,15 @@ export function ChildrenPage() {
                     name: fd.get("name"),
                     level: fd.get("level"),
                     school: fd.get("school"),
-                    gender: "garcon",
                     program: "standard",
                   },
                 });
-                e.currentTarget.reset();
+                form.reset();
                 void reload();
               } catch (ex) {
                 setErr(ex instanceof Error ? ex.message : "Erreur");
+              } finally {
+                setBusy(false);
               }
             }}
           >
@@ -94,14 +92,14 @@ export function ChildrenPage() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-welcome">Niveau</Label>
-              <Input name="level" placeholder="3ème" />
+              <Input name="level" placeholder="3ème" required maxLength={40} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-welcome">Établissement</Label>
               <Input name="school" />
             </div>
             {err ? <p className="text-sm text-destructive">{err}</p> : null}
-            <Button type="submit" className="w-full">
+            <Button type="submit" className="w-full" disabled={busy || offline}>
               Ajouter
             </Button>
           </form>
@@ -128,6 +126,7 @@ export function ExpressNeedPage() {
   const navigate = useNavigate();
   const [children, setChildren] = useState<Child[]>([]);
   const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     api<Child[]>("/api/children")
@@ -145,19 +144,17 @@ export function ExpressNeedPage() {
             onSubmit={async (e) => {
               e.preventDefault();
               setErr("");
-              const fd = new FormData(e.currentTarget);
+              if (busy) return;
+              const form = e.currentTarget;
+              const fd = new FormData(form);
+              setBusy(true);
               const file = fd.get("document") as File | null;
               try {
                 const documentBase64 = file && file.size ? await fileToBase64(file) : undefined;
                 await api("/api/needs", {
                   method: "POST",
                   body: {
-                    childId: Number(fd.get("childId")),
-                    subject: fd.get("subject"),
-                    level: fd.get("level"),
-                    format: fd.get("format"),
-                    location: fd.get("location"),
-                    notes: fd.get("notes"),
+                    ...needFields(fd),
                     documentBase64,
                     documentFileName: file?.name,
                     documentMimeType: file?.type || undefined,
@@ -166,15 +163,17 @@ export function ExpressNeedPage() {
                 navigate("/mes-besoins");
               } catch (ex) {
                 setErr(ex instanceof Error ? ex.message : "Erreur");
+              } finally {
+                setBusy(false);
               }
             }}
           >
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5 sm:col-span-2">
                 <Label className="text-welcome">Enfant</Label>
-                <Select name="childId" required defaultValue="">
-                  <option value="" disabled>
-                    Choisir…
+                <Select name="childId" defaultValue="">
+                  <option value="">
+                    Pour moi / sans enfant associé
                   </option>
                   {children.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -189,7 +188,7 @@ export function ExpressNeedPage() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-welcome">Niveau</Label>
-                <Input name="level" />
+                <Input name="level" required maxLength={40} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-welcome">Format</Label>
@@ -204,7 +203,7 @@ export function ExpressNeedPage() {
               </div>
               <div className="space-y-1.5 sm:col-span-2">
                 <Label className="text-welcome">Précisions</Label>
-                <Textarea name="notes" />
+                <Textarea name="description" maxLength={2000} />
               </div>
               <div className="space-y-1.5 sm:col-span-2">
                 <Label className="text-welcome">Document utile (bulletin, etc.) — optionnel</Label>
@@ -212,7 +211,7 @@ export function ExpressNeedPage() {
               </div>
             </div>
             {err ? <p className="text-sm text-destructive">{err}</p> : null}
-            <Button type="submit" className="mt-3 w-full">
+            <Button type="submit" className="mt-3 w-full" disabled={busy}>
               Envoyer
             </Button>
           </form>
@@ -258,7 +257,7 @@ export function MyNeedsPage() {
               </div>
             ) : null}
             {n.documentName ? (
-              <Button size="sm" variant="outline" onClick={() => void openOwnDocument(n.id, n.documentName!)}>
+              <Button size="sm" variant="outline" onClick={() => void openOwnDocument(n.id, n.documentName!).catch((e: Error) => setMsg(e.message))}>
                 Voir mon document
               </Button>
             ) : null}
