@@ -45,7 +45,14 @@ import ci.monprofperso.app.ui.theme.Schibsted
 @Composable
 fun ProgressScreen(nav: NavActions, vm: ci.monprofperso.app.data.ProgressViewModel = androidx.lifecycle.viewmodel.compose.viewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
-    val p = (state as? ci.monprofperso.app.data.UiState.Success)?.data ?: ci.monprofperso.app.data.FallbackData.progress
+    val p = (state as? ci.monprofperso.app.data.UiState.Success)?.data
+    if (p == null) {
+        AkScreen {
+            TopBar("Suivi des progrès", onBack = { nav.back() })
+            if (state is ci.monprofperso.app.data.UiState.Loading) LoadingRow() else OfflineBanner(onRetry = { vm.load() })
+        }
+        return
+    }
     AkScreen(applyBottomInset = false) {
         Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 22.dp).padding(top = 8.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

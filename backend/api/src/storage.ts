@@ -1,6 +1,8 @@
 import { Client } from "minio";
 import { randomUUID } from "crypto";
 import type { Readable } from "stream";
+import * as http from "http";
+import * as https from "https";
 
 /**
  * Stockage objet des fichiers de ressources sur un service S3-compatible (MinIO).
@@ -18,12 +20,21 @@ const bucket = process.env.S3_BUCKET ?? "monprofperso";
 
 export const storageEnabled = Boolean(endPoint);
 
+const protocol = useSSL ? https : http;
+const boundedTransport = { ...protocol, request: ((options: https.RequestOptions, callback?: (response: http.IncomingMessage) => void) => {
+  const request = protocol.request(options, callback);
+  const deadline = setTimeout(() => request.destroy(new Error("storage_request_timeout")), 15_000);
+  deadline.unref();
+  request.once("close", () => clearTimeout(deadline));
+  return request;
+}) as typeof https.request };
+
 const client: Client | null = storageEnabled
-  ? new Client({ endPoint: endPoint as string, port, useSSL, accessKey, secretKey })
+  ? new Client({ endPoint: endPoint as string, port, useSSL, accessKey, secretKey, transport: boundedTransport })
   : null;
 
 /** Crée le bucket au démarrage s'il n'existe pas (idempotent, avec quelques essais). */
-export async function ensureBucket(retries = 20): Promise<void> {
+export async function ensureBucket(retries = 2): Promise<void> {
   if (!client) return;
   for (let i = 0; i < retries; i++) {
     try {
@@ -72,4 +83,23 @@ export async function removeFile(key: string | null | undefined): Promise<void> 
   } catch (e) {
     console.warn("Échec de suppression objet :", key, e);
   }
+}
+
+/** Durable privacy cleanup: failures must remain queued instead of being silently ignored. */
+export async function deleteFileStrict(key: string): Promise<void> {
+  if (!client) throw new Error("storage_not_configured");
+  await client.removeObject(bucket, key);
+}
+
+export async function assertEmptyRestoreBucket(): Promise<void> {
+  if (!client) throw new Error("storage_not_configured");
+  if (!(await client.bucketExists(bucket))) throw new Error("restore_bucket_must_exist");
+  for await (const object of client.listObjectsV2(bucket, "", true)) {
+    if (object.name) throw new Error("restore_bucket_must_be_empty");
+  }
+}
+
+export async function restoreExactFile(key: string, filePath: string): Promise<void> {
+  if (!client) throw new Error("storage_not_configured");
+  await client.fPutObject(bucket, key, filePath, { "Content-Type": "application/octet-stream" });
 }

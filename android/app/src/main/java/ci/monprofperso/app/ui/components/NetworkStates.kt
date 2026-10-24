@@ -28,8 +28,7 @@ import ci.monprofperso.app.ui.theme.Hanken
 
 /**
  * États réseau réutilisables et cohérents sur les écrans branchés en live.
- * Le design privilégie le repli sur données de démo : on signale le mode
- * hors-ligne par un bandeau discret avec « Réessayer » plutôt qu'un écran bloquant.
+ * Signale l'échec et permet une nouvelle lecture du serveur.
  */
 @Composable
 fun OfflineBanner(onRetry: () -> Unit, modifier: Modifier = Modifier) {
@@ -42,7 +41,7 @@ fun OfflineBanner(onRetry: () -> Unit, modifier: Modifier = Modifier) {
         Icon(Icons.Filled.CloudOff, null, tint = AkColors.Orange, modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(8.dp))
         Text(
-            "Hors-ligne, données de démonstration", fontFamily = Hanken, fontWeight = FontWeight.SemiBold,
+            "Connexion indisponible", fontFamily = Hanken, fontWeight = FontWeight.SemiBold,
             fontSize = 12.sp, color = Color(0xFF8A5B33), modifier = Modifier.weight(1f),
         )
         Text(

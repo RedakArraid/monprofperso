@@ -19,6 +19,11 @@ export const tokenStore = {
   clear: () => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(ROLE_KEY);
+    localStorage.removeItem("mpp_admin_jwt");
+    sessionStorage.removeItem("mpp_payment_session");
+    sessionStorage.removeItem("mpp_payment_id");
+    sessionStorage.removeItem("mpp_course_id");
+    sessionStorage.removeItem("mpp_booking_price");
   },
 };
 

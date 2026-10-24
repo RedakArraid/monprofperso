@@ -16,6 +16,8 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.AddCircle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import ci.monprofperso.app.data.isPayable
+import ci.monprofperso.app.data.isTeacherParticipant
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -47,72 +49,63 @@ import ci.monprofperso.app.ui.theme.Schibsted
 fun MyCoursesScreen(nav: NavActions, vm: ci.monprofperso.app.data.CoursesViewModel = androidx.lifecycle.viewmodel.compose.viewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
     var tab by remember { mutableIntStateOf(0) }
-    val courses = (state as? ci.monprofperso.app.data.UiState.Success)?.data ?: ci.monprofperso.app.data.FallbackData.courses
-    val upcoming = courses.filter { it.status == "upcoming" }
-    val done = courses.firstOrNull { it.status == "done" }
+    val result = state as? ci.monprofperso.app.data.UiState.Success
+    val courses = result?.data.orEmpty().filter { if (tab == 0) it.status == "upcoming" else if (tab == 1) it.status == "done" else it.status in listOf("cancelled", "refused") }
     AkScreen(applyBottomInset = false) {
         Text("Mes cours", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 23.sp,
             color = AkColors.Ink, modifier = Modifier.padding(horizontal = 22.dp, vertical = 8.dp))
         Row(Modifier.padding(horizontal = 22.dp).padding(bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PillTab("À venir", tab == 0) { tab = 0 }; PillTab("Terminés", tab == 1) { tab = 1 }
+            PillTab("À venir", tab == 0) { tab = 0 }
+            PillTab("Terminés", tab == 1) { tab = 1 }
+            PillTab("Annulés", tab == 2) { tab = 2 }
+            PillTab("Actualiser", false) { vm.load() }
         }
         Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 22.dp).padding(top = 16.dp)) {
-            upcoming.getOrNull(0)?.let { c ->
-                // upcoming highlighted (1er cours)
-                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(AkColors.White)
-                    .border(1.5.dp, AkColors.Green, RoundedCornerShape(20.dp)).padding(16.dp)) {
-                    Row(Modifier.fillMaxWidth()) {
-                        DateTile(c.dayLabel, c.dayNum, true)
-                        Spacer(Modifier.width(13.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text("${c.subject} · ${c.level}", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = AkColors.Ink)
-                            Text("avec ${c.teacherName}", fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted, modifier = Modifier.padding(top = 2.dp))
-                        }
-                        if (c.badge != null) Tag(c.badge, AkColors.Orange, AkColors.OrangeSoft)
-                    }
-                    CourseMeta(c)
-                    Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                        Box(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(AkColors.Green).clickable { nav.go(Routes.ManageCourse) }.padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
-                            Text("Détails du cours", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, color = AkColors.White)
-                        }
-                        Box(Modifier.size(46.dp).clip(RoundedCornerShape(12.dp)).background(AkColors.White).border(1.dp, AkColors.Border, RoundedCornerShape(12.dp)).clickable { nav.go(Routes.Messaging) }, contentAlignment = Alignment.Center) {
-                            Icon(Icons.AutoMirrored.Filled.Chat, null, tint = AkColors.Green, modifier = Modifier.size(19.dp))
-                        }
-                    }
+            when (val current = state) {
+                ci.monprofperso.app.data.UiState.Loading -> LoadingRow()
+                is ci.monprofperso.app.data.UiState.Error -> {
+                    Text(current.message, color = AkColors.Orange)
+                    OfflineBanner(onRetry = { vm.load() })
+                }
+                is ci.monprofperso.app.data.UiState.Success -> {
+                    if (!current.fromApi) Text("Données de démonstration", color = AkColors.Orange)
+                    if (courses.isEmpty()) Text("Aucun cours dans cette rubrique.", fontFamily = Hanken, color = AkColors.Muted)
                 }
             }
-            upcoming.getOrNull(1)?.let { c ->
-                Spacer(Modifier.height(13.dp))
-                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(AkColors.White).border(1.dp, AkColors.Border, RoundedCornerShape(20.dp)).clickable { nav.go(Routes.OnlineCourse) }.padding(16.dp)) {
+            courses.forEach { course ->
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(AkColors.White)
+                    .border(1.dp, AkColors.Border, RoundedCornerShape(18.dp)).padding(16.dp)) {
                     Row {
-                        DateTile(c.dayLabel, c.dayNum, false)
+                        DateTile(course.dayLabel, course.dayNum, course.accepted)
                         Spacer(Modifier.width(13.dp))
                         Column(Modifier.weight(1f)) {
-                            Text("${c.subject} · ${c.level}", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = AkColors.Ink)
-                            Text("avec ${c.teacherName}", fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted, modifier = Modifier.padding(top = 2.dp))
+                            Text("${course.subject} · ${course.level}", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = AkColors.Ink)
+                            Text(if (course.isTeacherParticipant(ci.monprofperso.app.data.AppState.authRole)) "Parent : ${course.parentName.orEmpty()}" else "avec ${course.teacherName}", fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted)
                         }
                     }
-                    CourseMeta(c)
+                    CourseMeta(course)
+                    Text("%,d F".format(course.price).replace(',', ' '), fontFamily = Hanken, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 10.dp), color = AkColors.Ink)
+                    val statusLabel = courseStateLabel(course.lifecycleStatus)
+                    Text(statusLabel, fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Muted, modifier = Modifier.padding(top = 6.dp))
+                    Spacer(Modifier.height(12.dp))
+                    PrimaryButton("Détails et suivi", Modifier.fillMaxWidth(), onClick = {
+                        ci.monprofperso.app.data.AppState.selectedCourseId = course.id
+                        nav.go(Routes.ManageCourse)
+                    })
+                    if (course.isPayable() && result?.fromApi == true && !course.isTeacherParticipant(ci.monprofperso.app.data.AppState.authRole)) {
+                        Spacer(Modifier.height(12.dp))
+                        PrimaryButton("Payer ce cours", Modifier.fillMaxWidth(), onClick = {
+                            ci.monprofperso.app.data.AppState.resumePayment(course)
+                            nav.go(Routes.Payment)
+                        })
+                    }
                 }
+                Spacer(Modifier.height(13.dp))
             }
-            Spacer(Modifier.height(20.dp))
-            Text("Terminé récemment", fontFamily = Schibsted, fontWeight = FontWeight.Bold, fontSize = 14.5.sp, color = AkColors.Ink)
-            Spacer(Modifier.height(11.dp))
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(AkColors.White).border(1.dp, AkColors.Border, RoundedCornerShape(18.dp)).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(44.dp).clip(RoundedCornerShape(13.dp)).background(AkColors.CardField), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Filled.CheckCircle, null, tint = AkColors.Faint, modifier = Modifier.size(22.dp))
-                }
-                Spacer(Modifier.width(13.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("${done?.subject ?: "Maths"} · 14 juin", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AkColors.Ink)
-                    Text("avec ${done?.teacherName ?: "Koffi N'Guessan"}", fontFamily = Hanken, fontSize = 12.sp, color = AkColors.Muted)
-                }
-                Text("Noter", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = AkColors.Orange,
-                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).border(1.dp, Color(0xFFF3C9A8), RoundedCornerShape(10.dp)).clickable { nav.go(Routes.Review) }.padding(horizontal = 12.dp, vertical = 7.dp))
-            }
-            Spacer(Modifier.height(16.dp))
         }
-        BottomNav(NavTab.Cours, nav::selectTab)
+        if (ci.monprofperso.app.data.AppState.authRole == "teacher") TeacherBottomNav(TeacherTab.Agenda, nav::selectTeacherTab)
+        else BottomNav(NavTab.Cours, nav::selectTab)
     }
 }
 

@@ -1,3 +1,4 @@
+import { useCapabilities } from "@/lib/capabilities";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AppShell, OfflineBanner, Empty, ContentCard, PageStack, PageGrid, SectionHeading } from "@/components/layout";
@@ -11,11 +12,14 @@ import { api, apiBase, tokenStore } from "@/lib/api";
 import { fallback } from "@/lib/fallback";
 import { fcfa, needStatusLabel } from "@/lib/utils";
 import { useLive } from "@/hooks/useLive";
+import { needFields } from "@/lib/flows";
+import { fileToBase64 } from "@/lib/uploads";
 
 type Child = { id: number; name: string; level?: string; school?: string };
 type Need = {
   id: number;
   reference?: string;
+  courseId?: number | null;
   subject: string;
   level: string;
   format?: string;
@@ -27,21 +31,12 @@ type Need = {
   recommendedNote?: string | null;
 };
 
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result).split(",").pop() || "");
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
 async function openOwnDocument(needId: number, fileName: string) {
   const t = tokenStore.get();
   const res = await fetch(`${apiBase()}/api/needs/${needId}/document`, {
     headers: t ? { Authorization: `Bearer ${t}` } : {},
   });
-  if (!res.ok) return;
+  if (!res.ok) throw new Error("Téléchargement du document impossible.");
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
   const w = window.open(url, "_blank", "noopener");
@@ -57,6 +52,7 @@ async function openOwnDocument(needId: number, fileName: string) {
 export function ChildrenPage() {
   const { data, offline, reload } = useLive<Child[]>("/api/children", fallback.children as Child[]);
   const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
 
   return (
     <AppShell title="Mes enfants" back="/compte" active="compte">
@@ -69,7 +65,10 @@ export function ChildrenPage() {
             onSubmit={async (e) => {
               e.preventDefault();
               setErr("");
-              const fd = new FormData(e.currentTarget);
+              if (busy) return;
+              const form = e.currentTarget;
+              const fd = new FormData(form);
+              setBusy(true);
               try {
                 await api("/api/children", {
                   method: "POST",
@@ -77,14 +76,15 @@ export function ChildrenPage() {
                     name: fd.get("name"),
                     level: fd.get("level"),
                     school: fd.get("school"),
-                    gender: "garcon",
                     program: "standard",
                   },
                 });
-                e.currentTarget.reset();
+                form.reset();
                 void reload();
               } catch (ex) {
                 setErr(ex instanceof Error ? ex.message : "Erreur");
+              } finally {
+                setBusy(false);
               }
             }}
           >
@@ -94,14 +94,14 @@ export function ChildrenPage() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-welcome">Niveau</Label>
-              <Input name="level" placeholder="3ème" />
+              <Input name="level" placeholder="3ème" required maxLength={40} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-welcome">Établissement</Label>
               <Input name="school" />
             </div>
             {err ? <p className="text-sm text-destructive">{err}</p> : null}
-            <Button type="submit" className="w-full">
+            <Button type="submit" className="w-full" disabled={busy || offline}>
               Ajouter
             </Button>
           </form>
@@ -125,9 +125,12 @@ export function ChildrenPage() {
 }
 
 export function ExpressNeedPage() {
+  const { capabilities } = useCapabilities();
+  const [format, setFormat] = useState("home");
   const navigate = useNavigate();
   const [children, setChildren] = useState<Child[]>([]);
   const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     api<Child[]>("/api/children")
@@ -145,19 +148,17 @@ export function ExpressNeedPage() {
             onSubmit={async (e) => {
               e.preventDefault();
               setErr("");
-              const fd = new FormData(e.currentTarget);
+              if (busy) return;
+              const form = e.currentTarget;
+              const fd = new FormData(form);
+              setBusy(true);
               const file = fd.get("document") as File | null;
               try {
                 const documentBase64 = file && file.size ? await fileToBase64(file) : undefined;
                 await api("/api/needs", {
                   method: "POST",
                   body: {
-                    childId: Number(fd.get("childId")),
-                    subject: fd.get("subject"),
-                    level: fd.get("level"),
-                    format: fd.get("format"),
-                    location: fd.get("location"),
-                    notes: fd.get("notes"),
+                    ...needFields(fd),
                     documentBase64,
                     documentFileName: file?.name,
                     documentMimeType: file?.type || undefined,
@@ -166,15 +167,17 @@ export function ExpressNeedPage() {
                 navigate("/mes-besoins");
               } catch (ex) {
                 setErr(ex instanceof Error ? ex.message : "Erreur");
+              } finally {
+                setBusy(false);
               }
             }}
           >
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5 sm:col-span-2">
                 <Label className="text-welcome">Enfant</Label>
-                <Select name="childId" required defaultValue="">
-                  <option value="" disabled>
-                    Choisir…
+                <Select name="childId" defaultValue="">
+                  <option value="">
+                    Pour moi / sans enfant associé
                   </option>
                   {children.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -189,22 +192,22 @@ export function ExpressNeedPage() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-welcome">Niveau</Label>
-                <Input name="level" />
+                <Input name="level" required maxLength={40} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-welcome">Format</Label>
-                <Select name="format" defaultValue="home">
+                <Select name="format" value={format} onChange={(e) => setFormat(e.target.value)}>
                   <option value="home">À domicile</option>
-                  <option value="online">En ligne</option>
+                  {capabilities.onlineCourses ? <option value="online">En ligne (lien externe)</option> : null}
                 </Select>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-welcome">Lieu</Label>
-                <Input name="location" placeholder="Cocody" />
+                <Input name="location" required={format === "home"} maxLength={200} placeholder="Commune / quartier" />
               </div>
               <div className="space-y-1.5 sm:col-span-2">
                 <Label className="text-welcome">Précisions</Label>
-                <Textarea name="notes" />
+                <Textarea name="description" maxLength={2000} />
               </div>
               <div className="space-y-1.5 sm:col-span-2">
                 <Label className="text-welcome">Document utile (bulletin, etc.) — optionnel</Label>
@@ -212,7 +215,7 @@ export function ExpressNeedPage() {
               </div>
             </div>
             {err ? <p className="text-sm text-destructive">{err}</p> : null}
-            <Button type="submit" className="mt-3 w-full">
+            <Button type="submit" className="mt-3 w-full" disabled={busy}>
               Envoyer
             </Button>
           </form>
@@ -223,6 +226,8 @@ export function ExpressNeedPage() {
 }
 
 export function MyNeedsPage() {
+  const [busy, setBusy] = useState<number | null>(null);
+  const [error, setError] = useState("");
   const { data, offline, reload } = useLive<Need[]>("/api/needs", []);
   const [msg, setMsg] = useState("");
 
@@ -235,6 +240,7 @@ export function MyNeedsPage() {
         </Button>
         {msg ? <p className="text-sm font-semibold text-primary">{msg}</p> : null}
       </div>
+      {error ? <p role="alert" className="mb-4 text-sm text-destructive">{error}</p> : null}
       {!data.length ? <Empty>Aucune demande n&apos;a été trouvée</Empty> : null}
       <PageGrid>
         {data.map((n) => (
@@ -258,26 +264,36 @@ export function MyNeedsPage() {
               </div>
             ) : null}
             {n.documentName ? (
-              <Button size="sm" variant="outline" onClick={() => void openOwnDocument(n.id, n.documentName!)}>
+              <Button size="sm" variant="outline" onClick={() => void openOwnDocument(n.id, n.documentName!).catch((e: Error) => setMsg(e.message))}>
                 Voir mon document
               </Button>
             ) : null}
+            {n.courseId ? <Button asChild size="sm" variant="outline"><Link to={`/cours/${n.courseId}`}>Ouvrir le cours et son planning</Link></Button> : null}
             {n.status === "priced" ? (
               <Button
                 size="sm"
+                disabled={busy !== null || offline}
                 onClick={async () => {
+                  if (busy !== null) return; setBusy(n.id); setError("");
                   try {
                     await api(`/api/needs/${n.id}/accept-price`, { method: "POST", body: {} });
                     setMsg("Tarif accepté");
                     void reload();
                   } catch (ex) {
-                    setMsg(ex instanceof Error ? ex.message : "Erreur");
-                  }
+                    setError(ex instanceof Error ? ex.message : "Erreur");
+                  } finally { setBusy(null); }
                 }}
               >
                 Accepter le tarif
               </Button>
             ) : null}
+            {["submitted", "priced", "published"].includes(n.status) ? <Button size="sm" variant="outline" disabled={busy !== null || offline} onClick={async () => {
+              if (busy !== null || !window.confirm("Annuler cette demande de cours ?")) return;
+              setBusy(n.id); setError("");
+              try { await api(`/api/needs/${n.id}/cancel`, { method: "POST", body: {} }); setMsg("Demande annulée"); await reload(); }
+              catch (ex) { setError(ex instanceof Error ? ex.message : "Annulation impossible"); }
+              finally { setBusy(null); }
+            }}>Annuler la demande</Button> : null}
           </ContentCard>
         ))}
       </PageGrid>

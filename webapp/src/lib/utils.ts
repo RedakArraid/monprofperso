@@ -10,12 +10,7 @@ export function fcfa(n: number | null | undefined) {
   return Number(n).toLocaleString("fr-FR");
 }
 
-export function normalizePhone(raw: string) {
-  let p = String(raw ?? "").trim().replace(/[\s.-]/g, "");
-  if (/^0\d{9}$/.test(p)) p = "+225" + p.slice(1);
-  else if (/^225\d{8,12}$/.test(p)) p = "+" + p;
-  return p;
-}
+export { normalizeCiPhone as normalizePhone } from "./flows";
 
 export function needStatusLabel(s: string) {
   return (

@@ -64,7 +64,7 @@ fun BottomNav(current: NavTab, onSelect: (NavTab) -> Unit = {}) {
             .padding(start = 28.dp, end = 28.dp, top = 12.dp, bottom = 14.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        NavTab.values().forEach { tab ->
+        NavTab.values().filter { it != NavTab.Progres || ci.monprofperso.app.data.AppState.featureEnabled("progress") }.forEach { tab ->
             val active = tab == current
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,

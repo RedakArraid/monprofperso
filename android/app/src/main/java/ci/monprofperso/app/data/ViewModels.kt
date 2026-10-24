@@ -1,5 +1,8 @@
 package ci.monprofperso.app.data
 
+import ci.monprofperso.app.BuildConfig
+import kotlinx.coroutines.CancellationException
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,7 +25,8 @@ class HomeViewModel : ViewModel() {
             _state.value = try {
                 UiState.Success(HomeData(Api.service.subjects(), Api.service.teachers()), true)
             } catch (e: Exception) {
-                UiState.Success(HomeData(FallbackData.subjects, FallbackData.teachers), false)
+                if (e is CancellationException) throw e
+                if (BuildConfig.DEBUG && BuildConfig.DEMO_DATA_ENABLED) UiState.Success(HomeData(FallbackData.subjects, FallbackData.teachers), false) else UiState.Error(Auth.errorMessage(e))
             }
         }
     }
@@ -41,7 +45,8 @@ class CoursesViewModel : ViewModel() {
             _state.value = try {
                 UiState.Success(Api.service.courses(), true)
             } catch (e: Exception) {
-                UiState.Success(FallbackData.courses, false)
+                if (e is CancellationException) throw e
+                if (BuildConfig.DEBUG && BuildConfig.DEMO_DATA_ENABLED) UiState.Success(FallbackData.courses, false) else UiState.Error(Auth.errorMessage(e))
             }
         }
     }
@@ -60,7 +65,8 @@ class GroupsViewModel : ViewModel() {
             _state.value = try {
                 UiState.Success(Api.service.groups(), true)
             } catch (e: Exception) {
-                UiState.Success(FallbackData.groups, false)
+                if (e is CancellationException) throw e
+                if (BuildConfig.DEBUG && BuildConfig.DEMO_DATA_ENABLED) UiState.Success(FallbackData.groups, false) else UiState.Error(Auth.errorMessage(e))
             }
         }
     }
@@ -79,7 +85,8 @@ class ProgressViewModel : ViewModel() {
             _state.value = try {
                 UiState.Success(Api.service.progress(), true)
             } catch (e: Exception) {
-                UiState.Success(FallbackData.progress, false)
+                if (e is CancellationException) throw e
+                if (BuildConfig.DEBUG && BuildConfig.DEMO_DATA_ENABLED) UiState.Success(FallbackData.progress, false) else UiState.Error(Auth.errorMessage(e))
             }
         }
     }
@@ -91,14 +98,14 @@ class ProgressViewModel : ViewModel() {
 class TeacherProfileViewModel : ViewModel() {
     private val _state = MutableStateFlow<UiState<TeacherDto>>(UiState.Loading)
     val state: StateFlow<UiState<TeacherDto>> = _state.asStateFlow()
-    init { load(1) }
     fun load(id: Int) {
         _state.value = UiState.Loading
         viewModelScope.launch {
             _state.value = try {
                 UiState.Success(Api.service.teacher(id), true)
             } catch (e: Exception) {
-                UiState.Success(FallbackData.teacherDetail, false)
+                if (e is CancellationException) throw e
+                if (BuildConfig.DEBUG && BuildConfig.DEMO_DATA_ENABLED) UiState.Success(FallbackData.teacherDetail, false) else UiState.Error(Auth.errorMessage(e))
             }
         }
     }

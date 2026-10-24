@@ -41,18 +41,26 @@ import ci.monprofperso.app.ui.theme.Schibsted
 fun TeacherDashboardScreen(nav: NavActions) {
     val scope = rememberCoroutineScope()
     var dash by remember { mutableStateOf<ci.monprofperso.app.data.TeacherDashboardDto?>(null) }
-    LaunchedEffect(Unit) {
+    var attempt by remember { mutableIntStateOf(0) }
+    var loaded by remember { mutableStateOf(false) }
+    LaunchedEffect(attempt) {
+        loaded = false
         dash = runCatching { Api.service.teacherDashboard() }.getOrNull()
+        loaded = true
     }
-    val name = dash?.name ?: "Koffi N'Guessan"
-    val revenueLabel = dash?.let { "%,d F".format(it.revenue).replace(',', ' ') } ?: "184 000 F"
-    val trend = dash?.trend ?: "+12%"
-    val stats = dash?.stats ?: listOf(
-        ci.monprofperso.app.data.StatDto("14", "cours / semaine"),
-        ci.monprofperso.app.data.StatDto("4,9", "note moyenne"),
-        ci.monprofperso.app.data.StatDto("3", "nouveaux élèves"),
-    )
-    val pending = dash?.pendingRequests ?: 3
+    val dashboard = dash
+    if (dashboard == null) {
+        AkScreen {
+            TopBar("Espace professeur", onBack = { nav.back() })
+            if (!loaded) LoadingRow() else OfflineBanner(onRetry = { attempt++ })
+        }
+        return
+    }
+    val name = dashboard.name
+    val revenueLabel = "%,d F".format(dashboard.revenue).replace(',', ' ')
+    val trend = dashboard.trend
+    val stats = dashboard.stats
+    val pending = dashboard.pendingRequests
     val initials = name.split(" ").mapNotNull { it.firstOrNull() }.joinToString("").take(2).uppercase()
 
     AkScreen(applyBottomInset = false) {
@@ -88,7 +96,7 @@ fun TeacherDashboardScreen(nav: NavActions) {
             Spacer(Modifier.height(14.dp))
             val incomplete = dash?.profileCompletion?.let { !it.complete } == true
             val profilePct = dash?.profileCompletion?.percent
-            val needsConfirmed = dash?.needsConfirmed != false
+            val needsConfirmed = dash?.needsConfirmed == true
             if (incomplete && profilePct != null) {
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(AkColors.GreenSoft).clickable { nav.go(Routes.CompleteTeacherProfile) }.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
@@ -168,7 +176,7 @@ private val fallbackRequests = listOf(
 )
 
 private fun offerKey(r: ci.monprofperso.app.data.TeacherRequestDto) =
-    (r.needId ?: r.courseId)?.toString() ?: "${r.name}-${r.slot}"
+    r.needId?.let { "need:$it" } ?: r.courseId?.let { "course:$it" } ?: "${r.name}-${r.slot}"
 
 private fun isOnlineOffer(r: ci.monprofperso.app.data.TeacherRequestDto): Boolean {
     val f = (r.format ?: "") + (r.slot ?: "") + (r.name)
@@ -197,7 +205,8 @@ fun CourseRequestsScreen(nav: NavActions) {
 
     var requests by remember { mutableStateOf<List<ci.monprofperso.app.data.TeacherRequestDto>?>(null) }
     var live by remember { mutableStateOf(false) }
-    var needsConfirmed by remember { mutableStateOf(true) }
+    var needsConfirmed by remember { mutableStateOf(false) }
+    var acting by remember { mutableStateOf(false) }
     var filterWeek by remember { mutableStateOf(true) }
     var filterWeekend by remember { mutableStateOf(true) }
     var filterVacations by remember { mutableStateOf(true) }
@@ -224,15 +233,15 @@ fun CourseRequestsScreen(nav: NavActions) {
     suspend fun reload() {
         val fetched = runCatching { ci.monprofperso.app.data.Api.service.teacherRequests() }.getOrNull()
         live = fetched != null
-        requests = fetched ?: fallbackRequests
-        needsConfirmed = runCatching { Api.service.teacherDashboard() }.getOrNull()?.needsConfirmed != false
+        requests = fetched ?: emptyList()
+        needsConfirmed = runCatching { Api.service.teacherDashboard() }.getOrNull()?.needsConfirmed == true
     }
     LaunchedEffect(Unit) { reload() }
 
     val raw = requests ?: emptyList()
-    val opportunities = raw.filter { it.isOpportunity || it.needId != null }
-    val filtered = opportunities.filter { r ->
+    val filtered = raw.filter { r ->
         if (markOf(r) == "refused") return@filter false
+        if (!r.isOpportunity && r.needId == null) return@filter true
         val whenOk = (filterWeek && r.availabilityWeek) ||
             (filterWeekend && r.availabilityWeekend) ||
             (filterVacations && r.availabilityHolidays)
@@ -329,22 +338,28 @@ fun CourseRequestsScreen(nav: NavActions) {
                 distanceKm(r)?.let { DetailLine("Distance", "%.2f km".format(it).replace('.', ',')) }
                 Spacer(Modifier.height(14.dp))
                 Box(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(AkColors.Green).clickable {
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(AkColors.Green).clickable(enabled = !acting) {
                         val id = r.needId ?: r.courseId
-                        if (id != null) scope.launch {
-                            runCatching { Api.service.acceptRequest(id) }
-                                .onSuccess {
+                        if (id != null) {
+                            acting = true
+                            scope.launch {
+                                try {
+                                    val response = if (r.needId != null) Api.service.acceptOpportunity(r.needId) else Api.service.acceptRequest(id)
+                                    if (!response.isSuccessful) throw retrofit2.HttpException(response)
                                     setMark(r, null)
-                                    toast = "Offre acceptée"
+                                    toast = "Demande acceptée"
                                     consulting = null
                                     reload()
-                                }
-                                .onFailure { toast = it.message ?: "Erreur" }
+                                } catch (error: Exception) {
+                                    if (error is kotlinx.coroutines.CancellationException) throw error
+                                    toast = ci.monprofperso.app.data.Auth.errorMessage(error)
+                                } finally { acting = false }
+                            }
                         }
                     }.padding(vertical = 14.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("Accepter cette offre", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AkColors.White)
+                    Text(if (acting) "Validation…" else "Accepter cette demande", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AkColors.White)
                 }
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -357,13 +372,24 @@ fun CourseRequestsScreen(nav: NavActions) {
                 }
                 Spacer(Modifier.height(8.dp))
                 OutlineAction("Refuser / masquer", Modifier.fillMaxWidth()) {
-                    if (!r.isOpportunity) {
-                        val id = r.courseId
-                        if (id != null) scope.launch {
-                            runCatching { Api.service.refuseRequest(id) }.onSuccess { reload() }
+                    if (acting) return@OutlineAction
+                    if (r.needId == null && r.courseId != null) {
+                        acting = true
+                        scope.launch {
+                            try {
+                                val response = Api.service.refuseRequest(r.courseId)
+                                if (!response.isSuccessful) throw retrofit2.HttpException(response)
+                                toast = "Demande refusée"
+                                consulting = null
+                                reload()
+                            } catch (error: Exception) {
+                                if (error is kotlinx.coroutines.CancellationException) throw error
+                                toast = ci.monprofperso.app.data.Auth.errorMessage(error)
+                            } finally { acting = false }
                         }
+                    } else {
+                        setMark(r, "refused"); toast = "Offre masquée"; consulting = null
                     }
-                    setMark(r, "refused"); toast = "Offre masquée"; consulting = null
                 }
                 Spacer(Modifier.height(8.dp))
                 Text(
@@ -504,23 +530,26 @@ private fun DetailLine(label: String, value: String) {
 fun EarningsScreen(nav: NavActions) {
     var period by remember { mutableIntStateOf(1) }
     var data by remember { mutableStateOf<ci.monprofperso.app.data.TeacherEarningsDto?>(null) }
-    LaunchedEffect(Unit) { data = runCatching { Api.service.teacherEarnings() }.getOrNull() }
-
-    val totalLabel = data?.let { "%,d F".format(it.total).replace(',', ' ') } ?: "184 000 F"
-    val trend = data?.trend ?: "+12%"
-    val weeks = data?.weeks ?: listOf(
-        ci.monprofperso.app.data.EarningWeekDto("S1", 0.48), ci.monprofperso.app.data.EarningWeekDto("S2", 0.66),
-        ci.monprofperso.app.data.EarningWeekDto("S3", 0.58), ci.monprofperso.app.data.EarningWeekDto("S4", 0.88),
-    )
-    val stats = data?.stats ?: listOf(
-        ci.monprofperso.app.data.StatDto("38", "cours donnés"),
-        ci.monprofperso.app.data.StatDto("52 h", "enseignées"),
-        ci.monprofperso.app.data.StatDto("3 800", "F / h moyen"),
-    )
-    val payouts = data?.payouts ?: listOf(
-        ci.monprofperso.app.data.PayoutDto("Retrait Wave", "15 juin", 60000, "wave"),
-        ci.monprofperso.app.data.PayoutDto("Retrait Orange Money", "1 juin", 80000, "orange"),
-    )
+    var attempt by remember { mutableIntStateOf(0) }
+    var loaded by remember { mutableStateOf(false) }
+    LaunchedEffect(attempt) {
+        loaded = false
+        data = runCatching { Api.service.teacherEarnings() }.getOrNull()
+        loaded = true
+    }
+    val earnings = data
+    if (earnings == null) {
+        AkScreen {
+            TopBar("Revenus", onBack = { nav.back() })
+            if (!loaded) LoadingRow() else OfflineBanner(onRetry = { attempt++ })
+        }
+        return
+    }
+    val totalLabel = "%,d F".format(earnings.total).replace(',', ' ')
+    val trend = earnings.trend
+    val weeks = earnings.weeks
+    val stats = earnings.stats
+    val payouts = earnings.payouts
 
     AkScreen(applyBottomInset = false) {
         Text("Revenus", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 23.sp, color = AkColors.Ink, modifier = Modifier.padding(horizontal = 22.dp, vertical = 8.dp))
@@ -529,7 +558,7 @@ fun EarningsScreen(nav: NavActions) {
                 listOf("Semaine", "Mois", "Année").forEachIndexed { i, l -> PillTab(l, period == i) { period = i } }
             }
             Spacer(Modifier.height(16.dp))
-            Text("Total perçu en juin", fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted)
+            Text("Total renvoyé par la plateforme", fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted)
             Row(Modifier.padding(top = 3.dp), verticalAlignment = Alignment.Bottom) {
                 Text(totalLabel, fontFamily = Schibsted, fontWeight = FontWeight.Black, fontSize = 34.sp, color = AkColors.Ink)
                 Spacer(Modifier.width(9.dp))
