@@ -31,7 +31,7 @@ struct ExpressNeedScreen: View {
                     needField("Durée", text: $duration)
                     needField("Précisions", text: $description)
                     if let error { Text(error).font(AkFont.regular(12)).foregroundColor(Ak.orange) }
-                    AkButton(sending ? "Envoi…" : "Envoyer ma demande") {
+                    PrimaryButton(label: sending ? "Envoi…" : "Envoyer ma demande") {
                         Task { await submit() }
                     }.disabled(sending).padding(.top, 8)
                 }.padding(.horizontal, 22).padding(.bottom, 20)
@@ -56,7 +56,7 @@ struct ExpressNeedScreen: View {
             if !description.isEmpty { body["description"] = description }
             _ = try await ApiClient.shared.createNeed(body)
             router.go(.myNeeds)
-        } catch { error = error.localizedDescription }
+        } catch { self.error = error.localizedDescription }
     }
 }
 
@@ -85,7 +85,7 @@ struct MyNeedsScreen: View {
                                 Text("Tarif proposé : \(p.formattedFCFA) F / séance").font(AkFont.medium(13)).foregroundColor(Ak.ink)
                             }
                             if n.status == "priced" {
-                                AkButton("Accepter ce tarif") {
+                                PrimaryButton(label: "Accepter ce tarif") {
                                     guard !accepting else { return }
                                     accepting = true; error = nil
                                     Task { @MainActor in
@@ -97,7 +97,7 @@ struct MyNeedsScreen: View {
                             }
                         }.akCard()
                     }
-                    AkButton("Nouvelle demande") { router.go(.expressNeed) }
+                    PrimaryButton(label: "Nouvelle demande") { router.go(.expressNeed) }
                 }.padding(.horizontal, 22).padding(.bottom, 20)
             }
         }
@@ -121,7 +121,7 @@ struct MyChildrenScreen: View {
                 VStack(spacing: 10) {
                     ForEach(children ?? []) { c in
                         HStack {
-                            InitialsAvatar(c.name.prefix(2).uppercased(), size: 44)
+                            InitialsAvatar(initials: c.name.prefix(2).uppercased(), size: 44)
                             VStack(alignment: .leading) {
                                 Text(c.name).font(AkFont.bold(14)).foregroundColor(Ak.ink)
                                 Text(c.level).font(AkFont.regular(12)).foregroundColor(Ak.muted)
@@ -129,7 +129,7 @@ struct MyChildrenScreen: View {
                             Spacer()
                         }.akCard()
                     }
-                    AkButton("Exprimer un besoin") { router.go(.expressNeed) }
+                    PrimaryButton(label: "Exprimer un besoin") { router.go(.expressNeed) }
                 }.padding(.horizontal, 22)
             }
         }
