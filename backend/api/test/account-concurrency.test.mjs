@@ -54,10 +54,28 @@ after(async () => {
     if (pool) await pool.end();
   } finally {
     try {
-      if (databaseCreated) await maintenance.query(`DROP DATABASE "${databaseName}" WITH (FORCE)`);
+      if (databaseCreated) await dropDisconnectedDatabase();
     } finally { if (maintenance) await maintenance.end(); }
   }
 });
+
+async function dropDisconnectedDatabase() {
+  // pg-pool résout end() après avoir retiré ses clients du pool, avant que
+  // leurs connexions soient toutes fermées côté PostgreSQL. Un DROP FORCE
+  // dans cette fenêtre peut provoquer une erreur 57P01 tardive sur un client.
+  const deadline = Date.now() + 5000;
+  for (;;) {
+    const sessions = (await maintenance.query(
+      'SELECT pid,state FROM pg_stat_activity WHERE datname=$1', [databaseName])).rows;
+    if (!sessions.length) break;
+    assert.ok(Date.now() < deadline,
+      `Nettoyage refusé : connexions encore ouvertes dans ${databaseName} : ${JSON.stringify(sessions)}`);
+    await delay(25);
+  }
+  // Une connexion persistante est une vraie erreur de nettoyage, jamais tuée
+  // ni ignorée pour faire passer le test.
+  await maintenance.query(`DROP DATABASE "${databaseName}"`);
+}
 
 async function user(role = 'parent', teacherId = null) {
   const phone = `+998${String(randomInt(0, 1e12)).padStart(12, '0')}`;
