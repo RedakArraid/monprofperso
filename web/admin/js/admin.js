@@ -11,7 +11,7 @@ const API_BASE = window.MPP_API_BASE || ((location.hostname === "localhost" || l
 
 function normalizePhone(raw) {
   let p = String(raw ?? "").trim().replace(/[\s.-]/g, "");
-  if (/^0\d{9}$/.test(p)) p = "+225" + p.slice(1);
+  if (/^0\d{9}$/.test(p)) p = "+225" + p;
   else if (/^225\d{8,12}$/.test(p)) p = "+" + p;
   return p;
 }
@@ -132,48 +132,165 @@ function modal(title, innerHTML, onMount) {
 /* =====================================================================
  * Connexion
  * ===================================================================== */
+let loginChallenge = null;
+let loginExpiresAt = 0;
+let loginResendAt = 0;
+let loginBusy = false;
+let loginTimer;
+
+function resetLoginChallenge() {
+  loginChallenge = null;
+  clearInterval(loginTimer);
+  $("#otpFields").hidden = true;
+  $("#otpActions").hidden = true;
+  $("#loginChannelFields").hidden = false;
+  $("#phone").readOnly = false;
+  $("#loginOtp").disabled = true;
+  $("#loginOtp").required = false;
+  $("#loginOtp").value = "";
+  $("#loginBtn").textContent = "Se connecter";
+  $("#loginBtn").disabled = false;
+}
+
+function refreshOtpControls() {
+  if (!loginChallenge) return;
+  const now = Date.now();
+  const expired = now >= loginExpiresAt;
+  $("#otpExpiry").textContent = expired ? "Code expiré. Demandez un nouveau code." : `Code valable encore ${Math.ceil((loginExpiresAt - now) / 60000)} minute(s).`;
+  $("#resendOtpBtn").disabled = loginBusy || now < loginResendAt;
+  $("#resendOtpBtn").textContent = now < loginResendAt ? `Renvoyer dans ${Math.ceil((loginResendAt - now) / 1000)} s` : "Renvoyer le code";
+  $("#loginBtn").disabled = loginBusy || expired;
+}
+
+function receiveLoginResponse(r) {
+  if (r?.otpRequired === true && typeof r.challengeId === "string" && r.challengeId.length > 0
+      && ["whatsapp", "email"].includes(r.channel) && typeof r.destination === "string"
+      && Number.isFinite(r.expiresInMinutes) && r.expiresInMinutes > 0 && r.sent === true && r.demo === false) {
+    loginChallenge = r;
+    loginExpiresAt = Date.now() + Number(r.expiresInMinutes) * 60000;
+    loginResendAt = Date.now() + 60000;
+    $("#otpFields").hidden = false;
+    $("#otpActions").hidden = false;
+    $("#loginChannelFields").hidden = true;
+    $("#phone").readOnly = true;
+    $("#loginOtp").disabled = false;
+    $("#loginOtp").required = true;
+    $("#loginOtp").value = "";
+    $("#loginOtp").focus();
+    $("#otpDestination").textContent = `Code envoyé par ${r.channel === "email" ? "e-mail" : "WhatsApp"} à ${r.destination}.`;
+    $("#loginBtn").textContent = "Valider le code";
+    clearInterval(loginTimer);
+    loginTimer = setInterval(refreshOtpControls, 1000);
+    refreshOtpControls();
+    return;
+  }
+  if (!r?.token || r.user?.role !== "admin") throw new Error("Ce compte n'est pas administrateur.");
+  token.set(r.token);
+  resetLoginChallenge();
+  enterApp(r.user);
+}
+
+$("#loginChannel").addEventListener("change", () => {
+  const email = $("#loginChannel").value === "email";
+  $("#loginEmailField").hidden = !email;
+  $("#loginEmail").required = email;
+});
+$("#resetOtpBtn").addEventListener("click", () => {
+  if (loginBusy) return;
+  resetLoginChallenge();
+  $("#loginErr").hidden = true;
+});
+$("#resendOtpBtn").addEventListener("click", async () => {
+  if (!loginChallenge || loginBusy || Date.now() < loginResendAt) return;
+  loginBusy = true;
+  $("#loginErr").hidden = true;
+  refreshOtpControls();
+  try {
+    receiveLoginResponse(await api("/api/auth/request-otp", { method: "POST", body: { challengeId: loginChallenge.challengeId } }));
+  } catch (e) {
+    $("#loginErr").textContent = e.message || "Envoi impossible";
+    $("#loginErr").hidden = false;
+  } finally {
+    loginBusy = false;
+    refreshOtpControls();
+  }
+});
 $("#loginForm").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const phone = normalizePhone($("#phone").value);
+  if (loginBusy) return;
   const btn = $("#loginBtn");
   const err = $("#loginErr");
   err.hidden = true;
+  loginBusy = true;
   btn.disabled = true;
-  btn.textContent = "Connexion…";
   try {
-    if (!phone) throw new Error("Indiquez votre numéro administrateur.");
-    const r = await api("/api/auth/login", { method: "POST", body: { phone } });
-    if (!r || !r.token) throw new Error("Réponse invalide");
-    if (!r.user || r.user.role !== "admin") {
-      throw new Error("Ce compte n'est pas administrateur.");
+    if (loginChallenge) {
+      if (Date.now() >= loginExpiresAt) throw new Error("Ce code a expiré. Demandez un nouveau code.");
+      receiveLoginResponse(await api("/api/auth/verify-otp", {
+        method: "POST", body: { challengeId: loginChallenge.challengeId, code: $("#loginOtp").value.trim() },
+      }));
+    } else {
+      const phone = normalizePhone($("#phone").value);
+      if (!phone) throw new Error("Indiquez votre numéro administrateur.");
+      const channel = $("#loginChannel").value;
+      receiveLoginResponse(await api("/api/auth/login", {
+        method: "POST", body: { phone, channel, email: channel === "email" ? $("#loginEmail").value.trim() : undefined },
+      }));
     }
-    token.set(r.token);
-    enterApp(r.user);
   } catch (ex) {
     err.textContent = ex.message || "Connexion impossible";
     err.hidden = false;
   } finally {
-    btn.disabled = false;
-    btn.textContent = "Se connecter";
+    loginBusy = false;
+    if (loginChallenge) refreshOtpControls();
+    else btn.disabled = false;
   }
 });
 
 function logout() {
   token.clear();
+  localStorage.removeItem("mpp_user_jwt");
+  localStorage.removeItem("mpp_user_role");
+  sessionStorage.removeItem("mpp_payment_session");
+  resetLoginChallenge();
   $("#app").hidden = true;
   $("#login").hidden = false;
   $("#phone").value = "";
 }
 
-async function enterApp(user) {
+let adminUserId = null;
+let adminPhone = "";
+let currentAdminView = "dashboard";
+let returnAdminView = null;
+function reauthenticateAdmin() {
+  const destination = currentAdminView; const phone = adminPhone;
+  document.querySelectorAll(".modal-back").forEach((element) => element.remove());
+  logout(); returnAdminView = destination; $("#phone").value = phone;
+  $("#loginErr").textContent = "Une nouvelle vérification d’identité est nécessaire. Connectez-vous puis recommencez l’action."; $("#loginErr").hidden = false;
+}
+function enterApp(user) {
+  adminUserId = user?.id || null;
+  adminPhone = user?.phone || "";
+  api("/api/capabilities").then((capabilities) => { document.querySelectorAll("[data-capability]").forEach((element) => { element.hidden = capabilities[element.dataset.capability] !== true; }); }).catch(() => {});
   $("#login").hidden = true;
   $("#app").hidden = false;
   $("#who").textContent = user ? (user.full_name || "Administrateur") : "Administrateur";
-  navigate("dashboard");
+  const destination = returnAdminView || "dashboard"; returnAdminView = null; navigate(destination);
 }
 
 // --- Reprise de session : vérifie le token via /api/me. ---
 async function boot() {
+  try {
+    const channels = await api("/api/auth/otp-channels");
+    const select = $("#loginChannel");
+    select.querySelector('[value="whatsapp"]').disabled = !channels.whatsapp && !channels.demo;
+    select.querySelector('[value="email"]').disabled = !channels.email;
+    select.value = channels.defaultChannel === "email" && channels.email ? "email" : "whatsapp";
+    select.dispatchEvent(new Event("change"));
+  } catch (_) {
+    $("#loginErr").textContent = "Les moyens de vérification sont indisponibles. Réessayez dans un instant.";
+    $("#loginErr").hidden = false;
+  }
   if (!token.get()) return;
   try {
     const me = await api("/api/me");
@@ -187,14 +304,19 @@ async function boot() {
  * ===================================================================== */
 const VIEWS = {
   dashboard: { title: "Tableau de bord", render: renderDashboard },
+  courses: { title: "Suivi des cours", render: renderCourseOperations },
+  finance: { title: "Paiements et reversements", render: renderFinanceOperations },
+  deletions: { title: "Suppressions de comptes", render: renderAccountDeletions },
+  readiness: { title: "Mise en service", render: renderProductionReadiness },
   applications: { title: "Candidatures profs", render: renderApplications },
+  needs: { title: "Besoins parents", render: renderNeeds },
   teachers: { title: "Professeurs", render: renderTeachers },
   groups: { title: "Cours de groupe", render: renderGroups },
   catalog: { title: "Matières & niveaux", render: renderCatalog },
   resources: { title: "Ressources pédagogiques", render: renderResources },
   legal: { title: "Documents légaux", render: renderLegal },
   social: { title: "Réseaux sociaux & contact", render: renderSocial },
-  otp: { title: "OTP & messagerie", render: renderOtp },
+  otp: { title: "Vérification OTP", render: renderOtp },
 };
 
 function setSidebarOpen(open) {
@@ -211,6 +333,7 @@ function setSidebarOpen(open) {
 }
 
 function navigate(view) {
+  currentAdminView = view;
   const v = VIEWS[view] || VIEWS.dashboard;
   $("#viewTitle").textContent = v.title;
   document.querySelectorAll(".menu-item").forEach((b) =>
@@ -228,6 +351,8 @@ $("#menu").addEventListener("click", (e) => {
   if (b) navigate(b.dataset.view);
 });
 $("#logoutBtn").addEventListener("click", logout);
+$("#reauthBtn").addEventListener("click", reauthenticateAdmin);
+$("#myAccountSettings").addEventListener("click", () => { localStorage.setItem("mpp_user_jwt", token.get() || ""); localStorage.setItem("mpp_user_role", "admin"); });
 $("#burger").addEventListener("click", () => {
   const sidebar = $("#sidebar");
   setSidebarOpen(!sidebar?.classList.contains("open"));
@@ -241,16 +366,16 @@ document.addEventListener("keydown", (e) => {
  * Vue : Tableau de bord
  * ===================================================================== */
 async function renderDashboard(root) {
-  const [subjects, levels, teachers, groups, resources, applications] = await Promise.all([
+  const [subjects, levels, teachers, resources, applications] = await Promise.all([
     api("/api/subjects"), api("/api/levels"), api("/api/teachers"),
-    api("/api/groups"), api("/api/resources"),
+    api("/api/resources"),
     api("/api/admin/teacher-applications?status=pending"),
   ]).then((rows) => rows.map(asList));
   const pendingApps = applications.length;
   const cards = [
     ["Candidatures en attente", pendingApps, "applications"],
+    ["Besoins à tarifer", (await api("/api/admin/needs?status=submitted")).length, "needs"],
     ["Professeurs", teachers.length, "teachers"],
-    ["Cours de groupe", groups.length, "groups"],
     ["Matières", subjects.length, "catalog"],
     ["Niveaux", levels.length, "catalog"],
     ["Ressources", resources.length, "resources"],
@@ -264,8 +389,8 @@ async function renderDashboard(root) {
     </div>
     <div class="card">
       <h3>Bienvenue 👋</h3>
-      <p class="card-sub">Gérez ici toute la plateforme : professeurs, cours de groupe,
-      catalogue, ressources pédagogiques, documents légaux (CGU…) et réseaux sociaux.</p>
+      <p class="card-sub">Gérez candidatures, besoins parents (tarification fixe), professeurs,
+      cours, paiements, reversements, suppressions de comptes, catalogue, ressources et paramètres plateforme.</p>
     </div>`;
   root.querySelectorAll("[data-go]").forEach((c) =>
     c.addEventListener("click", () => navigate(c.dataset.go)));
@@ -274,7 +399,14 @@ async function renderDashboard(root) {
 /* =====================================================================
  * Vue : Candidatures professeurs
  * ===================================================================== */
-const APP_STATUS_LABEL = { pending: "En attente", approved: "Acceptée", rejected: "Refusée" };
+const APP_STATUS_LABEL = {
+  pending: "En attente",
+  interview: "Entretien proposé",
+  test: "Test en cours",
+  training: "En formation",
+  approved: "Acceptée",
+  rejected: "Refusée",
+};
 
 async function renderApplications(root) {
   const filter = root.dataset.filter || "pending";
@@ -283,7 +415,7 @@ async function renderApplications(root) {
     <div class="section-head">
       <h3>Candidatures <span class="count">${apps.length}</span></h3>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        ${["pending", "approved", "rejected", "all"].map((s) =>
+        ${["pending", "interview", "test", "training", "approved", "rejected", "all"].map((s) =>
           `<button type="button" class="btn btn-sm ${filter === s ? "btn-primary" : "btn-ghost"}" data-filter="${s}">${s === "all" ? "Toutes" : APP_STATUS_LABEL[s]}</button>`
         ).join("")}
       </div>
@@ -297,15 +429,21 @@ async function renderApplications(root) {
     b.addEventListener("click", () => openApplication(Number(b.dataset.open))));
 }
 
+function applicationPill(status) {
+  if (status === "approved") return "green";
+  if (status === "rejected") return "";
+  return "orange"; // pending, interview, test, training : en cours
+}
+
 function applicationRow(a) {
   const st = APP_STATUS_LABEL[a.status] || a.status;
-  const pill = a.status === "pending" ? "orange" : a.status === "approved" ? "green" : "";
+  const pill = applicationPill(a.status);
+  const levels = (a.levels || []).join(", ") || "—";
   return `<div class="row">
-    <span class="dot ${a.status === "pending" ? "orange" : a.status === "approved" ? "green" : ""}"></span>
+    <span class="dot ${pill}"></span>
     <div class="row-main">
       <div class="row-title">${esc(a.full_name)} <span class="pill ${pill}">${esc(st)}</span></div>
-      <div class="row-meta">${esc(a.phone)} · ${esc(a.subjects)} · ${esc(a.location || "Abidjan")}
-        ${a.price_per_hour ? " · " + fcfa(a.price_per_hour) + " F/h" : ""}</div>
+      <div class="row-meta">${esc(a.phone)} · ${esc(a.subjects)} · ${esc(levels)}</div>
     </div>
     <div class="row-actions">
       <button type="button" class="btn btn-ghost btn-sm" data-open="${a.id}">Voir</button>
@@ -320,28 +458,52 @@ async function openApplication(id) {
     ["diploma", "Diplôme / attestation", a.hasDiploma],
     ["photo", "Photo de profil", a.hasPhoto],
   ];
+  const hasAnyDoc = docs.some(([, , ok]) => ok);
   modal(`Candidature · ${a.full_name}`, `
     <p class="muted" style="margin-bottom:12px">${esc(a.phone)}${a.email ? " · " + esc(a.email) : ""}</p>
     <p><strong>Matières :</strong> ${esc(a.subjects)}</p>
-    <p><strong>Lieu :</strong> ${esc(a.location)} · <strong>Prix :</strong> ${a.price_per_hour ? fcfa(a.price_per_hour) + " F/h" : "—"}</p>
     <p><strong>Niveaux :</strong> ${esc((a.levels || []).join(", ") || "—")}</p>
-    <p><strong>Formats :</strong> ${esc((a.formats || []).join(", ") || "—")}</p>
-    ${a.bio ? `<p><strong>Bio :</strong> ${esc(a.bio)}</p>` : ""}
-    ${a.experience ? `<p><strong>Expérience :</strong> ${esc(a.experience)}</p>` : ""}
     ${a.rejection_reason ? `<p style="color:var(--orange)"><strong>Motif refus :</strong> ${esc(a.rejection_reason)}</p>` : ""}
     <hr class="divider">
-    <p><strong>Documents</strong></p>
+    <p class="muted" style="font-size:13px">Les documents et le profil détaillé sont complétés par le professeur dans son espace après validation.</p>
+    ${hasAnyDoc ? `
+    <p style="margin-top:10px"><strong>Documents joints (optionnel à l'inscription)</strong></p>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 16px">
       ${docs.map(([k, lbl, ok]) => ok
         ? `<button type="button" class="btn btn-ghost btn-sm" data-dl="${a.id}" data-kind="${k}">${esc(lbl)}</button>`
-        : `<span class="muted">${esc(lbl)} (manquant)</span>`).join("")}
-    </div>
+        : `<span class="muted">${esc(lbl)} (non fourni)</span>`).join("")}
+    </div>` : ""}
+    ${a.interview_at || a.interview_notes ? `<p><strong>Entretien :</strong> ${a.interview_at ? esc(new Date(a.interview_at).toLocaleString("fr-FR")) : "date à fixer"}${a.interview_notes ? " · " + esc(a.interview_notes) : ""}</p>` : ""}
+    ${a.test_result ? `<p><strong>Test :</strong> ${a.test_result === "passed" ? "Réussi" : "Échoué"}${a.test_notes ? " · " + esc(a.test_notes) : ""}</p>` : ""}
     ${a.status === "pending" ? `
-      <div class="field full"><label>Motif de refus (si refus)</label><textarea id="rejReason" placeholder="Ex. diplôme illisible…"></textarea></div>
-      <div class="form-actions">
-        <button type="button" class="btn btn-primary" id="approveApp">Accepter et créer le prof</button>
-        <button type="button" class="btn btn-danger" id="rejectApp">Refuser</button>
-      </div>` : `<p class="muted">Candidature déjà traitée.</p>`}
+      <div class="field full"><label>Date d'entretien (optionnel)</label><input id="apInterviewAt" type="datetime-local"></div>
+      <div class="field full"><label>Notes entretien</label><textarea id="apInterviewNotes" placeholder="Créneau proposé, contact…"></textarea></div>
+      <div class="form-actions"><button type="button" class="btn btn-primary" id="proposeInterview">Proposer un entretien</button></div>
+    ` : ""}
+    ${a.status === "interview" ? `
+      <div class="form-actions"><button type="button" class="btn btn-primary" id="startTest">Démarrer le test / mise en situation</button></div>
+    ` : ""}
+    ${a.status === "test" ? `
+      <div class="field field-check">
+        <label class="check-row" for="testPassed"><input type="checkbox" id="testPassed" checked><span>Test réussi</span></label>
+      </div>
+      <div class="field full"><label>Notes (résultat, feedback)</label><textarea id="apTestNotes" placeholder="Ex. bonne pédagogie, à l'aise avec les élèves…"></textarea></div>
+      <div class="form-actions"><button type="button" class="btn btn-primary" id="saveTestResult">Enregistrer le résultat</button></div>
+    ` : ""}
+    ${a.status === "training" ? `
+      <div class="field field-check">
+        <label class="check-row" for="confirmNeeds">
+          <input type="checkbox" id="confirmNeeds">
+          <span>Confirmer l'accès aux offres (formation terminée)</span>
+        </label>
+        <p class="field-hint">Par défaut, le prof ne voit pas les besoins parents tant que vous ne l'avez pas confirmé.</p>
+      </div>
+      <div class="form-actions"><button type="button" class="btn btn-primary" id="approveApp">Accepter et créer le prof</button></div>
+    ` : ""}
+    ${["pending", "interview", "test", "training"].includes(a.status) ? `
+      <div class="field full"><label>Motif de refus (si refus)</label><textarea id="rejReason" placeholder="Ex. informations incohérentes…"></textarea></div>
+      <div class="form-actions"><button type="button" class="btn btn-danger" id="rejectApp">Refuser</button></div>
+    ` : `<p class="muted">Candidature déjà traitée.</p>`}
   `, (back, close) => {
     back.querySelectorAll("[data-dl]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -350,13 +512,54 @@ async function openApplication(id) {
         openAuthFile(`/api/admin/teacher-applications/${appId}/files/${kind}`, `${kind}.pdf`);
       });
     });
+    const proposeInterview = back.querySelector("#proposeInterview");
+    const startTest = back.querySelector("#startTest");
+    const saveTestResult = back.querySelector("#saveTestResult");
     const approve = back.querySelector("#approveApp");
     const reject = back.querySelector("#rejectApp");
+    proposeInterview?.addEventListener("click", async () => {
+      proposeInterview.disabled = true;
+      try {
+        const interviewAt = back.querySelector("#apInterviewAt")?.value || undefined;
+        const notes = back.querySelector("#apInterviewNotes")?.value?.trim() || undefined;
+        await api("/api/admin/teacher-applications/" + id + "/interview", {
+          method: "POST",
+          body: { interviewAt, notes },
+        });
+        toast("Entretien proposé");
+        close(); navigate("applications");
+      } catch (e) { toast(e.message, true); proposeInterview.disabled = false; }
+    });
+    startTest?.addEventListener("click", async () => {
+      startTest.disabled = true;
+      try {
+        await api("/api/admin/teacher-applications/" + id + "/start-test", { method: "POST", body: {} });
+        toast("Test démarré");
+        close(); navigate("applications");
+      } catch (e) { toast(e.message, true); startTest.disabled = false; }
+    });
+    saveTestResult?.addEventListener("click", async () => {
+      saveTestResult.disabled = true;
+      try {
+        const passed = back.querySelector("#testPassed")?.checked === true;
+        const notes = back.querySelector("#apTestNotes")?.value?.trim() || undefined;
+        await api("/api/admin/teacher-applications/" + id + "/test-result", {
+          method: "POST",
+          body: { passed, notes },
+        });
+        toast(passed ? "Test réussi — en formation" : "Test échoué — candidature refusée");
+        close(); navigate("applications");
+      } catch (e) { toast(e.message, true); saveTestResult.disabled = false; }
+    });
     approve?.addEventListener("click", async () => {
       approve.disabled = true;
       try {
-        await api("/api/admin/teacher-applications/" + id + "/approve", { method: "POST", body: {} });
-        toast("Professeur créé et candidature acceptée");
+        const confirmNeeds = back.querySelector("#confirmNeeds")?.checked === true;
+        await api("/api/admin/teacher-applications/" + id + "/approve", {
+          method: "POST",
+          body: { confirmNeeds },
+        });
+        toast(confirmNeeds ? "Professeur créé — accès aux offres activé" : "Professeur créé — en attente de tests");
         close(); navigate("applications");
       } catch (e) { toast(e.message, true); approve.disabled = false; }
     });
@@ -374,41 +577,203 @@ async function openApplication(id) {
 }
 
 /* =====================================================================
+ * Vue : Besoins parents (tarification fixe, sans négociation)
+ * ===================================================================== */
+const NEED_STATUS_LABEL = {
+  submitted: "En attente de tarif",
+  priced: "Tarif proposé (parent)",
+  published: "Publié aux profs",
+  matched: "Prof trouvé",
+  cancelled: "Annulé",
+};
+
+async function renderNeeds(root) {
+  const status = root.dataset.filter || "submitted";
+  const needs = asList(await api("/api/admin/needs" + (status ? "?status=" + encodeURIComponent(status) : "")));
+  root.innerHTML = `
+    <div class="card">
+      <h3>Besoins parents</h3>
+      <p class="card-sub">Les parents décrivent le besoin ; vous fixez le tarif parent.
+      Le prof voit uniquement le <strong>gain net</strong> (après commission).</p>
+      <div class="chip-row" style="margin-bottom:14px">
+        ${["submitted", "priced", "published", "matched", ""].map((s) => `
+          <button type="button" class="btn btn-ghost btn-sm${status === s ? " active" : ""}" data-filter="${s}">
+            ${s ? esc(NEED_STATUS_LABEL[s] || s) : "Tous"}
+          </button>`).join("")}
+      </div>
+      <div class="list">
+        ${needs.length ? needs.map(needRow).join("") : `<p class="muted">Aucun besoin.</p>`}
+      </div>
+    </div>`;
+  root.dataset.filter = status;
+  root.querySelectorAll("[data-filter]").forEach((b) => {
+    b.addEventListener("click", () => { root.dataset.filter = b.dataset.filter; renderNeeds(root); });
+  });
+  root.querySelectorAll("[data-price]").forEach((btn) => {
+    btn.addEventListener("click", () => openNeedPrice(btn.dataset.price));
+  });
+  root.querySelectorAll("[data-need]").forEach((btn) => {
+    btn.addEventListener("click", () => openNeedDetail(needs.find((n) => String(n.id) === btn.dataset.need)));
+  });
+}
+
+function needRow(n) {
+  const child = n.childName ? esc(n.childName) + " · " + esc(n.level) : esc(n.level);
+  const net = n.netTeacherAmount != null ? fcfa(n.netTeacherAmount) + " F nets / séance" : "—";
+  const parentP = n.parentPrice != null ? fcfa(n.parentPrice) + " F parent" : "—";
+  return `<div class="row">
+    <div class="row-main">
+      <div class="row-title">${esc(n.subject)} · ${child}</div>
+      <div class="row-meta">${esc(NEED_STATUS_LABEL[n.status] || n.status)} · ${esc(n.reference || "")}
+        · ${esc(n.location || (n.format === "online" ? "En ligne" : "À domicile"))}</div>
+      <div class="row-meta">${parentP}${n.netTeacherAmount != null ? " → prof " + net : ""}</div>
+      ${n.description ? `<div class="row-meta">${esc(n.description)}</div>` : ""}
+      ${n.recommendedTeacherName ? `<div class="row-meta">Recommandé : ${esc(n.recommendedTeacherName)}</div>` : ""}
+      ${n.documentName ? `<div class="row-meta">📎 ${esc(n.documentName)}</div>` : ""}
+    </div>
+    <div class="row-actions">
+      ${n.status === "submitted" ? `<button type="button" class="btn btn-primary btn-sm" data-price="${n.id}">Proposer un tarif</button>` : `<button type="button" class="btn btn-ghost btn-sm" data-need="${n.id}">Détail</button>`}
+    </div>
+  </div>`;
+}
+
+function openNeedPrice(id) {
+  modal("Proposer un tarif", `
+    <p class="muted">Le parent paiera ce montant par séance. Le prof verra uniquement le gain net (commission déduite).</p>
+    <div class="form-grid">
+      <div class="field"><label>Tarif parent (F / séance) *</label><input id="np_price" type="number" min="1000" step="500" placeholder="10000"></div>
+      <div class="field"><label>Fréquence</label><input id="np_freq" placeholder="1 fois/sem"></div>
+      <div class="field"><label>Début souhaité</label><input id="np_start" type="date"></div>
+      <div class="field full"><label>Professeur recommandé (optionnel)</label><select id="np_teacher"><option value="">— Aucun —</option></select></div>
+      <div class="field full"><label>Note sur la recommandation</label><input id="np_note" placeholder="Ex. très bon retour BEPC"></div>
+    </div>
+    <p class="muted" id="np_preview" style="margin-top:8px;font-size:13px">Gain prof estimé : —</p>
+    <div class="form-actions"><button type="button" class="btn btn-primary" id="np_save">Envoyer au parent</button></div>
+  `, async (back, close) => {
+    let commissionPct = 15;
+    try {
+      const settings = await api("/api/settings");
+      const v = parseFloat(settings.commission_pct);
+      if (Number.isFinite(v)) commissionPct = v;
+    } catch (_) { /* défaut 15 % */ }
+
+    try {
+      const teachers = asList(await api("/api/teachers"));
+      const select = back.querySelector("#np_teacher");
+      teachers.forEach((t) => {
+        const opt = document.createElement("option");
+        opt.value = t.id; opt.textContent = t.name + " · " + t.subjects;
+        select.appendChild(opt);
+      });
+    } catch (_) { /* liste indisponible, champ laissé vide */ }
+
+    const priceInput = back.querySelector("#np_price");
+    const preview = back.querySelector("#np_preview");
+    const updatePreview = () => {
+      const p = Number(priceInput?.value);
+      if (!p || p < 1000) {
+        preview.textContent = `Gain prof estimé (commission ${commissionPct} %) : —`;
+        return;
+      }
+      const net = Math.round(p * (1 - commissionPct / 100));
+      preview.textContent = `Gain prof estimé (commission ${commissionPct} %) : ${fcfa(net)} F nets / séance`;
+    };
+    priceInput?.addEventListener("input", updatePreview);
+    updatePreview();
+
+    back.querySelector("#np_save").addEventListener("click", async () => {
+      const parentPrice = Number(back.querySelector("#np_price").value);
+      if (!parentPrice || parentPrice < 1000) { toast("Tarif invalide", true); return; }
+      try {
+        await api("/api/admin/needs/" + id + "/price", {
+          method: "PUT",
+          body: {
+            parentPrice,
+            frequency: back.querySelector("#np_freq").value.trim() || undefined,
+            startDate: back.querySelector("#np_start").value || undefined,
+            recommendedTeacherId: Number(back.querySelector("#np_teacher").value) || undefined,
+            recommendedNote: back.querySelector("#np_note").value.trim() || undefined,
+          },
+        });
+        toast("Tarif proposé au parent");
+        close(); navigate("needs");
+      } catch (e) { toast(e.message, true); }
+    });
+  });
+}
+
+function openNeedDetail(n) {
+  if (!n) return;
+  const child = n.childName ? `${n.childName} · ${n.level}` : n.level;
+  modal(`Besoin ${esc(n.reference || n.id)}`, `
+    <p><strong>Statut :</strong> ${esc(NEED_STATUS_LABEL[n.status] || n.status)}</p>
+    <p><strong>Parent :</strong> ${esc(n.parentName || "—")}${n.parentPhone ? " · " + esc(n.parentPhone) : ""}</p>
+    <p><strong>Élève :</strong> ${esc(child || "—")}</p>
+    <p><strong>Matière :</strong> ${esc(n.subject)} · <strong>Format :</strong> ${esc(n.format === "online" ? "En ligne" : "À domicile")}</p>
+    <p><strong>Lieu :</strong> ${esc(n.location || "—")}</p>
+    <p><strong>Fréquence :</strong> ${esc(n.frequency || "—")} · <strong>Durée :</strong> ${esc(n.duration || "—")}</p>
+    ${n.description ? `<p><strong>Description :</strong> ${esc(n.description)}</p>` : ""}
+    ${n.parentPrice != null ? `<p><strong>Tarif parent :</strong> ${fcfa(n.parentPrice)} F / séance</p>` : ""}
+    ${n.netTeacherAmount != null ? `<p><strong>Gain prof (net) :</strong> ${fcfa(n.netTeacherAmount)} F / séance${n.netTeacherHourly != null ? " · " + fcfa(n.netTeacherHourly) + " F/h" : ""}</p>` : ""}
+    ${n.startDate ? `<p><strong>Début :</strong> ${esc(n.startDate)}</p>` : ""}
+    ${n.recommendedTeacherName ? `<p><strong>Prof recommandé :</strong> ${esc(n.recommendedTeacherName)}${n.recommendedNote ? " · " + esc(n.recommendedNote) : ""}</p>` : ""}
+    ${n.documentName ? `<div class="form-actions" style="margin-top:0"><button type="button" class="btn btn-ghost btn-sm" id="needDoc">📎 ${esc(n.documentName)}</button></div>` : ""}
+    <div class="form-actions"><button type="button" class="btn btn-ghost" id="needClose">Fermer</button></div>
+  `, (back, close) => {
+    back.querySelector("#needDoc")?.addEventListener("click", () => {
+      openAuthFile(`/api/admin/needs/${n.id}/document`, n.documentName || "document");
+    });
+    back.querySelector("#needClose")?.addEventListener("click", close);
+  });
+}
+
+/* =====================================================================
  * Vue : Professeurs
  * ===================================================================== */
-async function renderTeachers(root) {
-  const teachers = asList(await api("/api/teachers"));
+async function renderTeachers(root, includeArchived = false) {
+  const teachers = asList(await api(`/api/admin/teachers${includeArchived ? "?includeArchived=true" : ""}`));
   root.innerHTML = `
     <div class="section-head">
       <h3>Professeurs <span class="count">${teachers.length}</span></h3>
-      <button class="btn btn-primary btn-sm" id="addT">+ Ajouter un professeur</button>
+      <button class="btn btn-primary btn-sm" id="addT">Examiner les candidatures</button>
     </div>
+    <label class="check-row"><input id="includeArchivedTeachers" type="checkbox"${includeArchived ? " checked" : ""} /> Inclure les profils retirés du catalogue</label>
     <div class="list" id="tList">
       ${teachers.length ? "" : `<p class="empty">Aucun professeur pour l'instant.</p>`}
       ${teachers.map(teacherRow).join("")}
     </div>`;
-  $("#addT").addEventListener("click", () => teacherForm());
+  $("#addT").addEventListener("click", () => navigate("applications"));
+  $("#includeArchivedTeachers").addEventListener("change", (event) => renderTeachers(root, event.target.checked).catch((error) => toast(error.message, true)));
   root.querySelectorAll("[data-edit]").forEach((b) =>
     b.addEventListener("click", () => teacherForm(teachers.find((t) => String(t.id) === b.dataset.edit))));
-  root.querySelectorAll("[data-del]").forEach((b) =>
-    b.addEventListener("click", () => confirmDelete("ce professeur", async () => {
-      await api("/api/admin/teachers/" + b.dataset.del, { method: "DELETE" });
-      toast("Professeur supprimé"); navigate("teachers");
-    })));
+  root.querySelectorAll("[data-confirm]").forEach((b) =>
+    b.addEventListener("click", async () => {
+      const t = teachers.find((x) => String(x.id) === b.dataset.confirm);
+      const confirmed = !t?.needs_confirmed;
+      b.disabled = true;
+      try {
+        await api("/api/admin/teachers/" + b.dataset.confirm + "/confirm-needs", { method: "POST", body: { confirmed } });
+        toast(confirmed ? "Accès aux offres confirmé" : "Accès aux offres révoqué"); await renderTeachers(root, includeArchived);
+      } catch (error) { toast(error.message, true); } finally { b.disabled = false; }
+    }));
+  root.querySelectorAll("[data-del]").forEach((button) => button.addEventListener("click", () => opForm("Retirer le professeur du catalogue", "Le profil ne sera plus proposé pour de nouvelles réservations. Le compte, les cours existants et les opérations financières restent accessibles pour leur clôture.", '<label><input type="checkbox" required /> Je confirme le retrait du catalogue.</label>', "Retirer le profil", () => api("/api/admin/teachers/" + button.dataset.del, { method: "DELETE" }), async () => { toast("Professeur retiré du catalogue"); await renderTeachers(root, includeArchived); })));
+
 }
 
 function teacherRow(t) {
+  const needsOk = t.needs_confirmed;
   return `<div class="row">
     <span class="dot ${t.accent === "orange" ? "orange" : "green"}"></span>
     <div class="row-main">
       <div class="row-title">${esc(t.name)}
-        ${t.verified ? `<span class="pill green">vérifié</span>` : ""}
+        ${t.archived_at ? `<span class="pill orange">retiré du catalogue</span>` : t.verified ? `<span class="pill green">vérifié</span>` : `<span class="pill orange">non validé</span>`}${!t.hasActiveAccount ? `<span class="pill orange">aucun compte professeur actif lié</span>` : ""}
         ${t.special_bepc ? `<span class="pill orange">BEPC</span>` : ""}
-        ${t.negotiable ? `<span class="pill orange">à négocier</span>` : ""}</div>
-      <div class="row-meta">${esc(t.subjects)} · ${esc(t.location)} · ${fcfa(t.price_per_hour)} F/h · ★ ${t.rating}</div>
+        ${needsOk ? `<span class="pill green">offres actives</span>` : `<span class="pill orange">tests en cours</span>`}</div>
+      <div class="row-meta">${esc(t.subjects)} · ${esc(t.location || "Localisation non renseignée")} · ${Number(t.reviews_count) > 0 ? "★ " + esc(t.rating) + " (" + esc(t.reviews_count) + " avis)" : "Pas encore d’avis"}</div>
     </div>
     <div class="row-actions">
-      <button class="btn btn-ghost btn-sm" data-edit="${t.id}">Modifier</button>
+      <button class="btn btn-ghost btn-sm" data-confirm="${t.id}"${t.archived_at || !t.hasActiveAccount ? " disabled" : ""}>${needsOk ? "Révoquer offres" : "Confirmer offres"}</button>
+      <button class="btn btn-ghost btn-sm" data-edit="${t.id}"${t.archived_at ? " disabled" : ""}>Modifier</button>
       <button class="btn btn-danger btn-sm" data-del="${t.id}">Suppr.</button>
     </div>
   </div>`;
@@ -422,21 +787,26 @@ function teacherForm(t) {
     <div class="form-grid">
       <div class="field full"><label>Nom complet *</label><input id="f_name" value="${esc(t.name || "")}" placeholder="Koffi N'Guessan"></div>
       <div class="field full"><label>Matières *</label><input id="f_subjects" value="${esc(t.subjects || "")}" placeholder="Maths · Physique-Chimie"></div>
+      <div class="field full"><label>Niveaux (séparés par des virgules)</label><input id="f_levels" value="${esc((t.levels || []).join(", "))}" placeholder="Collège, Lycée"></div>
+      <div class="field"><label>Programmes (slugs)</label><input id="f_programs" value="${esc((t.programs || ["standard"]).join(", "))}" placeholder="standard, francais"></div>
       <div class="field"><label>Quartier / Ville</label><input id="f_location" value="${esc(t.location || "")}" placeholder="Cocody"></div>
-      <div class="field"><label>Prix / heure (F)</label><input id="f_price" type="number" value="${t.price_per_hour ?? 4000}"></div>
-      <div class="field"><label>Note (0-5)</label><input id="f_rating" type="number" step="0.1" min="0" max="5" value="${t.rating ?? 5}"></div>
-      <div class="field"><label>Nb d'avis</label><input id="f_reviews" type="number" value="${t.reviews_count ?? 0}"></div>
+      <div class="field field-check full">
+        <label class="check-row" for="f_needs_confirmed">
+          <input type="checkbox" id="f_needs_confirmed"${t.needs_confirmed ? " checked" : ""}>
+          <span>Accès aux offres (besoins parents) confirmé</span>
+        </label>
+        <p class="field-hint">À activer après validation des tests. Les tarifs des cours passent par l'admin (besoins parents).</p>
+      </div>
+      <div class="field full" style="grid-column:1/-1"><p class="muted" style="font-size:12px;margin:4px 0 0"><strong>Profil public (optionnel)</strong> — affichage catalogue / vitrine</p></div>
+      <div class="field"><label>Tarif horaire (F CFA)</label><input id="f_price" type="number" min="1" step="1" value="${t.price_per_hour ?? 0}" placeholder="Tarif horaire"></div>
       <div class="field"><label>Expérience</label><input id="f_exp" value="${esc(t.experience || "")}" placeholder="8 ans"></div>
+      <div class="field"><label>Formats</label>
+        <select id="f_formats"><option value="home,online"${fmt.length === 2 ? " selected" : ""}>Domicile + En ligne</option><option value="home"${fmt.length === 1 && fmt[0] === "home" ? " selected" : ""}>Domicile</option><option value="online"${fmt.length === 1 && fmt[0] === "online" ? " selected" : ""}>En ligne</option></select></div>
+      <div class="field"><label>Avis des cours réalisés</label><p>${Number(t.reviews_count) > 0 ? esc(t.rating) + " / 5 · " + esc(t.reviews_count) + " avis" : "Pas encore d’avis"}</p><p class="field-hint">Note calculée à partir des avis publiés.</p></div>
       <div class="field"><label>Élèves</label><input id="f_students" value="${esc(t.students || "")}" placeholder="340+"></div>
       <div class="field"><label>Réussite BAC</label><input id="f_bac" value="${esc(t.bac_success || "")}" placeholder="94%"></div>
       <div class="field"><label>Couleur</label>
         <select id="f_accent"><option value="green"${t.accent !== "orange" ? " selected" : ""}>Vert</option><option value="orange"${t.accent === "orange" ? " selected" : ""}>Orange</option></select></div>
-      <div class="field full"><label>Niveaux (séparés par des virgules)</label><input id="f_levels" value="${esc((t.levels || []).join(", "))}" placeholder="Collège, Lycée, Prépa BAC"></div>
-      <div class="field"><label>Programmes (slugs séparés par des virgules)</label><input id="f_programs" value="${esc((t.programs || ["standard"]).join(", "))}" placeholder="standard, francais"></div>
-      <div class="field"><label>Offres à négocier</label>
-        <select id="f_negotiable"><option value="no"${t.negotiable ? "" : " selected"}>Non</option><option value="yes"${t.negotiable ? " selected" : ""}>Oui, tarif &amp; fréquence négociables</option></select></div>
-      <div class="field"><label>Formats</label>
-        <select id="f_formats"><option value="home,online"${fmt.length === 2 ? " selected" : ""}>Domicile + En ligne</option><option value="home"${fmt.length === 1 && fmt[0] === "home" ? " selected" : ""}>Domicile</option><option value="online"${fmt.length === 1 && fmt[0] === "online" ? " selected" : ""}>En ligne</option></select></div>
       <div class="field"><label>Options</label>
         <select id="f_flags">
           <option value="vb"${t.verified !== false && t.special_bepc ? " selected" : ""}>Vérifié + spécialiste BEPC</option>
@@ -458,8 +828,6 @@ function teacherForm(t) {
         subjects: $("#f_subjects", back).value.trim(),
         location: $("#f_location", back).value.trim() || undefined,
         pricePerHour: Number($("#f_price", back).value) || 0,
-        rating: Number($("#f_rating", back).value) || 0,
-        reviewsCount: Number($("#f_reviews", back).value) || 0,
         experience: $("#f_exp", back).value.trim() || undefined,
         students: $("#f_students", back).value.trim() || undefined,
         bacSuccess: $("#f_bac", back).value.trim() || undefined,
@@ -470,7 +838,8 @@ function teacherForm(t) {
         bio: $("#f_bio", back).value.trim() || undefined,
         verified: flags !== "n",
         specialBepc: flags === "vb",
-        negotiable: $("#f_negotiable", back).value === "yes",
+        needsConfirmed: $("#f_needs_confirmed", back).checked,
+        negotiable: false,
       };
       if (!body.name || !body.subjects) { toast("Nom et matières sont requis", true); return; }
       try {
@@ -508,11 +877,13 @@ async function renderGroups(root) {
 
 function groupRow(g) {
   const places = g.places_left != null ? ` · ${g.places_left} places restantes` : "";
+  const dates = g.start_date && g.end_date ? ` · ${g.start_date} → ${g.end_date}` : "";
+  const kindPill = g.kind === "stage" ? ` <span class="pill orange">Stage vacances</span>` : "";
   return `<div class="row">
     <span class="dot ${g.tag_accent === "orange" ? "orange" : "green"}"></span>
     <div class="row-main">
-      <div class="row-title">${esc(g.title)} <span class="pill ${g.tag_accent === "orange" ? "orange" : "green"}">${esc(g.tag)}</span></div>
-      <div class="row-meta">${esc(g.detail)} · ${fcfa(g.price)} F${g.teacher_name ? " · " + esc(g.teacher_name) : ""}${places}</div>
+      <div class="row-title">${esc(g.title)} <span class="pill ${g.tag_accent === "orange" ? "orange" : "green"}">${esc(g.tag)}</span>${kindPill}</div>
+      <div class="row-meta">${esc(g.detail)} · ${fcfa(g.price)} F${g.teacher_name ? " · " + esc(g.teacher_name) : ""}${places}${dates}</div>
     </div>
     <div class="row-actions">
       <button class="btn btn-ghost btn-sm" data-edit="${g.id}">Modifier</button>
@@ -536,6 +907,10 @@ function groupForm(g) {
       <div class="field"><label>Inscrits</label><input id="g_enrolled" type="number" value="${g.enrolled ?? ""}"></div>
       <div class="field"><label>Capacité</label><input id="g_capacity" type="number" value="${g.capacity ?? ""}"></div>
       <div class="field"><label>Places restantes</label><input id="g_places" type="number" value="${g.places_left ?? ""}"></div>
+      <div class="field"><label>Type</label>
+        <select id="g_kind"><option value="regular"${g.kind !== "stage" ? " selected" : ""}>Cours régulier</option><option value="stage"${g.kind === "stage" ? " selected" : ""}>Stage vacances</option></select></div>
+      <div class="field"><label>Début (stage)</label><input id="g_start" type="date" value="${g.start_date || ""}"></div>
+      <div class="field"><label>Fin (stage)</label><input id="g_end" type="date" value="${g.end_date || ""}"></div>
     </div>
     <div class="form-actions">
       <button class="btn btn-primary" id="save">${isEdit ? "Enregistrer" : "Ajouter"}</button>
@@ -557,6 +932,9 @@ function groupForm(g) {
         enrolled: num("#g_enrolled"),
         capacity: num("#g_capacity"),
         placesLeft: num("#g_places"),
+        kind: $("#g_kind", back).value,
+        startDate: $("#g_start", back).value || undefined,
+        endDate: $("#g_end", back).value || undefined,
       };
       if (!body.tag || !body.title || !body.detail) { toast("Étiquette, titre et détail sont requis", true); return; }
       try {
@@ -927,6 +1305,7 @@ const SOCIAL_FIELDS = [
   ["social_youtube", "YouTube", "https://youtube.com/@…"],
   ["contact_email", "E-mail de contact", "contact@monprofperso.com"],
   ["contact_phone", "Téléphone de contact", "+225 07 00 00 00 01"],
+  ["commission_pct", "Commission plateforme sur les besoins (%)", "15"],
 ];
 
 async function renderSocial(root) {
@@ -935,12 +1314,15 @@ async function renderSocial(root) {
     <div class="card">
       <h3>Réseaux sociaux &amp; contact</h3>
       <p class="card-sub">Ces liens s'affichent sur le site vitrine et dans les applications.
-      Laissez un champ vide pour le masquer.</p>
+      La commission s'applique aux tarifs des <strong>besoins parents</strong> (gain net affiché au prof).
+      Laissez un champ réseau vide pour le masquer.</p>
       <div class="form-grid">
         ${SOCIAL_FIELDS.map(([key, label, ph]) => `
-          <div class="field${key.startsWith("contact") ? "" : " full"}">
+          <div class="field${key.startsWith("contact") || key === "commission_pct" ? "" : " full"}">
             <label>${esc(label)}</label>
-            <input id="set_${key}" value="${esc(settings[key] || "")}" placeholder="${esc(ph)}">
+            <input id="set_${key}" value="${esc(settings[key] || "")}" placeholder="${esc(ph)}"
+              ${key === "commission_pct" ? 'type="number" min="0" max="50" step="0.5"' : ""}>
+            ${key === "commission_pct" ? '<p class="field-hint">Ex. 15 → parent 10 000 F, prof voit 8 500 F nets.</p>' : ""}
           </div>`).join("")}
       </div>
       <div class="form-actions"><button class="btn btn-primary" id="saveSet">Enregistrer</button></div>

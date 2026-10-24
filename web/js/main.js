@@ -58,6 +58,15 @@
     reveals.forEach(function (el) { el.classList.add("in"); });
   }
 
+  // --- Lien connexion / Mon espace si session utilisateur ---
+  var authLink = document.getElementById("authLink");
+  if (authLink && localStorage.getItem("mpp_user_jwt")) {
+    authLink.textContent = "Mon espace";
+    authLink.href = "espace/";
+    authLink.classList.remove("btn-ghost");
+    authLink.classList.add("btn-primary");
+  }
+
   // --- Met en avant le store correspondant au système de l'utilisateur ---
   var ua = navigator.userAgent || "";
   var isIOS = /iPhone|iPad|iPod/i.test(ua);
@@ -74,6 +83,17 @@
     ? "http://localhost:8099"
     : location.origin;
 
+  // Capabilities are shared with the API and native clients. Unavailable modules remain hidden.
+  fetch(API_BASE + "/api/capabilities", { cache: "no-store" })
+    .then(function (r) { if (!r.ok) throw new Error("capabilities"); return r.json(); })
+    .then(function (capabilities) {
+      document.querySelectorAll("[data-capability]").forEach(function (element) {
+        var enabled = capabilities[element.getAttribute("data-capability")] === true;
+        element.hidden = !enabled;
+        element.querySelectorAll("input,button,select").forEach(function (input) { input.disabled = !enabled; });
+      });
+    }).catch(function () { /* Initially hidden; never enable a service on a failed request. */ });
+
   // Liens légaux : pointent vers le PDF géré par l'admin (s'il existe).
   fetch(API_BASE + "/api/legal")
     .then(function (r) { return r.ok ? r.json() : []; })
@@ -86,6 +106,10 @@
           a.setAttribute("href", API_BASE + "/api/legal/" + d.slug + "/file");
           a.setAttribute("target", "_blank");
           a.setAttribute("rel", "noopener");
+        } else {
+          a.removeAttribute("href");
+          a.setAttribute("aria-disabled", "true");
+          a.setAttribute("title", "Document temporairement indisponible");
         }
       });
     })
@@ -98,7 +122,7 @@
       s = s || {};
       document.querySelectorAll("[data-social]").forEach(function (a) {
         var url = s[a.getAttribute("data-social")];
-        if (url) {
+        if (typeof url === "string" && /^https:\/\//i.test(url)) {
           a.setAttribute("href", url);
           a.setAttribute("target", "_blank");
           a.setAttribute("rel", "noopener");
@@ -109,10 +133,43 @@
       });
       var contact = document.getElementById("footerContact");
       if (contact) {
-        var bits = [];
-        if (s.contact_email) bits.push('<a href="mailto:' + s.contact_email + '">' + s.contact_email + "</a>");
-        if (s.contact_phone) bits.push('<a href="tel:' + s.contact_phone.replace(/\s+/g, "") + '">' + s.contact_phone + "</a>");
-        if (bits.length) { contact.innerHTML = bits.join(" · "); contact.hidden = false; }
+        contact.replaceChildren();
+        if (s.contact_email) {
+          var emailLink = document.createElement("a"); emailLink.href = "mailto:" + s.contact_email;
+          emailLink.textContent = s.contact_email; contact.appendChild(emailLink);
+        }
+        if (s.contact_phone) {
+          if (contact.childNodes.length) contact.appendChild(document.createTextNode(" · "));
+          var phoneLink = document.createElement("a"); phoneLink.href = "tel:" + s.contact_phone.replace(/\s+/g, "");
+          phoneLink.textContent = s.contact_phone; contact.appendChild(phoneLink);
+        }
+        if (contact.childNodes.length) contact.hidden = false;
+        else if (contact.hasAttribute("data-support")) { contact.textContent = "Les coordonnées du support sont temporairement indisponibles. Réessayez plus tard."; contact.hidden = false; }
+      }
+    })
+    .catch(function () {
+      var contact = document.querySelector("[data-support]");
+      if (contact) { contact.textContent = "Impossible de charger les coordonnées du support. Actualisez la page pour réessayer."; contact.hidden = false; }
+    });
+
+  // Note moyenne réelle des professeurs (moyenne pondérée par le nombre d'avis).
+  fetch(API_BASE + "/api/teachers")
+    .then(function (r) { return r.ok ? r.json() : []; })
+    .then(function (teachers) {
+      teachers = teachers || [];
+      var totalReviews = 0, weighted = 0;
+      teachers.forEach(function (t) {
+        var count = Number(t.reviewsCount || t.reviews_count || 0);
+        var rating = Number(t.rating || 0);
+        totalReviews += count;
+        weighted += rating * count;
+      });
+      var title = document.getElementById("trustRatingTitle");
+      var text = document.getElementById("trustRatingText");
+      if (totalReviews > 0 && title && text) {
+        var avg = (weighted / totalReviews).toFixed(1).replace(".", ",");
+        title.textContent = "Notés " + avg + "/5 par les familles";
+        text.textContent = "Moyenne calculée sur " + totalReviews + " avis, " + teachers.length + " professeurs actifs sur la plateforme.";
       }
     })
     .catch(function () {});

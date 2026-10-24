@@ -1,5 +1,6 @@
 package ci.monprofperso.app.data
 
+import ci.monprofperso.app.BuildConfig
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -15,12 +16,34 @@ import java.util.concurrent.TimeUnit
 
 /** Configuration de l'URL de base de l'API commune. */
 object ApiConfig {
-    // Production VPS (Traefik + Let's Encrypt).
-    const val BASE_URL = "https://api.monprofperso.com/"
-    // Dev local émulateur : "http://10.0.2.2:8099/"
+    const val BASE_URL = BuildConfig.API_BASE_URL
 }
 
 interface MonProfPersoApi {
+    @GET("api/capabilities")
+    suspend fun capabilities(): Map<String, Boolean>
+
+    @GET("api/account/export")
+    suspend fun exportAccount(): okhttp3.ResponseBody
+
+    @GET("api/account/deletion-request")
+    suspend fun accountDeletion(): AccountDeletionDto
+
+    @POST("api/account/deletion-request")
+    suspend fun requestAccountDeletion(@Body body: Map<String, String>): AccountDeletionDto
+
+    @DELETE("api/account/deletion-request")
+    suspend fun cancelAccountDeletion(): AccountDeletionDto
+
+    @GET("api/account/preferences")
+    suspend fun accountPreferences(): NotificationPreferencesDto
+
+    @retrofit2.http.PUT("api/account/preferences")
+    suspend fun updateAccountPreferences(@Body body: Map<String, Boolean>): NotificationPreferencesDto
+
+    @GET("api/me")
+    suspend fun me(): UserDto
+
     @GET("api/subjects")
     suspend fun subjects(): List<SubjectDto>
 
@@ -89,6 +112,33 @@ interface MonProfPersoApi {
     @GET("api/courses")
     suspend fun courses(@Query("status") status: String? = null): List<CourseDto>
 
+    @GET("api/courses/{id}")
+    suspend fun courseDetails(@Path("id") id: Int): CourseDetailsDto
+
+    @retrofit2.http.PUT("api/courses/{id}/details")
+    suspend fun updateCourseDetails(@Path("id") id: Int, @Body body: Map<String, @JvmSuppressWildcards Any?>): CourseDetailsDto
+
+    @POST("api/courses/{id}/schedule")
+    suspend fun proposeSchedule(@Path("id") id: Int, @Body body: Map<String, String>): CourseDetailsDto
+
+    @POST("api/courses/{id}/schedule/{proposalId}/respond")
+    suspend fun respondSchedule(@Path("id") id: Int, @Path("proposalId") proposalId: Int, @Body body: Map<String, String>): CourseDetailsDto
+
+    @POST("api/courses/{id}/cancel")
+    suspend fun cancelCourse(@Path("id") id: Int, @Body body: Map<String, String>): CourseDetailsDto
+
+    @POST("api/courses/{id}/report")
+    suspend fun reportCourse(@Path("id") id: Int, @Body body: Map<String, String>): CourseDetailsDto
+
+    @POST("api/courses/{id}/review")
+    suspend fun reviewCourse(@Path("id") id: Int, @Body body: Map<String, @JvmSuppressWildcards Any?>): okhttp3.ResponseBody
+
+    @POST("api/courses/{id}/refund-requests")
+    suspend fun requestRefund(@Path("id") id: Int, @Body body: Map<String, @JvmSuppressWildcards Any?>): okhttp3.ResponseBody
+
+    @POST("api/teacher/payout-requests")
+    suspend fun requestPayout(@Body body: Map<String, @JvmSuppressWildcards Any?>): okhttp3.ResponseBody
+
     @POST("api/bookings")
     suspend fun book(@Body body: Map<String, @JvmSuppressWildcards Any?>): BookingResponse
 
@@ -138,23 +188,30 @@ interface MonProfPersoApi {
     @POST("api/teacher/requests/{id}/accept")
     suspend fun acceptRequest(@Path("id") id: Int): Response<Unit>
 
+    @POST("api/teacher/opportunities/{id}/accept")
+    suspend fun acceptOpportunity(@Path("id") id: Int): Response<Unit>
+
     @POST("api/teacher/requests/{id}/refuse")
     suspend fun refuseRequest(@Path("id") id: Int): Response<Unit>
 
-    // Contre-proposition du prof (tarif et/ou fréquence).
-    @POST("api/teacher/requests/{id}/counter")
-    suspend fun counterRequest(@Path("id") id: Int, @Body body: Map<String, @JvmSuppressWildcards Any?>): Response<Unit>
+    // --- Besoins parents (parcours sans négociation) ---
+    @GET("api/children")
+    suspend fun children(): List<ChildDto>
 
-    // Le prof active/désactive « à négocier » sur ses offres.
-    @POST("api/teacher/negotiable")
-    suspend fun setNegotiable(@Body body: Map<String, Boolean>): Map<String, Any?>
+    @POST("api/children")
+    suspend fun createChild(@Body body: Map<String, @JvmSuppressWildcards Any?>): ChildDto
 
-    // Le client accepte / refuse la contre-proposition du prof.
-    @POST("api/courses/{id}/negotiation/accept")
-    suspend fun acceptNegotiation(@Path("id") id: Int): Response<Unit>
+    @GET("api/needs")
+    suspend fun needs(): List<NeedDto>
 
-    @POST("api/courses/{id}/negotiation/refuse")
-    suspend fun refuseNegotiation(@Path("id") id: Int): Response<Unit>
+    @POST("api/needs")
+    suspend fun createNeed(@Body body: Map<String, @JvmSuppressWildcards Any?>): NeedDto
+
+    @POST("api/needs/{id}/accept-price")
+    suspend fun acceptNeedPrice(@Path("id") id: Int): NeedDto
+
+    @POST("api/needs/{id}/cancel")
+    suspend fun cancelNeed(@Path("id") id: Int): okhttp3.ResponseBody
 
     @POST("api/auth/login")
     suspend fun login(@Body body: Map<String, String>): AuthResponse
@@ -164,6 +221,12 @@ interface MonProfPersoApi {
 
     @GET("api/auth/otp-channels")
     suspend fun otpChannels(): OtpChannelsDto
+
+    @GET("api/account/consent")
+    suspend fun accountConsent(): AccountConsentDto
+
+    @POST("api/account/consent")
+    suspend fun acceptAccountConsent(@Body body: Map<String, @JvmSuppressWildcards Any>): okhttp3.ResponseBody
 
     @POST("api/auth/request-otp")
     suspend fun requestOtp(@Body body: Map<String, String>): RequestOtpResponse
@@ -186,7 +249,9 @@ interface MonProfPersoApi {
 
 object Api {
     val service: MonProfPersoApi by lazy {
-        val logging = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC }
+        val logging = HttpLoggingInterceptor().apply {
+            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BASIC else HttpLoggingInterceptor.Level.NONE
+        }
         val auth = okhttp3.Interceptor { chain ->
             val token = TokenStore.token
             val req = if (token != null)
@@ -198,7 +263,7 @@ object Api {
             .addInterceptor(auth)
             .addInterceptor(logging)
             .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(35, TimeUnit.SECONDS)
             .build()
         Retrofit.Builder()
             .baseUrl(ApiConfig.BASE_URL)

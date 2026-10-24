@@ -28,12 +28,23 @@ services:
       - monprofperso_internal
 
   api:
+    image: monprofperso-api:${RELEASE_SHA:-local}
     build: ./api
     container_name: monprofperso-api
     restart: unless-stopped
     env_file:
       - .env.production
     environment:
+      NODE_ENV: production
+      APP_ENV: production
+      RELEASE_SHA: ${RELEASE_SHA:?Révision Git complète requise}
+      SERVICE_OPEN: ${SERVICE_OPEN:-false}
+      WORKER_ENABLED: ${WORKER_ENABLED:-true}
+      NOTIFICATIONS_ENABLED: ${NOTIFICATIONS_ENABLED:-false}
+      ONLINE_COURSES_ENABLED: ${ONLINE_COURSES_ENABLED:-false}
+      DEMO_MODE: "false"
+      PAYSTACK_MOCK: "false"
+      TRUST_PROXY: ${TRUST_PROXY:?Adresses ou CIDR des reverse proxies fiables requis}
       PORT: 8099
       PGHOST: db
       PGPORT: 5432
@@ -59,10 +70,13 @@ services:
       retries: 3
       start_period: 40s
     networks:
-      - traefik_network
-      - monprofperso_internal
+      traefik_network:
+      monprofperso_internal:
+        aliases:
+          - mpp-production-api
     labels:
       - traefik.enable=true
+      - traefik.docker.network=traefik_network
       - traefik.http.services.monprofperso-api.loadbalancer.server.port=8099
       - traefik.http.routers.monprofperso-api.rule=Host(`api.monprofperso.com`)
       - traefik.http.routers.monprofperso-api.entrypoints=websecure
@@ -71,14 +85,14 @@ services:
       - traefik.http.routers.monprofperso-api.service=monprofperso-api
 
   web:
-    image: nginx:alpine
+    image: monprofperso-web:${RELEASE_SHA:-local}
+    build: ../web
     container_name: monprofperso-web
     restart: unless-stopped
+    environment:
+      API_UPSTREAM: mpp-production-api:8099
     depends_on:
       - api
-    volumes:
-      - ../web:/usr/share/nginx/html:ro
-      - ../web/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/ | grep -qi html || exit 1"]
       interval: 30s
@@ -89,6 +103,7 @@ services:
       - monprofperso_internal
     labels:
       - traefik.enable=true
+      - traefik.docker.network=traefik_network
       - traefik.http.services.monprofperso-web.loadbalancer.server.port=80
       - "traefik.http.routers.monprofperso-web.rule=Host(`monprofperso.com`) || Host(`www.monprofperso.com`)"
       - traefik.http.routers.monprofperso-web.entrypoints=websecure

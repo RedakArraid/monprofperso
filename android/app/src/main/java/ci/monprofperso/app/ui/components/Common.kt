@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -39,13 +40,15 @@ fun PrimaryButton(
     modifier: Modifier = Modifier,
     color: Color = AkColors.Orange,
     trailingIcon: ImageVector? = Icons.AutoMirrored.Filled.ArrowForward,
+    enabled: Boolean = true,
     onClick: () -> Unit = {},
 ) {
     Row(
         modifier = modifier
+            .alpha(if (enabled) 1f else 0.6f)
             .clip(RoundedCornerShape(15.dp))
             .background(color)
-            .clickable { onClick() }
+            .clickable(enabled = enabled) { onClick() }
             .padding(vertical = 16.dp, horizontal = 18.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,

@@ -41,20 +41,26 @@ import ci.monprofperso.app.ui.theme.Schibsted
 fun TeacherDashboardScreen(nav: NavActions) {
     val scope = rememberCoroutineScope()
     var dash by remember { mutableStateOf<ci.monprofperso.app.data.TeacherDashboardDto?>(null) }
-    var negotiable by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
+    var attempt by remember { mutableIntStateOf(0) }
+    var loaded by remember { mutableStateOf(false) }
+    LaunchedEffect(attempt) {
+        loaded = false
         dash = runCatching { Api.service.teacherDashboard() }.getOrNull()
-        dash?.let { negotiable = it.negotiable }
+        loaded = true
     }
-    val name = dash?.name ?: "Koffi N'Guessan"
-    val revenueLabel = dash?.let { "%,d F".format(it.revenue).replace(',', ' ') } ?: "184 000 F"
-    val trend = dash?.trend ?: "+12%"
-    val stats = dash?.stats ?: listOf(
-        ci.monprofperso.app.data.StatDto("14", "cours / semaine"),
-        ci.monprofperso.app.data.StatDto("4,9", "note moyenne"),
-        ci.monprofperso.app.data.StatDto("3", "nouveaux élèves"),
-    )
-    val pending = dash?.pendingRequests ?: 3
+    val dashboard = dash
+    if (dashboard == null) {
+        AkScreen {
+            TopBar("Espace professeur", onBack = { nav.back() })
+            if (!loaded) LoadingRow() else OfflineBanner(onRetry = { attempt++ })
+        }
+        return
+    }
+    val name = dashboard.name
+    val revenueLabel = "%,d F".format(dashboard.revenue).replace(',', ' ')
+    val trend = dashboard.trend
+    val stats = dashboard.stats
+    val pending = dashboard.pendingRequests
     val initials = name.split(" ").mapNotNull { it.firstOrNull() }.joinToString("").take(2).uppercase()
 
     AkScreen(applyBottomInset = false) {
@@ -90,45 +96,39 @@ fun TeacherDashboardScreen(nav: NavActions) {
             Spacer(Modifier.height(14.dp))
             val incomplete = dash?.profileCompletion?.let { !it.complete } == true
             val profilePct = dash?.profileCompletion?.percent
+            val needsConfirmed = dash?.needsConfirmed == true
             if (incomplete && profilePct != null) {
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(AkColors.GreenSoft).clickable { nav.go(Routes.CompleteTeacherProfile) }.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text("Profil à compléter · $profilePct %", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AkColors.Ink)
-                        Text("Tarifs, documents et présentation", fontFamily = Hanken, fontSize = 12.sp, color = Color(0xFF3F6B59))
+                        Text("Documents et présentation", fontFamily = Hanken, fontSize = 12.sp, color = Color(0xFF3F6B59))
                     }
                     Text("Compléter", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = AkColors.White,
                         modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(AkColors.Green).padding(horizontal = 13.dp, vertical = 8.dp))
                 }
                 Spacer(Modifier.height(14.dp))
             }
+            if (!needsConfirmed) {
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color(0xFFFFF3E8)).padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Accès aux offres en attente", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AkColors.Ink)
+                        Text("Validation par tests en cours — vous serez notifié dès activation.", fontFamily = Hanken, fontSize = 12.sp, color = Color(0xFF8A5B33))
+                    }
+                }
+                Spacer(Modifier.height(14.dp))
+            }
             // pending alert
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(AkColors.OrangeSoft).clickable { nav.go(Routes.CourseRequests) }.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (needsConfirmed) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(AkColors.OrangeSoft).clickable { nav.go(Routes.CourseRequests) }.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(AkColors.Orange), contentAlignment = Alignment.Center) {
                     Icon(Icons.Filled.Inbox, null, tint = AkColors.White, modifier = Modifier.size(21.dp))
                 }
                 Spacer(Modifier.width(13.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("$pending demande${if (pending > 1) "s" else ""} en attente", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AkColors.Ink)
-                    Text("Répondez vite pour ne pas les perdre", fontFamily = Hanken, fontSize = 12.sp, color = Color(0xFF8A5B33))
+                    Text("$pending offre${if (pending > 1) "s" else ""} disponible${if (pending > 1) "s" else ""}", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AkColors.Ink)
+                    Text("Gains nets affichés — premier arrivé, premier servi", fontFamily = Hanken, fontSize = 12.sp, color = Color(0xFF8A5B33))
                 }
                 Text("Voir", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = AkColors.White,
                     modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(AkColors.Orange).padding(horizontal = 13.dp, vertical = 8.dp))
-            }
-            Spacer(Modifier.height(14.dp))
-            // Toggle « à négocier » : autorise les clients à proposer un tarif/fréquence.
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(AkColors.White).border(1.dp, AkColors.Border, RoundedCornerShape(16.dp)).padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Offres à négocier", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AkColors.Ink)
-                    Text("Les clients peuvent proposer un tarif et une fréquence", fontFamily = Hanken, fontSize = 11.5.sp, color = AkColors.Muted)
-                }
-                androidx.compose.material3.Switch(
-                    checked = negotiable,
-                    onCheckedChange = { v ->
-                        negotiable = v
-                        scope.launch { runCatching { Api.service.setNegotiable(mapOf("negotiable" to v)) } }
-                    },
-                    colors = androidx.compose.material3.SwitchDefaults.colors(checkedTrackColor = AkColors.Green),
-                )
             }
             Spacer(Modifier.height(18.dp))
             Text("Prochains cours", fontFamily = Schibsted, fontWeight = FontWeight.Bold, fontSize = 14.5.sp, color = AkColors.Ink)
@@ -159,72 +159,158 @@ private fun MiniStat(value: String, label: String, modifier: Modifier = Modifier
 }
 
 /* ====================================================================== *
- * ÉCRAN 21, DEMANDES DE COURS
+ * ÉCRAN 21, OFFRES DE COURS (parité Completude web)
  * ====================================================================== */
+private val TEACHER_HOME_LAT = 5.3599
+private val TEACHER_HOME_LNG = -3.9769
+private const val NO_VEHICLE_MAX_KM = 12.0
+private const val MARKS_PREFS = "mpp_offer_marks"
+
 private val fallbackRequests = listOf(
-    ci.monprofperso.app.data.TeacherRequestDto(null, "FB", "green", "Fatou Bamba", "il y a 1 h", 6000, "Awa · 2nde", "Mathématiques", "Sam. 28 juin · 15h00", "À domicile · Marcory"),
-    ci.monprofperso.app.data.TeacherRequestDto(null, "YK", "orange", "Yao Kouamé", "il y a 3 h", 4000, "Junior · 3ᵉ", "Physique-Chimie", "Dim. 29 juin · 10h00", "En ligne"),
+    ci.monprofperso.app.data.TeacherRequestDto(
+        1, 1, "CO", "green", "Cocody Angré", "nouveau", 8500,
+        "Kouadio · 3eme", "Maths", "Cocody Angré", "À domicile",
+        netHourly = 4250, frequency = "1 fois/sem", duration = "2h00",
+        isOpportunity = true, hasCat = true, lat = 5.3895, lng = -3.958,
+    ),
 )
+
+private fun offerKey(r: ci.monprofperso.app.data.TeacherRequestDto) =
+    r.needId?.let { "need:$it" } ?: r.courseId?.let { "course:$it" } ?: "${r.name}-${r.slot}"
+
+private fun isOnlineOffer(r: ci.monprofperso.app.data.TeacherRequestDto): Boolean {
+    val f = (r.format ?: "") + (r.slot ?: "") + (r.name)
+    return f.contains("ligne", true) || f.contains("online", true)
+}
+
+private fun distanceKm(r: ci.monprofperso.app.data.TeacherRequestDto): Double? {
+    val lat = r.lat ?: return null
+    val lng = r.lng ?: return null
+    val rEarth = 6371.0
+    val dLat = Math.toRadians(lat - TEACHER_HOME_LAT)
+    val dLon = Math.toRadians(lng - TEACHER_HOME_LNG)
+    val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(Math.toRadians(TEACHER_HOME_LAT)) * Math.cos(Math.toRadians(lat)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2)
+    return Math.round(rEarth * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 100.0) / 100.0
+}
+
+private fun moneyFcfa(v: Int) = "%,d F".format(v).replace(',', ' ')
 
 @Composable
 fun CourseRequestsScreen(nav: NavActions) {
     val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val marksPrefs = remember { context.getSharedPreferences(MARKS_PREFS, android.content.Context.MODE_PRIVATE) }
+
     var requests by remember { mutableStateOf<List<ci.monprofperso.app.data.TeacherRequestDto>?>(null) }
     var live by remember { mutableStateOf(false) }
-    var counterFor by remember { mutableStateOf<Int?>(null) }
+    var needsConfirmed by remember { mutableStateOf(false) }
+    var acting by remember { mutableStateOf(false) }
+    var filterWeek by remember { mutableStateOf(true) }
+    var filterWeekend by remember { mutableStateOf(true) }
+    var filterVacations by remember { mutableStateOf(true) }
+    var acceptCats by remember { mutableStateOf(true) }
+    var acceptDogs by remember { mutableStateOf(true) }
+    var hasVehicle by remember { mutableStateOf(false) }
+    var showFilters by remember { mutableStateOf(false) }
+    var consulting by remember { mutableStateOf<ci.monprofperso.app.data.TeacherRequestDto?>(null) }
+    var marksTick by remember { mutableIntStateOf(0) }
+    var toast by remember { mutableStateOf<String?>(null) }
+
+    fun markOf(r: ci.monprofperso.app.data.TeacherRequestDto): String? {
+        marksTick
+        return marksPrefs.getString(offerKey(r), null)
+    }
+
+    fun setMark(r: ci.monprofperso.app.data.TeacherRequestDto, mark: String?) {
+        marksPrefs.edit().apply {
+            if (mark == null) remove(offerKey(r)) else putString(offerKey(r), mark)
+        }.apply()
+        marksTick++
+    }
 
     suspend fun reload() {
         val fetched = runCatching { ci.monprofperso.app.data.Api.service.teacherRequests() }.getOrNull()
         live = fetched != null
-        requests = fetched ?: fallbackRequests
+        requests = fetched ?: emptyList()
+        needsConfirmed = runCatching { Api.service.teacherDashboard() }.getOrNull()?.needsConfirmed == true
     }
     LaunchedEffect(Unit) { reload() }
 
-    counterFor?.let { cid ->
-        CounterDialog(
-            onDismiss = { counterFor = null },
-            onSubmit = { price, freq ->
-                counterFor = null
-                scope.launch {
-                    val body = buildMap<String, Any?> {
-                        price?.let { put("price", it) }
-                        if (!freq.isNullOrBlank()) put("frequency", freq)
-                    }
-                    runCatching { Api.service.counterRequest(cid, body) }.onSuccess { reload() }
-                }
-            },
-        )
+    val raw = requests ?: emptyList()
+    val filtered = raw.filter { r ->
+        if (markOf(r) == "refused") return@filter false
+        if (!r.isOpportunity && r.needId == null) return@filter true
+        val whenOk = (filterWeek && r.availabilityWeek) ||
+            (filterWeekend && r.availabilityWeekend) ||
+            (filterVacations && r.availabilityHolidays)
+        if (!whenOk) return@filter false
+        if (!acceptCats && r.hasCat) return@filter false
+        if (!acceptDogs && r.hasDog) return@filter false
+        if (!isOnlineOffer(r)) {
+            val d = distanceKm(r)
+            if (!hasVehicle && d != null && d > NO_VEHICLE_MAX_KM) return@filter false
+        }
+        true
     }
 
-    val items = requests ?: emptyList()
     AkScreen(applyBottomInset = false) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Demandes", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 23.sp, color = AkColors.Ink)
+            Text("Mes offres de cours", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 23.sp, color = AkColors.Ink)
             Spacer(Modifier.width(10.dp))
-            Text("${items.size}", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = AkColors.White,
+            Text("${filtered.size}", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = AkColors.White,
                 modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(AkColors.Orange).padding(horizontal = 9.dp, vertical = 3.dp))
+            Spacer(Modifier.weight(1f))
+            Text(
+                "Filtres",
+                fontFamily = Hanken,
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                color = AkColors.Green,
+                modifier = Modifier.clickable { showFilters = !showFilters }.padding(8.dp),
+            )
         }
-        Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 22.dp).padding(top = 16.dp)) {
+        Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 22.dp).padding(top = 8.dp)) {
+            toast?.let {
+                Text(it, fontFamily = Hanken, fontSize = 12.sp, color = AkColors.Green, modifier = Modifier.padding(bottom = 8.dp))
+            }
+            if (showFilters) {
+                Column(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(AkColors.White)
+                        .border(1.dp, AkColors.Border, RoundedCornerShape(16.dp)).padding(14.dp),
+                ) {
+                    Text("Quand ?", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AkColors.Green)
+                    FilterCheck("Semaine scolaire", filterWeek) { filterWeek = it }
+                    FilterCheck("Week-ends", filterWeekend) { filterWeekend = it }
+                    FilterCheck("Vacances scolaires", filterVacations) { filterVacations = it }
+                    Spacer(Modifier.height(8.dp))
+                    Text("Préférences", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AkColors.Green)
+                    FilterCheck("J'ai un véhicule", hasVehicle) { hasVehicle = it }
+                    FilterCheck("Familles avec chats", acceptCats) { acceptCats = it }
+                    FilterCheck("Familles avec chiens", acceptDogs) { acceptDogs = it }
+                }
+                Spacer(Modifier.height(12.dp))
+            }
             if (requests == null) {
                 LoadingRow()
             } else {
                 if (!live) OfflineBanner(onRetry = { scope.launch { reload() } })
-                if (items.isEmpty()) Text("Aucune demande en attente.", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Faint)
+                if (!needsConfirmed) {
+                    Text(
+                        "Votre accès aux offres sera activé après validation par l'équipe.",
+                        fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Muted, modifier = Modifier.padding(bottom = 12.dp),
+                    )
+                } else if (filtered.isEmpty()) {
+                    Text("Aucune offre trouvée — ajustez vos filtres.", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Faint)
+                }
             }
-            items.forEach { r ->
-                RequestCard(
-                    r,
-                    onRefuse = {
-                        val id = r.courseId
-                        if (id != null) scope.launch { runCatching { Api.service.refuseRequest(id) }.onSuccess { reload() } }
-                        else nav.go(Routes.TeacherDashboard)
-                    },
-                    onAccept = {
-                        val id = r.courseId
-                        if (id != null) scope.launch { runCatching { Api.service.acceptRequest(id) }.onSuccess { reload() } }
-                        else nav.go(Routes.Agenda)
-                    },
-                    onCounter = { r.courseId?.let { counterFor = it } },
+            filtered.forEach { r ->
+                CompletudeOfferCard(
+                    r = r,
+                    distKm = distanceKm(r),
+                    mark = markOf(r),
+                    onConsult = { consulting = r },
                 )
                 Spacer(Modifier.height(13.dp))
             }
@@ -232,85 +318,201 @@ fun CourseRequestsScreen(nav: NavActions) {
         }
         TeacherBottomNav(TeacherTab.Demandes, nav::selectTeacherTab)
     }
-}
 
-@Composable
-private fun RequestCard(r: ci.monprofperso.app.data.TeacherRequestDto, onRefuse: () -> Unit = {}, onAccept: () -> Unit = {}, onCounter: () -> Unit = {}) {
-    val green = r.accent != "orange"
-    val priceLabel = "%,d F".format(r.price).replace(',', ' ')
-    fun money(v: Int) = "%,d F".format(v).replace(',', ' ')
-    val hasProposal = r.proposedPrice != null || !r.proposedFrequency.isNullOrBlank()
-    val negotiable = r.negotiable || hasProposal || r.courseId != null
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(AkColors.White).border(1.dp, AkColors.Border, RoundedCornerShape(20.dp)).padding(16.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            InitialsAvatar(r.initials, size = 42, radius = 12, fontSize = 15, bg = if (green) AkColors.GreenSoft else AkColors.OrangeSoft, fg = if (green) AkColors.Green else AkColors.Orange)
-            Spacer(Modifier.width(11.dp))
-            Column(Modifier.weight(1f)) {
-                Text(r.name, fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 14.5.sp, color = AkColors.Ink)
-                Text(r.ago, fontFamily = Hanken, fontSize = 11.5.sp, color = AkColors.Faint)
-            }
-            Text(priceLabel, fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, color = AkColors.Green)
-        }
-        Spacer(Modifier.height(13.dp))
-        DetailLine("Élève", r.student ?: "-")
-        DetailLine("Matière", r.subject ?: "-")
-        DetailLine("Créneau", r.slot ?: "-")
-        DetailLine("Format", r.format ?: "-")
-        if (hasProposal) {
-            Column(Modifier.fillMaxWidth().padding(top = 4.dp).clip(RoundedCornerShape(12.dp)).background(AkColors.OrangeSoft).padding(11.dp)) {
-                Text("Proposition du client", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 11.5.sp, color = AkColors.Orange)
-                r.proposedPrice?.let { Text("Tarif souhaité : ${money(it)}", fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Ink) }
-                r.proposedFrequency?.let { Text("Fréquence : $it", fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Ink) }
-            }
-        }
-        if (r.negotiationStatus == "countered") {
-            Text("Contre-proposition envoyée, en attente du client", fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 11.5.sp, color = AkColors.Orange, modifier = Modifier.padding(top = 8.dp))
-        }
-        Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-            Box(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(AkColors.White).border(1.dp, AkColors.Border, RoundedCornerShape(12.dp)).clickable { onRefuse() }.padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
-                Text("Refuser", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, color = AkColors.Muted)
-            }
-            Box(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(AkColors.Green).clickable { onAccept() }.padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
-                Text("Accepter", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, color = AkColors.White)
-            }
-        }
-        if (negotiable && r.courseId != null && r.negotiationStatus != "countered") {
-            Box(Modifier.fillMaxWidth().padding(top = 9.dp).clip(RoundedCornerShape(12.dp)).border(1.dp, AkColors.Orange, RoundedCornerShape(12.dp)).clickable { onCounter() }.padding(vertical = 11.dp), contentAlignment = Alignment.Center) {
-                Text("Faire une contre-proposition", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AkColors.Orange)
+    consulting?.let { r ->
+        androidx.compose.ui.window.Dialog(onDismissRequest = { consulting = null }) {
+            Column(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(AkColors.White).padding(20.dp),
+            ) {
+                Text("Détail de l'offre", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = AkColors.Green)
+                Text(r.name.uppercase(), fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = AkColors.Ink, modifier = Modifier.padding(top = 4.dp))
+                Spacer(Modifier.height(12.dp))
+                DetailLine("Matière", r.subject ?: "—")
+                DetailLine("Élève", r.student ?: "—")
+                DetailLine("Format", if (isOnlineOffer(r)) "En ligne" else "À domicile")
+                DetailLine("Rythme", listOfNotNull(r.frequency, r.duration).joinToString(" — ").ifBlank { "—" })
+                DetailLine(
+                    "Rémunération",
+                    if (r.isOpportunity && r.netHourly != null) "${moneyFcfa(r.netHourly)}/h net" else moneyFcfa(r.price),
+                )
+                distanceKm(r)?.let { DetailLine("Distance", "%.2f km".format(it).replace('.', ',')) }
+                Spacer(Modifier.height(14.dp))
+                Box(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(AkColors.Green).clickable(enabled = !acting) {
+                        val id = r.needId ?: r.courseId
+                        if (id != null) {
+                            acting = true
+                            scope.launch {
+                                try {
+                                    val response = if (r.needId != null) Api.service.acceptOpportunity(r.needId) else Api.service.acceptRequest(id)
+                                    if (!response.isSuccessful) throw retrofit2.HttpException(response)
+                                    setMark(r, null)
+                                    toast = "Demande acceptée"
+                                    consulting = null
+                                    reload()
+                                } catch (error: Exception) {
+                                    if (error is kotlinx.coroutines.CancellationException) throw error
+                                    toast = ci.monprofperso.app.data.Auth.errorMessage(error)
+                                } finally { acting = false }
+                            }
+                        }
+                    }.padding(vertical = 14.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(if (acting) "Validation…" else "Accepter cette demande", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AkColors.White)
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlineAction("Option", Modifier.weight(1f)) {
+                        setMark(r, "option"); toast = "Option prise"; consulting = null
+                    }
+                    OutlineAction("Réflexion", Modifier.weight(1f)) {
+                        setMark(r, "thinking"); toast = "Mise en réflexion"; consulting = null
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlineAction("Refuser / masquer", Modifier.fillMaxWidth()) {
+                    if (acting) return@OutlineAction
+                    if (r.needId == null && r.courseId != null) {
+                        acting = true
+                        scope.launch {
+                            try {
+                                val response = Api.service.refuseRequest(r.courseId)
+                                if (!response.isSuccessful) throw retrofit2.HttpException(response)
+                                toast = "Demande refusée"
+                                consulting = null
+                                reload()
+                            } catch (error: Exception) {
+                                if (error is kotlinx.coroutines.CancellationException) throw error
+                                toast = ci.monprofperso.app.data.Auth.errorMessage(error)
+                            } finally { acting = false }
+                        }
+                    } else {
+                        setMark(r, "refused"); toast = "Offre masquée"; consulting = null
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Fermer",
+                    fontFamily = Hanken,
+                    fontSize = 13.sp,
+                    color = AkColors.Muted,
+                    modifier = Modifier.align(Alignment.CenterHorizontally).clickable { consulting = null }.padding(8.dp),
+                )
             }
         }
     }
 }
 
 @Composable
-private fun CounterDialog(onDismiss: () -> Unit, onSubmit: (Int?, String?) -> Unit) {
-    var price by remember { mutableStateOf("") }
-    var freq by remember { mutableStateOf("") }
-    androidx.compose.material3.AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Contre-proposition", fontFamily = Schibsted, fontWeight = FontWeight.Bold) },
-        text = {
-            Column {
-                Text("Proposez un tarif et/ou une fréquence.", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Muted)
-                Spacer(Modifier.height(10.dp))
-                androidx.compose.material3.OutlinedTextField(
-                    value = price, onValueChange = { price = it.filter { c -> c.isDigit() } },
-                    label = { Text("Tarif (F / h)") }, singleLine = true,
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
-                )
-                Spacer(Modifier.height(8.dp))
-                androidx.compose.material3.OutlinedTextField(
-                    value = freq, onValueChange = { freq = it }, label = { Text("Fréquence (ex. 2 cours / sem)") }, singleLine = true,
+private fun FilterCheck(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable { onChange(!checked) }.padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        androidx.compose.material3.Checkbox(
+            checked = checked,
+            onCheckedChange = onChange,
+            colors = androidx.compose.material3.CheckboxDefaults.colors(checkedColor = AkColors.Green),
+        )
+        Text(label, fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Ink)
+    }
+}
+
+@Composable
+private fun OutlineAction(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Box(
+        modifier.clip(RoundedCornerShape(12.dp)).background(AkColors.White)
+            .border(1.dp, AkColors.Border, RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(vertical = 12.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AkColors.Ink)
+    }
+}
+
+@Composable
+private fun CompletudeOfferCard(
+    r: ci.monprofperso.app.data.TeacherRequestDto,
+    distKm: Double?,
+    mark: String?,
+    onConsult: () -> Unit,
+) {
+    val priceLabel = if (r.isOpportunity && r.netHourly != null)
+        "${moneyFcfa(r.netHourly)}/h net"
+    else moneyFcfa(r.price)
+    val freq = listOfNotNull(r.frequency, r.duration).joinToString(" - ").ifBlank {
+        if (isOnlineOffer(r)) "En ligne" else "À domicile"
+    }
+    val ref = "Réf. ${2000 + (r.needId ?: r.courseId ?: 0)}"
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(AkColors.White)
+            .border(1.dp, AkColors.Border, RoundedCornerShape(16.dp)).padding(16.dp),
+    ) {
+        Row(verticalAlignment = Alignment.Top) {
+            Text(r.name.uppercase(), fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = AkColors.Ink, modifier = Modifier.weight(1f))
+            if (distKm != null) {
+                Text(
+                    "%.2f km".format(distKm).replace('.', ','),
+                    fontFamily = Hanken, fontSize = 12.sp, color = AkColors.Muted,
                 )
             }
-        },
-        confirmButton = {
-            androidx.compose.material3.TextButton(onClick = { onSubmit(price.toIntOrNull(), freq.ifBlank { null }) }) {
-                Text("Envoyer", color = AkColors.Green, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.height(10.dp))
+        Text("${r.subject ?: "—"} · ${r.student ?: "—"}", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Ink)
+        Text("$freq  ·  $priceLabel", fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = AkColors.Ink, modifier = Modifier.padding(top = 4.dp))
+        Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (r.availabilityWeek) AvailBadge("SE")
+            if (r.availabilityWeekend) AvailBadge("WE")
+            if (r.availabilityHolidays) AvailBadge("VS")
+        }
+        if (r.hasCat || r.hasDog) {
+            Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (r.hasCat) PetBadge("Chat")
+                if (r.hasDog) PetBadge("Chien")
             }
-        },
-        dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Annuler", color = AkColors.Muted) } },
-    )
+        }
+        mark?.let {
+            val label = when (it) {
+                "option" -> "Option"
+                "thinking" -> "En réflexion"
+                "refused" -> "Refusée"
+                else -> it
+            }
+            Text(label.uppercase(), fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 11.sp, color = AkColors.Green, modifier = Modifier.padding(top = 6.dp))
+        }
+        Row(
+            Modifier.fillMaxWidth().padding(top = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("$ref — ${r.ago}", fontFamily = Hanken, fontSize = 11.sp, color = AkColors.Faint)
+            Box(
+                Modifier.clip(RoundedCornerShape(10.dp)).background(AkColors.Green).clickable(onClick = onConsult)
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+            ) {
+                Text("CONSULTER", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = AkColors.White)
+            }
+        }
+    }
+}
+
+@Composable
+private fun AvailBadge(label: String) {
+    Box(
+        Modifier.size(28.dp).clip(RoundedCornerShape(999.dp)).background(AkColors.Green),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 10.sp, color = AkColors.White)
+    }
+}
+
+@Composable
+private fun PetBadge(label: String) {
+    Box(
+        Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xFF4A90D9)).padding(horizontal = 8.dp, vertical = 3.dp),
+    ) {
+        Text(label, fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, color = AkColors.White)
+    }
 }
 
 @Composable
@@ -328,23 +530,26 @@ private fun DetailLine(label: String, value: String) {
 fun EarningsScreen(nav: NavActions) {
     var period by remember { mutableIntStateOf(1) }
     var data by remember { mutableStateOf<ci.monprofperso.app.data.TeacherEarningsDto?>(null) }
-    LaunchedEffect(Unit) { data = runCatching { Api.service.teacherEarnings() }.getOrNull() }
-
-    val totalLabel = data?.let { "%,d F".format(it.total).replace(',', ' ') } ?: "184 000 F"
-    val trend = data?.trend ?: "+12%"
-    val weeks = data?.weeks ?: listOf(
-        ci.monprofperso.app.data.EarningWeekDto("S1", 0.48), ci.monprofperso.app.data.EarningWeekDto("S2", 0.66),
-        ci.monprofperso.app.data.EarningWeekDto("S3", 0.58), ci.monprofperso.app.data.EarningWeekDto("S4", 0.88),
-    )
-    val stats = data?.stats ?: listOf(
-        ci.monprofperso.app.data.StatDto("38", "cours donnés"),
-        ci.monprofperso.app.data.StatDto("52 h", "enseignées"),
-        ci.monprofperso.app.data.StatDto("3 800", "F / h moyen"),
-    )
-    val payouts = data?.payouts ?: listOf(
-        ci.monprofperso.app.data.PayoutDto("Retrait Wave", "15 juin", 60000, "wave"),
-        ci.monprofperso.app.data.PayoutDto("Retrait Orange Money", "1 juin", 80000, "orange"),
-    )
+    var attempt by remember { mutableIntStateOf(0) }
+    var loaded by remember { mutableStateOf(false) }
+    LaunchedEffect(attempt) {
+        loaded = false
+        data = runCatching { Api.service.teacherEarnings() }.getOrNull()
+        loaded = true
+    }
+    val earnings = data
+    if (earnings == null) {
+        AkScreen {
+            TopBar("Revenus", onBack = { nav.back() })
+            if (!loaded) LoadingRow() else OfflineBanner(onRetry = { attempt++ })
+        }
+        return
+    }
+    val totalLabel = "%,d F".format(earnings.total).replace(',', ' ')
+    val trend = earnings.trend
+    val weeks = earnings.weeks
+    val stats = earnings.stats
+    val payouts = earnings.payouts
 
     AkScreen(applyBottomInset = false) {
         Text("Revenus", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 23.sp, color = AkColors.Ink, modifier = Modifier.padding(horizontal = 22.dp, vertical = 8.dp))
@@ -353,7 +558,7 @@ fun EarningsScreen(nav: NavActions) {
                 listOf("Semaine", "Mois", "Année").forEachIndexed { i, l -> PillTab(l, period == i) { period = i } }
             }
             Spacer(Modifier.height(16.dp))
-            Text("Total perçu en juin", fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted)
+            Text("Total renvoyé par la plateforme", fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted)
             Row(Modifier.padding(top = 3.dp), verticalAlignment = Alignment.Bottom) {
                 Text(totalLabel, fontFamily = Schibsted, fontWeight = FontWeight.Black, fontSize = 34.sp, color = AkColors.Ink)
                 Spacer(Modifier.width(9.dp))

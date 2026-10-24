@@ -60,6 +60,9 @@ object Routes {
     const val Resources = "resources"
     const val Legal = "legal"
     const val PdfViewer = "pdf_viewer"
+    const val MyChildren = "my_children"
+    const val ExpressNeed = "express_need"
+    const val MyNeeds = "my_needs"
     // L, Espace administrateur
     const val AdminCatalog = "admin_catalog"
     const val AdminResources = "admin_resources"
@@ -72,6 +75,12 @@ object Routes {
 fun MonProfPersoNavGraph() {
     val nav = rememberNavController()
     val actions = NavActions(nav)
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        if (ci.monprofperso.app.data.Auth.restoreSession()) actions.enterApp()
+    }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        ci.monprofperso.app.data.AppState.capabilities = runCatching { ci.monprofperso.app.data.Api.service.capabilities() }.getOrDefault(emptyMap())
+    }
 
     NavHost(navController = nav, startDestination = Routes.Welcome) {
         composable(Routes.Welcome) { WelcomeScreen(actions) }
@@ -80,8 +89,8 @@ fun MonProfPersoNavGraph() {
         composable(Routes.Otp) { OtpScreen(actions) }
 
         composable(Routes.Home) { HomeScreen(actions) }
-        composable(Routes.SearchResults) { SearchResultsScreen(actions) }
-        composable(Routes.Filters) { FiltersScreen(actions) }
+        composable(Routes.SearchResults) { ProductionSearchScreen(actions) }
+        composable(Routes.Filters) { ProductionSearchScreen(actions) }
         composable(Routes.TeacherProfile) { TeacherProfileScreen(actions) }
 
         composable(Routes.Booking) { BookingScreen(actions) }
@@ -89,38 +98,41 @@ fun MonProfPersoNavGraph() {
         composable(Routes.Confirmed) { ConfirmedScreen(actions) }
 
         composable(Routes.MyCourses) { MyCoursesScreen(actions) }
-        composable(Routes.OnlineCourse) { OnlineCourseScreen(actions) }
-        composable(Routes.Messaging) { MessagingScreen(actions) }
-        composable(Routes.Review) { ReviewScreen(actions) }
+        composable(Routes.OnlineCourse) { CourseOperationsScreen(actions) }
+        composable(Routes.Messaging) { UnavailableFeatureScreen(actions, "Messagerie") }
+        composable(Routes.Review) { CourseOperationsScreen(actions) }
 
-        composable(Routes.Progress) { ProgressScreen(actions) }
+        composable(Routes.Progress) { ProductionProgressScreen(actions) }
         composable(Routes.Notifications) { NotificationsScreen(actions) }
-        composable(Routes.Account) { AccountScreen(actions) }
-        composable(Routes.Wallet) { WalletScreen(actions) }
+        composable(Routes.Account) { ProductionAccountScreen(actions) }
+        composable(Routes.Wallet) { MyCoursesScreen(actions) }
 
-        composable(Routes.TeacherDashboard) { TeacherDashboardScreen(actions) }
-        composable(Routes.CourseRequests) { CourseRequestsScreen(actions) }
-        composable(Routes.Earnings) { EarningsScreen(actions) }
+        composable(Routes.TeacherDashboard) { ProductionTeacherDashboardScreen(actions) }
+        composable(Routes.CourseRequests) { ProductionRequestsScreen(actions) }
+        composable(Routes.Earnings) { ProductionEarningsScreen(actions) }
 
-        composable(Routes.SubscriptionPlans) { SubscriptionPlansScreen(actions) }
-        composable(Routes.SubscriptionActivation) { SubscriptionActivationScreen(actions) }
-        composable(Routes.MySubscription) { MySubscriptionScreen(actions) }
+        composable(Routes.SubscriptionPlans) { UnavailableFeatureScreen(actions, "Abonnements") }
+        composable(Routes.SubscriptionActivation) { UnavailableFeatureScreen(actions, "Abonnements") }
+        composable(Routes.MySubscription) { UnavailableFeatureScreen(actions, "Abonnements") }
 
-        composable(Routes.GroupCourses) { GroupCoursesScreen(actions) }
-        composable(Routes.GroupDetail) { GroupDetailScreen(actions) }
-        composable(Routes.Agenda) { AgendaScreen(actions) }
+        composable(Routes.GroupCourses) { UnavailableFeatureScreen(actions, "Cours en groupe") }
+        composable(Routes.GroupDetail) { UnavailableFeatureScreen(actions, "Cours en groupe") }
+        composable(Routes.Agenda) { MyCoursesScreen(actions) }
 
         composable(Routes.BecomeTeacher) { BecomeTeacherScreen(actions) }
+        composable(Routes.MyChildren) { MyChildrenScreen(actions) }
+        composable(Routes.ExpressNeed) { ExpressNeedScreen(actions) }
+        composable(Routes.MyNeeds) { MyNeedsScreen(actions) }
         composable(Routes.CompleteTeacherProfile) { CompleteTeacherProfileScreen(actions) }
-        composable(Routes.Withdraw) { WithdrawScreen(actions) }
+        composable(Routes.Withdraw) { ProductionEarningsScreen(actions) }
 
-        composable(Routes.ManageCourse) { ManageCourseScreen(actions) }
-        composable(Routes.ProgressReport) { ProgressReportScreen(actions) }
-        composable(Routes.Receipt) { ReceiptScreen(actions) }
+        composable(Routes.ManageCourse) { CourseOperationsScreen(actions) }
+        composable(Routes.ProgressReport) { CourseOperationsScreen(actions) }
+        composable(Routes.Receipt) { CourseOperationsScreen(actions) }
 
-        composable(Routes.HelpFaq) { HelpFaqScreen(actions) }
-        composable(Routes.Settings) { SettingsScreen(actions) }
-        composable(Routes.Referral) { ReferralScreen(actions) }
+        composable(Routes.HelpFaq) { ProductionSupportScreen(actions) }
+        composable(Routes.Settings) { PrivacySettingsScreen(actions) }
+        composable(Routes.Referral) { UnavailableFeatureScreen(actions, "Parrainage") }
         composable(Routes.EmptyState) { EmptyStateScreen(actions) }
 
         composable(Routes.Resources) { ResourcesScreen(actions) }

@@ -1,35 +1,5 @@
 #!/usr/bin/env bash
-# Rituel local : staging → main (merge + push + déploiement VPS).
-# À lancer uniquement après validation sur staging.
+# Depuis le poste opérateur : CI du SHA exact puis préparation distante fermée.
 set -euo pipefail
-
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-cd "$ROOT"
-SSH_HOST="${MP2_SSH:-vps-contabo}"
-
-if [ "${1:-}" != "--yes" ]; then
-  echo "Confirmer la mise en production (staging validé) ?"
-  echo "  Relancer avec : $0 --yes"
-  exit 1
-fi
-
-echo "==> 1/4, Vérifier staging"
-git fetch origin
-git checkout staging
-git pull --ff-only origin staging
-
-echo "==> 2/4, Merger staging → main"
-git checkout main
-git pull --ff-only origin main
-git merge staging --no-edit
-
-echo "==> 3/4, Pousser main"
-git push origin main
-
-echo "==> 4/4, Déployer sur le VPS (branche main)"
-ssh "$SSH_HOST" "bash -s" < "$ROOT/scripts/deploy-prod.sh"
-
-echo ""
-echo "Production déployée :"
-echo "  https://monprofperso.com/admin/"
-echo "  ./scripts/smoke.sh https://monprofperso.com"
+exec node -- "$ROOT/scripts/operations.mjs" release --environment prod "$@"

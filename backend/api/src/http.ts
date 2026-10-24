@@ -10,7 +10,7 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
   const start = process.hrtime.bigint();
   res.on("finish", () => {
     const ms = Number(process.hrtime.bigint() - start) / 1e6;
-    const line = `${req.method} ${req.originalUrl} -> ${res.statusCode} (${ms.toFixed(1)}ms)`;
+    const line = `${req.method} ${req.path} -> ${res.statusCode} (${ms.toFixed(1)}ms)`;
     if (res.statusCode >= 500) console.error(line);
     else console.log(line);
   });
@@ -37,6 +37,6 @@ export function errorHandler(err: any, req: Request, res: Response, _next: NextF
     res.status(413).json({ error: "payload_too_large", message: "fichier trop volumineux" });
     return;
   }
-  console.error(`[${req.method} ${req.originalUrl}]`, err);
+  console.error(`[${req.method} ${req.path}]`, err);
   res.status(500).json({ error: "internal_error", message: "erreur interne" });
 }

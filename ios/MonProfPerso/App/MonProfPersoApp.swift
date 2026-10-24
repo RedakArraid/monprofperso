@@ -15,12 +15,25 @@ struct RootView: View {
 
     init() {
         // Restaure le rôle réel persisté (l'espace admin réapparaît au lancement).
-        _router = StateObject(wrappedValue: { let r = Router(); r.authRole = TokenStore.role; return r }())
+        _router = StateObject(wrappedValue: {
+            let r = Router()
+            if let user = TokenStore.user {
+                r.authRole = user.role
+                r.role = user.role == "teacher" && user.teacher_id != nil ? 2 : user.role == "student" ? 1 : 0
+                r.authPhone = user.phone.map(ApiClient.localPhone) ?? ""
+                r.authFullName = user.full_name ?? ""
+            }
+            return r
+        }())
     }
 
     var body: some View {
         NavigationStack(path: $router.path) {
-            WelcomeScreen()                       // écran 1 = racine
+            Group {
+                if router.authRole == nil { WelcomeScreen() }
+                else if router.isTeacher { ProductionTeacherDashboardScreen() }
+                else { HomeScreen() }
+            }
                 .navigationDestination(for: Route.self) { route in
                     destination(route)
                         .navigationBarBackButtonHidden(true)
@@ -31,6 +44,19 @@ struct RootView: View {
         }
         .environmentObject(router)
         .tint(Ak.green)
+        .task {
+            router.capabilities = (try? await ApiClient.shared.capabilities()) ?? [:]
+            guard TokenStore.token != nil else { return }
+            do {
+                let user = try await ApiClient.shared.me()
+                if let token = TokenStore.token { try TokenStore.save(token: token, user: user) }
+                router.authRole = user.role
+                router.authFullName = user.full_name ?? ""
+                router.authPhone = user.phone ?? ""
+            } catch let ApiError.badStatus(code, _) where code == 401 || code == 403 {
+                router.logout()
+            } catch { /* La session n’est pas supprimée lors d’une panne réseau. */ }
+        }
     }
 
     @ViewBuilder
@@ -40,38 +66,41 @@ struct RootView: View {
         case .login:                  LoginScreen()
         case .otp:                    OtpScreen()
         case .home:                   HomeScreen()
-        case .searchResults:          SearchResultsScreen()
-        case .filters:                FiltersScreen()
+        case .searchResults:          ProductionSearchScreen()
+        case .filters:                ProductionSearchScreen()
         case .teacherProfile:         TeacherProfileScreen()
         case .booking:                BookingScreen()
         case .payment:                PaymentScreen()
         case .confirmed:              ConfirmedScreen()
         case .myCourses:              MyCoursesScreen()
-        case .onlineCourse:           OnlineCourseScreen()
-        case .messaging:              MessagingScreen()
-        case .review:                 ReviewScreen()
-        case .progress:               ProgressScreen()
+        case .onlineCourse:           CourseOperationsScreen()
+        case .messaging:              UnavailableFeatureScreen(title: "Messagerie")
+        case .review:                 CourseOperationsScreen()
+        case .progress:               ProductionProgressScreen()
         case .notifications:          NotificationsScreen()
-        case .account:                AccountScreen()
-        case .wallet:                 WalletScreen()
-        case .teacherDashboard:       TeacherDashboardScreen()
-        case .courseRequests:         CourseRequestsScreen()
-        case .earnings:               EarningsScreen()
-        case .subscriptionPlans:      SubscriptionPlansScreen()
-        case .subscriptionActivation: SubscriptionActivationScreen()
-        case .mySubscription:         MySubscriptionScreen()
-        case .groupCourses:           GroupCoursesScreen()
-        case .groupDetail:            GroupDetailScreen()
-        case .agenda:                 AgendaScreen()
+        case .account:                ProductionAccountScreen()
+        case .wallet:                 MyCoursesScreen()
+        case .teacherDashboard:       ProductionTeacherDashboardScreen()
+        case .courseRequests:         ProductionRequestsScreen()
+        case .earnings:               ProductionEarningsScreen()
+        case .subscriptionPlans:      UnavailableFeatureScreen(title: "Abonnements")
+        case .subscriptionActivation: UnavailableFeatureScreen(title: "Abonnements")
+        case .mySubscription:         UnavailableFeatureScreen(title: "Abonnements")
+        case .groupCourses:           UnavailableFeatureScreen(title: "Cours en groupe")
+        case .groupDetail:            UnavailableFeatureScreen(title: "Cours en groupe")
+        case .agenda:                 MyCoursesScreen()
         case .becomeTeacher:          BecomeTeacherScreen()
         case .completeTeacherProfile: CompleteTeacherProfileScreen()
-        case .withdraw:               WithdrawScreen()
-        case .manageCourse:           ManageCourseScreen()
-        case .progressReport:         ProgressReportScreen()
-        case .receipt:                ReceiptScreen()
-        case .helpFaq:                HelpFaqScreen()
-        case .settings:               SettingsScreen()
-        case .referral:               ReferralScreen()
+        case .myChildren:             MyChildrenScreen()
+        case .expressNeed:            ExpressNeedScreen()
+        case .myNeeds:                MyNeedsScreen()
+        case .withdraw:               ProductionEarningsScreen()
+        case .manageCourse:           CourseOperationsScreen()
+        case .progressReport:         CourseOperationsScreen()
+        case .receipt:                CourseOperationsScreen()
+        case .helpFaq:                ProductionSupportScreen()
+        case .settings:               PrivacySettingsScreen()
+        case .referral:               UnavailableFeatureScreen(title: "Parrainage")
         case .emptyState:             EmptyStateScreen()
         case .resources:              ResourcesScreen()
         case .legal:                  LegalScreen()

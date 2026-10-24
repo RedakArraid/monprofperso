@@ -4,13 +4,6 @@ import UniformTypeIdentifiers
 private struct DocPick { let name: String; let mime: String; let b64: String }
 private struct ProgramPick: Identifiable { let slug: String; let name: String; var id: String { slug } }
 
-private func normalizePhone(_ raw: String) -> String {
-    var p = raw.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: " ", with: "").replacingOccurrences(of: ".", with: "").replacingOccurrences(of: "-", with: "")
-    if p.range(of: #"^0\d{9}$"#, options: .regularExpression) != nil { p = "+225" + String(p.dropFirst()) }
-    else if p.range(of: #"^225\d{8,12}$"#, options: .regularExpression) != nil { p = "+" + p }
-    return p
-}
-
 private let otherLabel = "Autre"
 private let otherProgramSlug = "__autre__"
 private let appLocations = ["Cocody", "Plateau", "Yopougon", "Marcory", "Treichville", "Abobo", "Adjamé", "Koumassi", "Port-Bouët", "Bingerville", "Anyama", "Autre (Abidjan)"]
@@ -41,6 +34,7 @@ struct BecomeTeacherScreen: View {
     @State private var phone = ""
     @State private var email = ""
     @State private var consent = false
+    @State private var consentVersion: String?
     @State private var subjectNames: [String] = ["Maths", "Physique", "Français", "Anglais", "SVT", "Philo", "Hist-Géo"]
     @State private var levelNames: [String] = ["Primaire", "Collège", "Lycée", "Professionnel", "Supérieur", "Université"]
     @State private var selectedSubjects = Set<String>()
@@ -90,6 +84,7 @@ struct BecomeTeacherScreen: View {
             }
         }
         .task { await loadCatalog() }
+        .task { await loadConsentVersion() }
     }
 
     private var stepTitle: String {
@@ -125,7 +120,10 @@ struct BecomeTeacherScreen: View {
                 .font(AkFont.regular(13)).foregroundColor(Ak.muted).padding(.top, 6)
             Toggle(isOn: $consent) {
                 Text("J'accepte les CGU et la politique de confidentialité.").font(AkFont.regular(13)).foregroundColor(Ak.ink)
-            }.padding(.top, 14)
+            }.disabled(consentVersion == nil || loading).padding(.top, 14)
+            Button("Lire les conditions d'utilisation") { router.go(.pdfViewer(url: ApiConfig.baseURL.appendingPathComponent("api/legal/cgu/file").absoluteString, title: "Conditions d'utilisation")) }
+            Button("Lire la politique de confidentialité") { router.go(.pdfViewer(url: ApiConfig.baseURL.appendingPathComponent("api/legal/confidentialite/file").absoluteString, title: "Politique de confidentialité")) }
+            if consentVersion == nil { Button("Recharger les conditions") { Task { await loadConsentVersion() } }.disabled(loading) }
         default:
             EmptyView()
         }
@@ -207,20 +205,33 @@ struct BecomeTeacherScreen: View {
                 err = "Précisez le niveau « Autre »."
             } else { step += 1 }
         case 1:
-            if !consent { err = "Acceptez les conditions." } else { Task { await submit() } }
+            if !consent || consentVersion == nil { err = "Consultez et acceptez les conditions à jour." } else { Task { await submit() } }
         default:
             break
         }
     }
 
-    private func submit() async {
+    @MainActor private func loadConsentVersion() async {
+        do {
+            let version = try await ApiClient.shared.currentConsentVersion()
+            if version != consentVersion { consent = false }
+            consentVersion = version
+        } catch {
+            consentVersion = nil; consent = false
+            err = "Impossible de charger les conditions actuelles. Réessayez avant de candidater."
+        }
+    }
+
+    @MainActor private func submit() async {
+        guard consent, let version = consentVersion else { return }
         loading = true; err = nil
         var json: [String: Any] = [
             "fullName": fullName.trimmingCharacters(in: .whitespaces),
-            "phone": normalizePhone(phone),
+            "phone": ApiClient.normalizePhone(phone),
             "subjects": buildSubjectsString(),
             "levels": buildLevelsList(),
             "consent": true,
+            "consentVersion": version,
         ]
         let em = email.trimmingCharacters(in: .whitespaces)
         if !em.isEmpty { json["email"] = em }
@@ -228,7 +239,10 @@ struct BecomeTeacherScreen: View {
             _ = try await ApiClient.shared.submitTeacherApplication(json)
             done = true
         } catch {
-            err = "Envoi impossible (\(error))"
+            if (error as? ApiError)?.consentCode == "consent_version_changed" {
+                consent = false; consentVersion = nil; await loadConsentVersion()
+            }
+            err = error.localizedDescription
         }
         loading = false
     }
@@ -239,12 +253,7 @@ struct CompleteTeacherProfileScreen: View {
     @EnvironmentObject var router: Router
     @State private var step = 0
     @State private var location = "Cocody"
-    @State private var price = 4000
-    @State private var experience = ""
     @State private var bio = ""
-    @State private var fmtHome = true
-    @State private var fmtOnline = true
-    @State private var negotiable = false
     @State private var subjectsLine = ""
     @State private var levelsLine = ""
     @State private var programItems: [ProgramPick] = [
@@ -312,17 +321,9 @@ struct CompleteTeacherProfileScreen: View {
             if !levelsLine.isEmpty { fieldLabel("Niveaux").padding(.top, 10); Text(levelsLine).font(AkFont.regular(13)).foregroundColor(Ak.ink) }
             fieldLabel("Quartier / commune").padding(.top, 14)
             pickerField(selection: $location, options: appLocations)
-            fieldLabel("Tarif horaire").padding(.top, 10)
-            pickerField(selection: $price, options: appPrices, label: { "\($0.formatted(.number.grouping(.automatic))) F / h" })
-            fieldLabel("Expérience").padding(.top, 10)
-            pickerField(selection: Binding(get: { experience.isEmpty ? appExperiences[2] : experience }, set: { experience = $0 }), options: appExperiences)
             fieldLabel("Programmes scolaires").padding(.top, 14)
             programChips()
             if selectedPrograms.contains(otherProgramSlug) { fieldLabel("Précisez le programme").padding(.top, 8); appField($otherProgram, "Ex. Programme IB…") }
-            fieldLabel("Modalités").padding(.top, 12)
-            Toggle("Cours à domicile", isOn: $fmtHome).font(AkFont.regular(13))
-            Toggle("Cours en ligne", isOn: $fmtOnline).font(AkFont.regular(13))
-            Toggle("Tarif négociable", isOn: $negotiable).font(AkFont.regular(13))
             fieldLabel("Présentation").padding(.top, 10)
             appField($bio, "Votre parcours…", lines: 3)
         } else {
@@ -338,8 +339,7 @@ struct CompleteTeacherProfileScreen: View {
         if let p = try? await ApiClient.shared.teacherProfile() {
             subjectsLine = p.subjects; levelsLine = p.levels.joined(separator: " · ")
             location = p.location.isEmpty ? "Cocody" : p.location
-            price = p.pricePerHour ?? 4000; experience = p.experience ?? ""; bio = p.bio ?? ""
-            fmtHome = p.formats.contains("home"); fmtOnline = p.formats.contains("online"); negotiable = p.negotiable
+            bio = p.bio ?? ""
             selectedPrograms = Set(p.programs.isEmpty ? ["standard"] : p.programs)
             hasIdCard = p.hasIdCard; hasDiploma = p.hasDiploma; hasPhoto = p.hasPhoto
         }
@@ -361,10 +361,8 @@ struct CompleteTeacherProfileScreen: View {
         guard !loading else { return }
         err = nil
         if step == 0 {
-            if experience.trimmingCharacters(in: .whitespaces).isEmpty { err = "Indiquez votre expérience." }
-            else if selectedPrograms.isEmpty { err = "Sélectionnez au moins un programme." }
+            if selectedPrograms.isEmpty { err = "Sélectionnez au moins un programme." }
             else if selectedPrograms.contains(otherProgramSlug) && otherProgram.trimmingCharacters(in: .whitespaces).isEmpty { err = "Précisez le programme « Autre »." }
-            else if !fmtHome && !fmtOnline { err = "Choisissez domicile ou en ligne." }
             else { step += 1 }
         } else {
             if !hasIdCard && idCard == nil || !hasDiploma && diploma == nil || !hasPhoto && photo == nil { err = "Ajoutez les documents manquants." }
@@ -374,13 +372,9 @@ struct CompleteTeacherProfileScreen: View {
 
     private func submit() async {
         loading = true; err = nil
-        var formats: [String] = []
-        if fmtHome { formats.append("home") }
-        if fmtOnline { formats.append("online") }
         var json: [String: Any] = [
-            "location": location, "pricePerHour": price, "experience": experience,
-            "formats": formats.isEmpty ? ["home", "online"] : formats,
-            "programs": buildProgramsList(), "negotiable": negotiable,
+            "location": location,
+            "programs": buildProgramsList(),
         ]
         if !bio.trimmingCharacters(in: .whitespaces).isEmpty { json["bio"] = bio.trimmingCharacters(in: .whitespaces) }
         if let idCard { json["idCardBase64"] = idCard.b64; json["idCardFileName"] = idCard.name; json["idCardMimeType"] = idCard.mime }

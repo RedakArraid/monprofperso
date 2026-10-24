@@ -1,10 +1,13 @@
 # --- Backend (Node) ---
 backend/api/node_modules/
 backend/api/dist/
-backend/api/package-lock.json
 *.log
 # Secrets locaux (garder .env.example versionné)
 .env
+.env.*
+!.env.example
+!.env.production.example
+!.env.staging.example
 
 # --- Android ---
 android/.gradle/
@@ -37,3 +40,15 @@ xcuserdata/
 # --- Divers ---
 _maquette/
 *.zip
+
+# --- Webapp (Vite/React) ---
+webapp/node_modules/
+webapp/dist/
+
+# Exploitation : données, secrets de sauvegarde et états locaux
+!.env.backup.example
+!.env.monitor.example
+.release-state/
+.backups/
+.releases/
+*.dump

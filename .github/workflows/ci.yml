@@ -1,0 +1,199 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [dev, staging, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  api:
+    name: API — build et tests PostgreSQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: monprofperso_ci
+          POSTGRES_PASSWORD: ci-only-database-password
+          POSTGRES_DB: monprofperso_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U monprofperso_ci -d monprofperso_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      DEMO_MODE: "true"
+      PAYSTACK_MOCK: "true"
+      ONLINE_COURSES_ENABLED: "true"
+      WORKER_ENABLED: "false"
+      NOTIFICATIONS_ENABLED: "false"
+      JWT_SECRET: ci-only-jwt-secret-with-more-than-32-characters
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGUSER: monprofperso_ci
+      PGPASSWORD: ci-only-database-password
+      PGDATABASE: monprofperso_ci
+      HOST: 127.0.0.1
+      PORT: "8099"
+      S3_ENDPOINT: ""
+      API_URL: http://127.0.0.1:8099
+      API_BASE: http://127.0.0.1:8099
+    defaults:
+      run:
+        working-directory: backend/api
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: backend/api/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - name: Démarrer l’API et appliquer les migrations
+        run: |
+          node dist/server.js > "$RUNNER_TEMP/monprofperso-api.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/monprofperso-api.pid"
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent "$API_URL/health" > /dev/null; then
+              exit 0
+            fi
+            if ! kill -0 "$(cat "$RUNNER_TEMP/monprofperso-api.pid")" 2>/dev/null; then
+              cat "$RUNNER_TEMP/monprofperso-api.log"
+              exit 1
+            fi
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/monprofperso-api.log"
+          exit 1
+      - name: Tests unitaires et parcours API
+        run: npm test
+      - name: Contrats de livraison, sauvegarde et supervision
+        run: node --test ../../scripts/test/*.test.mjs
+      - name: Images et isolation réelle des stacks production et staging
+        run: bash ../../scripts/test/compose-isolation.sh
+      - name: Journal de l’API en cas d’échec
+        if: failure()
+        run: |
+          if [ -f "$RUNNER_TEMP/monprofperso-api.log" ]; then
+            cat "$RUNNER_TEMP/monprofperso-api.log"
+          fi
+      - name: Arrêter l’API
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/monprofperso-api.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/monprofperso-api.pid")" 2>/dev/null || true
+          fi
+
+  web:
+    name: Web — types, lint, tests et build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: webapp
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: webapp/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - name: Vérifier les scripts du site et de l’administration
+        run: |
+          node --check ../web/admin/js/admin.js
+          node --check ../web/admin/js/operations.js
+          node --check ../web/js/api-client.js
+          node --check ../web/js/devenir-prof.js
+          node --check ../web/js/besoin.js
+          node --check ../web/js/account-public.js
+          node --check ../web/js/service-information.js
+
+  android:
+    name: Android — compilation et tests JVM
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      - run: ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug
+
+  ios:
+    name: iOS — compilation et tests simulateur
+    runs-on: macos-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: brew install xcodegen
+      - run: xcodegen generate
+      - name: Compiler pour le simulateur sans signature
+        run: >-
+          xcodebuild build
+          -project MonProfPerso.xcodeproj
+          -scheme MonProfPerso
+          -configuration Debug
+          -sdk iphonesimulator
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath "$RUNNER_TEMP/monprofperso-ios"
+          CODE_SIGNING_ALLOWED=NO
+      - name: Choisir un simulateur iPhone installé
+        run: |
+          mpp_simulator_id="$(xcrun simctl list devices available --json | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin).get("devices", {})
+          match = next((device["udid"] for runtime, items in devices.items()
+                        if ".iOS-" in runtime for device in items
+                        if device.get("isAvailable") and device["name"].startswith("iPhone")), None)
+          if not match:
+              raise SystemExit("Aucun simulateur iPhone disponible")
+          print(match)
+          ')"
+          printf 'MPP_IOS_SIMULATOR_ID=%s\n' "$mpp_simulator_id" >> "$GITHUB_ENV"
+      - name: Tester sur le simulateur
+        run: >-
+          xcodebuild test
+          -project MonProfPerso.xcodeproj
+          -scheme MonProfPerso
+          -configuration Debug
+          -sdk iphonesimulator
+          -destination "platform=iOS Simulator,id=$MPP_IOS_SIMULATOR_ID"
+          -derivedDataPath "$RUNNER_TEMP/monprofperso-ios"
+          CODE_SIGNING_ALLOWED=NO

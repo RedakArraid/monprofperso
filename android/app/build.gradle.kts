@@ -5,6 +5,7 @@ plugins {
 }
 
 import java.util.Properties
+import java.net.URI
 
 val keystorePropertiesFile = rootProject.file("keystore.properties")
 val keystoreProperties = Properties().apply {
@@ -13,16 +14,36 @@ val keystoreProperties = Properties().apply {
     }
 }
 
+// CI et poste de publication peuvent fournir les secrets sans fichier versionné.
+fun signingValue(key: String, variable: String): String? =
+    providers.environmentVariable(variable).orNull?.takeIf { it.isNotBlank() }
+        ?: (keystoreProperties[key] as? String)?.takeIf { it.isNotBlank() }
+val releaseStorePath = signingValue("storeFile", "MPP_ANDROID_KEYSTORE")
+val releaseStorePassword = signingValue("storePassword", "MPP_ANDROID_STORE_PASSWORD")
+val releaseKeyAlias = signingValue("keyAlias", "MPP_ANDROID_KEY_ALIAS")
+val releaseKeyPassword = signingValue("keyPassword", "MPP_ANDROID_KEY_PASSWORD")
+val releaseSigningReady = listOf(releaseStorePath, releaseStorePassword, releaseKeyAlias, releaseKeyPassword).all { !it.isNullOrBlank() }
+
+// -PdevApiUrl=... / -PstagingApiUrl=... / -PproductionApiUrl=... pour chaque environnement.
+fun apiUrl(propertyName: String, defaultUrl: String, requireHttps: Boolean = false): String {
+    val value = providers.gradleProperty(propertyName).getOrElse(defaultUrl).trimEnd('/') + "/"
+    val uri = URI(value)
+    require(uri.host != null && uri.userInfo == null && uri.query == null && uri.fragment == null)
+    require(uri.scheme == "https" || (!requireHttps && uri.scheme == "http"))
+    require(value.none { it == '"' || it == '\\' || it.isISOControl() })
+    return "\"$value\""
+}
+
 android {
     namespace = "ci.monprofperso.app"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "ci.monprofperso.app"
         minSdk = 24
-        targetSdk = 35
-        versionCode = 2
-        versionName = "1.0.1"
+        targetSdk = 36
+        versionCode = providers.gradleProperty("releaseVersionCode").getOrElse("3").toInt()
+        versionName = providers.gradleProperty("releaseVersionName").getOrElse("1.1.0")
         vectorDrawables { useSupportLibrary = true }
         ndk {
             // Symboles natifs inclus dans l'AAB pour Play Console (crash/ANR).
@@ -31,24 +52,38 @@ android {
     }
 
     signingConfigs {
-        if (keystorePropertiesFile.exists()) {
+        if (releaseSigningReady) {
             create("release") {
-                keyAlias = keystoreProperties["keyAlias"] as String
-                keyPassword = keystoreProperties["keyPassword"] as String
-                storeFile = rootProject.file(keystoreProperties["storeFile"] as String)
-                storePassword = keystoreProperties["storePassword"] as String
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+                storeFile = rootProject.file(releaseStorePath!!)
+                storePassword = releaseStorePassword
             }
         }
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".dev"
+            buildConfigField("String", "API_BASE_URL", apiUrl("devApiUrl", "http://10.0.2.2:8099/"))
+            buildConfigField("boolean", "DEMO_DATA_ENABLED", (providers.gradleProperty("enableDemoData").orNull == "true").toString())
+        }
+        create("staging") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".staging"
+            matchingFallbacks += listOf("debug")
+            buildConfigField("String", "API_BASE_URL", apiUrl("stagingApiUrl", "https://staging-api.monprofperso.com/", true))
+            buildConfigField("boolean", "DEMO_DATA_ENABLED", "false")
+        }
         release {
+            buildConfigField("String", "API_BASE_URL", apiUrl("productionApiUrl", "https://api.monprofperso.com/", true))
+            buildConfigField("boolean", "DEMO_DATA_ENABLED", "false")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            if (keystorePropertiesFile.exists()) {
+            if (releaseSigningReady) {
                 signingConfig = signingConfigs.getByName("release")
             }
         }
@@ -58,13 +93,23 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
     }
 }
 
+// Une compilation de contrôle reste possible ; un livrable Release doit être signé.
+gradle.taskGraph.whenReady {
+    if (allTasks.any { it.name in setOf("assembleRelease", "bundleRelease", "packageRelease", "signReleaseBundle") }) {
+        check(releaseSigningReady && rootProject.file(releaseStorePath!!).isFile) {
+            "Signature Release absente : configurer MPP_ANDROID_KEYSTORE, MPP_ANDROID_STORE_PASSWORD, MPP_ANDROID_KEY_ALIAS et MPP_ANDROID_KEY_PASSWORD (ou keystore.properties)."
+        }
+    }
+}
+
 dependencies {
+    testImplementation("junit:junit:4.13.2")
     val composeBom = platform("androidx.compose:compose-bom:2024.09.02")
     implementation(composeBom)
 

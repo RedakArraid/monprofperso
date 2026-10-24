@@ -93,7 +93,7 @@ code { background: var(--green-soft); color: var(--green); padding: 1px 6px; bor
 .topbar h2 { font-size: 20px; flex: 1; }
 .who { font-size: 13px; color: var(--muted); }
 .burger { display: none; background: none; border: none; font-size: 22px; color: var(--ink); }
-.content { padding: 28px; max-width: 1000px; width: 100%; }
+.content { padding: 28px clamp(16px, 3vw, 40px); max-width: none; width: 100%; }
 
 /* ----------------------------- Cartes & grilles ----------------------------- */
 .card {
@@ -273,3 +273,22 @@ code { background: var(--green-soft); color: var(--green); padding: 1px 6px; bor
 @media (max-width: 360px) {
   .stats-grid { grid-template-columns: 1fr; }
 }
+
+/* Operational workflows and provider evidence. */
+.operation-form { margin-top: 20px; }
+.operation-form fieldset { border: 0; padding: 0; min-width: 0; }
+.operation-form label { display: block; margin: 14px 0; font-weight: 600; }
+.operation-form input, .operation-form select, .operation-form textarea { display: block; width: 100%; margin-top: 6px; }
+.operation-summary { background: var(--bg, #f7f9f8); border-radius: 10px; padding: 16px; }
+.operation-summary p { margin: 6px 0; }
+.operation-entry { padding: 12px 0; border-bottom: 1px solid #e5e7eb; }
+.operation-entry p { white-space: pre-wrap; margin: 5px 0; }
+.operation-actions { flex-wrap: wrap; margin: 20px 0; }
+.operation-error { color: #a82121; margin: 12px 0; white-space: pre-wrap; }
+.break-anywhere { overflow-wrap: anywhere; }
+.table-wrap { overflow-x: auto; margin: 18px 0; }
+.table-wrap table { width: 100%; border-collapse: collapse; text-align: left; }
+.table-wrap th, .table-wrap td { padding: 12px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+.table-wrap td .btn { margin: 3px; }
+
+.operation-form input[type="checkbox"] { display: inline-block; width: auto; margin-right: 8px; }

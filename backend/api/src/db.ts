@@ -5,6 +5,10 @@ import { Pool, types } from "pg";
 // côté iOS (JSONDecoder strict) comme côté Android.
 types.setTypeParser(1700, (v: string | null) => (v === null ? null : parseFloat(v)));
 
+// Postgres renvoie les colonnes DATE en objets Date (donc en ISO avec heure une
+// fois sérialisées par res.json) ; on garde la chaîne "AAAA-MM-JJ" brute du fil.
+types.setTypeParser(1082, (v: string) => v);
+
 export const pool = new Pool({
   host: process.env.PGHOST ?? "db",
   port: Number(process.env.PGPORT ?? 5432),

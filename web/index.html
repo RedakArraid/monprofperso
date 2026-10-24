@@ -4,11 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Mon Prof Perso | Soutien scolaire à domicile en Côte d'Ivoire</title>
-  <meta name="description" content="Mon Prof Perso (MP²) : trouvez un professeur vérifié pour des cours particuliers à domicile ou en ligne en Côte d'Ivoire. Prépa BEPC & BAC, paiement Mobile Money, suivi des progrès." />
+  <meta name="description" content="Mon Prof Perso (MP²) : trouvez un professeur vérifié pour des cours particuliers en Côte d'Ivoire. Prépa BEPC & BAC, réservation et paiement Mobile Money." />
   <meta name="theme-color" content="#0E5A43" />
 
   <!-- Open Graph -->
-  <meta property="og:title" content="Mon Prof Perso | Un succès inévitable" />
+  <meta property="og:title" content="Mon Prof Perso | Des cours particuliers suivis" />
   <meta property="og:description" content="Cours particuliers à domicile ou en ligne en Côte d'Ivoire. Profs vérifiés, prépa BEPC & BAC, paiement Mobile Money." />
   <meta property="og:type" content="website" />
   <meta property="og:image" content="assets/mp2-logo.png" />
@@ -19,6 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/styles.css?v=20260628o" />
+  <link rel="stylesheet" href="css/devenir-prof.css?v=20260628m" />
 </head>
 <body>
 
@@ -53,10 +54,11 @@
       <nav class="nav" id="nav">
         <a href="#features">Fonctionnalités</a>
         <a href="#how">Comment ça marche</a>
+        <a href="#besoin">Demander un devis</a>
         <a href="#audience">Pour qui</a>
-        <a href="#apercu">Aperçu</a>
         <a href="devenir-prof.html">Devenir professeur</a>
-        <a href="#download" class="btn btn-sm btn-primary">Télécharger</a>
+        <a href="connexion.html" class="btn btn-sm btn-ghost" id="authLink">Se connecter</a>
+        <a href="espace/" class="btn btn-sm btn-primary">Ouvrir mon espace</a>
       </nav>
       <button class="nav-toggle" id="navToggle" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="nav">
         <span></span><span></span><span></span>
@@ -74,28 +76,19 @@
         <p class="lead">
           Mon Prof Perso met en relation parents et élèves avec des
           <strong>professeurs vérifiés</strong> pour des cours particuliers à
-          domicile ou en ligne. Prépa BEPC &amp; BAC, paiement Mobile Money,
-          suivi des progrès, <em>un succès inévitable</em>.
+          domicile. Prépa BEPC &amp; BAC, réservation de créneaux, paiement Mobile Money
+          et suivi de chaque séance.
         </p>
-        <div class="store-badges">
-          <a class="store-badge" id="badge-android" href="#download" data-store="android">
-            <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M3 20.5V3.5c0-.4.2-.7.5-.9l10.3 9.4L3.5 21.4c-.3-.2-.5-.5-.5-.9M16 13.9l2.6 2.4-3 1.7-2.3-2.1 2.7-2M5 2.3l9.9 5.7-2.2 2L5 2.3m0 19.4l7.7-7.7 2.2 2L5 21.7M17.7 8.6l3.6 2.1c.6.4.6 1.3 0 1.6l-3.6 2.1-2.9-2.9 2.9-3" /></svg>
-            <span><small>Disponible sur</small><strong>Google Play</strong></span>
-          </a>
-          <a class="store-badge" id="badge-ios" href="#download" data-store="ios">
-            <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M16.4 12.7c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.8-.8-3-.8-1.5 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 2.9 2.3 1.2-.1 1.6-.8 3-.8s1.8.8 3 .7c1.2 0 2-1.1 2.8-2.2.9-1.3 1.2-2.5 1.3-2.6-.1 0-2.5-1-2.5-3.7M14.2 5.8c.6-.8 1.1-1.9 1-3-.9 0-2.1.6-2.8 1.4-.6.7-1.1 1.8-1 2.9 1 .1 2.1-.5 2.8-1.3" /></svg>
-            <span><small>Télécharger dans</small><strong>l'App Store</strong></span>
-          </a>
-        </div>
-        <p class="hero-note">Bientôt sur les stores, laissez-nous votre intérêt via nos réseaux.</p>
+        <div class="store-badges"><a class="btn btn-primary" href="espace/">Trouver un professeur</a><a class="btn btn-ghost" href="#besoin">Décrire mon besoin</a></div>
+        <p class="hero-note">Votre espace est accessible sur ordinateur et sur le navigateur de votre téléphone.</p>
       </div>
 
       <div class="hero-visual reveal">
-        <div class="phone">
-          <img src="assets/screens/app_home.png" alt="Écran d'accueil de l'application Mon Prof Perso" />
+        <div class="card service-journey">
+          <span class="kicker">Votre cours, étape par étape</span>
+          <h2>Un rendez-vous clair pour chacun</h2>
+          <ol><li><strong>Choisissez un professeur</strong><span>Consultez les matières, tarifs et modalités proposés.</span></li><li><strong>Convenez du créneau</strong><span>Le professeur accepte la réservation ; chaque report demande un nouvel accord.</span></li><li><strong>Réglez puis suivez la séance</strong><span>Retrouvez les coordonnées, confirmez la réalisation et signalez un problème si nécessaire.</span></li></ol>
         </div>
-        <div class="floaty floaty-1"><svg class="ui-icon ui-icon-sm" aria-hidden="true"><use href="#icon-star"/></svg> 4,9 · profs notés</div>
-        <div class="floaty floaty-2"><svg class="ui-icon ui-icon-sm" aria-hidden="true"><use href="#icon-menu-book"/></svg> Maths · Physique · Anglais</div>
       </div>
     </div>
   </section>
@@ -106,7 +99,7 @@
       <div class="stat reveal"><svg class="ui-icon ui-icon-stat" aria-hidden="true"><use href="#icon-verified"/></svg><b>Profs vérifiés</b><span>Identité &amp; niveau contrôlés</span></div>
       <div class="stat reveal"><svg class="ui-icon ui-icon-stat" aria-hidden="true"><use href="#icon-school"/></svg><b>BEPC &amp; BAC</b><span>Préparation aux examens</span></div>
       <div class="stat reveal"><svg class="ui-icon ui-icon-stat" aria-hidden="true"><use href="#icon-payments"/></svg><b>Mobile Money</b><span>Orange · MTN · Wave</span></div>
-      <div class="stat reveal"><svg class="ui-icon ui-icon-stat" aria-hidden="true"><use href="#icon-videocam"/></svg><b>Domicile ou en ligne</b><span>Vous choisissez</span></div>
+      <div class="stat reveal"><svg class="ui-icon ui-icon-stat" aria-hidden="true"><use href="#icon-videocam"/></svg><b>Rendez-vous suivis</b><span>Créneau et coordonnées du cours</span></div>
     </div>
   </section>
 
@@ -126,8 +119,9 @@
         </article>
         <article class="card reveal">
           <div class="card-icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-home"/></svg></div>
-          <h3>À domicile ou en ligne</h3>
-          <p>Réservez un cours chez vous ou en visio, selon votre emploi du temps.</p>
+          <h3>Un créneau convenu ensemble</h3>
+          <p>Proposez une date ; retrouvez l’accord du professeur et les précisions d’accès dans votre espace.</p>
+          <p data-capability="onlineCourses" hidden>Des cours en ligne peuvent être proposés avec un lien de réunion externe fourni par le professeur.</p>
         </article>
         <article class="card reveal">
           <div class="card-icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-payments"/></svg></div>
@@ -137,12 +131,13 @@
         <article class="card reveal">
           <div class="card-icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-school"/></svg></div>
           <h3>Prépa BEPC &amp; BAC</h3>
-          <p>Cours intensifs et stages de vacances en petits groupes ou en individuel.</p>
+          <p>Des cours individuels adaptés à la classe, à la matière et à votre préparation aux examens.</p>
         </article>
         <article class="card reveal">
           <div class="card-icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-trending"/></svg></div>
-          <h3>Suivi des progrès</h3>
-          <p>Moyennes par matière, objectifs et tendance, gardez le cap.</p>
+          <h3>Un suivi après la séance</h3>
+          <p>Confirmez le cours réalisé ou signalez un problème à l’équipe.</p>
+          <p data-capability="progress" hidden>Consultez les bilans pédagogiques partagés par votre professeur.</p>
         </article>
         <article class="card reveal">
           <div class="card-icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-menu-book"/></svg></div>
@@ -158,24 +153,91 @@
     <div class="container">
       <div class="section-head reveal">
         <span class="kicker">Comment ça marche</span>
-        <h2>En 3 étapes simples</h2>
+        <h2>Deux façons de trouver votre prof</h2>
       </div>
       <div class="steps">
         <div class="step reveal">
           <span class="step-num">1</span>
-          <h3>Trouvez un prof</h3>
-          <p>Recherchez par matière, niveau et format. Comparez les profils et les avis.</p>
+          <h3>Cherchez vous-même</h3>
+          <p>Dans l'appli, recherchez par matière, niveau et format. Comparez les profils et les avis.</p>
         </div>
         <div class="step reveal">
           <span class="step-num">2</span>
-          <h3>Réservez &amp; payez</h3>
-          <p>Choisissez un créneau et réglez en Mobile Money. Le prof confirme la demande.</p>
+          <h3>Ou décrivez votre besoin</h3>
+          <p>Remplissez le formulaire ci-dessous, sans compte à créer. Notre équipe vous propose un tarif adapté après examen de votre demande.</p>
         </div>
         <div class="step reveal">
           <span class="step-num">3</span>
           <h3>Apprenez &amp; progressez</h3>
-          <p>Suivez les cours, échangez et visualisez les progrès au fil du trimestre.</p>
+          <p>Le professeur accepte le créneau, vous réglez en Mobile Money et retrouvez les détails du rendez-vous dans votre espace.</p>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ CONFIANCE ============================ -->
+  <section class="section" id="confiance">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="kicker">Confiance</span>
+        <h2>Des professeurs passés au crible</h2>
+      </div>
+      <div class="cards cards-3">
+        <article class="card reveal">
+          <div class="card-icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-verified"/></svg></div>
+          <h3>Candidature vérifiée</h3>
+          <p>Pièce d'identité, diplôme et photo contrôlés par notre équipe avant toute mise en ligne du profil.</p>
+        </article>
+        <article class="card reveal">
+          <div class="card-icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-star"/></svg></div>
+          <h3 id="trustRatingTitle">Notés par les familles</h3>
+          <p id="trustRatingText">Les avis publiés concernent des cours réalisés et confirmés. Les nouveaux profils sont affichés sans note tant qu’aucun avis n’a été reçu.</p>
+        </article>
+        <article class="card reveal">
+          <div class="card-icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-trending"/></svg></div>
+          <h3>Suivi dans la durée</h3>
+          <p>Créneaux, paiements, comptes rendus et échanges avec le support sont accessibles depuis votre espace.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ BESOIN ============================ -->
+  <section class="section section-soft" id="besoin">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="kicker">Devis personnalisé</span>
+        <h2>Décrivez votre besoin, recevez un devis</h2>
+        <p>Lieu, classe, matière : notre équipe vous propose un professeur et un tarif adapté, sans engagement.</p>
+      </div>
+      <div class="devenir-card reveal" id="besoinCard" style="max-width:640px;margin:0 auto;">
+        <form id="besoinForm" novalidate>
+          <div class="field-row">
+            <div class="field"><label for="besoinName">Nom complet *</label><input id="besoinName" required placeholder="Votre nom complet" autocomplete="name" /></div>
+            <div class="field"><label for="besoinPhone">Téléphone *</label><input id="besoinPhone" type="tel" required placeholder="+2250700000000" autocomplete="tel" /></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label for="besoinSubject">Matière *</label><select id="besoinSubject" required></select></div>
+            <div class="field"><label for="besoinLevel">Classe / niveau *</label><select id="besoinLevel" required></select></div>
+          </div>
+          <fieldset class="field">
+            <legend>Format *</legend>
+            <div class="field-inline-checks">
+              <label class="check-row"><input type="radio" name="besoinFormat" value="home" checked /> À domicile</label>
+              <label class="check-row" data-capability="onlineCourses" hidden><input type="radio" name="besoinFormat" value="online" disabled /> En ligne (lien externe)</label>
+            </div>
+          </fieldset>
+          <div class="field" id="besoinLocationWrap"><label for="besoinLocation">Quartier / commune</label><input id="besoinLocation" type="text" placeholder="Ex. Cocody, Marcory…" /></div>
+          <div class="field"><label for="besoinDescription">Précisions (optionnel)</label><textarea id="besoinDescription" rows="3" placeholder="Fréquence souhaitée, objectifs, disponibilités…"></textarea></div>
+          <label class="check-row"><input type="checkbox" id="besoinConsent" required /> J'accepte les <a href="#" data-legal="cgu">conditions d'utilisation</a> et la <a href="#" data-legal="confidentialite">politique de confidentialité</a>.</label>
+          <p class="form-help" id="besoinConsentVersion">Chargement de la version des documents…</p>
+          <p id="besoinErr" class="form-err" hidden></p>
+          <div class="form-actions"><button type="submit" class="btn btn-primary" id="besoinSubmitBtn">Recevoir un devis</button></div>
+        </form>
+      </div>
+      <div class="success-box" id="besoinSuccess" hidden style="max-width:640px;margin:0 auto;">
+        <h2>Demande envoyée</h2>
+        <p id="besoinSuccessText">Merci ! Notre équipe vous contacte après examen de votre demande avec un tarif personnalisé.</p>
       </div>
     </div>
   </section>
@@ -201,46 +263,18 @@
         <article class="card audience reveal">
           <div class="card-icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-co-present"/></svg></div>
           <h3>Professeurs</h3>
-          <p>Recevez des demandes, gérez votre agenda et vos revenus depuis l'espace prof.</p>
+          <p>Recevez des demandes, consultez vos rendez-vous et demandez le reversement des revenus disponibles depuis l'espace prof.</p>
           <a class="card-link" href="devenir-prof.html">Devenir professeur</a>
         </article>
       </div>
     </div>
   </section>
 
-  <!-- ============================ APERÇU ============================ -->
-  <section class="section section-soft" id="apercu">
-    <div class="container">
-      <div class="section-head reveal">
-        <span class="kicker">Aperçu</span>
-        <h2>Une expérience claire et fidèle</h2>
-        <p>Quelques écrans de l'application, côté élève et côté professeur.</p>
-      </div>
-      <div class="gallery">
-        <div class="phone phone-sm reveal"><img src="assets/screens/app_welcome.png" alt="Écran d'accueil" loading="lazy" /></div>
-        <div class="phone phone-sm reveal"><img src="assets/screens/app_search.png" alt="Recherche de professeurs" loading="lazy" /></div>
-        <div class="phone phone-sm reveal"><img src="assets/screens/app_courses.png" alt="Mes cours" loading="lazy" /></div>
-        <div class="phone phone-sm reveal"><img src="assets/screens/app_progress.png" alt="Suivi des progrès" loading="lazy" /></div>
-        <div class="phone phone-sm reveal"><img src="assets/screens/app_teacher_dashboard.png" alt="Tableau de bord professeur" loading="lazy" /></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================ DOWNLOAD CTA ============================ -->
   <section class="cta" id="download">
     <div class="container cta-inner reveal">
-      <h2>Téléchargez Mon Prof Perso</h2>
-      <p>Disponible bientôt sur Android et iOS. Rejoignez les familles qui font de la réussite une évidence.</p>
-      <div class="store-badges">
-        <a class="store-badge light" href="#download" data-store="android">
-          <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M3 20.5V3.5c0-.4.2-.7.5-.9l10.3 9.4L3.5 21.4c-.3-.2-.5-.5-.5-.9M16 13.9l2.6 2.4-3 1.7-2.3-2.1 2.7-2M5 2.3l9.9 5.7-2.2 2L5 2.3m0 19.4l7.7-7.7 2.2 2L5 21.7M17.7 8.6l3.6 2.1c.6.4.6 1.3 0 1.6l-3.6 2.1-2.9-2.9 2.9-3" /></svg>
-          <span><small>Disponible sur</small><strong>Google Play</strong></span>
-        </a>
-        <a class="store-badge light" href="#download" data-store="ios">
-          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M16.4 12.7c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.8-.8-3-.8-1.5 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 2.9 2.3 1.2-.1 1.6-.8 3-.8s1.8.8 3 .7c1.2 0 2-1.1 2.8-2.2.9-1.3 1.2-2.5 1.3-2.6-.1 0-2.5-1-2.5-3.7M14.2 5.8c.6-.8 1.1-1.9 1-3-.9 0-2.1.6-2.8 1.4-.6.7-1.1 1.8-1 2.9 1 .1 2.1-.5 2.8-1.3" /></svg>
-          <span><small>Télécharger dans</small><strong>l'App Store</strong></span>
-        </a>
-      </div>
+      <h2>Retrouvez vos cours dans votre espace</h2>
+      <p>Accédez au service dans votre navigateur. Les liens vers les applications mobiles seront publiés lorsqu’elles seront disponibles sur les stores.</p>
+      <a class="btn btn-primary" href="espace/">Ouvrir mon espace</a>
     </div>
   </section>
 
@@ -252,7 +286,7 @@
           <img src="assets/mp2-logo.png" alt="Logo MP²" class="brand-logo" />
           <span class="brand-name">Mon Prof Perso</span>
         </a>
-        <p class="tagline">Un succès inévitable.</p>
+        <p class="tagline">Des cours particuliers suivis.</p>
         <p class="footer-loc">Abidjan, Côte d'Ivoire 🇨🇮</p>
       </div>
 
@@ -260,8 +294,10 @@
         <h4>Navigation</h4>
         <a href="#features">Fonctionnalités</a>
         <a href="#how">Comment ça marche</a>
+        <a href="#besoin">Demander un devis</a>
         <a href="#audience">Pour qui</a>
-        <a href="#download">Télécharger</a>
+        <a href="espace/">Mon espace</a>
+        <a href="aide.html">Aide et support</a>
         <a href="devenir-prof.html">Devenir professeur</a>
       </div>
 
@@ -270,6 +306,8 @@
         <a href="#" data-legal="cgu">Conditions d'utilisation</a>
         <a href="#" data-legal="confidentialite">Politique de confidentialité</a>
         <a href="#" data-legal="mentions-legales">Mentions légales</a>
+        <a href="suppression-compte.html">Supprimer mon compte</a>
+        <a href="informations-service.html">Informations et règles du service</a>
       </div>
 
       <div class="footer-col footer-col--social">
@@ -293,6 +331,7 @@
     </div>
   </footer>
 
-  <script src="js/main.js"></script>
+  <script src="js/main.js?v=20261024-production"></script>
+  <script src="js/besoin.js?v=20261024-consent"></script>
 </body>
 </html>

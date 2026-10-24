@@ -15,6 +15,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import ci.monprofperso.app.data.GroupDto
+import ci.monprofperso.app.data.GroupsViewModel
+import ci.monprofperso.app.data.UiState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,14 +37,9 @@ import ci.monprofperso.app.ui.theme.Schibsted
 /* ====================================================================== *
  * ÉCRAN 26, COURS EN GROUPE (LISTE)
  * ====================================================================== */
-private data class Group(
-    val tag: String, val tagGreen: Boolean, val price: String, val title: String, val detail: String,
-    val teacherInitials: String, val teacherGreen: Boolean, val teacherName: String,
-    val enrolled: String?, val left: String?, val leftWarn: Boolean, val fraction: Float,
-)
-
 @Composable
-fun GroupCoursesScreen(nav: NavActions) {
+fun GroupCoursesScreen(nav: NavActions, vm: GroupsViewModel = androidx.lifecycle.viewmodel.compose.viewModel()) {
+    val state by vm.state.collectAsStateWithLifecycle()
     var filter by remember { mutableIntStateOf(0) }
     AkScreen {
         TopBar("Cours en groupe", subtitle = "Prépa examens en petit comité", onBack = { nav.back() })
@@ -48,31 +47,55 @@ fun GroupCoursesScreen(nav: NavActions) {
             listOf("Tous", "BEPC", "BAC", "Vacances").forEachIndexed { i, l -> PillTab(l, filter == i) { filter = i } }
         }
         Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 22.dp).padding(top = 16.dp)) {
-            GroupCard(Group("PRÉPA BAC", false, "2 000 F", "Maths & Physique-Chimie", "Terminale D · 8 semaines · Sam & Dim", "KN", true, "Koffi N'Guessan", "9 / 12 inscrits", "3 places restantes", true, 0.75f)) { nav.go(Routes.GroupDetail) }
-            Spacer(Modifier.height(13.dp))
-            GroupCard(Group("PRÉPA BEPC", true, "1 500 F", "Maths intensif", "3ᵉ · 6 semaines · Mer & Sam", "ID", false, "Ibrahim Diallo", "6 / 10 inscrits", "4 places restantes", false, 0.60f)) { nav.go(Routes.GroupDetail) }
-            Spacer(Modifier.height(13.dp))
-            GroupCard(Group("VACANCES", true, "1 500 F", "Stage de Français", "Collège · 2 semaines · Lun → Ven", "", true, "", null, null, false, 0f)) { nav.go(Routes.GroupDetail) }
+            when (val s = state) {
+                is UiState.Loading -> LoadingRow()
+                is UiState.Success -> {
+                    if (!s.fromApi) OfflineBanner(onRetry = vm::load)
+                    val groups = s.data.filter { g ->
+                        when (filter) {
+                            1 -> g.tag.contains("BEPC", ignoreCase = true)
+                            2 -> g.tag.contains("BAC", ignoreCase = true)
+                            3 -> g.kind == "stage"
+                            else -> true
+                        }
+                    }
+                    if (groups.isEmpty()) {
+                        Text("Aucun cours de groupe pour ce filtre.", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Faint)
+                    }
+                    groups.forEachIndexed { i, g ->
+                        if (i > 0) Spacer(Modifier.height(13.dp))
+                        GroupCard(g) { nav.go(Routes.GroupDetail) }
+                    }
+                }
+                else -> {}
+            }
             Spacer(Modifier.height(16.dp))
         }
     }
 }
 
 @Composable
-private fun GroupCard(g: Group, onClick: () -> Unit) {
+private fun GroupCard(g: GroupDto, onClick: () -> Unit) {
+    val tagGreen = g.tagAccent != "orange"
+    val teacherGreen = g.teacherAccent != "orange"
+    val fraction = if (g.enrolled != null && g.capacity != null && g.capacity > 0) g.enrolled.toFloat() / g.capacity else 0f
+    val dateRange = if (g.kind == "stage" && g.startDate != null && g.endDate != null) "${g.startDate} → ${g.endDate}" else null
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(AkColors.White).border(1.dp, AkColors.Border, RoundedCornerShape(20.dp)).clickable { onClick() }.padding(16.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Tag(g.tag, if (g.tagGreen) AkColors.Green else AkColors.Orange, if (g.tagGreen) AkColors.GreenSoft else AkColors.OrangeSoft)
+            Tag(g.tag, if (tagGreen) AkColors.Green else AkColors.Orange, if (tagGreen) AkColors.GreenSoft else AkColors.OrangeSoft)
             Row(verticalAlignment = Alignment.Bottom) {
-                Text(g.price, fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, color = AkColors.Green)
+                Text("%,d F".format(g.price).replace(',', ' '), fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, color = AkColors.Green)
                 Text("/séance", fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, color = AkColors.Faint)
             }
         }
         Text(g.title, fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 16.5.sp, color = AkColors.Ink, modifier = Modifier.padding(top = 11.dp))
         Text(g.detail, fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted, modifier = Modifier.padding(top = 2.dp))
-        if (g.teacherName.isNotEmpty()) {
+        if (dateRange != null) {
+            Text(dateRange, fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = AkColors.Orange, modifier = Modifier.padding(top = 4.dp))
+        }
+        if (!g.teacherName.isNullOrEmpty()) {
             Row(Modifier.padding(top = 11.dp), verticalAlignment = Alignment.CenterVertically) {
-                InitialsAvatar(g.teacherInitials, size = 30, radius = 9, fontSize = 11, bg = if (g.teacherGreen) AkColors.GreenSoft else AkColors.OrangeSoft, fg = if (g.teacherGreen) AkColors.Green else AkColors.Orange)
+                InitialsAvatar(g.teacherInitials ?: "", size = 30, radius = 9, fontSize = 11, bg = if (teacherGreen) AkColors.GreenSoft else AkColors.OrangeSoft, fg = if (teacherGreen) AkColors.Green else AkColors.Orange)
                 Spacer(Modifier.width(8.dp))
                 Text("avec ${g.teacherName}", fontFamily = Hanken, fontSize = 12.sp, color = Color(0xFF4A574F))
             }
@@ -80,11 +103,12 @@ private fun GroupCard(g: Group, onClick: () -> Unit) {
         if (g.enrolled != null) {
             Column(Modifier.padding(top = 13.dp)) {
                 Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(g.enrolled, fontFamily = Hanken, fontSize = 11.5.sp, color = AkColors.Muted)
-                    Text(g.left ?: "", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 11.5.sp, color = if (g.leftWarn) AkColors.Orange else AkColors.Green)
+                    Text("${g.enrolled} / ${g.capacity} inscrits", fontFamily = Hanken, fontSize = 11.5.sp, color = AkColors.Muted)
+                    val leftWarn = (g.placesLeft ?: 0) <= 3
+                    Text(g.placesLeft?.let { "$it places restantes" } ?: "", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 11.5.sp, color = if (leftWarn) AkColors.Orange else AkColors.Green)
                 }
                 Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(4.dp)).background(Color(0xFFEAE5DC))) {
-                    Box(Modifier.fillMaxHeight().fillMaxWidth(g.fraction).clip(RoundedCornerShape(4.dp)).background(AkColors.Green))
+                    Box(Modifier.fillMaxHeight().fillMaxWidth(fraction).clip(RoundedCornerShape(4.dp)).background(AkColors.Green))
                 }
             }
         }

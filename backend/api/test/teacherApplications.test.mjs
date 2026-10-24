@@ -2,8 +2,10 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { randomInt } from "node:crypto";
 
-const BASE = process.env.API_URL ?? "http://localhost:8099";
+const BASE = process.env.API_URL ?? process.env.API_BASE ?? "http://localhost:8099";
+const freshPhone = () => `+22507${String(randomInt(0, 100_000_000)).padStart(8, "0")}`;
 
 async function api(path, { method = "GET", token, json } = {}) {
   const headers = {};
@@ -25,6 +27,7 @@ function applicationBody(phone) {
   return {
     fullName: "Test Candidat",
     phone,
+    email: "candidat@example.invalid",
     subjects: "Maths",
     location: "Cocody",
     pricePerHour: 5000,
@@ -56,7 +59,7 @@ function simpleApplicationBody(phone) {
 }
 
 test("candidature : soumission simple sans documents", async () => {
-  const phone = `+22507${String(Date.now()).slice(-8)}`;
+  const phone = freshPhone();
   const created = await api("/api/teacher-applications", {
     method: "POST",
     json: simpleApplicationBody(phone),
@@ -64,12 +67,12 @@ test("candidature : soumission simple sans documents", async () => {
   assert.equal(created.status, 201);
   assert.equal(created.body.status, "pending");
 
-  const status = await api(`/api/teacher-applications/status?phone=${encodeURIComponent(phone)}`);
+  const status = await api(`/api/teacher-applications/status?phone=${encodeURIComponent(phone)}`, { token: await adminToken() });
   assert.equal(status.body.status, "pending");
 });
 
 test("candidature : niveau requis", async () => {
-  const phone = `+22507${String(Date.now()).slice(-8)}`;
+  const phone = freshPhone();
   const r = await api("/api/teacher-applications", {
     method: "POST",
     json: { fullName: "Sans niveau", phone, subjects: "Maths", consent: true },
@@ -78,14 +81,14 @@ test("candidature : niveau requis", async () => {
 });
 
 test("candidature : statut none sans dossier", async () => {
-  const phone = `+22507${String(Date.now()).slice(-8)}`;
-  const r = await api(`/api/teacher-applications/status?phone=${encodeURIComponent(phone)}`);
+  const phone = freshPhone();
+  const r = await api(`/api/teacher-applications/status?phone=${encodeURIComponent(phone)}`, { token: await adminToken() });
   assert.equal(r.status, 200);
   assert.equal(r.body.status, "none");
 });
 
 test("candidature : soumission, conflit pending, approve admin", async () => {
-  const phone = `+22507${String(Date.now()).slice(-8)}`;
+  const phone = freshPhone();
   const body = applicationBody(phone);
 
   const created = await api("/api/teacher-applications", { method: "POST", json: body });
@@ -96,7 +99,7 @@ test("candidature : soumission, conflit pending, approve admin", async () => {
   const dup = await api("/api/teacher-applications", { method: "POST", json: body });
   assert.equal(dup.status, 409);
 
-  const status = await api(`/api/teacher-applications/status?phone=${encodeURIComponent(phone)}`);
+  const status = await api(`/api/teacher-applications/status?phone=${encodeURIComponent(phone)}`, { token: await adminToken() });
   assert.equal(status.status, 200);
   assert.equal(status.body.status, "pending");
 
@@ -112,17 +115,48 @@ test("candidature : soumission, conflit pending, approve admin", async () => {
   const file = await api(`/api/admin/teacher-applications/${appId}/files/id_card`, { token });
   assert.equal(file.status, 200);
 
+  const interview = await api(`/api/admin/teacher-applications/${appId}/interview`, { method: "POST", token, json: { notes: "RDV lundi" } });
+  assert.equal(interview.status, 200);
+  assert.equal(interview.body.status, "interview");
+  const duplicateDuringInterview = await api("/api/teacher-applications", { method: "POST", json: body });
+  assert.equal(duplicateDuringInterview.status, 409);
+
+  const startTest = await api(`/api/admin/teacher-applications/${appId}/start-test`, { method: "POST", token, json: {} });
+  assert.equal(startTest.status, 200);
+  assert.equal(startTest.body.status, "test");
+  const duplicateDuringTest = await api("/api/teacher-applications", { method: "POST", json: body });
+  assert.equal(duplicateDuringTest.status, 409);
+
+  const testResult = await api(`/api/admin/teacher-applications/${appId}/test-result`, { method: "POST", token, json: { passed: true } });
+  assert.equal(testResult.status, 200);
+  assert.equal(testResult.body.status, "training");
+  const duplicateDuringTraining = await api("/api/teacher-applications", { method: "POST", json: body });
+  assert.equal(duplicateDuringTraining.status, 409);
+
   const approved = await api(`/api/admin/teacher-applications/${appId}/approve`, { method: "POST", token, json: {} });
   assert.equal(approved.status, 200);
   assert.ok(approved.body.teacherId);
   assert.ok(approved.body.userId);
 
-  const after = await api(`/api/teacher-applications/status?phone=${encodeURIComponent(phone)}`);
+  const teacherToken = (await api("/api/auth/login", { method: "POST", json: { phone } })).body.token;
+  const teacherDash = await api("/api/teacher/dashboard", { token: teacherToken });
+  assert.equal(teacherDash.status, 200);
+  assert.equal(teacherDash.body.needsConfirmed, false);
+  // Régression : le profil lisait une colonne users.email inexistante.
+  const profile = await api("/api/teacher/profile", { token: teacherToken });
+  assert.equal(profile.status, 200);
+  assert.equal(profile.body.email, "candidat@example.invalid");
+  assert.equal(profile.body.hasIdCard, true);
+  const edited = await api("/api/teacher/profile", { method: "PUT", token: teacherToken, json: { bio: "Profil après approbation" } });
+  assert.equal(edited.status, 200);
+  assert.equal(edited.body.bio, "Profil après approbation");
+
+  const after = await api(`/api/teacher-applications/status?phone=${encodeURIComponent(phone)}`, { token: await adminToken() });
   assert.equal(after.body.status, "approved");
 });
 
 test("candidature : reject admin", async () => {
-  const phone = `+22507${String(Date.now()).slice(-8)}`;
+  const phone = freshPhone();
   const created = await api("/api/teacher-applications", { method: "POST", json: applicationBody(phone) });
   assert.equal(created.status, 201);
   const appId = created.body.id;
@@ -134,7 +168,75 @@ test("candidature : reject admin", async () => {
   assert.equal(rejected.status, 200);
   assert.equal(rejected.body.status, "rejected");
 
-  const status = await api(`/api/teacher-applications/status?phone=${encodeURIComponent(phone)}`);
+  const status = await api(`/api/teacher-applications/status?phone=${encodeURIComponent(phone)}`, { token: await adminToken() });
   assert.equal(status.body.status, "rejected");
   assert.equal(status.body.rejectionReason, "Documents incomplets");
+});
+
+test("candidature : suivi réservé au propriétaire et notes internes masquées", async () => {
+  const phone = freshPhone();
+  const owner = await api("/api/auth/signup", { method: "POST", json: {
+    fullName: "Propriétaire du dossier", phone, role: "parent", consent: true,
+  } });
+  assert.equal(owner.status, 200);
+  const created = await api("/api/teacher-applications", { method: "POST", json: applicationBody(phone) });
+  assert.equal(created.status, 201);
+  const path = `/api/teacher-applications/status?phone=${encodeURIComponent(phone)}`;
+  assert.equal((await api(path)).status, 401);
+  const other = (await api("/api/auth/login", { method: "POST", json: { phone: "+2250758421903" } })).body.token;
+  assert.equal((await api(path, { token: other })).status, 403);
+
+  const token = await adminToken();
+  const prefix = `/api/admin/teacher-applications/${created.body.id}`;
+  assert.equal((await api(`${prefix}/interview`, { method: "POST", token, json: { notes: "Note interne entretien" } })).status, 200);
+  assert.equal((await api(`${prefix}/start-test`, { method: "POST", token, json: {} })).status, 200);
+  assert.equal((await api(`${prefix}/test-result`, { method: "POST", token, json: { passed: false, notes: "Note interne du test" } })).status, 200);
+  const ownStatus = await api("/api/teacher-applications/status", { token: owner.body.token });
+  assert.equal(ownStatus.status, 200);
+  assert.equal(ownStatus.body.status, "rejected");
+  assert.equal(ownStatus.body.testResult, "failed");
+  assert.equal(ownStatus.body.rejectionReason, "Test non concluant");
+  assert.equal("interviewNotes" in ownStatus.body, false);
+  assert.equal("testNotes" in ownStatus.body, false);
+  assert.equal(JSON.stringify(ownStatus.body).includes("Note interne"), false);
+  const adminDetail = await api(prefix, { token });
+  assert.equal(adminDetail.body.interview_notes, "Note interne entretien");
+  assert.equal(adminDetail.body.test_notes, "Note interne du test");
+});
+
+test("candidature : deux soumissions concurrentes ne créent qu'un dossier actif", async () => {
+  const body = applicationBody(freshPhone());
+  const results = await Promise.all([
+    api("/api/teacher-applications", { method: "POST", json: body }),
+    api("/api/teacher-applications", { method: "POST", json: body }),
+  ]);
+  assert.deepEqual(results.map((r) => r.status).sort(), [201, 409]);
+  const list = await api("/api/admin/teacher-applications?status=pending", { token: await adminToken() });
+  assert.equal(list.body.filter((a) => a.phone === body.phone).length, 1);
+});
+
+test("candidature : deux approbations concurrentes ne créent qu'un professeur", async () => {
+  const phone = freshPhone();
+  const body = { ...applicationBody(phone), fullName: `Concurrent ${phone.slice(-8)}` };
+  const created = await api("/api/teacher-applications", { method: "POST", json: body });
+  assert.equal(created.status, 201);
+  const token = await adminToken();
+  const prefix = `/api/admin/teacher-applications/${created.body.id}`;
+  for (const [action, json] of [["interview", {}], ["start-test", {}], ["test-result", { passed: true }]]) {
+    assert.equal((await api(`${prefix}/${action}`, { method: "POST", token, json })).status, 200);
+  }
+  const results = await Promise.all([
+    api(`${prefix}/approve`, { method: "POST", token, json: {} }),
+    api(`${prefix}/approve`, { method: "POST", token, json: {} }),
+  ]);
+  assert.deepEqual(results.map((r) => r.status).sort(), [200, 409]);
+  const accepted = results.find((r) => r.status === 200).body;
+  const teachers = await api("/api/teachers");
+  const matches = teachers.body.filter((teacher) => teacher.name === body.fullName);
+  assert.equal(matches.length, 1);
+  assert.equal(matches[0].id, accepted.teacherId);
+  const detail = await api(prefix, { token });
+  assert.equal(detail.body.status, "approved");
+  assert.equal(detail.body.teacher_id, accepted.teacherId);
+  assert.equal(detail.body.user_id, accepted.userId);
 });

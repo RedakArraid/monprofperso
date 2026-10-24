@@ -75,24 +75,24 @@ fun WelcomeScreen(nav: NavActions) {
 
             Spacer(Modifier.height(48.dp))
             Text(
-                "Le bon prof,\nchez vous ou\nen ligne.",
+                "Votre prof,\nvotre rythme,\nvotre réussite.",
                 fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 39.sp,
                 lineHeight = 41.sp, color = AkColors.White,
             )
             Spacer(Modifier.height(18.dp))
             Text(
-                "Soutien scolaire du CP à la Terminale, avec des professeurs vérifiés partout en Côte d'Ivoire.",
+                "Trouvez un professeur, organisez vos cours et suivez l’accompagnement de votre enfant en Côte d’Ivoire.",
                 fontFamily = Hanken, fontSize = 15.5.sp, lineHeight = 23.sp, color = AkColors.OnGreenSoft,
                 modifier = Modifier.widthIn(max = 300.dp),
             )
 
             Spacer(Modifier.height(28.dp))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Stat("2 500+", "professeurs")
+                Stat("Cours", "individuels")
                 Box(Modifier.width(1.dp).height(34.dp).background(AkColors.GreenLine))
-                Stat("4,9★", "note moyenne")
+                Stat("Suivi", "personnalisé")
                 Box(Modifier.width(1.dp).height(34.dp).background(AkColors.GreenLine))
-                Stat("18", "villes")
+                Stat("Simple", "à organiser")
             }
 
             Spacer(Modifier.weight(1f))
@@ -159,98 +159,87 @@ private fun RoleOption(icon: ImageVector, title: String, subtitle: String, selec
  * ====================================================================== */
 @Composable
 fun SignupScreen(nav: NavActions) {
-    val role = ci.monprofperso.app.data.AppState.role
+    val role = AppState.role
     val scope = rememberCoroutineScope()
     var phone by remember { mutableStateOf(AppState.authPhone) }
     var email by remember { mutableStateOf(AppState.authEmail) }
     var fullName by remember { mutableStateOf(AppState.authFullName) }
-    var channel by remember { mutableStateOf(AppState.authOtpChannel) }
     var consent by remember { mutableStateOf(false) }
+    var consentVersion by remember { mutableStateOf<String?>(null) }
     var parentalConsent by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
     val isStudent = role == 1
-    val canSubmit = consent && (!isStudent || parentalConsent)
-    val showChannel = AppState.otpWhatsappEnabled && AppState.otpEmailEnabled && !AppState.otpDemo
-    val showEmail = channel == "email" && (AppState.otpEmailEnabled || AppState.otpDemo)
+    val canSubmit = !busy && !consentVersion.isNullOrBlank() && consent && (!isStudent || parentalConsent) && fullName.trim().length >= 2 && phone.count { it.isDigit() } >= 10
 
-    LaunchedEffect(Unit) { Auth.refreshOtpChannels() }
-
+    suspend fun loadConsentVersion() {
+        val version = Auth.refreshOtpChannels()?.consentVersion?.takeIf { it.isNotBlank() }
+        if (version != consentVersion) { consent = false; parentalConsent = false }
+        consentVersion = version
+        if (version == null) AppState.authError = "Impossible de charger les conditions actuelles. Réessayez avant de créer le compte."
+    }
+    LaunchedEffect(Unit) { AppState.authError = null; loadConsentVersion() }
     fun openLegal(slug: String, title: String) {
         nav.openPdf(ci.monprofperso.app.data.ApiConfig.BASE_URL + "api/legal/$slug/file", title)
     }
     AkScreen {
         TopBar("", onBack = { nav.back() })
-        Column(
-            Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 24.dp),
-        ) {
-            Text("Créer mon compte", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold,
-                fontSize = 25.sp, color = AkColors.Ink)
-            Text(
-                when (role) {
-                    1 -> "Trouvez le bon prof pour réussir vos examens."
-                    2 -> "Créez votre profil et commencez à donner des cours."
-                    else -> "Trouvez le bon prof pour votre enfant en quelques minutes."
-                },
-                fontFamily = Hanken, fontSize = 13.5.sp, color = AkColors.Muted, modifier = Modifier.padding(top = 6.dp))
-
+        Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 24.dp)) {
+            Text("Créer mon compte", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 25.sp, color = AkColors.Ink)
+            Text("Votre numéro sera vérifié par un code WhatsApp.", fontFamily = Hanken, fontSize = 13.5.sp,
+                color = AkColors.Muted, modifier = Modifier.padding(top = 6.dp))
             Spacer(Modifier.height(20.dp))
-            FieldDisplay("Nom & prénoms", fullName, leading = Icons.Outlined.Person)
+            androidx.compose.material3.OutlinedTextField(value = fullName, onValueChange = { fullName = it },
+                label = { Text("Nom & prénoms") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(14.dp))
             PhoneField(value = phone, onValueChange = { phone = it })
-            if (showChannel) {
-                Spacer(Modifier.height(14.dp))
-                OtpChannelPicker(channel) { channel = it }
-            }
-            if (showEmail) {
-                Spacer(Modifier.height(14.dp))
-                EmailField(value = email, onValueChange = { email = it })
-            }
             Spacer(Modifier.height(14.dp))
-            FieldDisplay("Mot de passe", "••••••••", leading = Icons.Outlined.Lock, trailing = Icons.Filled.VisibilityOff)
+            EmailField(value = email, onValueChange = { email = it })
+            Text("E-mail facultatif. Il ne permettra pas de se connecter avant sa vérification.",
+                fontFamily = Hanken, fontSize = 12.sp, color = AkColors.Muted)
             Spacer(Modifier.height(14.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Je m'inscris en tant que", fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = AkColors.Muted)
                 Text("Modifier", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = AkColors.Green,
                     modifier = Modifier.clickable { nav.back() })
             }
             Spacer(Modifier.height(8.dp))
-            // Rôle choisi à l'accueil, affiché, pas redemandé.
-            Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(AkColors.GreenSoft)
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(AkColors.GreenSoft)
+                .padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.CheckCircle, null, tint = AkColors.Green, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(9.dp))
                 Text(ci.monprofperso.app.data.roleLabels[role], fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AkColors.Ink)
             }
             Spacer(Modifier.height(16.dp))
-            ConsentCheckboxLinked(
-                checked = consent, onToggle = { consent = !consent },
+            if (consentVersion == null) androidx.compose.material3.TextButton(onClick = { scope.launch { loadConsentVersion() } }) { Text("Recharger les conditions") }
+            ConsentCheckboxLinked(checked = consent, onToggle = { if (consentVersion != null && !busy) consent = !consent },
                 onOpenCgu = { openLegal("cgu", "Conditions d'utilisation") },
-                onOpenPrivacy = { openLegal("confidentialite", "Politique de confidentialité") },
-            )
+                onOpenPrivacy = { openLegal("confidentialite", "Politique de confidentialité") })
             if (isStudent) {
                 Spacer(Modifier.height(12.dp))
-                ConsentCheckbox(
-                    checked = parentalConsent, onToggle = { parentalConsent = !parentalConsent },
-                    "Je confirme avoir le consentement d'un parent ou tuteur légal (élève mineur).",
-                )
+                ConsentCheckbox(checked = parentalConsent, onToggle = { parentalConsent = !parentalConsent },
+                    "Je confirme avoir le consentement d'un parent ou tuteur légal (élève mineur).")
             }
+            AppState.authError?.let { Text(it, color = AkColors.Orange, modifier = Modifier.padding(top = 12.dp)) }
         }
         Column(Modifier.padding(horizontal = 24.dp).padding(bottom = 24.dp, top = 12.dp)) {
-            PrimaryButton("Créer mon compte", Modifier.fillMaxWidth(),
-                color = if (canSubmit) AkColors.Green else AkColors.Border,
-                onClick = {
+            PrimaryButton(if (busy) "Vérification…" else "Créer mon compte", Modifier.fillMaxWidth(),
+                color = if (canSubmit) AkColors.Green else AkColors.Border, onClick = {
                     if (!canSubmit) return@PrimaryButton
+                    busy = true
                     scope.launch {
-                        val e164 = Auth.normalizePhone(phone)
-                        AppState.authPhone = phone
-                        AppState.authEmail = email
-                        AppState.authFullName = fullName
-                        AppState.authOtpChannel = channel
-                        if (!Auth.signup(fullName = fullName, phone = e164, roleIndex = role,
-                                consent = consent, parentalConsent = parentalConsent)) return@launch
-                        Auth.requestOtp(e164, channel, email.takeIf { it.isNotBlank() })
-                        nav.go(Routes.Otp)
+                        try {
+                            AppState.authPhone = phone
+                            AppState.authEmail = email
+                            AppState.authFullName = fullName
+                            AppState.authOtpChannel = "whatsapp"
+                            val version = consentVersion ?: return@launch
+                            if (Auth.signup(fullName, Auth.normalizePhone(phone), role, consent, parentalConsent, version)) {
+                                if (AppState.authChallengeId != null) nav.go(Routes.Otp) else nav.enterApp()
+                            } else if (AppState.authErrorCode == "consent_version_changed") {
+                                consent = false; parentalConsent = false; consentVersion = null
+                                loadConsentVersion()
+                            }
+                        } finally { busy = false }
                     }
                 })
             Spacer(Modifier.height(13.dp))
@@ -281,7 +270,7 @@ private fun SegTab(label: String, selected: Boolean, modifier: Modifier = Modifi
 
 @Composable
 fun PhoneField(
-    value: String = "0758421903",
+    value: String = "",
     onValueChange: (String) -> Unit = {},
 ) {
     Column {
@@ -309,8 +298,8 @@ fun PhoneField(
             }
             Spacer(Modifier.width(10.dp))
             BasicTextField(
-                value = value,
-                onValueChange = { onValueChange(it.filter { c -> c.isDigit() }.take(10)) },
+                value = value.removePrefix("+225"),
+                onValueChange = { onValueChange(it.filter { c -> c.isDigit() }.let { digits -> if (digits.length > 10 && digits.startsWith("225")) digits.drop(3) else digits }.take(10)) },
                 textStyle = TextStyle(fontFamily = Hanken, fontWeight = FontWeight.Medium, fontSize = 14.5.sp, color = AkColors.Ink),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 singleLine = true,
@@ -360,80 +349,52 @@ private fun OtpChannelPicker(selected: String, onSelect: (String) -> Unit) {
 fun LoginScreen(nav: NavActions) {
     val scope = rememberCoroutineScope()
     var phone by remember { mutableStateOf(AppState.authPhone) }
-    var channel by remember { mutableStateOf(AppState.authOtpChannel) }
+    var channel by remember { mutableStateOf("whatsapp") }
     var email by remember { mutableStateOf(AppState.authEmail) }
-    val showChannel = AppState.otpWhatsappEnabled && AppState.otpEmailEnabled && !AppState.otpDemo
-    val showEmail = channel == "email" && (AppState.otpEmailEnabled || AppState.otpDemo)
+    var busy by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) { Auth.refreshOtpChannels() }
-
-    fun goOtp() {
+    LaunchedEffect(Unit) {
+        AppState.authError = null
+        Auth.refreshOtpChannels()?.let { channel = it.defaultChannel }
+    }
+    fun connect(number: String = phone) {
+        if (busy) return
+        busy = true
         scope.launch {
-            val e164 = Auth.normalizePhone(phone)
-            AppState.authPhone = phone
-            AppState.authEmail = email
-            AppState.authOtpChannel = channel
-            Auth.requestOtp(e164, channel, email.takeIf { it.isNotBlank() })
-            nav.go(Routes.Otp)
+            try {
+                AppState.authPhone = number
+                AppState.authEmail = email
+                AppState.authOtpChannel = channel
+                if (Auth.login(Auth.normalizePhone(number), channel, email.takeIf { it.isNotBlank() })) {
+                    if (AppState.authChallengeId != null) nav.go(Routes.Otp) else nav.enterApp()
+                }
+            } finally { busy = false }
         }
     }
-
     AkScreen {
-        Column(
-            Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 26.dp).padding(top = 30.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Box(
-                Modifier.size(56.dp).clip(RoundedCornerShape(16.dp)).background(AkColors.Green),
-                contentAlignment = Alignment.Center,
-            ) { Icon(Icons.Filled.School, null, tint = AkColors.White, modifier = Modifier.size(29.dp)) }
+        Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 26.dp).padding(top = 30.dp),
+            horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.size(56.dp).clip(RoundedCornerShape(16.dp)).background(AkColors.Green), contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.School, null, tint = AkColors.White, modifier = Modifier.size(29.dp))
+            }
             Spacer(Modifier.height(14.dp))
             Text("Content de vous revoir", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, color = AkColors.Ink)
-            Text("Connectez-vous pour continuer", fontFamily = Hanken, fontSize = 13.5.sp, color = AkColors.Muted)
-
+            Text("Connectez-vous avec un code de vérification.", fontFamily = Hanken, fontSize = 13.5.sp, color = AkColors.Muted)
             Spacer(Modifier.height(30.dp))
             PhoneField(value = phone, onValueChange = { phone = it })
-            if (showChannel) {
+            if (AppState.otpWhatsappEnabled && AppState.otpEmailEnabled && !AppState.otpDemo) {
                 Spacer(Modifier.height(14.dp))
                 OtpChannelPicker(channel) { channel = it }
             }
-            if (showEmail) {
+            if (channel == "email") {
                 Spacer(Modifier.height(14.dp))
                 EmailField(value = email, onValueChange = { email = it })
+                Text("Utilisez uniquement l'adresse déjà vérifiée pour ce compte.", fontFamily = Hanken, fontSize = 12.sp, color = AkColors.Muted)
             }
-            Spacer(Modifier.height(14.dp))
-            FieldDisplay("Mot de passe", "••••••••", leading = Icons.Outlined.Lock, trailing = Icons.Filled.Visibility)
-            Text("Mot de passe oublié ?", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.5.sp,
-                color = AkColors.Green, modifier = Modifier.align(Alignment.End).clickable { goOtp() }.padding(top = 12.dp))
+            AppState.authError?.let { Text(it, color = AkColors.Orange, modifier = Modifier.padding(top = 14.dp)) }
             Spacer(Modifier.height(20.dp))
-            PrimaryButton("Se connecter", Modifier.fillMaxWidth(), color = AkColors.Green, trailingIcon = null,
-                onClick = {
-                    scope.launch {
-                        val e164 = Auth.normalizePhone(phone)
-                        AppState.authPhone = phone
-                        AppState.authEmail = email
-                        AppState.authOtpChannel = channel
-                        if (AppState.otpDemo) {
-                            Auth.login(e164)
-                            nav.enterApp()
-                        } else {
-                            Auth.requestOtp(e164, channel, email.takeIf { it.isNotBlank() })
-                            nav.go(Routes.Otp)
-                        }
-                    }
-                })
-
-            Spacer(Modifier.height(22.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.weight(1f).height(1.dp).background(AkColors.Border))
-                Text("  ou continuer avec  ", fontFamily = Hanken, fontSize = 12.sp, color = AkColors.Faint)
-                Box(Modifier.weight(1f).height(1.dp).background(AkColors.Border))
-            }
-            Spacer(Modifier.height(16.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(11.dp)) {
-                SocialButton("Google", Icons.Filled.Public, Modifier.weight(1f)) { nav.enterApp() }
-                SocialButton("Apple", Icons.Filled.PhoneIphone, Modifier.weight(1f)) { nav.enterApp() }
-            }
+            PrimaryButton(if (busy) "Connexion…" else "Se connecter", Modifier.fillMaxWidth(),
+                color = if (busy) AkColors.Border else AkColors.Green, trailingIcon = null, onClick = { connect() })
         }
         Column(Modifier.fillMaxWidth().padding(bottom = 26.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Row(horizontalArrangement = Arrangement.Center) {
@@ -441,9 +402,11 @@ fun LoginScreen(nav: NavActions) {
                 Text("Créer un compte", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.sp,
                     color = AkColors.Green, modifier = Modifier.clickable { nav.go(Routes.Signup) })
             }
-            Spacer(Modifier.height(10.dp))
-            Text("Démo administrateur", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = AkColors.Faint,
-                modifier = Modifier.clickable { scope.launch { Auth.login(Auth.ADMIN_PHONE); nav.enterApp() } })
+            if (AppState.otpDemo) {
+                Spacer(Modifier.height(10.dp))
+                Text("Démo administrateur", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = AkColors.Faint,
+                    modifier = Modifier.clickable(enabled = !busy) { connect(Auth.ADMIN_PHONE) })
+            }
         }
     }
 }
@@ -523,108 +486,59 @@ private fun ConsentCheckboxLinked(checked: Boolean, onToggle: () -> Unit, onOpen
 @Composable
 fun OtpScreen(nav: NavActions) {
     val scope = rememberCoroutineScope()
-    val phoneE164 = Auth.normalizePhone(AppState.authPhone)
-    val codeLen = AppState.otpCodeLength.coerceIn(4, 8)
+    val codeLen = 6
     var code by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf<String?>(null) }
-    var resendSec by remember { mutableIntStateOf(AppState.otpTtlMinutes * 60) }
+    var resendSec by remember { mutableIntStateOf(60) }
     var sending by remember { mutableStateOf(false) }
+    var verifying by remember { mutableStateOf(false) }
+    val destination = AppState.authDestination.ifBlank { Auth.maskPhone(Auth.normalizePhone(AppState.authPhone)) }
+    val channelLabel = if (AppState.authOtpChannel == "email") "e-mail" else "WhatsApp"
 
-    val channelLabel = when (AppState.authOtpChannel) {
-        "email" -> "e-mail"
-        else -> "WhatsApp"
-    }
-    val subtitle = if (AppState.otpDemo) {
-        "Mode démo : saisissez n'importe quel code à $codeLen chiffres."
-    } else if (AppState.authOtpChannel == "email") {
-        "Nous avons envoyé un code à $codeLen chiffres par e-mail à ${AppState.authEmail}."
-    } else {
-        "Nous avons envoyé un code à $codeLen chiffres par $channelLabel au ${Auth.maskPhone(phoneE164)}."
-    }
-
-    LaunchedEffect(Unit) {
-        Auth.refreshOtpChannels()
-        sending = true
-        Auth.requestOtp(phoneE164, AppState.authOtpChannel, AppState.authEmail.takeIf { it.isNotBlank() })
-        sending = false
-        resendSec = AppState.otpTtlMinutes * 60
-    }
-
+    // Le premier code a déjà été envoyé par login/signup. Aucun second envoi à l'ouverture.
     LaunchedEffect(resendSec) {
-        if (resendSec > 0) {
-            delay(1000)
-            resendSec -= 1
-        }
+        if (resendSec > 0) { delay(1000); resendSec -= 1 }
     }
-
     AkScreen {
         TopBar("", onBack = { nav.back() })
-        Column(Modifier.weight(1f).padding(horizontal = 28.dp).padding(top = 16.dp)) {
-            Box(
-                Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)).background(AkColors.GreenSoft),
-                contentAlignment = Alignment.Center,
-            ) { Icon(Icons.Filled.ChatBubble, null, tint = AkColors.Green, modifier = Modifier.size(32.dp)) }
+        Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 28.dp).padding(top = 16.dp)) {
+            Box(Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)).background(AkColors.GreenSoft), contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.ChatBubble, null, tint = AkColors.Green, modifier = Modifier.size(32.dp))
+            }
             Spacer(Modifier.height(18.dp))
             Text("Entrez le code", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 25.sp, color = AkColors.Ink)
             Spacer(Modifier.height(8.dp))
-            Text(subtitle, fontFamily = Hanken, fontSize = 13.5.sp, color = AkColors.Muted, lineHeight = 20.sp)
+            Text("Code à $codeLen chiffres envoyé par $channelLabel à $destination. Valable ${AppState.otpTtlMinutes} minutes.",
+                fontFamily = Hanken, fontSize = 13.5.sp, color = AkColors.Muted, lineHeight = 20.sp)
             Spacer(Modifier.height(28.dp))
-            BasicTextField(
-                value = code,
-                onValueChange = { v ->
-                    code = v.filter { it.isDigit() }.take(codeLen)
-                    error = null
-                },
+            androidx.compose.material3.OutlinedTextField(value = code,
+                onValueChange = { code = it.filter { digit -> digit in '0'..'9' }.take(codeLen); AppState.authError = null },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                modifier = Modifier.size(1.dp),
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                repeat(codeLen) { i ->
-                    val digit = code.getOrNull(i)?.toString() ?: ""
-                    val active = code.length == i
-                    OtpBox(digit, Modifier.weight(1f), active = active)
-                }
-            }
-            error?.let {
-                Spacer(Modifier.height(12.dp))
-                Text(it, fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Orange)
-            }
+                label = { Text("Code de vérification") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            AppState.authError?.let { Text(it, fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Orange, modifier = Modifier.padding(top = 12.dp)) }
             Spacer(Modifier.height(24.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
                 Text("Vous n'avez rien reçu ? ", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Muted)
                 if (resendSec > 0) {
-                    Text("Renvoyer dans 0:${resendSec.toString().padStart(2, '0')}", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Faint)
+                    Text("Renvoyer dans ${resendSec / 60}:${(resendSec % 60).toString().padStart(2, '0')}",
+                        fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Faint)
                 } else {
-                    Text(
-                        if (sending) "Envoi…" else "Renvoyer",
-                        fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AkColors.Green,
-                        modifier = Modifier.clickable(enabled = !sending) {
+                    Text(if (sending) "Envoi…" else "Renvoyer", fontFamily = Hanken, fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp, color = AkColors.Green, modifier = Modifier.clickable(enabled = !sending && !verifying) {
+                            sending = true
                             scope.launch {
-                                sending = true
-                                Auth.requestOtp(phoneE164, AppState.authOtpChannel, AppState.authEmail.takeIf { it.isNotBlank() })
-                                sending = false
-                                resendSec = AppState.otpTtlMinutes * 60
+                                try { if (Auth.resendOtp()) { resendSec = 60; code = "" } } finally { sending = false }
                             }
-                        },
-                    )
+                        })
                 }
             }
         }
         Box(Modifier.padding(horizontal = 28.dp).padding(bottom = 26.dp)) {
-            PrimaryButton("Vérifier", Modifier.fillMaxWidth(), color = AkColors.Green,
-                onClick = {
+            PrimaryButton(if (verifying) "Vérification…" else "Vérifier", Modifier.fillMaxWidth(),
+                color = if (code.length == codeLen && !verifying) AkColors.Green else AkColors.Border, onClick = {
+                    if (verifying || sending || code.length != codeLen) return@PrimaryButton
+                    verifying = true
                     scope.launch {
-                        if (!AppState.otpDemo && code.length < codeLen) {
-                            error = "Saisissez le code à $codeLen chiffres."
-                            return@launch
-                        }
-                        val ok = Auth.verifyOtp(
-                            phoneE164,
-                            code,
-                            AppState.authEmail.takeIf { it.isNotBlank() },
-                        )
-                        if (ok) nav.enterApp()
-                        else error = "Code invalide ou expiré."
+                        try { if (Auth.verifyOtp(code)) nav.enterApp() } finally { verifying = false }
                     }
                 })
         }

@@ -42,6 +42,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.runtime.LaunchedEffect
 import ci.monprofperso.app.data.Api
+import ci.monprofperso.app.data.Auth
 import ci.monprofperso.app.nav.NavActions
 import ci.monprofperso.app.ui.components.*
 import ci.monprofperso.app.ui.theme.AkColors
@@ -78,13 +79,6 @@ private fun finalizeLevels(list: List<String>): List<String> {
 private fun finalizePrograms(list: List<Pair<String, String>>): List<Pair<String, String>> =
     list.filter { it.first != OTHER_PROG } + (OTHER_PROG to OTHER)
 
-private fun normalizePhone(raw: String): String {
-    var p = raw.trim().replace(Regex("[\\s.-]"), "")
-    if (Regex("^0\\d{9}$").matches(p)) p = "+225${p.drop(1)}"
-    else if (Regex("^225\\d{8,12}$").matches(p)) p = "+$p"
-    return p
-}
-
 @OptIn(ExperimentalLayoutApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun BecomeTeacherScreen(nav: NavActions) {
@@ -94,6 +88,7 @@ fun BecomeTeacherScreen(nav: NavActions) {
     var phone by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var consent by remember { mutableStateOf(false) }
+    var consentVersion by remember { mutableStateOf<String?>(null) }
     var subjectNames by remember { mutableStateOf(FB_SUBJECTS) }
     var levelNames by remember { mutableStateOf(FB_LEVELS) }
     var selectedSubjects by remember { mutableStateOf(setOf<String>()) }
@@ -103,6 +98,21 @@ fun BecomeTeacherScreen(nav: NavActions) {
     var err by remember { mutableStateOf<String?>(null) }
     var done by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
+
+    suspend fun loadConsentVersion() {
+        try {
+            val version = Api.service.otpChannels().consentVersion?.takeIf { it.isNotBlank() }
+                ?: throw IllegalStateException("Conditions indisponibles")
+            if (version != consentVersion) consent = false
+            consentVersion = version
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            consentVersion = null; consent = false
+            err = "Impossible de charger les conditions actuelles. Réessayez avant de candidater."
+        }
+    }
+
+    LaunchedEffect(Unit) { loadConsentVersion() }
 
     LaunchedEffect(Unit) {
         runCatching { Api.service.subjects() }.getOrNull()?.map { it.name }?.takeIf { it.isNotEmpty() }
@@ -124,20 +134,28 @@ fun BecomeTeacherScreen(nav: NavActions) {
     }
 
     suspend fun submit() {
+        val version = consentVersion ?: return
+        if (!consent) return
         loading = true
         err = null
-        runCatching {
+        try {
             Api.service.submitTeacherApplication(buildMap {
                 put("fullName", fullName.trim())
-                put("phone", normalizePhone(phone.trim()))
+                put("phone", Auth.normalizePhone(phone.trim()))
                 if (email.isNotBlank()) put("email", email.trim())
                 put("subjects", buildSubjectsString())
                 put("levels", buildLevelsList())
                 put("consent", true)
+                put("consentVersion", version)
             })
-        }.onSuccess { done = true }
-            .onFailure { err = it.message ?: "Envoi impossible" }
-        loading = false
+            done = true
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            if (Auth.errorCode(e) == "consent_version_changed") {
+                consent = false; consentVersion = null; loadConsentVersion()
+            }
+            err = Auth.errorMessage(e)
+        } finally { loading = false }
     }
 
     AkScreen {
@@ -205,8 +223,11 @@ fun BecomeTeacherScreen(nav: NavActions) {
                         Text("Pour rassurer les parents, chaque professeur est vérifié avant d'apparaître sur Mon Prof Perso. Vous compléterez votre profil (documents, tarifs…) dans votre espace après validation.",
                             fontFamily = Hanken, fontSize = 13.sp, lineHeight = 19.sp, color = AkColors.Muted, modifier = Modifier.padding(top = 6.dp))
                         Spacer(Modifier.height(16.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { consent = !consent }) {
-                            Checkbox(checked = consent, onCheckedChange = { consent = it })
+                        androidx.compose.material3.TextButton(onClick = { nav.openPdf(ci.monprofperso.app.data.ApiConfig.BASE_URL + "api/legal/cgu/file", "Conditions d'utilisation") }) { Text("Lire les conditions d'utilisation") }
+                        androidx.compose.material3.TextButton(onClick = { nav.openPdf(ci.monprofperso.app.data.ApiConfig.BASE_URL + "api/legal/confidentialite/file", "Politique de confidentialité") }) { Text("Lire la politique de confidentialité") }
+                        if (consentVersion == null) androidx.compose.material3.TextButton(onClick = { scope.launch { loadConsentVersion() } }) { Text("Recharger les conditions") }
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable(enabled = consentVersion != null && !loading) { consent = !consent }) {
+                            Checkbox(checked = consent, enabled = consentVersion != null && !loading, onCheckedChange = { consent = it })
                             Text("J'accepte les CGU et la politique de confidentialité.", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Ink)
                         }
                     }
@@ -242,7 +263,7 @@ fun BecomeTeacherScreen(nav: NavActions) {
                             }
                         }
                         else -> {
-                            if (!consent) err = "Acceptez les conditions."
+                            if (!consent || consentVersion == null) err = "Consultez et acceptez les conditions à jour."
                             else scope.launch { submit() }
                         }
                     }
@@ -295,20 +316,13 @@ fun CompleteTeacherProfileScreen(nav: NavActions) {
     val context = LocalContext.current
     var step by remember { mutableIntStateOf(0) }
     var location by remember { mutableStateOf("Cocody") }
-    var price by remember { mutableIntStateOf(4000) }
-    var experience by remember { mutableStateOf("") }
     var bio by remember { mutableStateOf("") }
-    var fmtHome by remember { mutableStateOf(true) }
-    var fmtOnline by remember { mutableStateOf(true) }
-    var negotiable by remember { mutableStateOf(false) }
     var subjectsLine by remember { mutableStateOf("") }
     var levelsLine by remember { mutableStateOf("") }
     var programItems by remember { mutableStateOf(FB_PROGRAMS) }
     var selectedPrograms by remember { mutableStateOf(setOf("standard")) }
     var otherProgram by remember { mutableStateOf("") }
     var locOpen by remember { mutableStateOf(false) }
-    var expOpen by remember { mutableStateOf(false) }
-    var priceOpen by remember { mutableStateOf(false) }
     var idCard by remember { mutableStateOf<DocPick?>(null) }
     var diploma by remember { mutableStateOf<DocPick?>(null) }
     var photo by remember { mutableStateOf<DocPick?>(null) }
@@ -354,12 +368,7 @@ fun CompleteTeacherProfileScreen(nav: NavActions) {
             subjectsLine = p.subjects
             levelsLine = p.levels.joinToString(" · ")
             location = p.location.ifBlank { "Cocody" }
-            price = p.pricePerHour ?: 4000
-            experience = p.experience ?: ""
             bio = p.bio ?: ""
-            fmtHome = p.formats.contains("home")
-            fmtOnline = p.formats.contains("online")
-            negotiable = p.negotiable
             selectedPrograms = p.programs.toSet().ifEmpty { setOf("standard") }
             hasIdCard = p.hasIdCard
             hasDiploma = p.hasDiploma
@@ -372,19 +381,11 @@ fun CompleteTeacherProfileScreen(nav: NavActions) {
     suspend fun submit() {
         loading = true
         err = null
-        val formats = buildList {
-            if (fmtHome) add("home")
-            if (fmtOnline) add("online")
-        }
         runCatching {
             Api.service.updateTeacherProfile(buildMap {
                 put("location", location)
-                put("pricePerHour", price)
-                put("experience", experience)
                 if (bio.isNotBlank()) put("bio", bio.trim())
-                put("formats", formats.ifEmpty { listOf("home", "online") })
                 put("programs", buildProgramsList())
-                put("negotiable", negotiable)
                 idCard?.let { put("idCardBase64", it.b64); put("idCardFileName", it.name); put("idCardMimeType", it.mime) }
                 diploma?.let { put("diplomaBase64", it.b64); put("diplomaFileName", it.name); put("diplomaMimeType", it.mime) }
                 photo?.let { put("photoBase64", it.b64); put("photoFileName", it.name); put("photoMimeType", it.mime) }
@@ -431,14 +432,6 @@ fun CompleteTeacherProfileScreen(nav: NavActions) {
                         Spacer(Modifier.height(14.dp))
                         FieldLabel("Quartier / commune")
                         ProfilePickField(location, locOpen, { locOpen = it }, APP_LOCATIONS) { location = it; locOpen = false }
-                        Spacer(Modifier.height(10.dp))
-                        FieldLabel("Tarif horaire")
-                        ProfilePickField("${price.formatFr()} F / h", priceOpen, { priceOpen = it }, APP_PRICES.map { "${it.formatFr()} F / h" }) { label ->
-                            price = APP_PRICES.first { "${it.formatFr()} F / h" == label }; priceOpen = false
-                        }
-                        Spacer(Modifier.height(10.dp))
-                        FieldLabel("Expérience")
-                        ProfilePickField(experience.ifBlank { "Choisir…" }, expOpen, { expOpen = it }, APP_EXPERIENCES) { experience = it; expOpen = false }
                         Spacer(Modifier.height(14.dp))
                         FieldLabel("Programmes scolaires")
                         FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -451,20 +444,6 @@ fun CompleteTeacherProfileScreen(nav: NavActions) {
                         if (OTHER_PROG in selectedPrograms) {
                             Spacer(Modifier.height(8.dp))
                             FieldLabel("Précisez le programme"); AppField(otherProgram, { otherProgram = it }, "Ex. Programme IB…")
-                        }
-                        Spacer(Modifier.height(12.dp))
-                        FieldLabel("Modalités")
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { fmtHome = !fmtHome }) {
-                            Checkbox(checked = fmtHome, onCheckedChange = { fmtHome = it })
-                            Text("Cours à domicile", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Ink)
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { fmtOnline = !fmtOnline }) {
-                            Checkbox(checked = fmtOnline, onCheckedChange = { fmtOnline = it })
-                            Text("Cours en ligne", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Ink)
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { negotiable = !negotiable }) {
-                            Checkbox(checked = negotiable, onCheckedChange = { negotiable = it })
-                            Text("Tarif négociable", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Ink)
                         }
                         Spacer(Modifier.height(10.dp))
                         FieldLabel("Présentation"); AppField(bio, { bio = it }, "Votre parcours…", singleLine = false)
@@ -495,10 +474,8 @@ fun CompleteTeacherProfileScreen(nav: NavActions) {
                     when (step) {
                         0 -> {
                             when {
-                                experience.isBlank() -> err = "Indiquez votre expérience."
                                 selectedPrograms.isEmpty() -> err = "Sélectionnez au moins un programme."
                                 OTHER_PROG in selectedPrograms && otherProgram.isBlank() -> err = "Précisez le programme « Autre »."
-                                !fmtHome && !fmtOnline -> err = "Choisissez domicile ou en ligne."
                                 else -> step++
                             }
                         }

@@ -1,16 +1,20 @@
 import { Router } from "express";
 import { pool } from "./db";
 import { ValidationError, optionalString, optionalPhone, optionalEmail, optionalEnum, optionalNumber, requiredString, requiredEnum } from "./validate";
-import { optionalAuth, currentUserId, signJwt, requireAdmin, DEMO_USER } from "./auth";
+import { optionalAuth, currentUserId, requireAuth, requireTeacher, requireAdmin, isDemoMode, AuthError } from "./auth";
+import { registerAuthRoutes } from "./authRoutes";
+import { accountRouter } from "./account";
+import { productionRouter, launchGate, invalidateReadiness } from "./production";
 import { putFile, getFileStream, removeFile } from "./storage";
 import { registerTeacherApplicationRoutes } from "./teacherApplications";
 import { registerTeacherProfileRoutes, computeProfileCompletion } from "./teacherProfile";
+import { registerNeedsRoutes, registerAdminNeedsRoutes, parseDurationHours } from "./needs";
+import { registerCourseLifecycleRoutes, progressForUser } from "./courseLifecycle";
+import { registerFinanceRoutes, teacherEarnings } from "./finance";
+import { actorFromResponse, assertSlotFree, courseEvent, dateLabels, futureDate, requireOnlineEnabled, snapshotCommission, inTransaction, lockCourse } from "./courseOperations";
 import {
-  createAndSendOtp,
-  verifyOtpCode,
   loadOtpSettings,
   maskOtpSettings,
-  getOtpChannels,
   mergeOtpSettingsBody,
   saveOtpSettings,
   runOtpIntegrationTest,
@@ -19,20 +23,19 @@ import {
   initiateMobileCharge,
   submitPaymentOtp,
   getPaymentStatus,
-  handlePaystackWebhook,
+  PaymentUnavailableError,
   PAYMENT_PROVIDERS,
 } from "./payments";
 
 export const api = Router();
 
-// Résout l'utilisateur courant (token JWT) ou retombe sur DEMO_USER (rétrocompat).
+// Résout la session vérifiée, sans repli vers un autre compte.
 api.use(optionalAuth);
+api.use(productionRouter);
+api.use(launchGate);
+api.use(accountRouter);
 
-const ROLES = ["parent", "student", "teacher"] as const;
-
-// Version courante des CGU / politique de confidentialité (cf. docs/COMPLIANCE.md).
-// À incrémenter à chaque révision pour re-solliciter le consentement.
-const CONSENT_VERSION = "2026-06";
+const OTP_CHANNELS = ["whatsapp", "email"] as const;
 
 const wrap = (fn: (req: any, res: any) => Promise<void>) => (req: any, res: any) =>
   fn(req, res).catch((e: any) => {
@@ -40,103 +43,26 @@ const wrap = (fn: (req: any, res: any) => Promise<void>) => (req: any, res: any)
       res.status(400).json({ error: "validation_error", field: e.field, message: e.message });
       return;
     }
+    if (e instanceof AuthError || e instanceof PaymentUnavailableError) {
+      res.status(e.statusCode).json({ error: e.code, message: e.message });
+      return;
+    }
     // Détail consigné côté serveur, jamais renvoyé au client (pas de fuite interne).
     console.error(`[${req.method} ${req.originalUrl}]`, e);
     res.status(500).json({ error: "internal_error", message: "erreur interne" });
   });
 
-// ---------------------------------------------------------------- Auth (mock)
-// GET /api/auth/login : souvent ouvert par erreur dans le navigateur (la connexion est un POST).
-api.get("/auth/login", (_req, res) => {
-  res.redirect(302, "https://www.monprofperso.com/admin/");
+// Authentification publique ; toute autre route est privée sauf catalogue explicite.
+registerAuthRoutes(api);
+const PUBLIC_READ = /^\/(?:subjects|levels|programs|teachers(?:\/[^/]+)?|groups(?:\/[^/]+)?|resources|files\/[^/]+|legal(?:\/[^/]+\/file)?|settings|subscription\/plans)\/?$/;
+api.use((req, res, next) => {
+  const publicRead = (req.method === "GET" || req.method === "HEAD") && PUBLIC_READ.test(req.path);
+  const publicSubmission = req.method === "POST" && ["/needs/public", "/teacher-applications"].includes(req.path.replace(/\/$/, ""));
+  if (publicRead || publicSubmission) { next(); return; }
+  res.setHeader("Cache-Control", "no-store");
+  requireAuth(req, res, next);
 });
-
-api.post("/auth/login", wrap(async (req, res) => {
-  const phone = optionalPhone(req.body);
-  const r = await pool.query("SELECT * FROM users WHERE phone = $1", [phone ?? "+2250758421903"]);
-  const user = r.rows[0] ?? (await pool.query("SELECT * FROM users WHERE id=$1", [DEMO_USER])).rows[0];
-  res.json({ token: signJwt(user.id, user.role), user });
-}));
-
-api.post("/auth/signup", wrap(async (req, res) => {
-  const fullName = optionalString(req.body, "fullName", { max: 120 });
-  const phone = optionalPhone(req.body);
-  const role = optionalEnum(req.body, "role", ROLES);
-  // Consentement (CGU + confidentialité) ; consentement parental pour les élèves.
-  const consent = req.body?.consent === true || req.body?.consent === "true";
-  const parentalConsent = req.body?.parentalConsent === true || req.body?.parentalConsent === "true";
-  const initials = (fullName ?? "Aya Koné").split(" ").map((s: string) => s[0]).join("").slice(0, 2).toUpperCase();
-  const r = await pool.query(
-    `INSERT INTO users (full_name, phone, role, initials, consent_version, consent_at, parental_consent)
-     VALUES ($1,$2,$3,$4,$5,$6,$7)
-     ON CONFLICT (phone) DO UPDATE SET full_name = EXCLUDED.full_name,
-       consent_version = COALESCE(EXCLUDED.consent_version, users.consent_version),
-       consent_at = COALESCE(EXCLUDED.consent_at, users.consent_at),
-       parental_consent = users.parental_consent OR EXCLUDED.parental_consent
-     RETURNING *`,
-    [fullName ?? "Aya Koné", phone ?? "+2250758421903", role ?? "parent", initials,
-     consent ? CONSENT_VERSION : null, consent ? new Date() : null, parentalConsent]
-  );
-  const user = r.rows[0];
-  res.json({ token: signJwt(user.id, user.role), user });
-}));
-
-api.post("/auth/verify-otp", wrap(async (req, res) => {
-  const phone = optionalPhone(req.body);
-  const email = optionalEmail(req.body);
-  const code = optionalString(req.body, "code", { max: 10 });
-  const channels = await getOtpChannels();
-  const destination = email ?? phone;
-
-  if (!channels.demo) {
-    if (!destination) {
-      throw new ValidationError("phone", "téléphone ou e-mail requis");
-    }
-    if (!code?.trim()) {
-      throw new ValidationError("code", "code requis");
-    }
-    const ok = await verifyOtpCode(destination, code);
-    if (!ok) {
-      res.status(401).json({ error: "invalid_otp", message: "Code invalide ou expiré" });
-      return;
-    }
-  }
-
-  const r = phone
-    ? await pool.query("SELECT * FROM users WHERE phone=$1", [phone])
-    : { rows: [] as any[] };
-  const user = r.rows[0] ?? (await pool.query("SELECT * FROM users WHERE id=$1", [DEMO_USER])).rows[0];
-  res.json({ token: signJwt(user.id, user.role), verified: true, user });
-}));
-
-const OTP_CHANNELS = ["whatsapp", "email"] as const;
-
-api.get("/auth/otp-channels", wrap(async (_req, res) => {
-  res.json(await getOtpChannels());
-}));
-
-api.post("/auth/request-otp", wrap(async (req, res) => {
-  const phone = optionalPhone(req.body);
-  const email = optionalEmail(req.body);
-  const channels = await getOtpChannels();
-  const channel = (optionalEnum(req.body, "channel", OTP_CHANNELS) ?? channels.defaultChannel) as
-    | "whatsapp"
-    | "email";
-
-  if (channel === "email" && !email) {
-    throw new ValidationError("email", "e-mail requis pour l'envoi par mail");
-  }
-  if (channel === "whatsapp" && !phone) {
-    throw new ValidationError("phone", "téléphone requis pour WhatsApp");
-  }
-
-  const result = await createAndSendOtp({ phone, email, channel });
-  res.json({
-    ...result,
-    channel,
-    destination: channel === "email" ? email : phone,
-  });
-}));
+api.use("/teacher", requireTeacher);
 
 api.get("/me", wrap(async (_req, res) => {
   const r = await pool.query("SELECT * FROM users WHERE id=$1", [currentUserId(res)]);
@@ -168,6 +94,7 @@ api.get("/programs", wrap(async (_req, res) => {
 const SETTING_KEYS = [
   "social_facebook", "social_instagram", "social_tiktok", "social_whatsapp",
   "social_linkedin", "social_x", "social_youtube", "contact_email", "contact_phone",
+  "commission_pct",
 ] as const;
 
 // Paramètres publics : objet { clé: valeur } (valeurs vides comprises).
@@ -220,11 +147,17 @@ api.get("/resources", wrap(async (req, res) => {
 // Sert un fichier stocké (objet MinIO/S3, sinon repli BYTEA). `row` doit porter
 // file_name, mime_type, content, storage_key.
 async function serveFile(res: any, row: any): Promise<void> {
-  res.setHeader("Content-Type", row.mime_type ?? "application/octet-stream");
-  res.setHeader("Content-Disposition", `inline; filename="${row.file_name ?? "fichier"}"`);
+  const mime = String(row.mime_type ?? "application/octet-stream").toLowerCase();
+  const safeInline = ["application/pdf", "image/png", "image/jpeg", "image/webp"].includes(mime);
+  const fileName = String(row.file_name ?? "fichier").replace(/[^\x20-\x7e]|["\\/]/g, "_").slice(0, 180);
+  res.setHeader("Content-Type", safeInline ? mime : "application/octet-stream");
+  res.setHeader("Content-Disposition", `${safeInline ? "inline" : "attachment"}; filename="${fileName}"`);
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Content-Security-Policy", "sandbox; default-src 'none'");
+  res.setHeader("Cache-Control", "no-store");
   if (row.storage_key) {
     const stream = await getFileStream(row.storage_key);
-    stream.on("error", () => { if (!res.headersSent) res.status(502).json({ error: "storage_error" }); });
+    stream.on("error", () => { if (!res.headersSent) res.status(502).json({ error: "storage_error" }); else res.destroy(); });
     stream.pipe(res);
     return;
   }
@@ -267,19 +200,22 @@ api.get("/legal/:slug/file", wrap(async (req, res) => {
 api.get("/teachers", wrap(async (req, res) => {
   const { format, level } = req.query;
   const params: any[] = [];
-  const where: string[] = [];
+  const where: string[] = ["archived_at IS NULL", "verified=TRUE", "EXISTS (SELECT 1 FROM users u WHERE u.teacher_id=teachers.id AND u.role='teacher' AND u.deleted_at IS NULL)",
+    "NOT EXISTS (SELECT 1 FROM users u JOIN account_deletion_requests d ON d.user_id=u.id AND d.status='pending' WHERE u.teacher_id=teachers.id)"];
   if (format) { params.push(format); where.push(`$${params.length} = ANY(formats)`); }
   if (level)  { params.push(level);  where.push(`$${params.length} = ANY(levels)`); }
   const sql = `SELECT id, initials, name, subjects, rating, reviews_count, location,
                       price_per_hour, distance_km, accent, verified, special_bepc, formats,
-                      programs, negotiable
+                      programs, negotiable, needs_confirmed
                FROM teachers ${where.length ? "WHERE " + where.join(" AND ") : ""} ORDER BY rating DESC`;
   const r = await pool.query(sql, params);
   res.json(r.rows);
 }));
 
 api.get("/teachers/:id", wrap(async (req, res) => {
-  const t = await pool.query("SELECT * FROM teachers WHERE id=$1", [req.params.id]);
+  const t = await pool.query(`SELECT * FROM teachers WHERE id=$1 AND archived_at IS NULL AND verified=TRUE
+    AND EXISTS (SELECT 1 FROM users u WHERE u.teacher_id=teachers.id AND u.role='teacher' AND u.deleted_at IS NULL)
+    AND NOT EXISTS (SELECT 1 FROM users u JOIN account_deletion_requests d ON d.user_id=u.id AND d.status='pending' WHERE u.teacher_id=teachers.id)`, [req.params.id]);
   if (!t.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
   const reviews = await pool.query(
     "SELECT author_initials, author_name, rating, time_ago, text FROM reviews WHERE teacher_id=$1 ORDER BY id",
@@ -291,10 +227,16 @@ api.get("/teachers/:id", wrap(async (req, res) => {
 // ------------------------------------------------------------------------ Cours
 api.get("/courses", wrap(async (req, res) => {
   const status = req.query.status as string | undefined;
-  const params: any[] = [currentUserId(res)];
-  let sql = "SELECT * FROM courses WHERE user_id=$1";
-  if (status) { params.push(status); sql += ` AND status=$${params.length}`; }
-  sql += " ORDER BY id";
+  const teacher = res.locals.userRole === "teacher";
+  const params: any[] = [currentUserId(res), teacher ? res.locals.teacherId ?? null : null];
+  let sql = `SELECT c.*, u.full_name AS parent_name, ch.name AS student_name,
+    CASE WHEN c.user_id=$1 THEN 'parent' ELSE 'teacher' END AS participant_role
+    FROM courses c JOIN users u ON u.id=c.user_id
+    LEFT JOIN course_needs n ON n.course_id=c.id
+    LEFT JOIN children ch ON ch.id=n.child_id
+    WHERE (c.user_id=$1 OR (c.teacher_id=$2::int AND c.accepted=TRUE))`;
+  if (status) { params.push(status); sql += ` AND c.status=$${params.length}`; }
+  sql += " ORDER BY c.starts_at NULLS LAST,c.id";
   const r = await pool.query(sql, params);
   res.json(r.rows);
 }));
@@ -302,57 +244,58 @@ api.get("/courses", wrap(async (req, res) => {
 api.post("/bookings", wrap(async (req, res) => {
   const b = req.body ?? {};
   const teacherId = optionalNumber(b, "teacherId", { min: 1 });
-  const price = optionalNumber(b, "price", { min: 0 });
-  const format = optionalEnum(b, "format", ["home", "online"]);
-  const teacherName = optionalString(b, "teacherName", { max: 120 });
+  if (!Number.isSafeInteger(teacherId)) throw new ValidationError("teacherId", "professeur requis");
+  // Champ historique accepté/validé mais jamais utilisé comme autorité de prix.
+  optionalNumber(b, "price", { min: 0 });
+  const format = optionalEnum(b, "format", ["home", "online"]) ?? "home";
+  requireOnlineEnabled(format);
   const subject = optionalString(b, "subject", { max: 80 });
-  const level = optionalString(b, "level", { max: 40 });
-  const dayLabel = optionalString(b, "dayLabel", { max: 20 });
-  const dayNum = optionalString(b, "dayNum", { max: 10 });
-  const time = optionalString(b, "time", { max: 20 });
-  const duration = optionalString(b, "duration", { max: 20 });
+  const level = optionalString(b, "level", { max: 40 }) ?? "Non précisé";
   const location = optionalString(b, "location", { max: 200 });
-  // Négociation (offre « à négocier ») : le client propose un tarif et/ou une fréquence.
-  const proposedPrice = optionalNumber(b, "proposedPrice", { min: 0, max: 1_000_000 });
-  const proposedFrequency = optionalString(b, "proposedFrequency", { max: 60 });
-  const hasProposal = proposedPrice !== undefined || proposedFrequency !== undefined;
-  const negotiationStatus = hasProposal ? "proposed" : "none";
-  const r = await pool.query(
-    `INSERT INTO courses (user_id,teacher_id,teacher_name,subject,level,day_label,day_num,time,duration,format,location,price,status,badge,accepted,payment_status,
-                          negotiable,proposed_price,proposed_frequency,negotiation_status)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'upcoming',$13,FALSE,'pending',$14,$15,$16,$17) RETURNING *`,
-    [currentUserId(res), teacherId ?? 1, teacherName ?? "Koffi N'Guessan", subject ?? "Maths", level ?? "3ᵉ",
-     dayLabel ?? "SAM", dayNum ?? "22", time ?? "16h00", duration ?? "1h30",
-     format ?? "home", location ?? "À domicile, Cocody", price ?? 6000, "En attente",
-     hasProposal, proposedPrice ?? null, proposedFrequency ?? null, negotiationStatus]
-  );
-  res.status(201).json({ reference: "AKW-" + (2000 + r.rows[0].id), course: r.rows[0] });
+  const privateAddress = optionalString(b, "privateAddress", { max: 1000 });
+  const duration = optionalString(b, "duration", { max: 20 }) ?? "1h30";
+  const minutes = Math.round(parseDurationHours(duration) * 60);
+  const startAt = optionalString(b, "startAt", { max: 40 });
+  if (!startAt && !isDemoMode()) throw new ValidationError("startAt", "date et heure du cours requises");
+  const startsAt = futureDate(startAt ?? new Date(Date.now() + 86_400_000).toISOString());
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const user = (await client.query("SELECT id,teacher_id FROM users WHERE id=$1 AND deleted_at IS NULL FOR SHARE", [currentUserId(res)])).rows[0];
+    if (!user) throw new AuthError(401, "account_unavailable", "Compte indisponible");
+    if ((await client.query("SELECT 1 FROM account_deletion_requests WHERE user_id=$1 AND status='pending'", [user.id])).rowCount)
+      throw new AuthError(409,"account_closing","Annulez votre demande de fermeture de compte avant une nouvelle réservation");
+    if (user.teacher_id === teacherId) throw new ValidationError("teacherId", "vous ne pouvez pas réserver votre propre cours");
+    const teacher = (await client.query("SELECT * FROM teachers WHERE id=$1 AND archived_at IS NULL FOR UPDATE", [teacherId])).rows[0];
+    if (!teacher) throw new ValidationError("teacherId", "professeur introuvable");
+    if (!teacher.verified) throw new ValidationError("teacherId", "professeur non validé");
+    if (!(await client.query("SELECT id FROM users WHERE teacher_id=$1 AND role='teacher' AND deleted_at IS NULL", [teacherId])).rowCount) {
+      throw new ValidationError("teacherId", "ce professeur ne dispose pas d'un compte actif");
+    }
+    if ((await client.query("SELECT 1 FROM users u JOIN account_deletion_requests d ON d.user_id=u.id AND d.status='pending' WHERE u.teacher_id=$1", [teacherId])).rowCount)
+      throw new AuthError(409,"teacher_unavailable","Ce professeur n'accepte plus de nouvelles réservations");
+    if (Array.isArray(teacher.formats) && !teacher.formats.includes(format)) throw new ValidationError("format", "modalité non proposée par ce professeur");
+    const price = Math.round(Number(teacher.price_per_hour) * minutes / 60);
+    if (!Number.isSafeInteger(price) || price <= 0 || price > 20_000_000) throw new ValidationError("teacherId", "tarif professeur indisponible");
+    await assertSlotFree(client, { teacher_id: teacherId, duration_minutes: minutes }, startsAt);
+    const { dayLabel, dayNum, time } = dateLabels(startsAt);
+    const commission = await snapshotCommission(client, price);
+    const r = await client.query(
+      `INSERT INTO courses (user_id,teacher_id,teacher_name,subject,level,day_label,day_num,time,duration,format,location,price,status,badge,accepted,payment_status,starts_at,duration_minutes,
+       commission_pct,commission_amount,teacher_net_amount,private_address,lifecycle_status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'upcoming','En attente',FALSE,'pending',$13,$14,$15,$16,$17,$18,'requested') RETURNING *`,
+      [currentUserId(res),teacherId,teacher.name,subject?.trim() || teacher.subjects,level,dayLabel,dayNum,time,
+        `${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, "0")}`, format,location ?? teacher.location,price,startsAt,minutes,
+        commission.pct,commission.commission,commission.net,privateAddress?.trim() || null],
+    );
+    await courseEvent(client, r.rows[0].id, actorFromResponse(res), "booking_requested", { startAt: startsAt.toISOString(), price, commissionPct: commission.pct });
+    await client.query("COMMIT");
+    res.status(201).json({ reference: "AKW-" + (2000 + r.rows[0].id), course: r.rows[0] });
+  } catch (error) { await client.query("ROLLBACK"); throw error; }
+  finally { client.release(); }
 }));
 
-// Le client accepte la contre-proposition du prof (tarif + fréquence retenus).
-api.post("/courses/:id/negotiation/accept", wrap(async (req, res) => {
-  const r = await pool.query(
-    `UPDATE courses
-        SET price = COALESCE(counter_price, price),
-            accepted = TRUE, badge = 'Confirmé', negotiation_status = 'accepted'
-      WHERE id = $1 AND user_id = $2 AND negotiation_status = 'countered'
-      RETURNING id, teacher_id`,
-    [req.params.id, currentUserId(res)]
-  );
-  if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
-  res.json({ ok: true, courseId: r.rows[0].id });
-}));
-
-// Le client refuse la contre-proposition du prof (la demande est abandonnée).
-api.post("/courses/:id/negotiation/refuse", wrap(async (req, res) => {
-  const r = await pool.query(
-    `UPDATE courses SET status = 'refused', badge = 'Refusé', negotiation_status = 'refused'
-      WHERE id = $1 AND user_id = $2 AND negotiation_status = 'countered' RETURNING id`,
-    [req.params.id, currentUserId(res)]
-  );
-  if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
-  res.json({ ok: true, courseId: r.rows[0].id });
-}));
+registerNeedsRoutes(api, { serveFile });
 
 // ----------------------------------------------------------------- Notifications
 api.get("/notifications", wrap(async (_req, res) => {
@@ -389,7 +332,7 @@ api.get("/wallet", wrap(async (_req, res) => {
     [currentUserId(res)]
   );
   const tx = await pool.query(
-    "SELECT title, subtitle, amount, credit FROM transactions WHERE user_id=$1 ORDER BY id",
+    "SELECT id, payment_id, title, subtitle, amount, credit FROM transactions WHERE user_id=$1 ORDER BY id",
     [currentUserId(res)]
   );
   res.json({ accounts: accounts.rows, transactions: tx.rows });
@@ -412,7 +355,7 @@ api.post("/payments/charge-mobile", wrap(async (req, res) => {
     });
     res.json(result);
   } catch (e: any) {
-    if (e instanceof ValidationError) throw e;
+    if (e instanceof ValidationError || e instanceof PaymentUnavailableError) throw e;
     res.status(502).json({
       error: "payment_error",
       message: String(e?.message ?? "échec du paiement").slice(0, 300),
@@ -434,7 +377,7 @@ api.post("/payments/submit-otp", wrap(async (req, res) => {
     });
     res.json(result);
   } catch (e: any) {
-    if (e instanceof ValidationError) throw e;
+    if (e instanceof ValidationError || e instanceof PaymentUnavailableError) throw e;
     res.status(502).json({
       error: "payment_error",
       message: String(e?.message ?? "échec validation OTP").slice(0, 300),
@@ -451,8 +394,11 @@ api.get("/payments/:id/status", wrap(async (req, res) => {
 }));
 
 // ----------------------------------------------------------------- Cours groupe
-api.get("/groups", wrap(async (_req, res) => {
-  const r = await pool.query("SELECT * FROM group_courses ORDER BY id");
+api.get("/groups", wrap(async (req, res) => {
+  const kind = typeof req.query.kind === "string" ? req.query.kind : undefined;
+  const r = kind
+    ? await pool.query("SELECT * FROM group_courses WHERE kind = $1 ORDER BY id", [kind])
+    : await pool.query("SELECT * FROM group_courses ORDER BY id");
   res.json(r.rows);
 }));
 
@@ -480,54 +426,56 @@ api.get("/subscription/mine", wrap(async (_req, res) => {
     [currentUserId(res)]
   );
   res.json(r.rows[0] ?? {
-    plan: "Régulier", status: "active", detail: "2 cours par semaine · Prof attitré Koffi",
-    nextCharge: "1 juil.", nextAmount: 26000, used: 5, total: 8,
+    plan: "Aucun abonnement", status: "inactive", detail: "Aucun abonnement actif",
+    nextCharge: "—", nextAmount: 0, used: 0, total: 0,
   });
 }));
 
 // --------------------------------------------------------------------- Progrès
 api.get("/progress", wrap(async (_req, res) => {
-  const subs = await pool.query(
-    "SELECT subject, grade, fraction, warn FROM progress_subjects WHERE user_id=$1 ORDER BY id",
-    [currentUserId(res)]
-  );
-  res.json({
-    student: "Kouadio, 3ᵉ", average: "13,2", trend: "+1,4",
-    goal: "Objectif BEPC : 14/20, vous y êtes presque !",
-    subjects: subs.rows,
-  });
+  res.json(await progressForUser(currentUserId(res)));
 }));
 
 // --------------------------------------------------------------- Espace prof
-// Professeur par défaut si le compte courant n'est pas relié à une fiche prof
-// (repli démo : compte non-prof, ou prof fraîchement inscrit sans fiche).
-const DEMO_TEACHER = 1;
-
-/** Fiche `teachers` du compte connecté, ou le prof de démo en repli. */
+/** La garde requireTeacher a déjà vérifié le rôle et le lien utilisateur/professeur. */
 async function currentTeacherId(res: any): Promise<number> {
-  const r = await pool.query("SELECT teacher_id FROM users WHERE id=$1", [currentUserId(res)]);
-  return (r.rows[0]?.teacher_id as number | null) ?? DEMO_TEACHER;
+  const id = res.locals.teacherId;
+  if (!Number.isSafeInteger(id) || id < 1) throw new AuthError(403, "forbidden", "Profil professeur requis");
+  return id;
 }
 
 api.get("/teacher/dashboard", wrap(async (_req, res) => {
   const teacherId = await currentTeacherId(res);
-  const p = (await pool.query("SELECT * FROM teacher_profiles WHERE teacher_id=$1", [teacherId])).rows[0];
-  const t = (await pool.query("SELECT name, negotiable, location, price_per_hour, experience, subjects, levels, formats, programs FROM teachers WHERE id=$1", [teacherId])).rows[0];
-  if (!p || !t) { res.status(404).json({ error: "not_found" }); return; }
-  const pending = (await pool.query(
-    `SELECT ((SELECT count(*) FROM teacher_requests WHERE teacher_id=$1)
-           + (SELECT count(*) FROM courses WHERE teacher_id=$1 AND accepted=FALSE AND status='upcoming'))::int AS n`,
-    [teacherId]
+  const t = (await pool.query(
+    "SELECT name, negotiable, location, price_per_hour, experience, subjects, levels, formats, programs, needs_confirmed FROM teachers WHERE id=$1",
+    [teacherId],
+  )).rows[0];
+  if (!t) { res.status(404).json({ error: "not_found" }); return; }
+  const earnings = await teacherEarnings(teacherId);
+  const stats = (await pool.query(
+    `SELECT count(*) FILTER (WHERE lifecycle_status='scheduled' AND starts_at>=date_trunc('week',now()) AND starts_at<date_trunc('week',now())+interval '1 week')::int AS week,
+      count(DISTINCT user_id) FILTER (WHERE lifecycle_status='completed')::int AS students FROM courses WHERE teacher_id=$1`, [teacherId],
+  )).rows[0];
+  const rating = (await pool.query("SELECT round(avg(rating),1) AS rating FROM reviews WHERE teacher_id=$1", [teacherId])).rows[0]?.rating;
+  const needsConfirmed = Boolean(t.needs_confirmed);
+  const oppCount = needsConfirmed
+    ? (await pool.query(
+        "SELECT count(*)::int AS n FROM course_needs WHERE status = 'published' AND teacher_id IS NULL",
+      )).rows[0].n
+    : 0;
+  const legacyCount = (await pool.query(
+    "SELECT count(*)::int AS n FROM courses WHERE teacher_id = $1 AND accepted = FALSE AND status = 'upcoming'",
+    [teacherId],
   )).rows[0].n;
   res.json({
-    name: t.name, revenue: p.revenue, trend: p.trend,
+    name: t.name, revenue: earnings.summary.due, trend: "—",
     stats: [
-      { value: p.courses_per_week, label: "cours / semaine" },
-      { value: p.rating_label, label: "note moyenne" },
-      { value: p.new_students, label: "nouveaux élèves" },
+      { value: String(stats.week), label: "cours cette semaine" },
+      { value: rating == null ? "—" : String(rating), label: "note moyenne" },
+      { value: String(stats.students), label: "élèves accompagnés" },
     ],
-    pendingRequests: pending,
-    negotiable: t.negotiable,
+    pendingRequests: oppCount + legacyCount,
+    needsConfirmed,
     profileCompletion: computeProfileCompletion(
       t,
       (await pool.query(
@@ -538,43 +486,69 @@ api.get("/teacher/dashboard", wrap(async (_req, res) => {
   });
 }));
 
-// Le prof active/désactive l'option « à négocier » sur ses offres.
-api.post("/teacher/negotiable", wrap(async (req, res) => {
-  const teacherId = await currentTeacherId(res);
-  const negotiable = req.body?.negotiable === true || req.body?.negotiable === "true";
-  const r = await pool.query(
-    "UPDATE teachers SET negotiable=$2 WHERE id=$1 RETURNING negotiable", [teacherId, negotiable]
-  );
-  if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
-  res.json({ ok: true, negotiable: r.rows[0].negotiable });
-}));
-
 api.get("/teacher/requests", wrap(async (_req, res) => {
   const teacherId = await currentTeacherId(res);
-  // Vraies réservations en attente de validation (parents -> ce prof).
+  const needsConfirmed = Boolean((await pool.query(
+    "SELECT needs_confirmed FROM teachers WHERE id=$1",
+    [teacherId],
+  )).rows[0]?.needs_confirmed);
+  // Offres publiées (besoins parents) — gains nets affichés au prof.
+  const opportunities = needsConfirmed
+    ? await pool.query(
+    `SELECT n.id AS "needId", n.id AS "courseId", n.level AS student, n.subject, n.level,
+            NULL::text AS location, n.format, n.frequency, n.duration,
+            n.net_teacher_amount AS price, n.net_teacher_hourly AS "netHourly",
+            n.start_date AS "startDate", n.availability_week AS "availabilityWeek",
+            n.availability_weekend AS "availabilityWeekend",
+            n.availability_holidays AS "availabilityHolidays",
+            n.has_cat AS "hasCat", n.has_dog AS "hasDog",
+            NULL::numeric AS lat, NULL::numeric AS lng,
+            'nouveau' AS ago,
+            CASE n.format WHEN 'online' THEN 'En ligne' ELSE 'À domicile · coordonnées après acceptation' END AS slot
+     FROM course_needs n
+     LEFT JOIN children c ON c.id = n.child_id
+     WHERE n.status = 'published' AND n.teacher_id IS NULL
+     ORDER BY n.id DESC`,
+  )
+    : { rows: [] as any[] };
+  // Réservations legacy encore en attente pour ce prof.
   const live = await pool.query(
-    `SELECT c.id AS "courseId", u.initials, 'green' AS accent, u.full_name AS name,
-            'nouveau' AS ago, c.price, c.level AS student, c.subject,
+    `SELECT c.id AS "courseId", NULL::int AS "needId", u.initials, 'green' AS accent, u.full_name AS name,
+            'nouveau' AS ago, COALESCE(c.teacher_net_amount,c.price) AS price, c.level AS student, c.subject,
             (c.day_label || ' ' || c.day_num || ' · ' || c.time) AS slot,
             CASE c.format WHEN 'online' THEN 'En ligne'
-                          ELSE COALESCE(c.location, 'À domicile') END AS format,
-            c.negotiable, c.proposed_price AS "proposedPrice", c.proposed_frequency AS "proposedFrequency",
-            c.counter_price AS "counterPrice", c.counter_frequency AS "counterFrequency",
-            c.negotiation_status AS "negotiationStatus"
+                          ELSE COALESCE(c.location, 'À domicile') END AS format
      FROM courses c JOIN users u ON u.id = c.user_id
      WHERE c.teacher_id = $1 AND c.accepted = FALSE AND c.status = 'upcoming'
      ORDER BY c.id DESC`,
     [teacherId]
   );
-  // Demandes de démonstration (sans cours réel rattaché : courseId nul).
-  const seeded = await pool.query(
-    `SELECT NULL::int AS "courseId", initials, accent, name, ago, price, student, subject, slot, format,
-            FALSE AS negotiable, NULL::int AS "proposedPrice", NULL::text AS "proposedFrequency",
-            NULL::int AS "counterPrice", NULL::text AS "counterFrequency", 'none' AS "negotiationStatus"
-     FROM teacher_requests WHERE teacher_id=$1 ORDER BY ord, id`,
-    [teacherId]
-  );
-  res.json([...live.rows, ...seeded.rows]);
+  const mapOpp = (row: any) => ({
+    courseId: row.courseId ?? row.needId,
+    needId: row.needId ?? null,
+    initials: row.initials ?? "BE",
+    accent: row.accent ?? "green",
+    name: row.name ?? row.location ?? row.slot ?? "Offre",
+    ago: row.ago ?? "nouveau",
+    price: row.price,
+    netHourly: row.netHourly ?? null,
+    student: row.student ?? row.level,
+    subject: row.subject,
+    slot: row.slot,
+    format: row.format,
+    frequency: row.frequency ?? null,
+    duration: row.duration ?? null,
+    startDate: row.startDate ?? null,
+    availabilityWeek: row.availabilityWeek ?? true,
+    availabilityWeekend: row.availabilityWeekend ?? false,
+    availabilityHolidays: row.availabilityHolidays ?? false,
+    hasCat: Boolean(row.hasCat),
+    hasDog: Boolean(row.hasDog),
+    lat: row.lat != null ? Number(row.lat) : null,
+    lng: row.lng != null ? Number(row.lng) : null,
+    isOpportunity: row.needId != null,
+  });
+  res.json([...opportunities.rows.map(mapOpp), ...live.rows.map(mapOpp)]);
 }));
 
 // Notifie le parent (auteur de la réservation) qu'une décision a été prise.
@@ -586,59 +560,42 @@ async function notifyParent(userId: number, icon: string, accent: string, text: 
   );
 }
 
-// Validation d'une demande réelle : le prof accepte la réservation d'un parent.
+// Cette route ne traite que les réservations. Les besoins ont leur route /opportunities/:id/accept.
 api.post("/teacher/requests/:id/accept", wrap(async (req, res) => {
   const teacherId = await currentTeacherId(res);
-  // Si le client avait proposé un tarif (négociation), le prof l'accepte tel quel.
-  const r = await pool.query(
-    `UPDATE courses
-        SET accepted = TRUE, badge = 'Confirmé',
-            price = CASE WHEN negotiation_status = 'proposed' AND proposed_price IS NOT NULL
-                         THEN proposed_price ELSE price END,
-            negotiation_status = CASE WHEN negotiation_status = 'none' THEN 'none' ELSE 'accepted' END
-      WHERE id = $1 AND teacher_id = $2 AND accepted = FALSE RETURNING id, user_id, subject`,
-    [req.params.id, teacherId]
-  );
-  const c = r.rows[0];
-  if (!c) { res.status(404).json({ error: "not_found" }); return; }
-  await notifyParent(c.user_id, "seal", "green",
-    `Votre demande de cours${c.subject ? ` de ${c.subject}` : ""} a été acceptée`);
-  res.json({ ok: true, courseId: c.id });
-}));
-
-// Contre-proposition du prof : nouveau tarif et/ou fréquence soumis au client.
-api.post("/teacher/requests/:id/counter", wrap(async (req, res) => {
-  const teacherId = await currentTeacherId(res);
-  const price = optionalNumber(req.body, "price", { min: 0, max: 1_000_000 });
-  const frequency = optionalString(req.body, "frequency", { max: 60 });
-  if (price === undefined && frequency === undefined) {
-    res.status(400).json({ error: "validation_error", message: "tarif ou fréquence requis" });
-    return;
-  }
-  const r = await pool.query(
-    `UPDATE courses
-        SET counter_price = $3, counter_frequency = $4, negotiable = TRUE, negotiation_status = 'countered'
-      WHERE id = $1 AND teacher_id = $2 AND accepted = FALSE AND status = 'upcoming'
-      RETURNING id, user_id, subject`,
-    [req.params.id, teacherId, price ?? null, frequency ?? null]
-  );
-  const c = r.rows[0];
-  if (!c) { res.status(404).json({ error: "not_found" }); return; }
-  await notifyParent(c.user_id, "wallet", "orange",
-    `Le professeur vous fait une contre-proposition${c.subject ? ` pour ${c.subject}` : ""}`);
-  res.json({ ok: true, courseId: c.id });
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const course = await lockCourse(client, Number(req.params.id), actorFromResponse(res));
+    if (course.teacher_id !== teacherId || course.accepted || course.lifecycle_status !== "requested") { await client.query("ROLLBACK"); res.status(404).json({ error: "not_found" }); return; }
+    if (course.starts_at) {
+      if (new Date(course.starts_at).getTime() <= Date.now()) throw new AuthError(409, "slot_expired", "Ce créneau est passé");
+      await assertSlotFree(client, course, new Date(course.starts_at));
+    }
+    await client.query("UPDATE courses SET accepted=TRUE,badge=$2,lifecycle_status=$3,updated_at=now() WHERE id=$1",
+      [course.id,course.starts_at ? "Confirmé" : "À planifier",course.starts_at ? "scheduled" : "awaiting_schedule"]);
+    await courseEvent(client, course.id, actorFromResponse(res), "teacher_accepted");
+    await client.query(
+      `INSERT INTO notifications(user_id,icon,accent,text,time_ago,unread,section)
+       VALUES ($1,'seal','green',$2,'à l''instant',TRUE,'today')`,
+      [course.user_id,`Votre demande de cours${course.subject ? ` de ${course.subject}` : ""} a été acceptée`],
+    );
+    await client.query("COMMIT");
+    res.json({ ok: true, courseId: course.id });
+  } catch (error) { await client.query("ROLLBACK"); throw error; }
+  finally { client.release(); }
 }));
 
 // Refus d'une demande réelle : le prof décline la réservation (status='refused').
 api.post("/teacher/requests/:id/refuse", wrap(async (req, res) => {
   const teacherId = await currentTeacherId(res);
-  const r = await pool.query(
-    `UPDATE courses SET status = 'refused', badge = 'Refusé'
-     WHERE id = $1 AND teacher_id = $2 AND accepted = FALSE AND status = 'upcoming' RETURNING id, user_id, subject`,
-    [req.params.id, teacherId]
-  );
-  const c = r.rows[0];
-  if (!c) { res.status(404).json({ error: "not_found" }); return; }
+  const c = await inTransaction(async client => {
+    const course = await lockCourse(client, Number(req.params.id), actorFromResponse(res));
+    if (course.teacher_id !== teacherId || course.accepted || course.lifecycle_status !== "requested") throw new AuthError(404,"not_found","Cours introuvable");
+    await client.query("UPDATE courses SET status='refused',lifecycle_status='refused',badge='Refusé',updated_at=now() WHERE id=$1", [course.id]);
+    await courseEvent(client, course.id, actorFromResponse(res), "teacher_refused");
+    return course;
+  });
   await notifyParent(c.user_id, "calendar", "orange",
     `Votre demande de cours${c.subject ? ` de ${c.subject}` : ""} n'a pas été retenue`);
   res.json({ ok: true, courseId: c.id });
@@ -646,25 +603,7 @@ api.post("/teacher/requests/:id/refuse", wrap(async (req, res) => {
 
 api.get("/teacher/earnings", wrap(async (_req, res) => {
   const teacherId = await currentTeacherId(res);
-  const p = (await pool.query("SELECT * FROM teacher_profiles WHERE teacher_id=$1", [teacherId])).rows[0];
-  if (!p) { res.status(404).json({ error: "not_found" }); return; }
-  const weeks = (await pool.query(
-    "SELECT label, fraction AS f FROM teacher_earning_weeks WHERE teacher_id=$1 ORDER BY ord, id", [teacherId]
-  )).rows;
-  const payouts = (await pool.query(
-    `SELECT provider, payout_date AS date, amount, color
-     FROM teacher_payouts WHERE teacher_id=$1 ORDER BY ord, id`, [teacherId]
-  )).rows;
-  res.json({
-    total: p.earnings_total, trend: p.earnings_trend,
-    weeks,
-    stats: [
-      { value: p.courses_given, label: "cours donnés" },
-      { value: p.hours_taught, label: "enseignées" },
-      { value: p.avg_per_hour, label: "F / h moyen" },
-    ],
-    payouts,
-  });
+  res.json(await teacherEarnings(teacherId));
 }));
 
 registerTeacherProfileRoutes(api, { wrap, currentTeacherId, currentUserId });
@@ -675,6 +614,8 @@ registerTeacherProfileRoutes(api, { wrap, currentTeacherId, currentUserId });
 // ============================================================================ *
 const admin = Router();
 admin.use(requireAdmin);
+registerCourseLifecycleRoutes(api, admin);
+registerFinanceRoutes(api, admin);
 
 // --- Matières (permet d'ajouter musique, langues autres que FR/EN, etc.) ---
 admin.post("/subjects", wrap(async (req, res) => {
@@ -849,29 +790,53 @@ admin.put("/legal/:slug", wrap(async (req, res) => {
   const mimeType = optionalString(b, "mimeType", { max: 100 });
   const contentBase64 = optionalString(b, "contentBase64", { max: 20_000_000 });
 
-  // Le document doit exister (slug connu : cgu | confidentialite | mentions-legales).
-  const existing = (await pool.query("SELECT slug FROM legal_documents WHERE slug=$1", [req.params.slug])).rows[0];
-  if (!existing) { res.status(404).json({ error: "not_found" }); return; }
-
-  // Si un fichier est fourni, on le téléverse (MinIO, repli BYTEA).
-  let setFile = "";
-  const params: any[] = [req.params.slug, title ?? null, version ?? null];
-  if (contentBase64) {
-    const buffer = Buffer.from(contentBase64, "base64");
-    const storageKey = await putFile(buffer, mimeType ?? null, fileName ?? null);
-    const content = storageKey ? null : buffer;
-    params.push(fileName ?? null, mimeType ?? null, buffer.length, content, storageKey);
-    setFile = `, file_name=$4, mime_type=$5, size_bytes=$6, content=$7, storage_key=$8`;
+  if (version !== undefined && !version.trim()) throw new ValidationError("version", "version non vide requise");
+  let file: Buffer | null = null;
+  if (contentBase64 !== undefined) {
+    const encoded = contentBase64.replace(/\s/g, "");
+    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(encoded) || encoded.length % 4 !== 0) throw new ValidationError("contentBase64", "fichier base64 invalide");
+    file = Buffer.from(encoded, "base64");
+    if (file.length < 8 || file.length > 8 * 1024 * 1024 || file.subarray(0,5).toString("ascii") !== "%PDF-") {
+      throw new ValidationError("contentBase64", "document PDF non vide de 8 Mo maximum requis");
+    }
+    if (mimeType && mimeType !== "application/pdf") throw new ValidationError("mimeType", "un PDF est requis pour un document légal");
   }
-  const r = await pool.query(
-    `UPDATE legal_documents
-        SET title = COALESCE($2, title), version = COALESCE($3, version),
-            updated_at = now(), updated_by = ${currentUserId(res)}${setFile}
-      WHERE slug = $1
-      RETURNING slug, title, version, file_name, size_bytes, updated_at`,
-    params
-  );
-  res.json(r.rows[0]);
+  let uploadedKey: string | null = null;
+  try {
+    const result = await inTransaction(async client => {
+      const existing = (await client.query("SELECT * FROM legal_documents WHERE slug=$1 FOR UPDATE", [req.params.slug])).rows[0];
+      if (!existing) throw new AuthError(404, "not_found", "Document introuvable");
+      if (file) uploadedKey = await putFile(file, "application/pdf", fileName ?? `${req.params.slug}.pdf`, "legal");
+      const row = (await client.query(
+        `UPDATE legal_documents SET title=COALESCE($2,title),version=COALESCE($3,version),updated_at=now(),updated_by=$4,
+         file_name=CASE WHEN $5 THEN $6 ELSE file_name END,mime_type=CASE WHEN $5 THEN 'application/pdf' ELSE mime_type END,
+         size_bytes=CASE WHEN $5 THEN $7::int ELSE size_bytes END,content=CASE WHEN $5 THEN $8::bytea ELSE content END,
+         storage_key=CASE WHEN $5 THEN $9::text ELSE storage_key END WHERE slug=$1
+         RETURNING slug,title,version,revision_id,file_name,size_bytes,updated_at`,
+        [req.params.slug,title?.trim() ?? null,version?.trim() ?? null,currentUserId(res),Boolean(file),fileName ?? `${req.params.slug}.pdf`,
+          file?.length ?? null,uploadedKey ? null : file,uploadedKey],
+      )).rows[0];
+      // Le trigger de révision invalide la revue seulement si le document change.
+      return row;
+    });
+    invalidateReadiness();
+    res.json(result);
+  } catch (error) {
+    if (uploadedKey) await removeFile(uploadedKey);
+    throw error;
+  }
+}));
+
+admin.get("/legal/:slug/versions", wrap(async (req, res) => {
+  const rows = (await pool.query(`SELECT slug,revision_id,title,version,file_name,size_bytes,published_at,published_by
+    FROM legal_document_versions WHERE slug=$1 ORDER BY published_at DESC`, [req.params.slug])).rows;
+  res.json(rows);
+}));
+admin.get("/legal/:slug/versions/:revision/file", wrap(async (req, res) => {
+  if (!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(req.params.revision)) throw new ValidationError("revision", "révision invalide");
+  const row = (await pool.query("SELECT * FROM legal_document_versions WHERE slug=$1 AND revision_id=$2::uuid", [req.params.slug,req.params.revision])).rows[0];
+  if (!row || (!row.content && !row.storage_key)) throw new AuthError(404,"not_found","Document introuvable");
+  await serveFile(res,row);
 }));
 
 // --- Paramètres plateforme : réseaux sociaux + contact (mise à jour groupée) ---
@@ -881,17 +846,31 @@ admin.put("/settings", wrap(async (req, res) => {
   const updates: [string, string][] = [];
   for (const key of SETTING_KEYS) {
     const v = optionalString(b, key, { max: 300 });
-    if (v !== undefined) updates.push([key, v.trim()]);
+    if (v !== undefined) {
+      if (key === "commission_pct" && (!/^\d{1,3}(?:\.\d{1,2})?$/.test(v.trim()) || Number(v) > 100)) {
+        throw new ValidationError("commission_pct", "pourcentage explicite entre 0 et 100, avec au plus deux décimales");
+      }
+      updates.push([key, v.trim()]);
+    }
   }
-  for (const [key, value] of updates) {
-    await pool.query(
+  await inTransaction(async client => {
+    let sensitiveChanged = false;
+    for (const [key, value] of updates) {
+      const changed = await client.query(
       `INSERT INTO app_settings (key, value, updated_at, updated_by)
        VALUES ($1,$2,now(),$3)
        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value,
-         updated_at = now(), updated_by = EXCLUDED.updated_by`,
+         updated_at = now(), updated_by = EXCLUDED.updated_by
+       WHERE app_settings.value IS DISTINCT FROM EXCLUDED.value RETURNING key`,
       [key, value, currentUserId(res)]
-    );
-  }
+      );
+      if (changed.rowCount && ["commission_pct","contact_email","contact_phone"].includes(key)) sensitiveChanged = true;
+    }
+    if (sensitiveChanged) {
+      await client.query("DELETE FROM production_checks WHERE check_key IN ('provider_e2e','legal_review')");
+    }
+  });
+  invalidateReadiness();
   const r = await pool.query("SELECT key, value FROM app_settings");
   const out: Record<string, string> = {};
   for (const k of SETTING_KEYS) out[k] = "";
@@ -930,7 +909,7 @@ admin.post("/otp-settings/test", wrap(async (req, res) => {
     });
     res.json(result);
   } catch (e: any) {
-    if (e instanceof ValidationError) throw e;
+    if (e instanceof ValidationError || e instanceof PaymentUnavailableError) throw e;
     res.status(502).json({
       error: "provider_error",
       message: String(e?.message ?? "échec de l'envoi de test").slice(0, 300),
@@ -949,14 +928,23 @@ function strArray(body: any, field: string): string[] | undefined {
   return v;
 }
 
+admin.get("/teachers", wrap(async (req, res) => {
+  const includeArchived = req.query.includeArchived === "true";
+  const rows = (await pool.query(`SELECT t.*,
+    EXISTS(SELECT 1 FROM users u WHERE u.teacher_id=t.id AND u.role='teacher' AND u.deleted_at IS NULL) AS "hasActiveAccount"
+    FROM teachers t WHERE ($1 OR t.archived_at IS NULL) ORDER BY t.id DESC`, [includeArchived])).rows;
+  res.json(rows);
+}));
+
 admin.post("/teachers", wrap(async (req, res) => {
   const b = req.body ?? {};
   const name = requiredString(b, "name", { max: 120 });
   const subjects = requiredString(b, "subjects", { max: 200 });
   const location = optionalString(b, "location", { max: 120 }) ?? "Abidjan";
   const pricePerHour = optionalNumber(b, "pricePerHour", { min: 0, max: 1_000_000 }) ?? 4000;
-  const rating = optionalNumber(b, "rating", { min: 0, max: 5 }) ?? 5.0;
-  const reviewsCount = optionalNumber(b, "reviewsCount", { min: 0 }) ?? 0;
+  // Les notes ne sont créées que par des avis de cours réellement réalisés.
+  const rating = 0;
+  const reviewsCount = 0;
   const accent = optionalEnum(b, "accent", ["green", "orange"]) ?? "green";
   const experience = optionalString(b, "experience", { max: 40 });
   const students = optionalString(b, "students", { max: 40 });
@@ -969,14 +957,15 @@ admin.post("/teachers", wrap(async (req, res) => {
   const verified = b.verified === false || b.verified === "false" ? false : true;
   const specialBepc = b.specialBepc === true || b.specialBepc === "true";
   const negotiable = b.negotiable === true || b.negotiable === "true";
+  const needsConfirmed = b.needsConfirmed === true || b.needsConfirmed === "true";
   const initials = name.split(" ").map((s: string) => s[0]).join("").slice(0, 2).toUpperCase();
   const r = await pool.query(
     `INSERT INTO teachers (initials,name,subjects,rating,reviews_count,location,price_per_hour,
-        experience,students,bac_success,bio,levels,formats,programs,distance_km,accent,verified,special_bepc,negotiable)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING *`,
+        experience,students,bac_success,bio,levels,formats,programs,distance_km,accent,verified,special_bepc,negotiable,needs_confirmed)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20) RETURNING *`,
     [initials, name, subjects, rating, reviewsCount, location, pricePerHour,
      experience ?? null, students ?? null, bacSuccess ?? null, bio ?? null,
-     levels, formats, programs, distanceKm ?? null, accent, verified, specialBepc, negotiable]
+     levels, formats, programs, distanceKm ?? null, accent, verified, specialBepc, negotiable, needsConfirmed]
   );
   res.status(201).json(r.rows[0]);
 }));
@@ -987,8 +976,8 @@ admin.put("/teachers/:id", wrap(async (req, res) => {
   const subjects = optionalString(b, "subjects", { max: 200 });
   const location = optionalString(b, "location", { max: 120 });
   const pricePerHour = optionalNumber(b, "pricePerHour", { min: 0, max: 1_000_000 });
-  const rating = optionalNumber(b, "rating", { min: 0, max: 5 });
-  const reviewsCount = optionalNumber(b, "reviewsCount", { min: 0 });
+  const rating = null;
+  const reviewsCount = null;
   const accent = optionalEnum(b, "accent", ["green", "orange"]);
   const experience = optionalString(b, "experience", { max: 40 });
   const students = optionalString(b, "students", { max: 40 });
@@ -1001,31 +990,46 @@ admin.put("/teachers/:id", wrap(async (req, res) => {
   const verified = b.verified === undefined ? undefined : (b.verified === true || b.verified === "true");
   const specialBepc = b.specialBepc === undefined ? undefined : (b.specialBepc === true || b.specialBepc === "true");
   const negotiable = b.negotiable === undefined ? undefined : (b.negotiable === true || b.negotiable === "true");
+  const needsConfirmed = b.needsConfirmed === undefined
+    ? undefined
+    : (b.needsConfirmed === true || b.needsConfirmed === "true");
   const r = await pool.query(
     `UPDATE teachers SET
         name = COALESCE($2,name), subjects = COALESCE($3,subjects), location = COALESCE($4,location),
-        price_per_hour = COALESCE($5,price_per_hour), rating = COALESCE($6,rating),
-        reviews_count = COALESCE($7,reviews_count), accent = COALESCE($8,accent),
+        price_per_hour = COALESCE($5,price_per_hour), rating = COALESCE($6,(SELECT COALESCE(round(avg(rating),1),0) FROM reviews WHERE teacher_id=teachers.id)),
+        reviews_count = COALESCE($7,(SELECT count(*) FROM reviews WHERE teacher_id=teachers.id)), accent = COALESCE($8,accent),
         experience = COALESCE($9,experience), students = COALESCE($10,students),
         bac_success = COALESCE($11,bac_success), bio = COALESCE($12,bio),
         levels = COALESCE($13,levels), formats = COALESCE($14,formats),
         distance_km = COALESCE($15,distance_km), verified = COALESCE($16,verified),
         special_bepc = COALESCE($17,special_bepc),
-        programs = COALESCE($18,programs), negotiable = COALESCE($19,negotiable)
+        programs = COALESCE($18,programs), negotiable = COALESCE($19,negotiable),
+        needs_confirmed = COALESCE($20, needs_confirmed)
      WHERE id = $1 RETURNING *`,
     [req.params.id, name ?? null, subjects ?? null, location ?? null, pricePerHour ?? null,
      rating ?? null, reviewsCount ?? null, accent ?? null, experience ?? null, students ?? null,
      bacSuccess ?? null, bio ?? null, levels ?? null, formats ?? null, distanceKm ?? null,
-     verified ?? null, specialBepc ?? null, programs ?? null, negotiable ?? null]
+     verified ?? null, specialBepc ?? null, programs ?? null, negotiable ?? null, needsConfirmed ?? null]
   );
   if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
   res.json(r.rows[0]);
 }));
 
 admin.delete("/teachers/:id", wrap(async (req, res) => {
-  const r = await pool.query("DELETE FROM teachers WHERE id=$1 RETURNING id", [req.params.id]);
+  const r = await pool.query("UPDATE teachers SET archived_at=now(),verified=FALSE WHERE id=$1 AND archived_at IS NULL RETURNING id", [req.params.id]);
   if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
   res.status(204).end();
+}));
+
+admin.post("/teachers/:id/confirm-needs", wrap(async (req, res) => {
+  const b = req.body ?? {};
+  const confirmed = b.confirmed === false || b.confirmed === "false" ? false : true;
+  const r = await pool.query(
+    "UPDATE teachers SET needs_confirmed=$2 WHERE id=$1 RETURNING id, needs_confirmed",
+    [req.params.id, confirmed],
+  );
+  if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
+  res.json({ id: r.rows[0].id, needsConfirmed: Boolean(r.rows[0].needs_confirmed) });
 }));
 
 // --- Cours de groupe (ateliers, prépa BEPC/BAC collectifs) ---
@@ -1042,11 +1046,15 @@ admin.post("/groups", wrap(async (req, res) => {
   const enrolled = optionalNumber(b, "enrolled", { min: 0 });
   const capacity = optionalNumber(b, "capacity", { min: 0 });
   const placesLeft = optionalNumber(b, "placesLeft", { min: 0 });
+  const kind = optionalEnum(b, "kind", ["regular", "stage"]) ?? "regular";
+  const startDate = optionalString(b, "startDate", { max: 20 });
+  const endDate = optionalString(b, "endDate", { max: 20 });
   const r = await pool.query(
-    `INSERT INTO group_courses (tag,tag_accent,price,title,detail,teacher_initials,teacher_name,teacher_accent,enrolled,capacity,places_left)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+    `INSERT INTO group_courses (tag,tag_accent,price,title,detail,teacher_initials,teacher_name,teacher_accent,enrolled,capacity,places_left,kind,start_date,end_date)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::date,$14::date) RETURNING *`,
     [tag, tagAccent, price, title, detail, teacherInitials ?? null, teacherName ?? null,
-     teacherAccent, enrolled ?? null, capacity ?? null, placesLeft ?? null]
+     teacherAccent, enrolled ?? null, capacity ?? null, placesLeft ?? null,
+     kind, startDate ?? null, endDate ?? null]
   );
   res.status(201).json(r.rows[0]);
 }));
@@ -1064,17 +1072,22 @@ admin.put("/groups/:id", wrap(async (req, res) => {
   const enrolled = optionalNumber(b, "enrolled", { min: 0 });
   const capacity = optionalNumber(b, "capacity", { min: 0 });
   const placesLeft = optionalNumber(b, "placesLeft", { min: 0 });
+  const kind = optionalEnum(b, "kind", ["regular", "stage"]);
+  const startDate = optionalString(b, "startDate", { max: 20 });
+  const endDate = optionalString(b, "endDate", { max: 20 });
   const r = await pool.query(
     `UPDATE group_courses SET
         tag = COALESCE($2,tag), tag_accent = COALESCE($3,tag_accent), price = COALESCE($4,price),
         title = COALESCE($5,title), detail = COALESCE($6,detail),
         teacher_initials = COALESCE($7,teacher_initials), teacher_name = COALESCE($8,teacher_name),
         teacher_accent = COALESCE($9,teacher_accent), enrolled = COALESCE($10,enrolled),
-        capacity = COALESCE($11,capacity), places_left = COALESCE($12,places_left)
+        capacity = COALESCE($11,capacity), places_left = COALESCE($12,places_left),
+        kind = COALESCE($13,kind), start_date = COALESCE($14::date,start_date), end_date = COALESCE($15::date,end_date)
      WHERE id = $1 RETURNING *`,
     [req.params.id, tag ?? null, tagAccent ?? null, price ?? null, title ?? null, detail ?? null,
      teacherInitials ?? null, teacherName ?? null, teacherAccent ?? null,
-     enrolled ?? null, capacity ?? null, placesLeft ?? null]
+     enrolled ?? null, capacity ?? null, placesLeft ?? null,
+     kind ?? null, startDate ?? null, endDate ?? null]
   );
   if (!r.rows[0]) { res.status(404).json({ error: "not_found" }); return; }
   res.json(r.rows[0]);
@@ -1086,7 +1099,8 @@ admin.delete("/groups/:id", wrap(async (req, res) => {
   res.status(204).end();
 }));
 
-registerTeacherApplicationRoutes(api, admin, { wrap, serveFile, consentVersion: CONSENT_VERSION });
+registerAdminNeedsRoutes(admin, { serveFile });
+registerTeacherApplicationRoutes(api, admin, { wrap, serveFile });
 
 api.use("/admin", admin);
 
@@ -1096,5 +1110,5 @@ api.get("/referral", wrap(async (_req, res) => {
     "SELECT code, referred, earned FROM referrals WHERE user_id=$1 ORDER BY id DESC LIMIT 1",
     [currentUserId(res)]
   );
-  res.json(r.rows[0] ?? { code: "AYA2026", referred: 0, earned: 0 });
+  res.json({ ...(r.rows[0] ?? { code: "", referred: 0, earned: 0 }), available: false });
 }));

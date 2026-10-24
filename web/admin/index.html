@@ -20,10 +20,24 @@
       <h1>Espace administrateur</h1>
       <p class="login-sub">Connectez-vous pour gérer la plateforme Mon Prof Perso.</p>
       <label for="phone">Numéro administrateur</label>
-      <input id="phone" type="tel" inputmode="tel" placeholder="+2250700000001" autocomplete="username" />
+      <input id="phone" type="tel" inputmode="tel" placeholder="+22507…" autocomplete="username" required />
+      <div id="loginChannelFields">
+        <label for="loginChannel">Recevoir le code</label>
+        <select id="loginChannel"><option value="whatsapp">WhatsApp</option><option value="email">E-mail vérifié</option></select>
+        <div id="loginEmailField" hidden><label for="loginEmail">E-mail vérifié du compte</label><input id="loginEmail" type="email" autocomplete="email" /></div>
+      </div>
+      <div id="otpFields" hidden>
+        <p id="otpDestination" class="login-sub"></p>
+        <label for="loginOtp">Code de vérification</label>
+        <input id="loginOtp" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" disabled />
+        <p id="otpExpiry" class="login-hint"></p>
+      </div>
       <button type="submit" class="btn btn-primary" id="loginBtn">Se connecter</button>
       <p class="login-err" id="loginErr" hidden></p>
-      <p class="login-hint">Astuce démo : numéro admin <code>+2250700000001</code></p>
+      <div id="otpActions" hidden>
+        <button type="button" class="btn" id="resendOtpBtn">Renvoyer le code</button>
+        <button type="button" class="btn" id="resetOtpBtn">Changer de numéro</button>
+      </div>
     </form>
   </div>
 
@@ -38,16 +52,23 @@
       <nav class="menu" id="menu">
         <button class="menu-item active" data-view="dashboard">Tableau de bord</button>
         <button class="menu-item" data-view="applications">Candidatures profs</button>
+        <button class="menu-item" data-view="needs">Besoins parents</button>
         <button class="menu-item" data-view="teachers">Professeurs</button>
-        <button class="menu-item" data-view="groups">Cours de groupe</button>
+        <button class="menu-item" data-view="courses">Suivi des cours</button>
+        <button class="menu-item" data-view="finance">Paiements et reversements</button>
+        <button class="menu-item" data-view="deletions">Suppressions de comptes</button>
+        <button class="menu-item" data-view="readiness">Mise en service</button>
+        <button class="menu-item" data-view="groups" data-capability="groups" hidden>Cours de groupe</button>
         <button class="menu-item" data-view="catalog">Matières &amp; niveaux</button>
         <button class="menu-item" data-view="resources">Ressources</button>
         <button class="menu-item" data-view="legal">Documents légaux</button>
         <button class="menu-item" data-view="social">Réseaux &amp; contact</button>
-        <button class="menu-item" data-view="otp">OTP &amp; messagerie</button>
+        <button class="menu-item" data-view="otp">Vérification OTP</button>
       </nav>
       <div class="sidebar-foot">
         <a href="../index.html" class="link-quiet">← Voir le site</a>
+        <a href="/espace/#/parametres" class="link-quiet" id="myAccountSettings">Mes données / mon compte</a>
+        <button class="link-quiet" id="reauthBtn">Vérifier à nouveau mon identité</button>
         <button class="link-quiet" id="logoutBtn">Se déconnecter</button>
       </div>
     </aside>
@@ -70,6 +91,7 @@
       ? "http://localhost:8099"
       : location.origin;
   </script>
-  <script src="js/admin.js?v=20260706t"></script>
+  <script src="js/operations.js?v=20261024-production"></script>
+  <script src="js/admin.js?v=20261024-production"></script>
 </body>
 </html>
