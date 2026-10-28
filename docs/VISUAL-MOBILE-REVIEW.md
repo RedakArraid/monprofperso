@@ -35,79 +35,61 @@ L’inspection manuelle a aussi permis de corriger le texte trop pâle des champ
 natifs date/heure. Ce contrôle du moteur WebKit sous Linux est ajouté à la CI ;
 il ne représente pas un test Safari sur appareil physique.
 
-Le [build Android local](visual-evidence/android/README.md) réussit en Debug,
-compile le Kotlin Release et les tests instrumentés, et exécute **15 tests JVM
-sans échec** sur les sources finales du premier commit natif.
+Les jobs API et web du [run 40764741671 du commit `a035f18`](https://github.com/RedakArraid/monprofperso/actions/runs/40764741671)
+sont réussis. La CI confirme les **165 tests API**, **11 tests d’exploitation**,
+l’isolation Docker, les **26 tests web existants**, les **12 parcours Chromium**
+et les **six parcours WebKit**, avec zéro violation sur leurs **77 contrôles axe**.
+Le commit temporaire de fusion testé, `56308d02ad68ba4e7681cd07895fee3f559083d6`,
+a le même arbre que cette tête : `1aaaeef61cf57019621d93074d28196ef3735e0b`.
 
-Les jobs API et web du [run 40759860433 du commit `4601340`](https://github.com/RedakArraid/monprofperso/actions/runs/40759860433)
-sont réussis. Le commit temporaire de fusion de la PR,
-`b588991063075c916598bfa4572d896c27ea0505`, possède exactement le même arbre que
-cette tête : `33c91b9b4300245381762bf040fba824c045964d`. La CI confirme
-les **165 tests API**, **11 tests d’exploitation**, l’isolation Docker, les
-**26 tests web existants**, les **12 parcours Chromium** et les **six parcours
-WebKit**, avec zéro violation sur leurs **77 contrôles axe**.
+Sur **Android 16 / API 36, téléphone de 360 dp**, le
+[job natif du même candidat](https://github.com/RedakArraid/monprofperso/actions/runs/40764741671/job/123085728504)
+réussit le build, les tests JVM, le parcours instrumenté et sa collecte UTP.
+La suite instrumentée dure **55,524 secondes**, sans échec, erreur ou test ignoré,
+et produit **25 captures distinctes**, toutes inspectées, avec leurs métadonnées.
+Aucun nouveau défaut de mise en page bloquant n’a été observé. Les dix mesures
+confirment des libellés entiers à **200 %** ; quatre gestes réels permettent
+d’atteindre Compte puis de revenir à Accueil pour les deux rôles. L’horloge et la
+poignée système sont lisibles, les captures avec clavier correspondent à cet
+état, et le paysage de 1600 × 1000 px est correctement présenté. Les ressources
+vides et indisponibles restent distinctes ; le bouton Réessayer satisfait le
+minimum explicite de 48 dp et le réessai conserve l’erreur lorsque le serveur
+répond toujours 503. Le [dossier de preuves Android](visual-evidence/android/README.md)
+conserve la sélection originale et le manifeste du parcours.
 
-Sur le **simulateur iPhone SE de troisième génération, iOS 26.4.1**, les
-**11 tests unitaires et quatre parcours d’interface passent**, ces derniers en
-252,423 secondes pour cette même révision. Les **28 captures produites** ont été
-inspectées et représentent **27 images distinctes** : l’erreur Ressources et son
-réessai donnent légitimement le même état visuel. Le parcours de
-grande taille de texte AX XXXL vérifie le champ OTP entièrement au-dessus du
-clavier avant de le toucher, puis utilise de vrais gestes horizontaux pour
-atteindre le dernier onglet et revenir à l’accueil. Le stockage de session
-utilise le vrai Keychain de l’application signée localement pour le simulateur.
-Neuf originaux, dont les trois états Ressources, et le manifeste de toutes les
-captures sont conservés dans le [dossier de preuves iOS](visual-evidence/ios/README.md).
+La [validation locale Android](visual-evidence/android/build-validation.json)
+a également compilé le Kotlin Release et les tests instrumentés, avec
+**15 tests JVM sans échec** sur les sources du premier commit natif. Les
+compilations ciblées suivantes sont documentées avec les empreintes exactes
+des fichiers compilés.
 
-Sur **Android 36, téléphone de 360 dp**, le [passage `6bd10c1`](https://github.com/RedakArraid/monprofperso/actions/runs/40756599455/job/123057065911)
-réussit le parcours instrumenté en **78,572 secondes**. Les **23 captures sont
-distinctes**, avec 23 métadonnées : la comparaison stricte de la fenêtre rendue
-avec l’écran présenté a éliminé les anciennes frames du passage précédent.
-Les rendus à 100 % et 200 % sont différents, le clavier reste visible sur les
-captures prévues et le paysage n’a plus de bande noire. L’inspection de ces
-images révèle encore trois détails : le contraste des icônes système sur
-l’inscription, les mots coupés des onglets à 200 % et les dates des cours en attente.
-Leur correction sera
-vérifiée sur la révision suivante avant de conserver les preuves définitives.
-Le [rapport Android par révision](../android/VISUAL-VALIDATION.md) détaille
-les captures rejetées, la synchronisation et les résultats de chaque passage.
+Sur le **simulateur iPhone SE de troisième génération, iOS 26.4.1**, le
+[job du candidat `4601340`](https://github.com/RedakArraid/monprofperso/actions/runs/40759860433/job/123068531063)
+a réussi **11 tests unitaires et quatre parcours d’interface**, ces derniers en
+**252,423 secondes**. Les **28 captures inspectées** représentent **27 images
+distinctes** : l’erreur Ressources et son réessai donnent légitimement le même
+état visuel. Avec **Dynamic Type Accessibility XXXL**, le champ OTP reste
+entièrement au-dessus du clavier avant de le toucher ; de vrais gestes
+horizontaux atteignent le dernier onglet puis reviennent à l’accueil. Le stockage
+de session utilise le vrai Keychain de l’application signée localement pour le
+simulateur. Neuf originaux, dont les trois états Ressources, sont conservés dans
+le [dossier de preuves iOS](visual-evidence/ios/README.md). Les sources iOS et la
+fixture correspondantes sont inchangées depuis cette preuve ; les captures
+restent attribuées à leur révision d’origine.
 
-Le passage Android `4601340` compile et produit neuf images partielles. Le rail
-agrandi affiche désormais les libellés entiers, mais le parcours s’arrête sur
-une mesure sémantique inadaptée à la largeur non bornée du défilement dans
-Compose 1.7.2. Le contrôle est corrigé avec les dimensions intrinsèques réelles,
-la ligne complète et l’inclusion dans le viewport. La capture de l’inscription
-vérifie aussi les pixels réellement rendus
-par SystemUI, car les flags de style pouvaient précéder leur présentation.
+Les premiers passages ont conduit à des corrections réelles : navigation
+Android après OTP remise sur le thread principal, signature locale du simulateur
+iOS pour le Keychain, synchronisation des captures, libellés des onglets agrandis,
+contraste des dates et icônes système, puis taille du bouton de réessai.
+Le [rapport Android par révision](../android/VISUAL-VALIDATION.md) et le
+[README iOS](../ios/README.md) conservent les résultats et les limites de chaque
+passage. Chaque preuve conservée est liée à sa révision et à son fichier original.
 
-Le [passage `7c21d3a`](https://github.com/RedakArraid/monprofperso/actions/runs/40763300709/job/123080653142)
-valide ces contrôles : dix mesures de libellés entiers, quatre vrais gestes
-horizontaux entre Accueil et Compte pour les deux rôles, ainsi que l’horloge et
-la poignée système sombres sur l’inscription. Les 24 images partielles sont
-distinctes. Le scénario atteint les ressources, puis s’arrête sur la boîte
-de 40 dp du bouton Réessayer : ce composant partagé reçoit un minimum explicite
-de 48 dp, sans réduire l’assertion. Un nouveau passage complet reste nécessaire.
-
-La revue des écrans accessibles depuis le compte a aussi trouvé, sur les deux
-applications, trois ressources pédagogiques de démonstration utilisées à la
-place d’une réponse vide ou d’une erreur. Ce repli est supprimé ; les nouveaux
-parcours distinguent le vide, l’erreur et son réessai. Le contrat de fixture a
-été vérifié localement : liste vide pour le compte 0198, HTTP 503 pour le compte
-0199, après challenge et OTP. Le nouveau parcours iOS valide le filtre sélectionné,
-l’absence des exemples, l’erreur et le réessai. Le passage Android `7c21d3a`
-atteint les états vide et erreur sans exemples ; son réessai et la fin du parcours
-doivent encore être exécutés après correction de la taille de ce bouton.
-
-Les premiers passages et leurs corrections restent traçables :
-
-| Révision | Résultat utile et correction |
-| --- | --- |
-| [`3539dc3`](https://github.com/RedakArraid/monprofperso/actions/runs/40745829826) | Android : navigation après OTP hors du thread principal, corrigée dans `NavActions`. iOS : vrai Keychain indisponible dans l’application non signée ; signature locale du simulateur ajoutée. |
-| [`7d926c0`](https://github.com/RedakArraid/monprofperso/actions/runs/40749309467) | Parcours Android et iOS réussis. Collecte Android après désinstallation en échec : remplacée par la collecte UTP avant désinstallation. Les captures iOS ont conduit aux derniers correctifs de contraste et de grandes polices. |
-| [`2c1b4c0`](https://github.com/RedakArraid/monprofperso/actions/runs/40752999558) | Quatre jobs réussis ; derniers parcours iOS et WebKit validés. Captures Android récupérées mais décalées : synchronisation de l’écran à vérifier. |
-| [`6bd10c1`](https://github.com/RedakArraid/monprofperso/actions/runs/40756599455) | Parcours Android et collecte réussis, 23 PNG distincts avec correspondance exacte à la fenêtre. L’inspection permet d’identifier les derniers détails de barre système et de navigation agrandie. |
-| [`4601340`](https://github.com/RedakArraid/monprofperso/actions/runs/40759860433) | iOS : 11 unitaires et quatre parcours UI réussis, dont les nouveaux états Ressources ; 28 captures inspectées. Android compile, mais s’arrête sur un faux positif de mesure du rail dans Compose 1.7.2 ; contrôle et synchronisation SystemUI corrigés, à revalider. |
-| [`7c21d3a`](https://github.com/RedakArraid/monprofperso/actions/runs/40763300709) | Android : navigation à 200 %, gestes réels et pixels SystemUI validés ; 24 captures partielles. Le parcours atteint les ressources et révèle un bouton Réessayer de 40 dp, porté explicitement à 48 dp avant une nouvelle exécution complète. |
+La revue des écrans accessibles depuis le compte a aussi trouvé trois ressources
+pédagogiques de démonstration substituées à une réponse vide ou à une erreur sur
+les deux applications. Ce repli est supprimé. Les parcours natifs valident les
+filtres sélectionnés, l’absence des exemples, les états vide et erreur et le
+réessai, après une connexion par challenge et OTP avec les comptes de recette.
 
 Ces résultats ne sont pas une certification d’accessibilité ni une validation
 sur tous les appareils. L’installation signée, VoiceOver/TalkBack, les claviers
@@ -115,6 +97,17 @@ constructeurs, Safari sur appareil physique, les liens de paiement externes,
 les prestataires réels et la publication sur les boutiques demandent encore
 leur recette dans l’environnement de livraison. Le déploiement effectif reste
 suivi séparément dans [PRODUCTION-OPERATIONS.md](PRODUCTION-OPERATIONS.md).
+
+Le contrôle distant en lecture seule du **28 octobre 2026, de 20:37 à 20:38 UTC**
+confirme que les API de staging et de production répondent `200` sur `/health`,
+mais `404` sur [/ready en staging](https://staging-api.monprofperso.com/ready)
+et [/ready en production](https://api.monprofperso.com/ready). Le
+[contrat du dépôt](../backend/api/src/server.ts) prévoit `200` ou `503` sur cette
+route. Ces réponses ne permettent pas d’identifier le SHA actuellement servi
+ni de distinguer une ancienne version d’un routage différent. La connexion SSH
+au VPS connu est refusée avant authentification ; aucun inventaire ni déploiement
+distant n’a été réalisé. Le succès de la CI ne vaut donc pas validation de ces
+environnements.
 
 ## Corrections apportées
 
