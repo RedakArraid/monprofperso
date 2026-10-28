@@ -1,0 +1,736 @@
+{
+  "schema_version": 1,
+  "reviewed_at_utc": "2026-10-28T19:38:19.747411+00:00",
+  "source": {
+    "repository": "RedakArraid/monprofperso",
+    "candidate_commit": "2c1b4c0b981898a189b2cfd5d9eea4921f94f096",
+    "tested_merge_commit": "69aa615052f04ae72429d738dc21bfac4a081e6d",
+    "tested_tree": "57b978329e952eb01cea84453dca965c6cadf521",
+    "run_id": 40752999558,
+    "job_id": 123044363466,
+    "run_url": "https://github.com/RedakArraid/monprofperso/actions/runs/40752999558",
+    "job_url": "https://github.com/RedakArraid/monprofperso/actions/runs/40752999558/job/123044363466",
+    "artifact": {
+      "id": 12844539602,
+      "name": "ios-visual-69aa615052f04ae72429d738dc21bfac4a081e6d",
+      "sha256": "bfcecd35b7afe06da7ce07b7acce648be4799a1702a87c62b9654cac5c3ce412",
+      "size_bytes": 101448077,
+      "expires_at_utc": "2026-11-11T19:34:35Z"
+    },
+    "source_inputs_from_git": [
+      {
+        "path": ".github/workflows/ci.yml",
+        "sha256": "fc35ce91c28790f0f5ae4de77b4bac8dc738155006c9d408815a6c1685bd1980",
+        "size_bytes": 13050
+      },
+      {
+        "path": "ios/MonProfPerso/App/Info.plist",
+        "sha256": "705086ae06800d6461ef0875b5e7afb9005a9a706fbfbee49ef35ad83e90c179",
+        "size_bytes": 1855
+      },
+      {
+        "path": "ios/MonProfPerso/App/MonProfPersoApp.swift",
+        "sha256": "3745600778c08ecd334f186db086383e2db86031cb067a35eb2bc8e5492a8138",
+        "size_bytes": 5830
+      },
+      {
+        "path": "ios/MonProfPerso/App/Router.swift",
+        "sha256": "327cb5e266269bdb3051c9be929a6feaa1028a296461d96db46c4af95b2617f3",
+        "size_bytes": 7967
+      },
+      {
+        "path": "ios/MonProfPerso/Components/BottomNav.swift",
+        "sha256": "3877cde3e6f8a980e290c8565d9214e31d9cf15192ada0385bf730952c17a61d",
+        "size_bytes": 4032
+      },
+      {
+        "path": "ios/MonProfPerso/Components/Components.swift",
+        "sha256": "1a18e092b4f3044a73a5e468346fa69669a64922245ff3c0bffe01e60911a419",
+        "size_bytes": 16315
+      },
+      {
+        "path": "ios/MonProfPerso/Components/VisualComponents.swift",
+        "sha256": "6772d8efc54013cb9b5ae89db85eff36409909df84296b86c54e06d5d7af5861",
+        "size_bytes": 5473
+      },
+      {
+        "path": "ios/MonProfPerso/Networking/ApiClient.swift",
+        "sha256": "690d2dd074e88917373d24e42dae6d31353f0e2662a9e83af197deda91079475",
+        "size_bytes": 45903
+      },
+      {
+        "path": "ios/MonProfPerso/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
+        "sha256": "c3b2f5dd1eb88891e27c5ea673c0b9ba716e0aa49dbe0bf967c58f630fc662e3",
+        "size_bytes": 623839
+      },
+      {
+        "path": "ios/MonProfPerso/Resources/Assets.xcassets/AppIcon.appiconset/Contents.json",
+        "sha256": "852920cb36e95beb53771138a4b8195a16fcce1cc31250632f246081cc638f9a",
+        "size_bytes": 203
+      },
+      {
+        "path": "ios/MonProfPerso/Resources/Assets.xcassets/Contents.json",
+        "sha256": "f5fb0e1f3a8142892ed092efb5955c1c2cc537003a89ad7bbdb9dade7fe8985f",
+        "size_bytes": 60
+      },
+      {
+        "path": "ios/MonProfPerso/Resources/Assets.xcassets/LearningIllustration.imageset/Contents.json",
+        "sha256": "bad16deaeebd5dbf8d2be0e087f35cc860489c13398daf0c7f9775314b825d80",
+        "size_bytes": 164
+      },
+      {
+        "path": "ios/MonProfPerso/Resources/Assets.xcassets/LearningIllustration.imageset/LearningIllustration.jpg",
+        "sha256": "471e592642d674025a62dbd003f14b3a864b99eb248e32d448f9dda875a85e4a",
+        "size_bytes": 60966
+      },
+      {
+        "path": "ios/MonProfPerso/Resources/Fonts/HankenGrotesk-Bold.ttf",
+        "sha256": "e9d18189973e32e2614842ca777412639245271ee5016cbbc5024b9081d686dc",
+        "size_bytes": 57144
+      },
+      {
+        "path": "ios/MonProfPerso/Resources/Fonts/HankenGrotesk-ExtraBold.ttf",
+        "sha256": "9a4a18e450f6a7147d2840c87ddc6ee880eaf53302906db7210b4955f2f5f211",
+        "size_bytes": 57196
+      },
+      {
+        "path": "ios/MonProfPerso/Resources/Fonts/HankenGrotesk-Medium.ttf",
+        "sha256": "366c9f60de8654362826a500399e568e6198696b8fbd999ba7d0c03c9ba742b6",
+        "size_bytes": 57240
+      },
+      {
+        "path": "ios/MonProfPerso/Resources/Fonts/HankenGrotesk-Regular.ttf",
+        "sha256": "451376abefae9121f5dd0372d26865e7654b1041b9fdacdf57c6bd5cbf691da0",
+        "size_bytes": 57248
+      },
+      {
+        "path": "ios/MonProfPerso/Resources/Fonts/HankenGrotesk-SemiBold.ttf",
+        "sha256": "b7a672834374ef3a96e81abd2fd9bb61b282d3e75711fd4d9097e7e2e8c3b823",
+        "size_bytes": 57212
+      },
+      {
+        "path": "ios/MonProfPerso/Resources/Fonts/SchibstedGrotesk-Black.ttf",
+        "sha256": "cbe0fa0a24829efcfa05153ac2c2aeb0b7a1ba4d4092a707fd0e6015e3a19311",
+        "size_bytes": 94592
+      },
+      {
+        "path": "ios/MonProfPerso/Resources/Fonts/SchibstedGrotesk-Bold.ttf",
+        "sha256": "74fbc0e987983c4b482ba4dd789eac8e95590dc2d94a2dfecfebd5cb31bdea81",
+        "size_bytes": 94380
+      },
+      {
+        "path": "ios/MonProfPerso/Resources/Fonts/SchibstedGrotesk-ExtraBold.ttf",
+        "sha256": "6b54e4730b14806d5555b301e274a4e8c0643124d7a1611103fa7c202574b58e",
+        "size_bytes": 94696
+      },
+      {
+        "path": "ios/MonProfPerso/Resources/PrivacyInfo.xcprivacy",
+        "sha256": "7d03f4173cae4b91fce42225901f0c249a81012deb5d212ef88302746289ce4c",
+        "size_bytes": 4756
+      },
+      {
+        "path": "ios/MonProfPerso/Screens/AccountScreens.swift",
+        "sha256": "8a153d567ed338b50cb4c456881ebd9be0baf5a7a63da1e9f6e9f4902729d3b3",
+        "size_bytes": 22334
+      },
+      {
+        "path": "ios/MonProfPerso/Screens/AdminScreens.swift",
+        "sha256": "eb1ebc1c9695a4f12f164b2746bda978254432db344b8115ed25e094614fae4d",
+        "size_bytes": 34077
+      },
+      {
+        "path": "ios/MonProfPerso/Screens/AuthScreens.swift",
+        "sha256": "647384ba002f788d2c7520e1c2d511571fe55036b8f49091d214ac3aba162402",
+        "size_bytes": 19426
+      },
+      {
+        "path": "ios/MonProfPerso/Screens/BookingScreens.swift",
+        "sha256": "b4b3eb8b8127b5ee40a05db4954b19f8059e9ae20b7d8d51820f2e6d319461b4",
+        "size_bytes": 15741
+      },
+      {
+        "path": "ios/MonProfPerso/Screens/FindScreens.swift",
+        "sha256": "5c2f6692e43fcb617c100d5f0e1210a0e62a12430a72f518bc58d27c5a323d84",
+        "size_bytes": 20674
+      },
+      {
+        "path": "ios/MonProfPerso/Screens/GroupScreens.swift",
+        "sha256": "d9f936bdf12c49fda7ccd07b6fbefd875b9d47076a746dafac94c9c3ed5ab34b",
+        "size_bytes": 12647
+      },
+      {
+        "path": "ios/MonProfPerso/Screens/LearnScreens.swift",
+        "sha256": "668ef80a4a18ec425bd91de4397381157adfb6a51675ec8c969c1e699204a3fe",
+        "size_bytes": 15457
+      },
+      {
+        "path": "ios/MonProfPerso/Screens/LegalScreens.swift",
+        "sha256": "3052cf887a390b11aab31a3f3f9d48cb4a7c1b37db0e4ec83997a96f43545d1d",
+        "size_bytes": 6488
+      },
+      {
+        "path": "ios/MonProfPerso/Screens/ManageScreens.swift",
+        "sha256": "b11c68dd525a92df32dcd823d3e108ebb4abeee0c59d360f906f6a8a00a1abf6",
+        "size_bytes": 14122
+      },
+      {
+        "path": "ios/MonProfPerso/Screens/MiscScreens.swift",
+        "sha256": "4008449404690353ebd6fd369bca95a3644637a9fccf63018c7d3b8b688a7a22",
+        "size_bytes": 14396
+      },
+      {
+        "path": "ios/MonProfPerso/Screens/NeedScreens.swift",
+        "sha256": "ba7f0121b51bbc3dcb080b48b89375f652baa1f3975ebeddeaef4d2878b8961c",
+        "size_bytes": 10211
+      },
+      {
+        "path": "ios/MonProfPerso/Screens/PdfViewerScreen.swift",
+        "sha256": "955eb45ad891f956a9787b5861b6a41e421786529ef8eec35ef0ecede252d972",
+        "size_bytes": 2995
+      },
+      {
+        "path": "ios/MonProfPerso/Screens/ProductionScreens.swift",
+        "sha256": "27eda93d90ae99e7b4af8d118da5d45a91a0cc999c3dbf749087699ce9e3c58f",
+        "size_bytes": 52693
+      },
+      {
+        "path": "ios/MonProfPerso/Screens/ResourcesScreen.swift",
+        "sha256": "526d66d618c3a38b2b4641a1d7b444b47db9211c66ccccbf945595556da39156",
+        "size_bytes": 7216
+      },
+      {
+        "path": "ios/MonProfPerso/Screens/SubscriptionScreens.swift",
+        "sha256": "02d937090ce7579a91546095ecadbab6768d2a81f6fe410846309410c1eeca11",
+        "size_bytes": 14474
+      },
+      {
+        "path": "ios/MonProfPerso/Screens/TeacherMgmtScreens.swift",
+        "sha256": "76c2309cc2b41b5a6d4484b05deca304465ab256568624d1b34be6415f62805a",
+        "size_bytes": 27580
+      },
+      {
+        "path": "ios/MonProfPerso/Screens/TeacherScreens.swift",
+        "sha256": "0dd02d1cc0c867687702420196ddf2647203a36e65cf1a8fdb04b58d2d3e3a9b",
+        "size_bytes": 24807
+      },
+      {
+        "path": "ios/MonProfPerso/Theme/AkColors.swift",
+        "sha256": "164e87cb7a6d65cb6dde10de7037a3322dcddd30852e4109d519095a496f886e",
+        "size_bytes": 1957
+      },
+      {
+        "path": "ios/MonProfPerso/Theme/AkFont.swift",
+        "sha256": "645e55eae0e49fd91cf763eb1e0f0eb05b3f323120e8e6a84df34add70df4312",
+        "size_bytes": 1058
+      },
+      {
+        "path": "ios/Tests/ApiClientTests.swift",
+        "sha256": "1cf4dd1425193f29c07eec7144f0143d1c6f7391f00e739dd2280332b6a946b8",
+        "size_bytes": 8198
+      },
+      {
+        "path": "ios/UITests/VisualJourneyTests.swift",
+        "sha256": "f134c49e91e4b39ef73fa3638b3648b727fa4c8adf2537803cc6d7d08388fddb",
+        "size_bytes": 9598
+      },
+      {
+        "path": "ios/project.yml",
+        "sha256": "46f842d5af14e733b60e36e048516cc59d5f7fcf1acbc0e92eeb8194b36d9b4a",
+        "size_bytes": 2329
+      },
+      {
+        "path": "ios/scripts/export-visual-captures.sh",
+        "sha256": "e9d78fbed5112e0a8a1a9722f50fa46b010345ac5573989c28a14ffc76e5d295",
+        "size_bytes": 1578
+      },
+      {
+        "path": "scripts/visual/fixture-server.mjs",
+        "sha256": "fc71f30f2b968226a07ca4674bbd66dda4400cd5e56447b8b47e36ba200d0db3",
+        "size_bytes": 18956
+      }
+    ]
+  },
+  "environment": {
+    "platform": "iOS Simulator",
+    "model": "iPhone SE (3rd generation)",
+    "device_name": "MonProfPerso Visual SE",
+    "os_version": "26.4.1",
+    "orientation": "portrait",
+    "viewport_points": {
+      "width": 375,
+      "height": 667
+    },
+    "screenshot_pixels": {
+      "width": 750,
+      "height": 1334
+    },
+    "scale": 2,
+    "scheme": "MonProfPerso-Visual",
+    "configuration": "Debug",
+    "signing": "Sign to Run Locally (ad hoc)",
+    "keychain": "real simulator Keychain, no injected session",
+    "api": "http://localhost:8099/api",
+    "fixture_server": "scripts/visual/fixture-server.mjs",
+    "fixture_activation": "MPP_VISUAL_FIXTURES=1",
+    "locale": "fr_CI",
+    "language": "fr",
+    "data": "fictional visual-test accounts and transactions; no external provider contacted"
+  },
+  "results": {
+    "generic_simulator_build": "passed",
+    "unit_tests": {
+      "passed": 11,
+      "failed": 0,
+      "unexpected_exceptions": 0
+    },
+    "ui_tests": {
+      "passed": 4,
+      "failed": 0,
+      "unexpected_exceptions": 0,
+      "duration_seconds": 179.686,
+      "cases": [
+        {
+          "name": "testEmptyAndUnavailableStatesAreDistinct",
+          "status": "passed",
+          "duration_seconds": 59.525
+        },
+        {
+          "name": "testLargeTypeAndReachableAuthentication",
+          "status": "passed",
+          "duration_seconds": 49.348
+        },
+        {
+          "name": "testParentScreensAndNavigation",
+          "status": "passed",
+          "duration_seconds": 46.477
+        },
+        {
+          "name": "testTeacherScreens",
+          "status": "passed",
+          "duration_seconds": 24.335
+        }
+      ]
+    },
+    "exported_png_count": 25,
+    "unique_png_count": 25,
+    "visually_reviewed_png_count": 25,
+    "failure_named_png_count": 0,
+    "otp_visibility_assertion": "passed with Accessibility XXXL and software keyboard, before XCTest tap or scroll on OTP input",
+    "navigation_assertion": "passed: explicit left swipe, Compte fully visible before tap, account opened and return to Accueil",
+    "observed_blocking_layout_defects_after_corrections": []
+  },
+  "contrast_review": "../../../ios/README.md#contrastes-mesurés",
+  "selected_pngs_are_byte_identical_to_xctest_attachments": true,
+  "selected_screenshots": [
+    {
+      "file": "bienvenue-iphone-se.png",
+      "description": "Accueil illustré avant connexion",
+      "capture_name": "01-welcome-top",
+      "test_identifier": "VisualJourneyTests/testParentScreensAndNavigation()",
+      "artifact_path": "mpp-ios-captures/F74AD875-717C-4AFC-B932-AB16EF3B196E.png",
+      "captured_at_utc": "2026-10-28T19:31:29.594000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 341812,
+      "sha256": "b1ee446c22273f901578fd7ac3a5f858c5c468b1e173a959c0cdc3de81dd7c71",
+      "visually_reviewed": true,
+      "dynamic_type": "system default, not overridden",
+      "system_appearance_requested": "not overridden",
+      "app_appearance": "Light"
+    },
+    {
+      "file": "accueil-parent-iphone-se.png",
+      "description": "Accueil parent connecté",
+      "capture_name": "04-parent-home",
+      "test_identifier": "VisualJourneyTests/testParentScreensAndNavigation()",
+      "artifact_path": "mpp-ios-captures/A12B2A37-A312-4529-8D2D-6B9D0A6672CF.png",
+      "captured_at_utc": "2026-10-28T19:31:47.193000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 178633,
+      "sha256": "1fdc17e726441f432b415e6428c556233e379bc88e2793506625f0f1d87b1fac",
+      "visually_reviewed": true,
+      "dynamic_type": "system default, not overridden",
+      "system_appearance_requested": "not overridden",
+      "app_appearance": "Light"
+    },
+    {
+      "file": "navigation-accessibilite-iphone-se.png",
+      "description": "Dernier onglet entièrement visible après le geste réel, avant le tap XCTest",
+      "capture_name": "18-accessibility-navigation-end",
+      "test_identifier": "VisualJourneyTests/testLargeTypeAndReachableAuthentication()",
+      "artifact_path": "mpp-ios-captures/A6DF1D0F-9A32-4A8F-99CE-D9F9B62DB7C6.png",
+      "captured_at_utc": "2026-10-28T19:31:15.169000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 95342,
+      "sha256": "cd342c08166535c65ee7fd9a0ba7562a6a0f6e2de4c03ba8e386e0f0ce53b01d",
+      "visually_reviewed": true,
+      "dynamic_type": "UICTContentSizeCategoryAccessibilityXXXL",
+      "system_appearance_requested": "Dark",
+      "app_appearance": "Light"
+    },
+    {
+      "file": "reservation-iphone-se.png",
+      "description": "Formulaire de demande de cours, sans envoi",
+      "capture_name": "07-booking-form",
+      "test_identifier": "VisualJourneyTests/testParentScreensAndNavigation()",
+      "artifact_path": "mpp-ios-captures/FA19F27B-CF0B-437D-9A6E-C0D97F5AF4C9.png",
+      "captured_at_utc": "2026-10-28T19:31:52.927000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 109293,
+      "sha256": "d2e938d07f09834be355c20ea0c30ab1068cd05e0addad9dfc39b58b96ae4f86",
+      "visually_reviewed": true,
+      "dynamic_type": "system default, not overridden",
+      "system_appearance_requested": "not overridden",
+      "app_appearance": "Light"
+    },
+    {
+      "file": "revenus-iphone-se.png",
+      "description": "Revenus : disponible, prévisionnel, dû, réservé et versé",
+      "capture_name": "13-teacher-finances",
+      "test_identifier": "VisualJourneyTests/testTeacherScreens()",
+      "artifact_path": "mpp-ios-captures/0A0BB83A-75A8-4A58-9C2E-3178180FC5A9.png",
+      "captured_at_utc": "2026-10-28T19:32:31.346000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 107887,
+      "sha256": "681c67ac9d317d86e09059f8e3ad1d019dce05433aacfda026e30a768c25db54",
+      "visually_reviewed": true,
+      "dynamic_type": "system default, not overridden",
+      "system_appearance_requested": "not overridden",
+      "app_appearance": "Light"
+    },
+    {
+      "file": "otp-accessibilite-iphone-se.png",
+      "description": "OTP et clavier logiciel en Accessibility XXXL, avant tap du test",
+      "capture_name": "17-accessibility-otp-keyboard",
+      "test_identifier": "VisualJourneyTests/testLargeTypeAndReachableAuthentication()",
+      "artifact_path": "mpp-ios-captures/0E426E0A-3AD0-4432-B9BC-3C64A873C7B3.png",
+      "captured_at_utc": "2026-10-28T19:31:04.679000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 80976,
+      "sha256": "e8344791897f610f622eb6e4c8ce2c266d021250f075ea1209bad25e251b635a",
+      "visually_reviewed": true,
+      "dynamic_type": "UICTContentSizeCategoryAccessibilityXXXL",
+      "system_appearance_requested": "Dark",
+      "app_appearance": "Light"
+    }
+  ],
+  "reviewed_capture_inventory": [
+    {
+      "capture_name": "01-welcome-top",
+      "test_identifier": "VisualJourneyTests/testParentScreensAndNavigation()",
+      "artifact_path": "mpp-ios-captures/F74AD875-717C-4AFC-B932-AB16EF3B196E.png",
+      "captured_at_utc": "2026-10-28T19:31:29.594000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 341812,
+      "sha256": "b1ee446c22273f901578fd7ac3a5f858c5c468b1e173a959c0cdc3de81dd7c71",
+      "visually_reviewed": true
+    },
+    {
+      "capture_name": "02-welcome-roles",
+      "test_identifier": "VisualJourneyTests/testParentScreensAndNavigation()",
+      "artifact_path": "mpp-ios-captures/6F1D88D1-53B7-45C4-9277-95DFB26532B5.png",
+      "captured_at_utc": "2026-10-28T19:31:31.153000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 345264,
+      "sha256": "d00bacd1820d906814a7f75ca41d3d4317d5ee4d18311d94582af80257072a85",
+      "visually_reviewed": true
+    },
+    {
+      "capture_name": "03-parent-login",
+      "test_identifier": "VisualJourneyTests/testParentScreensAndNavigation()",
+      "artifact_path": "mpp-ios-captures/8F68DAF3-D5F6-4A5A-838D-BC9126374F76.png",
+      "captured_at_utc": "2026-10-28T19:31:33.373000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 70781,
+      "sha256": "72b9e0cc12958bf771c8c2a14e57ee26ea37ba16ec4bf43c7b1b13e0c5c0f238",
+      "visually_reviewed": true
+    },
+    {
+      "capture_name": "03-parent-otp-keyboard",
+      "test_identifier": "VisualJourneyTests/testParentScreensAndNavigation()",
+      "artifact_path": "mpp-ios-captures/85AAD44E-8FEE-410E-94A6-11C42DAD7500.png",
+      "captured_at_utc": "2026-10-28T19:31:39.401000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 88447,
+      "sha256": "d23f653b7b93de585cc6f0a498f43265673aaa84c6ae7733593ff3b4a4221877",
+      "visually_reviewed": true
+    },
+    {
+      "capture_name": "04-parent-home",
+      "test_identifier": "VisualJourneyTests/testParentScreensAndNavigation()",
+      "artifact_path": "mpp-ios-captures/A12B2A37-A312-4529-8D2D-6B9D0A6672CF.png",
+      "captured_at_utc": "2026-10-28T19:31:47.193000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 178633,
+      "sha256": "1fdc17e726441f432b415e6428c556233e379bc88e2793506625f0f1d87b1fac",
+      "visually_reviewed": true
+    },
+    {
+      "capture_name": "05-search",
+      "test_identifier": "VisualJourneyTests/testParentScreensAndNavigation()",
+      "artifact_path": "mpp-ios-captures/6F2396FB-E8C3-44FF-9B19-0450C0289C84.png",
+      "captured_at_utc": "2026-10-28T19:31:48.978000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 126448,
+      "sha256": "cdbce34deab07dd1f2ca58e5db0b732cf80fb8b857174c8e0ae094baafafdb30",
+      "visually_reviewed": true
+    },
+    {
+      "capture_name": "06-teacher-profile",
+      "test_identifier": "VisualJourneyTests/testParentScreensAndNavigation()",
+      "artifact_path": "mpp-ios-captures/CE35BD15-E77A-4FAE-99AC-2B1EDE7E4A3A.png",
+      "captured_at_utc": "2026-10-28T19:31:51.230000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 118392,
+      "sha256": "363ff6ddd1faeaa81dbf832a3b9b782f64d4d509325b5ef2f539e8aa1d8f212c",
+      "visually_reviewed": true
+    },
+    {
+      "capture_name": "07-booking-form",
+      "test_identifier": "VisualJourneyTests/testParentScreensAndNavigation()",
+      "artifact_path": "mpp-ios-captures/FA19F27B-CF0B-437D-9A6E-C0D97F5AF4C9.png",
+      "captured_at_utc": "2026-10-28T19:31:52.927000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 109293,
+      "sha256": "d2e938d07f09834be355c20ea0c30ab1068cd05e0addad9dfc39b58b96ae4f86",
+      "visually_reviewed": true
+    },
+    {
+      "capture_name": "08-parent-courses",
+      "test_identifier": "VisualJourneyTests/testParentScreensAndNavigation()",
+      "artifact_path": "mpp-ios-captures/012455B1-DB76-4140-B971-024546F1F095.png",
+      "captured_at_utc": "2026-10-28T19:31:56.003000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 119592,
+      "sha256": "ad2266502fc72b232516dcc38adaed118c19c4e12442289e3bd42f5669330027",
+      "visually_reviewed": true
+    },
+    {
+      "capture_name": "09-course-appointment",
+      "test_identifier": "VisualJourneyTests/testParentScreensAndNavigation()",
+      "artifact_path": "mpp-ios-captures/2974F1D0-D7A3-4347-8CA2-A011C4D9A547.png",
+      "captured_at_utc": "2026-10-28T19:32:02.773000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 119429,
+      "sha256": "f6fa55a336954ac2a6d983a95bd750af673ab734adf40cc794aeabb57be0a7d2",
+      "visually_reviewed": true
+    },
+    {
+      "capture_name": "09-course-detail",
+      "test_identifier": "VisualJourneyTests/testParentScreensAndNavigation()",
+      "artifact_path": "mpp-ios-captures/D7A9830C-86FF-4F7C-BE86-B96735B729B3.png",
+      "captured_at_utc": "2026-10-28T19:31:59.285000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 117198,
+      "sha256": "56d0952a2a6d7d1f9940b9a20cf5cabc34f70e8802046a1a857437e06dd08a23",
+      "visually_reviewed": true
+    },
+    {
+      "capture_name": "10-parent-account",
+      "test_identifier": "VisualJourneyTests/testParentScreensAndNavigation()",
+      "artifact_path": "mpp-ios-captures/AE743C4F-1925-42C7-A45F-7DFE313D40D2.png",
+      "captured_at_utc": "2026-10-28T19:32:05.596000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 112091,
+      "sha256": "3bc8de7f51fd7b721c649553ea92306cbf4859cd93486a66bb5677cdb759d562",
+      "visually_reviewed": true
+    },
+    {
+      "capture_name": "11-account-privacy",
+      "test_identifier": "VisualJourneyTests/testParentScreensAndNavigation()",
+      "artifact_path": "mpp-ios-captures/C8BCB7F7-8190-4686-810F-5832A8BD471E.png",
+      "captured_at_utc": "2026-10-28T19:32:09.413000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 135030,
+      "sha256": "8e69a1e4cefcb2236a82d87fd67b17b6a018548ac013b1a231cf47e8a35a1fe8",
+      "visually_reviewed": true
+    },
+    {
+      "capture_name": "12-teacher-home",
+      "test_identifier": "VisualJourneyTests/testTeacherScreens()",
+      "artifact_path": "mpp-ios-captures/772D135F-C250-4304-847A-746D9DCA6FFC.png",
+      "captured_at_utc": "2026-10-28T19:32:29.454000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 109690,
+      "sha256": "2d820989df2263c54682b2a335247fb49e2e2cccaf00e69cba4088577e1c924b",
+      "visually_reviewed": true
+    },
+    {
+      "capture_name": "13-teacher-finances",
+      "test_identifier": "VisualJourneyTests/testTeacherScreens()",
+      "artifact_path": "mpp-ios-captures/0A0BB83A-75A8-4A58-9C2E-3178180FC5A9.png",
+      "captured_at_utc": "2026-10-28T19:32:31.346000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 107887,
+      "sha256": "681c67ac9d317d86e09059f8e3ad1d019dce05433aacfda026e30a768c25db54",
+      "visually_reviewed": true
+    },
+    {
+      "capture_name": "14-teacher-requests",
+      "test_identifier": "VisualJourneyTests/testTeacherScreens()",
+      "artifact_path": "mpp-ios-captures/E7155763-238D-494B-ADB1-7C6BD7150A65.png",
+      "captured_at_utc": "2026-10-28T19:32:32.958000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 111227,
+      "sha256": "a699f1c9e6963babce0baf64cff3f358bf9a318a16bf1e8431ce31d568530883",
+      "visually_reviewed": true
+    },
+    {
+      "capture_name": "15-accessibility-welcome-top",
+      "test_identifier": "VisualJourneyTests/testLargeTypeAndReachableAuthentication()",
+      "artifact_path": "mpp-ios-captures/0F90E090-5A10-4B28-9B56-6D6FF32BD7B8.png",
+      "captured_at_utc": "2026-10-28T19:30:41.701000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 93536,
+      "sha256": "3afd4ad1cf18c0844182be0d1dd4696a68413ce7f8727ed67b2198a09fb097ae",
+      "visually_reviewed": true
+    },
+    {
+      "capture_name": "16-accessibility-welcome-roles",
+      "test_identifier": "VisualJourneyTests/testLargeTypeAndReachableAuthentication()",
+      "artifact_path": "mpp-ios-captures/0909F94C-9D28-4736-9315-B3B59DA5D6CA.png",
+      "captured_at_utc": "2026-10-28T19:30:53.130000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 97076,
+      "sha256": "3eae7459781b77d8469dbfd4d526096e14f936a68f3b9c91d816a729c04cb538",
+      "visually_reviewed": true
+    },
+    {
+      "capture_name": "17-accessibility-login",
+      "test_identifier": "VisualJourneyTests/testLargeTypeAndReachableAuthentication()",
+      "artifact_path": "mpp-ios-captures/77B24578-34ED-4EA1-AD1E-37D038872B93.png",
+      "captured_at_utc": "2026-10-28T19:30:55.583000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 95786,
+      "sha256": "2fd2f2c8fb2ae75448ff3e01b78071ef81c4f17e48facb36e9288f3a846696fc",
+      "visually_reviewed": true
+    },
+    {
+      "capture_name": "17-accessibility-otp-keyboard",
+      "test_identifier": "VisualJourneyTests/testLargeTypeAndReachableAuthentication()",
+      "artifact_path": "mpp-ios-captures/0E426E0A-3AD0-4432-B9BC-3C64A873C7B3.png",
+      "captured_at_utc": "2026-10-28T19:31:04.679000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 80976,
+      "sha256": "e8344791897f610f622eb6e4c8ce2c266d021250f075ea1209bad25e251b635a",
+      "visually_reviewed": true
+    },
+    {
+      "capture_name": "18-accessibility-account",
+      "test_identifier": "VisualJourneyTests/testLargeTypeAndReachableAuthentication()",
+      "artifact_path": "mpp-ios-captures/C10B0A24-A54D-41D3-B8F5-10AD2AD16EA8.png",
+      "captured_at_utc": "2026-10-28T19:31:17.618000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 90650,
+      "sha256": "3064e404414503bd6a2299c33fafdf157b1145ef3ab525952523cef5fda94126",
+      "visually_reviewed": true
+    },
+    {
+      "capture_name": "18-accessibility-home",
+      "test_identifier": "VisualJourneyTests/testLargeTypeAndReachableAuthentication()",
+      "artifact_path": "mpp-ios-captures/AB7F73FC-04E2-43F8-923C-EE977E39A139.png",
+      "captured_at_utc": "2026-10-28T19:31:10.520000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 95824,
+      "sha256": "4a6400c8e135e25f3d1f4b5b07a950cf86ab91e3b8c6b9a324a71b5e27364ae6",
+      "visually_reviewed": true
+    },
+    {
+      "capture_name": "18-accessibility-navigation-end",
+      "test_identifier": "VisualJourneyTests/testLargeTypeAndReachableAuthentication()",
+      "artifact_path": "mpp-ios-captures/A6DF1D0F-9A32-4A8F-99CE-D9F9B62DB7C6.png",
+      "captured_at_utc": "2026-10-28T19:31:15.169000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 95342,
+      "sha256": "cd342c08166535c65ee7fd9a0ba7562a6a0f6e2de4c03ba8e386e0f0ce53b01d",
+      "visually_reviewed": true
+    },
+    {
+      "capture_name": "19-empty-courses",
+      "test_identifier": "VisualJourneyTests/testEmptyAndUnavailableStatesAreDistinct()",
+      "artifact_path": "mpp-ios-captures/78278F7B-20C6-42FF-93A0-02B53BBEF0E7.png",
+      "captured_at_utc": "2026-10-28T19:30:05.443000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 85611,
+      "sha256": "67b970143c2f9688b804d2a7b8ee6c02e2a554e63157b239df73ee35c8b7d509",
+      "visually_reviewed": true
+    },
+    {
+      "capture_name": "20-unavailable-courses",
+      "test_identifier": "VisualJourneyTests/testEmptyAndUnavailableStatesAreDistinct()",
+      "artifact_path": "mpp-ios-captures/FFDFA3D2-DAD2-4E76-A14C-B20C7B42EABE.png",
+      "captured_at_utc": "2026-10-28T19:30:32.056000+00:00",
+      "device_name": "MonProfPerso Visual SE",
+      "pixel_width": 750,
+      "pixel_height": 1334,
+      "size_bytes": 83192,
+      "sha256": "7f5a832af4382c8b4062684c28a02e7cead7bc0b131f4d108e6b0d8efedd134a",
+      "visually_reviewed": true
+    }
+  ],
+  "limits": [
+    "Validation covers this simulator configuration and these journeys, not all devices or iOS releases.",
+    "Accessibility XXXL uses scrolling for large content and horizontal navigation; all tabs are not simultaneously visible.",
+    "No physical-device VoiceOver, signed release installation, App Store submission or provider payment validation is claimed.",
+    "These journeys do not execute bookings, course edits, payouts or account deletion."
+  ]
+}

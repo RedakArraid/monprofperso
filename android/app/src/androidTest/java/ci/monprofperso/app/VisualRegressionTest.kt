@@ -30,6 +30,7 @@ import java.net.URI
 class VisualRegressionTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
+    private val capturedWindowHashes = mutableMapOf<String, String>()
     private val evidenceDirectory get(): File {
         val output = checkNotNull(InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")) {
             "La recette exige la collecte Gradle additionalTestOutputDir."
@@ -75,12 +76,15 @@ class VisualRegressionTest {
             waitForText("Mariam Coulibaly")
             assertWholeNavigationTabs()
             capture("06a-parent-home-large-text")
+            assertDifferentWindowContent("06-parent-home", "06a-parent-home-large-text")
             changeFontScale(1f)
             tab("Recherche")
             waitForText("Consulter le profil")
             capture("07-search")
             compose.onAllNodesWithText("Consulter le profil")[0].performScrollTo().performClick()
             waitForText("Réserver un cours")
+            waitForText("Mariam Coulibaly")
+            waitForText("À propos")
             assertWholeButton("Réserver un cours")
             capture("08-teacher-profile")
             changeFontScale(2f)
@@ -92,6 +96,8 @@ class VisualRegressionTest {
             waitForText("Réserver un cours")
             click("Réserver un cours")
             waitForText("Demander un cours")
+            waitForText("Mariam Coulibaly")
+            waitForText("Format du cours")
             capture("09-booking")
             back(); back()
             tab("Cours")
@@ -112,11 +118,14 @@ class VisualRegressionTest {
 
             login("0700000102")
             waitForText("Demandes et offres disponibles", substring = true)
+            waitForText("Détails et suivi")
             capture("14-teacher-dashboard")
             changeFontScale(2f)
             waitForText("Demandes et offres disponibles", substring = true)
+            waitForText("Détails et suivi")
             assertWholeNavigationTabs()
             capture("14a-teacher-dashboard-large-text")
+            assertDifferentWindowContent("14-teacher-dashboard", "14a-teacher-dashboard-large-text")
             changeFontScale(1f)
             tab("Revenus")
             waitForText("Disponible pour une demande", substring = true)
@@ -176,20 +185,24 @@ class VisualRegressionTest {
         if (phone == "0700000101") {
             waitForKeyboard()
             compose.onNodeWithText("Se connecter").performScrollTo().assertIsDisplayed()
-            capture("04a-login-keyboard")
+            assertAboveKeyboard(compose.onNodeWithTag("auth-phone"))
+            assertAboveKeyboard(compose.onNodeWithText("Se connecter"))
+            capture("04a-login-keyboard", keyboardVisible = true)
         }
         hideKeyboard()
-        if (phone == "0700000101") capture("04-login")
+        if (phone == "0700000101") capture("04-login", keyboardVisible = false)
         click("Se connecter", scroll = true)
         waitForTag("auth-otp")
         compose.onNodeWithTag("auth-otp").performClick().performTextInput("123456")
         if (phone == "0700000101") {
             waitForKeyboard()
             assertWholeButton("Vérifier")
-            capture("05a-otp-keyboard")
+            assertAboveKeyboard(compose.onNodeWithTag("auth-otp"))
+            assertAboveKeyboard(compose.onNodeWithText("Vérifier"))
+            capture("05a-otp-keyboard", keyboardVisible = true)
         }
         hideKeyboard()
-        if (phone == "0700000101") capture("05-otp")
+        if (phone == "0700000101") capture("05-otp", keyboardVisible = false)
         click("Vérifier")
         compose.waitUntil(40_000) { compose.onAllNodes(hasRole(Role.Tab)).fetchSemanticsNodes().isNotEmpty() }
     }
@@ -250,6 +263,20 @@ class VisualRegressionTest {
         }
         compose.waitForIdle()
     }
+    private fun assertAboveKeyboard(node: SemanticsNodeInteraction) {
+        val bounds = node.assertIsDisplayed().fetchSemanticsNode().boundsInWindow
+        val view = compose.activity.window.decorView
+        var keyboardTop = 0
+        var safeTop = 0
+        instrumentation.runOnMainSync {
+            val insets = checkNotNull(ViewCompat.getRootWindowInsets(view))
+            check(insets.isVisible(WindowInsetsCompat.Type.ime()))
+            keyboardTop = view.height - insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            safeTop = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()).top
+        }
+        assertTrue("Le champ ou bouton doit rester au-dessus du clavier", bounds.bottom <= keyboardTop + 1f)
+        assertTrue("Le champ ou bouton doit rester sous la zone système", bounds.top >= safeTop - 1f)
+    }
     private fun hideKeyboard() {
         compose.activityRule.scenario.onActivity { activity ->
             (activity.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager)
@@ -264,22 +291,40 @@ class VisualRegressionTest {
         instrumentation.uiAutomation.executeShellCommand(command)
     ).bufferedReader().use { it.readText() }
 
-    private fun capture(name: String) {
+    private fun assertDifferentWindowContent(normal: String, large: String) {
+        assertTrue("Les rendus à 100 % et 200 % doivent être différents : $normal / $large",
+            capturedWindowHashes.getValue(normal) != capturedWindowHashes.getValue(large))
+    }
+
+    private fun capture(name: String, keyboardVisible: Boolean? = null) {
         compose.waitForIdle()
-        val bitmap = checkNotNull(instrumentation.uiAutomation.takeScreenshot()) { "Capture indisponible" }
-        val configuration = compose.activity.resources.configuration
-        val metadata = JSONObject().put("screen", name).put("apiLevel", android.os.Build.VERSION.SDK_INT)
-            .put("fontScale", configuration.fontScale.toDouble()).put("densityDpi", configuration.densityDpi)
-            .put("screenWidthDp", configuration.screenWidthDp).put("screenHeightDp", configuration.screenHeightDp)
-            .put("imageWidth", bitmap.width).put("imageHeight", bitmap.height).put("fixture", "local-only")
-        val encoded = File(evidenceDirectory, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        bitmap.recycle()
-        check(encoded) { "Échec d’encodage de la capture $name." }
-        File(evidenceDirectory, "$name.json").writeText(metadata.toString(2))
-        File(evidenceDirectory, "$name.txt").writeText(compose.onRoot().printToString())
-        File(evidenceDirectory, "README.txt").writeText(
-            "Captures des vraies vues Android, API36 en émulation. Données et OTP de fixtures locales. " +
-                "Aucun paiement ni message prestataire réel. Ces captures ne remplacent pas une recette sur appareils physiques.\n"
-        )
+        val frame = capturePresentedScreen(compose.activity, instrumentation)
+        val bitmap = frame.bitmap
+        try {
+            val configuration = frame.configuration
+            keyboardVisible?.let { check(frame.imeVisible == it) { "Visibilité clavier inattendue pour $name." } }
+            val metadata = JSONObject().put("screen", name).put("apiLevel", android.os.Build.VERSION.SDK_INT)
+                .put("fontScale", configuration.fontScale.toDouble()).put("densityDpi", configuration.densityDpi)
+                .put("screenWidthDp", configuration.screenWidthDp).put("screenHeightDp", configuration.screenHeightDp)
+                .put("imageWidth", bitmap.width).put("imageHeight", bitmap.height).put("fixture", "local-only")
+                .put("captureMethod", "display-verified-with-window-pixelcopy")
+                .put("pixelTolerance", 0).put("comparisonEdgeInsetDp", 8)
+                .put("comparedBounds", JSONObject().put("left", frame.comparedBounds.left).put("top", frame.comparedBounds.top)
+                    .put("right", frame.comparedBounds.right).put("bottom", frame.comparedBounds.bottom))
+                .put("imeVisible", frame.imeVisible).put("windowBitmapSha256Argb8888", frame.windowContentSha256)
+            val encoded = File(evidenceDirectory, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            check(encoded) { "Échec d’encodage de la capture $name." }
+            capturedWindowHashes[name] = frame.windowContentSha256
+            File(evidenceDirectory, "$name.json").writeText(metadata.toString(2))
+            File(evidenceDirectory, "$name.txt").writeText(compose.onRoot().printToString())
+            File(evidenceDirectory, "README.txt").writeText(
+                "Captures des vraies vues Android, API36 en émulation. Données et OTP de fixtures locales. " +
+                    "Écran entier original, sans collage : correspondance ARGB exacte de la zone applicative visible " +
+                    "avec PixelCopy après frame commit, hors insets système/clavier et bord de 8 dp pour leurs ombres. " +
+                    "Aucun paiement ni message prestataire réel. Ces captures ne remplacent pas une recette sur appareils physiques.\n"
+            )
+        } finally {
+            bitmap.recycle()
+        }
     }
 }

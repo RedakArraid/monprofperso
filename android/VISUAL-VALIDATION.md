@@ -101,3 +101,55 @@ La validation restante est le nouveau passage instrumenté Android 36 et
 l’inspection effective de tous les PNG produits. Les archives des deux premières
 révisions restent conservées séparément. Une compilation réussie ou une assertion
 de mise en page seule ne valide pas les rendus.
+
+## Révision 2c1b4c0 : parcours et collecte réussis, captures décalées
+
+Le [job Android du run 40752999558](https://github.com/RedakArraid/monprofperso/actions/runs/40752999558/job/123044363301)
+contrôle la tête `2c1b4c0b981898a189b2cfd5d9eea4921f94f096` via le commit de
+fusion temporaire `69aa615052f04ae72429d738dc21bfac4a081e6d`. Les deux commits
+ont l’arbre `57b978329e952eb01cea84453dca965c6cadf521`.
+
+Le rapport XML indique **un test instrumenté réussi, zéro échec, erreur ou test
+ignoré, en 60,119 secondes**, horodaté du 28 octobre 2026 à 19:26:21 UTC.
+Le build Debug, les tests JVM et la collecte UTP ont réussi. L’[artefact
+12846020254](https://github.com/RedakArraid/monprofperso/actions/runs/40752999558/artifacts/12846020254)
+contient 23 PNG et leurs 23 JSON ; le SHA-256 du ZIP téléchargé a été vérifié :
+`57106ae28d32411ce82db64d8762a7498b4a2cf06b944bec2f5e1c4315b9c927`.
+
+Les 23 images ont été inspectées. Plusieurs représentent encore une frame
+précédente : `03-signup` montre l’accueil, le profil et les cours montrent encore
+un chargement, et le paysage contient l’ancien portrait avec une zone noire.
+Les accueils parent et professeur à 100 % et 200 % produisent chacun deux PNG
+identiques, bien que leurs JSON indiquent des échelles différentes. Les deux
+captures OTP avec et sans clavier sont également identiques. Ce lot conserve
+une preuve du parcours et de la récupération UTP, mais ses captures ne sont
+pas retenues comme preuve visuelle finale à 200 %.
+
+## Delta de synchronisation du rendu
+
+`PresentedScreenCapture.kt` attend le callback de frame commit, puis copie la
+fenêtre par `PixelCopy`. La capture d’écran entière fournie par `UiAutomation`
+n’est retenue qu’après correspondance ARGB exacte avec cette référence sur la
+zone applicative visible, et seulement si la fenêtre occupe exactement les
+dimensions de l’écran. Le clavier, les barres système et les découpes sont
+exclus de la comparaison, avec une marge supplémentaire de 8 dp pour les ombres
+du décor ; ils restent présents dans le PNG original. Il n’y a aucun collage,
+aucune retouche ni tolérance de couleur. Une nouvelle frame réelle est attendue
+à chaque tentative ; l’absence de correspondance sous 15 secondes fait échouer
+la capture, sans délai fixe ajouté au parcours.
+
+Ce choix suit la [documentation Android du callback de frame commit](https://developer.android.com/reference/android/view/ViewTreeObserver#registerFrameCommitCallback(java.lang.Runnable)) :
+un rendu soumis n’est pas nécessairement déjà présenté à l’écran ; `PixelCopy`
+fournit la référence du contenu rendu. Les métadonnées précisent l’API de capture,
+la zone comparée, l’état du clavier et l’empreinte du bitmap de fenêtre. Les
+accueils à 100 % et 200 % doivent avoir des contenus de fenêtre distincts,
+indépendamment d’un changement d’heure dans la barre système. Les champs et
+boutons de connexion et OTP sont contrôlés au-dessus du clavier et sous les
+zones système. Les pages attendent aussi leurs données propres avant la capture.
+
+La compilation ciblée `:app:compileDebugAndroidTestKotlin` du delta final a réussi le
+28 octobre 2026 à 19:37 UTC en 17 secondes. Les attentes de frame et de copie
+utilisent le temps restant au budget global ; les bitmaps sont aussi libérés
+si la vérification du clavier ou l’encodage échoue. Aucun code produit ni contrat API
+n’a changé dans ce delta. Sa validation native et la revue des nouvelles images
+restent à effectuer avant de qualifier les preuves finales.

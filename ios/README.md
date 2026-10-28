@@ -119,8 +119,9 @@ distinctes. Quatre pièces jointes portent à tort un nom `failure` car
 `hasSucceeded` était lu avant la clôture du test ; leurs pixels sont identiques
 aux captures de fin réussies. Le compteur d’échecs et d’exceptions
 `totalFailureCount` remplace maintenant cette condition. Les deux captures de
-détail de cours étaient aussi identiques ; la suivante défilera jusqu’au bouton
-du formulaire pour en montrer les champs, sans modifier les données.
+détail de cours étaient aussi identiques ; la recette défile désormais jusqu’au
+bouton du formulaire pour montrer les consignes et la planification, sans
+modifier les données.
 
 Cette inspection confirme le défilement de l’accueil hors de la barre système,
 les écrans connectés et la distinction entre vide et indisponibilité. Elle a
@@ -131,8 +132,15 @@ suivant corrige ces points, limite le dessin de la connexion à sa zone défilab
 et ajoute des gestes explicites dans le test de navigation agrandie jusqu’à
 Compte puis Accueil. Les noms et textes de contenu conservent Dynamic Type ;
 seuls les repères graphiques de l’avatar et de la pastille ont une taille fixe.
-Ces modifications et les couleurs ci-dessous nécessitent encore des captures
-sur leur propre révision.
+
+La [CI du candidat `2c1b4c0`](https://github.com/RedakArraid/monprofperso/actions/runs/40752999558)
+a validé ces modifications : **11 tests unitaires et quatre parcours UI réussis**
+sur iPhone SE de troisième génération / iOS 26.4.1, en 179,686 secondes pour les
+parcours UI. Les **25 PNG distincts** ont été inspectés, y compris le clavier OTP
+et le défilement de la navigation en Accessibility XXXL. Aucun nouveau défaut
+de mise en page bloquant n’a été identifié sur ces captures. Les
+[six PNG originaux et leur manifeste](../docs/visual-evidence/ios/README.md)
+conservent la provenance exacte, les empreintes et la portée de cette validation.
 
 Choisir un dossier `.xcresult` neuf à chaque exécution. La CI privilégie un
 iPhone SE installé ou tente d’en créer un si ce type est disponible. Sinon,

@@ -22,6 +22,7 @@ La recette de l’espace React passe **12 scénarios sur 12, sans nouvelle tenta
 en environ 37 secondes sur l’environnement local. Elle contrôle les parcours parent
 et professeur, les formulaires, les dialogues et leur focus, une réservation
 à 320 px avec le texte calculé à 200 %, les états vides et les erreurs réseau.
+Ses 51 contrôles axe ne détectent aucune violation.
 Le [dossier de preuves de l’espace connecté](visual-evidence/webapp/README.md)
 identifie les sources et les captures sélectionnées. Les 26 tests web existants,
 le contrôle des types, le lint et le build passent également ; le lint conserve
@@ -38,36 +39,40 @@ Le [build Android local](visual-evidence/android/README.md) réussit en Debug,
 compile le Kotlin Release et les tests instrumentés, et exécute **15 tests JVM
 sans échec** sur les sources finales du premier commit natif.
 
-Les applications natives disposent maintenant de parcours instrumentés et de
-captures produites sur émulateur ou simulateur. Leur résultat dépend de la CI
-**du commit concerné** : consulter les jobs Android/iOS et leurs artefacts dans
-la PR. Une capture de navigateur n’est pas une capture d’application native.
-La première compilation et recette native de cette série est suivie dans le
-[run 40745829826](https://github.com/RedakArraid/monprofperso/actions/runs/40745829826)
-du commit `3539dc3c74d9db160d52854bdf2e6723670c7828`.
+Le [run 40752999558 du commit `2c1b4c0`](https://github.com/RedakArraid/monprofperso/actions/runs/40752999558)
+réussit les quatre jobs API, web, Android et iOS. Le commit temporaire de fusion
+de la PR, `69aa615052f04ae72429d738dc21bfac4a081e6d`, possède exactement le même
+arbre que cette tête : `57b978329e952eb01cea84453dca965c6cadf521`. La CI confirme
+les **165 tests API**, **11 tests d’exploitation**, l’isolation Docker, les
+**26 tests web existants**, les **12 parcours Chromium** et les **six parcours
+WebKit**, avec zéro violation sur leurs **77 contrôles axe**.
 
-Ce premier passage n’a pas validé les parcours natifs : Android a révélé une
-mutation de navigation hors du thread principal après l’OTP ; iOS a compilé et
-passé ses 11 tests unitaires, puis ses quatre parcours d’interface ont échoué
-lors de l’enregistrement de la session dans le trousseau. Les captures iOS
-confirment cette erreur ; l’application du simulateur était construite sans
-signature. La navigation Android est corrigée et recompilée ; la recette iOS
-utilise désormais une signature locale du simulateur (`CODE_SIGN_IDENTITY=-`).
-Le vrai stockage Keychain est conservé ; le résultat du deuxième passage est
-décrit ci-dessous.
+Sur le **simulateur iPhone SE de troisième génération, iOS 26.4.1**, les
+**11 tests unitaires et quatre parcours d’interface passent**, ces derniers en
+179,686 secondes. Les 25 captures produites sont distinctes. Le parcours de
+grande taille de texte AX XXXL vérifie le champ OTP entièrement au-dessus du
+clavier avant de le toucher, puis utilise de vrais gestes horizontaux pour
+atteindre le dernier onglet et revenir à l’accueil. Le stockage de session
+utilise le vrai Keychain de l’application signée localement pour le simulateur.
+Les 25 images ont été inspectées ; six originaux et le manifeste de toutes les
+captures sont conservés dans le [dossier de preuves iOS](visual-evidence/ios/README.md).
 
-Le [deuxième passage, commit `7d926c0`](https://github.com/RedakArraid/monprofperso/actions/runs/40749309467),
-confirme ensuite les 165 tests API, les 11 tests d’exploitation et l’isolation
-Docker, ainsi que les 26 tests web et les 12 parcours Chromium de cette révision.
-Le parcours Android réussit en 47,477 secondes, sans échec, mais le job échoue
-lors de la collecte : Gradle avait déjà désinstallé l’application et supprimé
-le dossier privé des captures. Le test écrit désormais dans le dossier de
-preuves prévu par UTP, récupéré avant la désinstallation. Sur iPhone SE de
-troisième génération / iOS 26.4.1, les **11 tests unitaires et quatre parcours
-d’interface iOS réussissent** ; l’assertion du champ OTP visible avec le clavier
-et la taille AX XXXL passe également. Les dernières corrections de contraste,
-le contrôle Android à 200 % et la collecte UTP restent à vérifier sur leur
-prochaine révision avant de qualifier les preuves finales.
+Sur **Android 36, téléphone de 360 dp**, le parcours instrumenté passe en
+60,119 secondes et la collecte UTP récupère 23 captures avec leurs métadonnées.
+Leur inspection révèle toutefois des frames anciennes : l’écran précédent
+apparaît encore dans certains PNG, malgré des assertions d’interface réussies.
+Ce lot ne valide donc pas le rendu final à 200 % ni en paysage. Le prochain
+passage doit contrôler la correspondance exacte entre la fenêtre rendue et
+l’écran présenté avant d’accepter une capture. Son résultat sera consigné dans
+le [rapport Android par révision](../android/VISUAL-VALIDATION.md).
+
+Les premiers passages et leurs corrections restent traçables :
+
+| Révision | Résultat utile et correction |
+| --- | --- |
+| [`3539dc3`](https://github.com/RedakArraid/monprofperso/actions/runs/40745829826) | Android : navigation après OTP hors du thread principal, corrigée dans `NavActions`. iOS : vrai Keychain indisponible dans l’application non signée ; signature locale du simulateur ajoutée. |
+| [`7d926c0`](https://github.com/RedakArraid/monprofperso/actions/runs/40749309467) | Parcours Android et iOS réussis. Collecte Android après désinstallation en échec : remplacée par la collecte UTP avant désinstallation. Les captures iOS ont conduit aux derniers correctifs de contraste et de grandes polices. |
+| [`2c1b4c0`](https://github.com/RedakArraid/monprofperso/actions/runs/40752999558) | Quatre jobs réussis ; derniers parcours iOS et WebKit validés. Captures Android récupérées mais décalées : synchronisation de l’écran à vérifier. |
 
 Ces résultats ne sont pas une certification d’accessibilité ni une validation
 sur tous les appareils. L’installation signée, VoiceOver/TalkBack, les claviers
@@ -118,7 +123,7 @@ suivi séparément dans [PRODUCTION-OPERATIONS.md](PRODUCTION-OPERATIONS.md).
 
 - Accueils illustrés défilables, champs et actions accessibles quand le clavier
   est ouvert ; corrections pour grandes polices et petits écrans.
-- Texte sombre sur les actions orange, textes secondaires plus contrastés et
+- Actions orange contrastées, textes secondaires plus contrastés et
   états sélectionnés annoncés dans la navigation.
 - Zones de sécurité et barre système prises en compte sur Android ; destination
   conservée lors d’une rotation ou d’un changement de taille de police.
@@ -179,8 +184,11 @@ npm ci
 npm run lint
 npm test
 npm run build
-npx playwright install --with-deps chromium
+npx playwright install --with-deps chromium webkit
 npm run test:visual
+PLAYWRIGHT_JSON_OUTPUT_FILE=test-results/webkit-summary.json \
+PLAYWRIGHT_HTML_OUTPUT_DIR=playwright-report-webkit \
+npm run test:visual:webkit -- --output=test-results/webkit --reporter=list,json,html
 ```
 
 Playwright démarre automatiquement le serveur local de fixtures et le site sur
