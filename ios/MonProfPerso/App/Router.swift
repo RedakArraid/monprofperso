@@ -51,6 +51,7 @@ final class Router: ObservableObject {
 
     // MARK: Brouillon de réservation (fiche prof → Réservation → Paiement → Confirmé)
     @Published var selectedTeacherId: Int? = nil
+    @Published var searchQuery = ""
     @Published var selectedCourseId: Int? = nil
     @Published var capabilities: [String: Bool] = [:]
     func featureEnabled(_ key: String) -> Bool { capabilities[key] == true }
@@ -165,7 +166,7 @@ final class Router: ObservableObject {
         TokenStore.clear()
         authRole = nil
         authPhone = ""; authEmail = ""; authFullName = ""; authChallengeId = nil
-        selectedCourseId = nil; selectedTeacherId = nil; bkCourseId = nil
+        selectedCourseId = nil; selectedTeacherId = nil; searchQuery = ""; bkCourseId = nil
         bkTeacherName = ""; bkLocation = ""; bkPaid = false
         popToRoot()
     }

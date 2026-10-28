@@ -1,0 +1,1475 @@
+{
+  "scope": "Recette native Android avec données exclusivement fictives",
+  "review_date": "2026-10-28",
+  "source_commit": "a035f18971973179d22167d8cce84bcd2a443ea7",
+  "tested_merge_commit": "56308d02ad68ba4e7681cd07895fee3f559083d6",
+  "source_tree": "1aaaeef61cf57019621d93074d28196ef3735e0b",
+  "ci": {
+    "run_id": 40764741671,
+    "job_id": 123085728504,
+    "run_url": "https://github.com/RedakArraid/monprofperso/actions/runs/40764741671",
+    "job_url": "https://github.com/RedakArraid/monprofperso/actions/runs/40764741671/job/123085728504"
+  },
+  "artifact": {
+    "id": 12850431280,
+    "name": "android-visual-56308d02ad68ba4e7681cd07895fee3f559083d6",
+    "zip_bytes": 2677628,
+    "sha256": "70dca29e4e85d0133fac19259d05cb9049f6ca877f4b23f65e5edf80e50518ae",
+    "expires_at": "2026-11-11T20:41:15Z"
+  },
+  "device": {
+    "api_level": 36,
+    "android_version": "16",
+    "portrait_dp": [
+      360,
+      640
+    ],
+    "landscape_dp": [
+      1067,
+      667
+    ],
+    "portrait_density_dpi": 320,
+    "landscape_density_dpi": 240
+  },
+  "instrumented_tests": {
+    "tests": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "suite_seconds": 55.524,
+    "scenario_seconds": 48.58,
+    "timestamp_from_xml_utc": "2026-10-28T20:41:13",
+    "xml_archive_member": "monprofperso/monprofperso/android/app/build/outputs/androidTest-results/connected/debug/TEST-emulator-5554 - 16-_app-.xml",
+    "xml_sha256": "79442d44ab6fc06fb106c4c2fd8f055b9f95a47393192fbe67f77b99e9815b5d"
+  },
+  "visual_review": {
+    "exported_png": 25,
+    "distinct_png": 25,
+    "inspected_png": 25,
+    "selected_png": 9,
+    "selected_bytes": 772079,
+    "finding": "Aucun nouveau défaut de mise en page bloquant observé sur les 25 captures originales."
+  },
+  "navigation": {
+    "text_metrics": [
+      {
+        "label": "Accueil",
+        "fontScale": 2,
+        "tabBounds": {
+          "left": 12,
+          "top": 1062,
+          "right": 220,
+          "bottom": 1220
+        },
+        "viewport": {
+          "left": 0,
+          "top": 1050,
+          "right": 720,
+          "bottom": 1232
+        },
+        "textBounds": {
+          "left": 36,
+          "top": 1144,
+          "right": 196,
+          "bottom": 1208
+        },
+        "lineCount": 1,
+        "didOverflowWidth": true,
+        "didOverflowHeight": false,
+        "didExceedMaxLines": false,
+        "layoutWidth": 160,
+        "layoutHeight": 64,
+        "paragraphWidth": 2147483648,
+        "paragraphHeight": 64,
+        "maxIntrinsicWidth": 160,
+        "constraintMaxWidth": 2147483647,
+        "constraintMaxHeight": 1064,
+        "lineEnd": 7,
+        "ellipsized": false
+      },
+      {
+        "label": "Compte",
+        "fontScale": 2,
+        "tabBounds": {
+          "left": 487,
+          "top": 1062,
+          "right": 708,
+          "bottom": 1220
+        },
+        "viewport": {
+          "left": 0,
+          "top": 1050,
+          "right": 720,
+          "bottom": 1232
+        },
+        "textBounds": {
+          "left": 511,
+          "top": 1144,
+          "right": 684,
+          "bottom": 1208
+        },
+        "lineCount": 1,
+        "didOverflowWidth": true,
+        "didOverflowHeight": false,
+        "didExceedMaxLines": false,
+        "layoutWidth": 173,
+        "layoutHeight": 64,
+        "paragraphWidth": 2147483648,
+        "paragraphHeight": 64,
+        "maxIntrinsicWidth": 173,
+        "constraintMaxWidth": 2147483647,
+        "constraintMaxHeight": 1064,
+        "lineEnd": 6,
+        "ellipsized": false
+      },
+      {
+        "label": "Compte",
+        "fontScale": 2,
+        "tabBounds": {
+          "left": 499,
+          "top": 1062,
+          "right": 720,
+          "bottom": 1220
+        },
+        "viewport": {
+          "left": 0,
+          "top": 1050,
+          "right": 720,
+          "bottom": 1232
+        },
+        "textBounds": {
+          "left": 523,
+          "top": 1144,
+          "right": 696,
+          "bottom": 1208
+        },
+        "lineCount": 1,
+        "didOverflowWidth": true,
+        "didOverflowHeight": false,
+        "didExceedMaxLines": false,
+        "layoutWidth": 173,
+        "layoutHeight": 64,
+        "paragraphWidth": 2147483648,
+        "paragraphHeight": 64,
+        "maxIntrinsicWidth": 173,
+        "constraintMaxWidth": 2147483647,
+        "constraintMaxHeight": 944,
+        "lineEnd": 6,
+        "ellipsized": false
+      },
+      {
+        "label": "Accueil",
+        "fontScale": 2,
+        "tabBounds": {
+          "left": 12,
+          "top": 1062,
+          "right": 218,
+          "bottom": 1220
+        },
+        "viewport": {
+          "left": 0,
+          "top": 1050,
+          "right": 720,
+          "bottom": 1232
+        },
+        "textBounds": {
+          "left": 36,
+          "top": 1144,
+          "right": 194,
+          "bottom": 1208
+        },
+        "lineCount": 1,
+        "didOverflowWidth": true,
+        "didOverflowHeight": false,
+        "didExceedMaxLines": false,
+        "layoutWidth": 158,
+        "layoutHeight": 64,
+        "paragraphWidth": 2147483648,
+        "paragraphHeight": 64,
+        "maxIntrinsicWidth": 158,
+        "constraintMaxWidth": 2147483647,
+        "constraintMaxHeight": 944,
+        "lineEnd": 7,
+        "ellipsized": false
+      },
+      {
+        "label": "Accueil",
+        "fontScale": 2,
+        "tabBounds": {
+          "left": 0,
+          "top": 1062,
+          "right": 208,
+          "bottom": 1220
+        },
+        "viewport": {
+          "left": 0,
+          "top": 1050,
+          "right": 720,
+          "bottom": 1232
+        },
+        "textBounds": {
+          "left": 24,
+          "top": 1144,
+          "right": 184,
+          "bottom": 1208
+        },
+        "lineCount": 1,
+        "didOverflowWidth": true,
+        "didOverflowHeight": false,
+        "didExceedMaxLines": false,
+        "layoutWidth": 160,
+        "layoutHeight": 64,
+        "paragraphWidth": 2147483648,
+        "paragraphHeight": 64,
+        "maxIntrinsicWidth": 160,
+        "constraintMaxWidth": 2147483647,
+        "constraintMaxHeight": 1064,
+        "lineEnd": 7,
+        "ellipsized": false
+      },
+      {
+        "label": "Accueil",
+        "fontScale": 2,
+        "tabBounds": {
+          "left": 12,
+          "top": 1062,
+          "right": 220,
+          "bottom": 1220
+        },
+        "viewport": {
+          "left": 0,
+          "top": 1050,
+          "right": 720,
+          "bottom": 1232
+        },
+        "textBounds": {
+          "left": 36,
+          "top": 1144,
+          "right": 196,
+          "bottom": 1208
+        },
+        "lineCount": 1,
+        "didOverflowWidth": true,
+        "didOverflowHeight": false,
+        "didExceedMaxLines": false,
+        "layoutWidth": 160,
+        "layoutHeight": 64,
+        "paragraphWidth": 2147483648,
+        "paragraphHeight": 64,
+        "maxIntrinsicWidth": 160,
+        "constraintMaxWidth": 2147483647,
+        "constraintMaxHeight": 880,
+        "lineEnd": 7,
+        "ellipsized": false
+      },
+      {
+        "label": "Compte",
+        "fontScale": 2,
+        "tabBounds": {
+          "left": 487,
+          "top": 1062,
+          "right": 708,
+          "bottom": 1220
+        },
+        "viewport": {
+          "left": 0,
+          "top": 1050,
+          "right": 720,
+          "bottom": 1232
+        },
+        "textBounds": {
+          "left": 511,
+          "top": 1144,
+          "right": 684,
+          "bottom": 1208
+        },
+        "lineCount": 1,
+        "didOverflowWidth": true,
+        "didOverflowHeight": false,
+        "didExceedMaxLines": false,
+        "layoutWidth": 173,
+        "layoutHeight": 64,
+        "paragraphWidth": 2147483648,
+        "paragraphHeight": 64,
+        "maxIntrinsicWidth": 173,
+        "constraintMaxWidth": 2147483647,
+        "constraintMaxHeight": 880,
+        "lineEnd": 6,
+        "ellipsized": false
+      },
+      {
+        "label": "Compte",
+        "fontScale": 2,
+        "tabBounds": {
+          "left": 499,
+          "top": 1062,
+          "right": 720,
+          "bottom": 1220
+        },
+        "viewport": {
+          "left": 0,
+          "top": 1050,
+          "right": 720,
+          "bottom": 1232
+        },
+        "textBounds": {
+          "left": 523,
+          "top": 1144,
+          "right": 696,
+          "bottom": 1208
+        },
+        "lineCount": 1,
+        "didOverflowWidth": true,
+        "didOverflowHeight": false,
+        "didExceedMaxLines": false,
+        "layoutWidth": 173,
+        "layoutHeight": 64,
+        "paragraphWidth": 2147483648,
+        "paragraphHeight": 64,
+        "maxIntrinsicWidth": 173,
+        "constraintMaxWidth": 2147483647,
+        "constraintMaxHeight": 944,
+        "lineEnd": 6,
+        "ellipsized": false
+      },
+      {
+        "label": "Accueil",
+        "fontScale": 2,
+        "tabBounds": {
+          "left": 12,
+          "top": 1062,
+          "right": 218,
+          "bottom": 1220
+        },
+        "viewport": {
+          "left": 0,
+          "top": 1050,
+          "right": 720,
+          "bottom": 1232
+        },
+        "textBounds": {
+          "left": 36,
+          "top": 1144,
+          "right": 194,
+          "bottom": 1208
+        },
+        "lineCount": 1,
+        "didOverflowWidth": true,
+        "didOverflowHeight": false,
+        "didExceedMaxLines": false,
+        "layoutWidth": 158,
+        "layoutHeight": 64,
+        "paragraphWidth": 2147483648,
+        "paragraphHeight": 64,
+        "maxIntrinsicWidth": 158,
+        "constraintMaxWidth": 2147483647,
+        "constraintMaxHeight": 944,
+        "lineEnd": 7,
+        "ellipsized": false
+      },
+      {
+        "label": "Accueil",
+        "fontScale": 2,
+        "tabBounds": {
+          "left": 0,
+          "top": 1062,
+          "right": 208,
+          "bottom": 1220
+        },
+        "viewport": {
+          "left": 0,
+          "top": 1050,
+          "right": 720,
+          "bottom": 1232
+        },
+        "textBounds": {
+          "left": 24,
+          "top": 1144,
+          "right": 184,
+          "bottom": 1208
+        },
+        "lineCount": 1,
+        "didOverflowWidth": true,
+        "didOverflowHeight": false,
+        "didExceedMaxLines": false,
+        "layoutWidth": 160,
+        "layoutHeight": 64,
+        "paragraphWidth": 2147483648,
+        "paragraphHeight": 64,
+        "maxIntrinsicWidth": 160,
+        "constraintMaxWidth": 2147483647,
+        "constraintMaxHeight": 880,
+        "lineEnd": 7,
+        "ellipsized": false
+      }
+    ],
+    "text_metrics_sha256": "c44df644297ffb9c57a4a1c31fe42fd7e0b6b47c582d35ae48a3bad2b2c86004",
+    "gestures": [
+      {
+        "target": "Compte",
+        "direction": "left",
+        "swipeCount": 1,
+        "fullyVisibleAfterGesture": true
+      },
+      {
+        "target": "Accueil",
+        "direction": "right",
+        "swipeCount": 1,
+        "fullyVisibleAfterGesture": true
+      },
+      {
+        "target": "Compte",
+        "direction": "left",
+        "swipeCount": 1,
+        "fullyVisibleAfterGesture": true
+      },
+      {
+        "target": "Accueil",
+        "direction": "right",
+        "swipeCount": 1,
+        "fullyVisibleAfterGesture": true
+      }
+    ],
+    "gestures_sha256": "b8152fdf79490f06c0dc2573a19bf332948a3462777b185fdb30b1422efb2c1a"
+  },
+  "screenshots": [
+    {
+      "source_file": "01-welcome-phone.png",
+      "archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/01-welcome-phone.png",
+      "sha256": "c9d3dddcba005219e61df607f2958d14147ded5dc95b64d60a69b9c2629a63d8",
+      "git_blob_sha1": "6d841c1714754d29af9f7fd69daeebda8d527b67",
+      "bytes": 301540,
+      "width": 720,
+      "height": 1280,
+      "metadata_archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/01-welcome-phone.json",
+      "metadata_sha256": "678c0a72166d0c01dc3d74ace88cdff20db8ebdd33d2bbbe26a9955f6f424beb",
+      "native_metadata": {
+        "screen": "01-welcome-phone",
+        "apiLevel": 36,
+        "fontScale": 1,
+        "densityDpi": 320,
+        "screenWidthDp": 360,
+        "screenHeightDp": 640,
+        "imageWidth": 720,
+        "imageHeight": 1280,
+        "fixture": "local-only",
+        "captureMethod": "display-verified-with-window-pixelcopy",
+        "pixelTolerance": 0,
+        "comparisonEdgeInsetDp": 8,
+        "comparedBounds": {
+          "left": 16,
+          "top": 64,
+          "right": 704,
+          "bottom": 1201
+        },
+        "imeVisible": false,
+        "windowBitmapSha256Argb8888": "fbf65b604cba317528221afc49abb443fee44feca0dc1e4def8f0e5ab4a0850d"
+      }
+    },
+    {
+      "source_file": "02-welcome-large-text.png",
+      "archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/02-welcome-large-text.png",
+      "sha256": "17943ff57cda07ab9f56fa739ecb24527ef349ad3a032429598cc2296621e787",
+      "git_blob_sha1": "661bcfc6c5ff798d517eb15393b74b0bda693bae",
+      "bytes": 73681,
+      "width": 720,
+      "height": 1280,
+      "metadata_archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/02-welcome-large-text.json",
+      "metadata_sha256": "8cc85caf439b3e2ca546dff097d63fe1a8ce57044617e72b542dd0930afee0d0",
+      "native_metadata": {
+        "screen": "02-welcome-large-text",
+        "apiLevel": 36,
+        "fontScale": 2,
+        "densityDpi": 320,
+        "screenWidthDp": 360,
+        "screenHeightDp": 640,
+        "imageWidth": 720,
+        "imageHeight": 1280,
+        "fixture": "local-only",
+        "captureMethod": "display-verified-with-window-pixelcopy",
+        "pixelTolerance": 0,
+        "comparisonEdgeInsetDp": 8,
+        "comparedBounds": {
+          "left": 16,
+          "top": 64,
+          "right": 704,
+          "bottom": 1216
+        },
+        "imeVisible": false,
+        "windowBitmapSha256Argb8888": "ab5180a601e717232fc1aa30c54cc86d97857f4fda20e82a1896f51021e77613"
+      }
+    },
+    {
+      "source_file": "03-signup.png",
+      "archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/03-signup.png",
+      "sha256": "8361bad35a82ff339a50469fa0545acf0974469fce81eb544faffd8217333d3d",
+      "git_blob_sha1": "782aa0426a206b993181afabc59a8f7f346a0719",
+      "bytes": 56761,
+      "width": 720,
+      "height": 1280,
+      "metadata_archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/03-signup.json",
+      "metadata_sha256": "94e2b6cbbcf494f7132d25fe43439fbe46fad95c9df76e9cfa6a4d0ca35ee9e5",
+      "native_metadata": {
+        "screen": "03-signup",
+        "apiLevel": 36,
+        "fontScale": 1,
+        "densityDpi": 320,
+        "screenWidthDp": 360,
+        "screenHeightDp": 640,
+        "imageWidth": 720,
+        "imageHeight": 1280,
+        "fixture": "local-only",
+        "captureMethod": "display-verified-with-window-pixelcopy",
+        "pixelTolerance": 0,
+        "comparisonEdgeInsetDp": 8,
+        "comparedBounds": {
+          "left": 16,
+          "top": 64,
+          "right": 704,
+          "bottom": 1216
+        },
+        "imeVisible": false,
+        "windowBitmapSha256Argb8888": "c99fe4492843dfba86f2266db80e900e2000689ca54d3dd2bde91f62b4ae5093",
+        "systemBars": {
+          "expectedDarkIcons": true,
+          "minimumContrastRatio": 4.5,
+          "minimumContrastingGlyphPixels": 16,
+          "requiredBackgroundFractionExclusive": 0.5,
+          "statusClock": {
+            "region": {
+              "left": 32,
+              "top": 0,
+              "right": 224,
+              "bottom": 48
+            },
+            "backgroundArgb": "fff7f4ee",
+            "uniformWindowBackground": true,
+            "matchingBackgroundPixels": 8062,
+            "contrastingGlyphPixels": 574,
+            "totalPixels": 9216
+          },
+          "navigationHandle": {
+            "region": {
+              "left": 180,
+              "top": 1232,
+              "right": 540,
+              "bottom": 1280
+            },
+            "backgroundArgb": "fff7f4ee",
+            "uniformWindowBackground": true,
+            "matchingBackgroundPixels": 15556,
+            "contrastingGlyphPixels": 1708,
+            "totalPixels": 17280
+          }
+        }
+      }
+    },
+    {
+      "source_file": "04-login.png",
+      "archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/04-login.png",
+      "sha256": "e445b142f45f307c5ab8ec51b1bd22d695147ccccd1ff1a55bff19ee684009c8",
+      "git_blob_sha1": "9e90a5812349092733b3ceba8aebc460ff01d1a3",
+      "bytes": 54345,
+      "width": 720,
+      "height": 1280,
+      "metadata_archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/04-login.json",
+      "metadata_sha256": "9ccace875f94b306803b58e168b6258d2a3fcad4c8e3909b6f6865c977d31e00",
+      "native_metadata": {
+        "screen": "04-login",
+        "apiLevel": 36,
+        "fontScale": 1,
+        "densityDpi": 320,
+        "screenWidthDp": 360,
+        "screenHeightDp": 640,
+        "imageWidth": 720,
+        "imageHeight": 1280,
+        "fixture": "local-only",
+        "captureMethod": "display-verified-with-window-pixelcopy",
+        "pixelTolerance": 0,
+        "comparisonEdgeInsetDp": 8,
+        "comparedBounds": {
+          "left": 16,
+          "top": 64,
+          "right": 704,
+          "bottom": 1216
+        },
+        "imeVisible": false,
+        "windowBitmapSha256Argb8888": "df73b3efd38d7ec9dbbe2e539cf623339c9cdb34f24106b4a10fe53db2c8e89d"
+      }
+    },
+    {
+      "source_file": "04a-login-keyboard.png",
+      "archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/04a-login-keyboard.png",
+      "sha256": "7b8c8015cf58b7bc72f2d54732312663d85ad95fa6240f1dc40eabaed9d8c7c6",
+      "git_blob_sha1": "973070d62dc111f38de98342f166d631cf06449f",
+      "bytes": 72416,
+      "width": 720,
+      "height": 1280,
+      "metadata_archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/04a-login-keyboard.json",
+      "metadata_sha256": "99957e8cf123ea07051501b656f870ac835d84b0f05078b2882fda9be4ee6209",
+      "native_metadata": {
+        "screen": "04a-login-keyboard",
+        "apiLevel": 36,
+        "fontScale": 1,
+        "densityDpi": 320,
+        "screenWidthDp": 360,
+        "screenHeightDp": 640,
+        "imageWidth": 720,
+        "imageHeight": 1280,
+        "fixture": "local-only",
+        "captureMethod": "display-verified-with-window-pixelcopy",
+        "pixelTolerance": 0,
+        "comparisonEdgeInsetDp": 8,
+        "comparedBounds": {
+          "left": 16,
+          "top": 64,
+          "right": 704,
+          "bottom": 754
+        },
+        "imeVisible": true,
+        "windowBitmapSha256Argb8888": "70df8ab9087f3a1e3e5cd3f445dcbae5268492b01e5d37e661f2b6aa93c56d59"
+      }
+    },
+    {
+      "source_file": "05-otp.png",
+      "archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/05-otp.png",
+      "sha256": "ddadf070956a0f42a520875773d430b4d341fdc20a049cb6aa3a28af17cb4431",
+      "git_blob_sha1": "07e70abd50eb7a1daa865c35bf1472c02526aeae",
+      "bytes": 52845,
+      "width": 720,
+      "height": 1280,
+      "metadata_archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/05-otp.json",
+      "metadata_sha256": "ca6561a263c72d1c01e6e5ff4b912fa2e5c428d5abfd02525f62cafcea1bcaca",
+      "native_metadata": {
+        "screen": "05-otp",
+        "apiLevel": 36,
+        "fontScale": 1,
+        "densityDpi": 320,
+        "screenWidthDp": 360,
+        "screenHeightDp": 640,
+        "imageWidth": 720,
+        "imageHeight": 1280,
+        "fixture": "local-only",
+        "captureMethod": "display-verified-with-window-pixelcopy",
+        "pixelTolerance": 0,
+        "comparisonEdgeInsetDp": 8,
+        "comparedBounds": {
+          "left": 16,
+          "top": 64,
+          "right": 704,
+          "bottom": 1216
+        },
+        "imeVisible": false,
+        "windowBitmapSha256Argb8888": "192cfccd59e3f5408700de6f95992e07d261552cf91577021b779889fcde832a"
+      }
+    },
+    {
+      "source_file": "05a-otp-keyboard.png",
+      "archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/05a-otp-keyboard.png",
+      "sha256": "d0a47e71afa239abf33d1682644e3e26f3ba8a84fbeb590c2a444995cdd23a3e",
+      "git_blob_sha1": "c327320ca1f692febbc5bb55251a0da1855f32f7",
+      "bytes": 65332,
+      "width": 720,
+      "height": 1280,
+      "metadata_archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/05a-otp-keyboard.json",
+      "metadata_sha256": "14c00bbb4286de779f38c9a405800578e650cf1be09ccb34b822b47ade70a61d",
+      "native_metadata": {
+        "screen": "05a-otp-keyboard",
+        "apiLevel": 36,
+        "fontScale": 1,
+        "densityDpi": 320,
+        "screenWidthDp": 360,
+        "screenHeightDp": 640,
+        "imageWidth": 720,
+        "imageHeight": 1280,
+        "fixture": "local-only",
+        "captureMethod": "display-verified-with-window-pixelcopy",
+        "pixelTolerance": 0,
+        "comparisonEdgeInsetDp": 8,
+        "comparedBounds": {
+          "left": 16,
+          "top": 64,
+          "right": 704,
+          "bottom": 754
+        },
+        "imeVisible": true,
+        "windowBitmapSha256Argb8888": "4e378c377fcf0f268736c867996109356b402816e10d4d4a55f52d9524442c3d"
+      }
+    },
+    {
+      "source_file": "06-parent-home.png",
+      "archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/06-parent-home.png",
+      "sha256": "2f59426ddabaaded74f441c8c8c6d010f805837c8bc2761319e012e9ad4b3cb1",
+      "git_blob_sha1": "4262020fb32a50a01d590049ad7dca1fdbea124a",
+      "bytes": 90724,
+      "width": 720,
+      "height": 1280,
+      "metadata_archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/06-parent-home.json",
+      "metadata_sha256": "9e01ea0c989e5dc69450cfee8be08670c8aa3a04e35f6b7b6715267dd8013866",
+      "native_metadata": {
+        "screen": "06-parent-home",
+        "apiLevel": 36,
+        "fontScale": 1,
+        "densityDpi": 320,
+        "screenWidthDp": 360,
+        "screenHeightDp": 640,
+        "imageWidth": 720,
+        "imageHeight": 1280,
+        "fixture": "local-only",
+        "captureMethod": "display-verified-with-window-pixelcopy",
+        "pixelTolerance": 0,
+        "comparisonEdgeInsetDp": 8,
+        "comparedBounds": {
+          "left": 16,
+          "top": 64,
+          "right": 704,
+          "bottom": 1216
+        },
+        "imeVisible": false,
+        "windowBitmapSha256Argb8888": "2b5b4da367a2bda118c6a9820a38f6032344e699c7a1b20be07174b8dcdd8922"
+      }
+    },
+    {
+      "source_file": "06a-parent-home-large-text.png",
+      "archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/06a-parent-home-large-text.png",
+      "sha256": "08a5a8c92e1d3f81e7f966ecb4d4cb270a2a06760b663a8d7b7d224150b2e37d",
+      "git_blob_sha1": "c9c0b329f96d1e6a4c9691cd50fc349bb8b800e6",
+      "bytes": 78165,
+      "width": 720,
+      "height": 1280,
+      "metadata_archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/06a-parent-home-large-text.json",
+      "metadata_sha256": "325b1173339138d8349830b17c0b85053334f8daa2db63a8935a26552e8f4d5d",
+      "native_metadata": {
+        "screen": "06a-parent-home-large-text",
+        "apiLevel": 36,
+        "fontScale": 2,
+        "densityDpi": 320,
+        "screenWidthDp": 360,
+        "screenHeightDp": 640,
+        "imageWidth": 720,
+        "imageHeight": 1280,
+        "fixture": "local-only",
+        "captureMethod": "display-verified-with-window-pixelcopy",
+        "pixelTolerance": 0,
+        "comparisonEdgeInsetDp": 8,
+        "comparedBounds": {
+          "left": 16,
+          "top": 64,
+          "right": 704,
+          "bottom": 1216
+        },
+        "imeVisible": false,
+        "windowBitmapSha256Argb8888": "fc24d46c1180c90a2481f0913d687e41f47cb69a46266e1fb31965490f80d64a"
+      }
+    },
+    {
+      "source_file": "07-search.png",
+      "archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/07-search.png",
+      "sha256": "2a51d0d3ef0fa1e198783c93dece8e73930550886067488688824e7257c38f20",
+      "git_blob_sha1": "4ecac3a1afa946d3ea3f939f094609b66bfab212",
+      "bytes": 70299,
+      "width": 720,
+      "height": 1280,
+      "metadata_archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/07-search.json",
+      "metadata_sha256": "d84da23d41496dddbe0ea47d3d4250a1dd09ab4a5d0b4a0922d8454408419bb4",
+      "native_metadata": {
+        "screen": "07-search",
+        "apiLevel": 36,
+        "fontScale": 1,
+        "densityDpi": 320,
+        "screenWidthDp": 360,
+        "screenHeightDp": 640,
+        "imageWidth": 720,
+        "imageHeight": 1280,
+        "fixture": "local-only",
+        "captureMethod": "display-verified-with-window-pixelcopy",
+        "pixelTolerance": 0,
+        "comparisonEdgeInsetDp": 8,
+        "comparedBounds": {
+          "left": 16,
+          "top": 64,
+          "right": 704,
+          "bottom": 1216
+        },
+        "imeVisible": false,
+        "windowBitmapSha256Argb8888": "1486ff615b19e293122fcf0381a76cdae6fe1dffb3d39dcae5229e2128dc5f48"
+      }
+    },
+    {
+      "source_file": "08-teacher-profile.png",
+      "archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/08-teacher-profile.png",
+      "sha256": "3742ddafc188bc355f556a450c9fd41d68583911b7760cf5bd98bd8918599978",
+      "git_blob_sha1": "6b091d823cbd2728655261bd0da1e79bfa994675",
+      "bytes": 76177,
+      "width": 720,
+      "height": 1280,
+      "metadata_archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/08-teacher-profile.json",
+      "metadata_sha256": "cae57e48ad9752693377f9e5c7bb056961a7253a418fd375d8fa8f7ae2fc7f53",
+      "native_metadata": {
+        "screen": "08-teacher-profile",
+        "apiLevel": 36,
+        "fontScale": 1,
+        "densityDpi": 320,
+        "screenWidthDp": 360,
+        "screenHeightDp": 640,
+        "imageWidth": 720,
+        "imageHeight": 1280,
+        "fixture": "local-only",
+        "captureMethod": "display-verified-with-window-pixelcopy",
+        "pixelTolerance": 0,
+        "comparisonEdgeInsetDp": 8,
+        "comparedBounds": {
+          "left": 16,
+          "top": 64,
+          "right": 704,
+          "bottom": 1216
+        },
+        "imeVisible": false,
+        "windowBitmapSha256Argb8888": "a3f3e4d29e590dcbcbf6f074a701d6e2cb5d3badb0a6c51c11aa2d2cd143aa03"
+      }
+    },
+    {
+      "source_file": "08a-teacher-profile-large-text.png",
+      "archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/08a-teacher-profile-large-text.png",
+      "sha256": "3912c46c6c308698960665332f25a2da012104a51e6033121337272192b69a0d",
+      "git_blob_sha1": "39c2cf60ce7de6a4966a077e451cce02158fe403",
+      "bytes": 71879,
+      "width": 720,
+      "height": 1280,
+      "metadata_archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/08a-teacher-profile-large-text.json",
+      "metadata_sha256": "45a1fe62acc7255433f4556a22149526852c16b4050264087dc77bbf317531f8",
+      "native_metadata": {
+        "screen": "08a-teacher-profile-large-text",
+        "apiLevel": 36,
+        "fontScale": 2,
+        "densityDpi": 320,
+        "screenWidthDp": 360,
+        "screenHeightDp": 640,
+        "imageWidth": 720,
+        "imageHeight": 1280,
+        "fixture": "local-only",
+        "captureMethod": "display-verified-with-window-pixelcopy",
+        "pixelTolerance": 0,
+        "comparisonEdgeInsetDp": 8,
+        "comparedBounds": {
+          "left": 16,
+          "top": 64,
+          "right": 704,
+          "bottom": 1216
+        },
+        "imeVisible": false,
+        "windowBitmapSha256Argb8888": "7ac055776f507c1311114c8ee6a2eee7770b1bb78029349930ccc9193365fcd9"
+      }
+    },
+    {
+      "source_file": "09-booking.png",
+      "archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/09-booking.png",
+      "sha256": "cdb5a1e8fba23e59ff4efe61daf0e84edc2f196c0188bf9fc4ed1981ffd8a22d",
+      "git_blob_sha1": "3cced0a62fef4438188ec623d51afcfa3affd65e",
+      "bytes": 62017,
+      "width": 720,
+      "height": 1280,
+      "metadata_archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/09-booking.json",
+      "metadata_sha256": "e0cf656fd3314e62f09d7d912e3c2e28c64a88e1d546c3fa9a6a4f4ccaad788f",
+      "native_metadata": {
+        "screen": "09-booking",
+        "apiLevel": 36,
+        "fontScale": 1,
+        "densityDpi": 320,
+        "screenWidthDp": 360,
+        "screenHeightDp": 640,
+        "imageWidth": 720,
+        "imageHeight": 1280,
+        "fixture": "local-only",
+        "captureMethod": "display-verified-with-window-pixelcopy",
+        "pixelTolerance": 0,
+        "comparisonEdgeInsetDp": 8,
+        "comparedBounds": {
+          "left": 16,
+          "top": 64,
+          "right": 704,
+          "bottom": 1216
+        },
+        "imeVisible": false,
+        "windowBitmapSha256Argb8888": "e86c4ac74b6bc4f47d654087e912d7ae6629e197693f3b5d62bc736832b92ea2"
+      }
+    },
+    {
+      "source_file": "10-courses.png",
+      "archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/10-courses.png",
+      "sha256": "7825fcf0c5f2f873c5509210392d3f2e3f09b77abcb2cb43dae62f3b5f36b723",
+      "git_blob_sha1": "19d718b509bd4ae65008c80c5ab9f209db8fbed5",
+      "bytes": 85562,
+      "width": 720,
+      "height": 1280,
+      "metadata_archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/10-courses.json",
+      "metadata_sha256": "469bc957862550d11cc32efe157f3085bf02a892faa1e9c142dd39cc69a8c582",
+      "native_metadata": {
+        "screen": "10-courses",
+        "apiLevel": 36,
+        "fontScale": 1,
+        "densityDpi": 320,
+        "screenWidthDp": 360,
+        "screenHeightDp": 640,
+        "imageWidth": 720,
+        "imageHeight": 1280,
+        "fixture": "local-only",
+        "captureMethod": "display-verified-with-window-pixelcopy",
+        "pixelTolerance": 0,
+        "comparisonEdgeInsetDp": 8,
+        "comparedBounds": {
+          "left": 16,
+          "top": 64,
+          "right": 704,
+          "bottom": 1216
+        },
+        "imeVisible": false,
+        "windowBitmapSha256Argb8888": "3f50fbbe2312e6b9b900a4806e07050b849103ea99db7895b71f96fa48ee578f"
+      }
+    },
+    {
+      "source_file": "11-course-details.png",
+      "archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/11-course-details.png",
+      "sha256": "02eefeea0af9fc383a8325aabf404b247717c003844b843149252488c6d4c35e",
+      "git_blob_sha1": "25acfe686cf3b46a1aecfdc6e7c51b35e6f73f87",
+      "bytes": 95810,
+      "width": 720,
+      "height": 1280,
+      "metadata_archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/11-course-details.json",
+      "metadata_sha256": "ed9ef23edc7330d0ff758ba4d4c51588da84108a45dd6f2e639431a03e2061c6",
+      "native_metadata": {
+        "screen": "11-course-details",
+        "apiLevel": 36,
+        "fontScale": 1,
+        "densityDpi": 320,
+        "screenWidthDp": 360,
+        "screenHeightDp": 640,
+        "imageWidth": 720,
+        "imageHeight": 1280,
+        "fixture": "local-only",
+        "captureMethod": "display-verified-with-window-pixelcopy",
+        "pixelTolerance": 0,
+        "comparisonEdgeInsetDp": 8,
+        "comparedBounds": {
+          "left": 16,
+          "top": 64,
+          "right": 704,
+          "bottom": 1216
+        },
+        "imeVisible": false,
+        "windowBitmapSha256Argb8888": "969c498510d4f059394762245c576d471766a1df099ab16ebfcd85e33e10af6e"
+      }
+    },
+    {
+      "source_file": "12-account.png",
+      "archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/12-account.png",
+      "sha256": "fa12e26b14924efcf7c4d0c800c2a6b6d660c9e71ed10781d10ba01e7c534620",
+      "git_blob_sha1": "d7e8f5f628d74734330976163422f03215cc0d4c",
+      "bytes": 77123,
+      "width": 720,
+      "height": 1280,
+      "metadata_archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/12-account.json",
+      "metadata_sha256": "0a0b0d1d16d92cd5ce5b3e668a92419b5d05d7628f7585dad8b81a8f797bc920",
+      "native_metadata": {
+        "screen": "12-account",
+        "apiLevel": 36,
+        "fontScale": 1,
+        "densityDpi": 320,
+        "screenWidthDp": 360,
+        "screenHeightDp": 640,
+        "imageWidth": 720,
+        "imageHeight": 1280,
+        "fixture": "local-only",
+        "captureMethod": "display-verified-with-window-pixelcopy",
+        "pixelTolerance": 0,
+        "comparisonEdgeInsetDp": 8,
+        "comparedBounds": {
+          "left": 16,
+          "top": 64,
+          "right": 704,
+          "bottom": 1216
+        },
+        "imeVisible": false,
+        "windowBitmapSha256Argb8888": "2023f71d19134e9dfe2f8d58c7aef971791e9d0de693ff7b03313a295e3bacfa"
+      }
+    },
+    {
+      "source_file": "13-privacy.png",
+      "archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/13-privacy.png",
+      "sha256": "d17a92f3c6732435b6c3d240cfc57d1191f580cd974851c1433829bf25b13a16",
+      "git_blob_sha1": "8f742f480593df534578f5f2afe097edb44f0488",
+      "bytes": 83147,
+      "width": 720,
+      "height": 1280,
+      "metadata_archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/13-privacy.json",
+      "metadata_sha256": "1f4cb7e54fa416d2d39ac6762d61befb166b59c72c03d036e7a87af6b2862c93",
+      "native_metadata": {
+        "screen": "13-privacy",
+        "apiLevel": 36,
+        "fontScale": 1,
+        "densityDpi": 320,
+        "screenWidthDp": 360,
+        "screenHeightDp": 640,
+        "imageWidth": 720,
+        "imageHeight": 1280,
+        "fixture": "local-only",
+        "captureMethod": "display-verified-with-window-pixelcopy",
+        "pixelTolerance": 0,
+        "comparisonEdgeInsetDp": 8,
+        "comparedBounds": {
+          "left": 16,
+          "top": 64,
+          "right": 704,
+          "bottom": 1216
+        },
+        "imeVisible": false,
+        "windowBitmapSha256Argb8888": "53fd43714b6b99f1c5992164f91a9891b196c4fb48e2e93e6232b53f6cc07517"
+      }
+    },
+    {
+      "source_file": "14-teacher-dashboard.png",
+      "archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/14-teacher-dashboard.png",
+      "sha256": "ef790424c395d8fb78847a31d1e6423fcea423d958e6ce4d0eeb87594825c860",
+      "git_blob_sha1": "ac080ae58eab910cd00f1d7abb47f1b78a8eeede",
+      "bytes": 87411,
+      "width": 720,
+      "height": 1280,
+      "metadata_archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/14-teacher-dashboard.json",
+      "metadata_sha256": "986cac76e5fa39249ca1278833832c2b130e6d5c27c370ca5630d0e876d1b4c8",
+      "native_metadata": {
+        "screen": "14-teacher-dashboard",
+        "apiLevel": 36,
+        "fontScale": 1,
+        "densityDpi": 320,
+        "screenWidthDp": 360,
+        "screenHeightDp": 640,
+        "imageWidth": 720,
+        "imageHeight": 1280,
+        "fixture": "local-only",
+        "captureMethod": "display-verified-with-window-pixelcopy",
+        "pixelTolerance": 0,
+        "comparisonEdgeInsetDp": 8,
+        "comparedBounds": {
+          "left": 16,
+          "top": 64,
+          "right": 704,
+          "bottom": 1216
+        },
+        "imeVisible": false,
+        "windowBitmapSha256Argb8888": "1d852fbcc3f9f35c5139709ae5d00597cefe75ba864a3566877cc34b21b2b005"
+      }
+    },
+    {
+      "source_file": "14a-teacher-dashboard-large-text.png",
+      "archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/14a-teacher-dashboard-large-text.png",
+      "sha256": "3e75ed5f184b1d7bcd6eb0d1bdc79371d427976c053034cd28f0607dc3a3aaf1",
+      "git_blob_sha1": "f9f1c1780af5b6f5632da4567f461ae89456fb07",
+      "bytes": 92260,
+      "width": 720,
+      "height": 1280,
+      "metadata_archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/14a-teacher-dashboard-large-text.json",
+      "metadata_sha256": "9e5093afe1ddc70561b55bfaf6394e72bbbfc44e29ed5f0e695a038e06013091",
+      "native_metadata": {
+        "screen": "14a-teacher-dashboard-large-text",
+        "apiLevel": 36,
+        "fontScale": 2,
+        "densityDpi": 320,
+        "screenWidthDp": 360,
+        "screenHeightDp": 640,
+        "imageWidth": 720,
+        "imageHeight": 1280,
+        "fixture": "local-only",
+        "captureMethod": "display-verified-with-window-pixelcopy",
+        "pixelTolerance": 0,
+        "comparisonEdgeInsetDp": 8,
+        "comparedBounds": {
+          "left": 16,
+          "top": 64,
+          "right": 704,
+          "bottom": 1216
+        },
+        "imeVisible": false,
+        "windowBitmapSha256Argb8888": "f4ab917d293e9986db32ed29e6715acfbef36dcfd184fd4c1b822a77332eba85"
+      }
+    },
+    {
+      "source_file": "15-teacher-finances.png",
+      "archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/15-teacher-finances.png",
+      "sha256": "579831d02d048233ccbdb2e99e13f71e313a03822e426f50079e107d47145228",
+      "git_blob_sha1": "1d7bcb410a1ea1ab2fccc147aac08309cff8a1a9",
+      "bytes": 100474,
+      "width": 720,
+      "height": 1280,
+      "metadata_archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/15-teacher-finances.json",
+      "metadata_sha256": "1c9f46540843a052554cc9b235d0ea828ff15827262f441cffa19f5ead76c48d",
+      "native_metadata": {
+        "screen": "15-teacher-finances",
+        "apiLevel": 36,
+        "fontScale": 1,
+        "densityDpi": 320,
+        "screenWidthDp": 360,
+        "screenHeightDp": 640,
+        "imageWidth": 720,
+        "imageHeight": 1280,
+        "fixture": "local-only",
+        "captureMethod": "display-verified-with-window-pixelcopy",
+        "pixelTolerance": 0,
+        "comparisonEdgeInsetDp": 8,
+        "comparedBounds": {
+          "left": 16,
+          "top": 64,
+          "right": 704,
+          "bottom": 1216
+        },
+        "imeVisible": false,
+        "windowBitmapSha256Argb8888": "a95752d31ddba7c4d3d60cad8ef5fcb338ded05a12f880efc74688a90683cf9d"
+      }
+    },
+    {
+      "source_file": "16-empty-courses.png",
+      "archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/16-empty-courses.png",
+      "sha256": "e7269e56ff8593bd6397d367ccd504afa78cc58eb3bad3705c6b243b5ffc8555",
+      "git_blob_sha1": "dfdfa1524cc2a7666ce4aafabb80632d9b56e57c",
+      "bytes": 52302,
+      "width": 720,
+      "height": 1280,
+      "metadata_archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/16-empty-courses.json",
+      "metadata_sha256": "9c0a9ec7ceb8bbffb7c6c3ae1b3ecdcebefde6dd796ff6bee27f4e2b0680df31",
+      "native_metadata": {
+        "screen": "16-empty-courses",
+        "apiLevel": 36,
+        "fontScale": 1,
+        "densityDpi": 320,
+        "screenWidthDp": 360,
+        "screenHeightDp": 640,
+        "imageWidth": 720,
+        "imageHeight": 1280,
+        "fixture": "local-only",
+        "captureMethod": "display-verified-with-window-pixelcopy",
+        "pixelTolerance": 0,
+        "comparisonEdgeInsetDp": 8,
+        "comparedBounds": {
+          "left": 16,
+          "top": 64,
+          "right": 704,
+          "bottom": 1216
+        },
+        "imeVisible": false,
+        "windowBitmapSha256Argb8888": "698147dac602bdf25ee484472b200f9261cece83edbc9c83171b2fd7cf84548d"
+      }
+    },
+    {
+      "source_file": "16a-resources-empty.png",
+      "archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/16a-resources-empty.png",
+      "sha256": "b90c7f043d0b4643e7aaea371aa36e5ffe8c7a85063e4bcd427c4fa4c025b401",
+      "git_blob_sha1": "0335276a725627a85651173c98b006fb0b342a9a",
+      "bytes": 51646,
+      "width": 720,
+      "height": 1280,
+      "metadata_archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/16a-resources-empty.json",
+      "metadata_sha256": "31f357b6740b90004dbf1fdfa89e7b9038f01b6a0ef951947998b2018537a98d",
+      "native_metadata": {
+        "screen": "16a-resources-empty",
+        "apiLevel": 36,
+        "fontScale": 1,
+        "densityDpi": 320,
+        "screenWidthDp": 360,
+        "screenHeightDp": 640,
+        "imageWidth": 720,
+        "imageHeight": 1280,
+        "fixture": "local-only",
+        "captureMethod": "display-verified-with-window-pixelcopy",
+        "pixelTolerance": 0,
+        "comparisonEdgeInsetDp": 8,
+        "comparedBounds": {
+          "left": 16,
+          "top": 64,
+          "right": 704,
+          "bottom": 1216
+        },
+        "imeVisible": false,
+        "windowBitmapSha256Argb8888": "ce8e0f399104d4177c9530132a66dd7be61912ea7750b7f1836c59360f12fc98"
+      }
+    },
+    {
+      "source_file": "17-network-error.png",
+      "archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/17-network-error.png",
+      "sha256": "b9b4b008fa786aac50be65b7f195854ed3a9ae9b7cdcb9d7df211720e30ab06e",
+      "git_blob_sha1": "145485145b6c4104e428688407d7f20768de7e68",
+      "bytes": 58360,
+      "width": 720,
+      "height": 1280,
+      "metadata_archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/17-network-error.json",
+      "metadata_sha256": "816f7e0480630f1917170e3d214cf61724b1ab74b34791afbf6801dde14ecccd",
+      "native_metadata": {
+        "screen": "17-network-error",
+        "apiLevel": 36,
+        "fontScale": 1,
+        "densityDpi": 320,
+        "screenWidthDp": 360,
+        "screenHeightDp": 640,
+        "imageWidth": 720,
+        "imageHeight": 1280,
+        "fixture": "local-only",
+        "captureMethod": "display-verified-with-window-pixelcopy",
+        "pixelTolerance": 0,
+        "comparisonEdgeInsetDp": 8,
+        "comparedBounds": {
+          "left": 16,
+          "top": 64,
+          "right": 704,
+          "bottom": 1216
+        },
+        "imeVisible": false,
+        "windowBitmapSha256Argb8888": "3e58c04cec83cfec5792007a60cbda76fe655dd95616f785308b7b74c778a2d1"
+      }
+    },
+    {
+      "source_file": "17a-resources-error.png",
+      "archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/17a-resources-error.png",
+      "sha256": "53ee53cf68a1bd8c29f3c1d3b6ed251fbcf58623b9abfc9b845cfd1c1a75c2dd",
+      "git_blob_sha1": "310f3a9f404f35913a2afd8802c604e914d58c58",
+      "bytes": 58144,
+      "width": 720,
+      "height": 1280,
+      "metadata_archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/17a-resources-error.json",
+      "metadata_sha256": "a9d4bd716dedd40e6fbc6951a8cce3200aaf56014db512572d7ef1fd2ffa1211",
+      "native_metadata": {
+        "screen": "17a-resources-error",
+        "apiLevel": 36,
+        "fontScale": 1,
+        "densityDpi": 320,
+        "screenWidthDp": 360,
+        "screenHeightDp": 640,
+        "imageWidth": 720,
+        "imageHeight": 1280,
+        "fixture": "local-only",
+        "captureMethod": "display-verified-with-window-pixelcopy",
+        "pixelTolerance": 0,
+        "comparisonEdgeInsetDp": 8,
+        "comparedBounds": {
+          "left": 16,
+          "top": 64,
+          "right": 704,
+          "bottom": 1216
+        },
+        "imeVisible": false,
+        "windowBitmapSha256Argb8888": "f45a6ecd8915616587e0c501aad0c24d829af096339af058427f341b83c07c03"
+      }
+    },
+    {
+      "source_file": "18-welcome-landscape.png",
+      "archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/18-welcome-landscape.png",
+      "sha256": "4db18a787f24c908ebd6572d02529960c883eaaa8741fe1a9d0eaef3e3b36b63",
+      "git_blob_sha1": "9533a78a687e1b8ba7eef070b93cd461fbec4c41",
+      "bytes": 217030,
+      "width": 1600,
+      "height": 1000,
+      "metadata_archive_member": "_temp/mpp-android-captures/run.rD4IKc/connected/emulator-5554 - 16/visual-proof/18-welcome-landscape.json",
+      "metadata_sha256": "96b4a8f79af08d4b3235a8a67155e41b058d11589bef6fae48ff5869a0f5824a",
+      "native_metadata": {
+        "screen": "18-welcome-landscape",
+        "apiLevel": 36,
+        "fontScale": 1,
+        "densityDpi": 240,
+        "screenWidthDp": 1067,
+        "screenHeightDp": 667,
+        "imageWidth": 1600,
+        "imageHeight": 1000,
+        "fixture": "local-only",
+        "captureMethod": "display-verified-with-window-pixelcopy",
+        "pixelTolerance": 0,
+        "comparisonEdgeInsetDp": 8,
+        "comparedBounds": {
+          "left": 12,
+          "top": 48,
+          "right": 1588,
+          "bottom": 940
+        },
+        "imeVisible": false,
+        "windowBitmapSha256Argb8888": "95fe85fbb90277439de0ea8c2806ba958cf1a1136e1dc47b459332a1a1b871b1"
+      }
+    }
+  ],
+  "selected_screenshots": [
+    {
+      "file": "inscription-android.png",
+      "description": "Inscription et barres système",
+      "source_file": "03-signup.png",
+      "sha256": "8361bad35a82ff339a50469fa0545acf0974469fce81eb544faffd8217333d3d",
+      "git_blob_sha1": "782aa0426a206b993181afabc59a8f7f346a0719",
+      "bytes": 56761,
+      "width": 720,
+      "height": 1280
+    },
+    {
+      "file": "otp-clavier-android.png",
+      "description": "Code OTP et clavier logiciel",
+      "source_file": "05a-otp-keyboard.png",
+      "sha256": "d0a47e71afa239abf33d1682644e3e26f3ba8a84fbeb590c2a444995cdd23a3e",
+      "git_blob_sha1": "c327320ca1f692febbc5bb55251a0da1855f32f7",
+      "bytes": 65332,
+      "width": 720,
+      "height": 1280
+    },
+    {
+      "file": "accueil-parent-android.png",
+      "description": "Accueil parent",
+      "source_file": "06-parent-home.png",
+      "sha256": "2f59426ddabaaded74f441c8c8c6d010f805837c8bc2761319e012e9ad4b3cb1",
+      "git_blob_sha1": "4262020fb32a50a01d590049ad7dca1fdbea124a",
+      "bytes": 90724,
+      "width": 720,
+      "height": 1280
+    },
+    {
+      "file": "accueil-parent-200-android.png",
+      "description": "Accueil parent et navigation à 200 %",
+      "source_file": "06a-parent-home-large-text.png",
+      "sha256": "08a5a8c92e1d3f81e7f966ecb4d4cb270a2a06760b663a8d7b7d224150b2e37d",
+      "git_blob_sha1": "c9c0b329f96d1e6a4c9691cd50fc349bb8b800e6",
+      "bytes": 78165,
+      "width": 720,
+      "height": 1280
+    },
+    {
+      "file": "reservation-android.png",
+      "description": "Formulaire de réservation avant envoi",
+      "source_file": "09-booking.png",
+      "sha256": "cdb5a1e8fba23e59ff4efe61daf0e84edc2f196c0188bf9fc4ed1981ffd8a22d",
+      "git_blob_sha1": "3cced0a62fef4438188ec623d51afcfa3affd65e",
+      "bytes": 62017,
+      "width": 720,
+      "height": 1280
+    },
+    {
+      "file": "tableau-professeur-200-android.png",
+      "description": "Espace professeur et navigation à 200 %",
+      "source_file": "14a-teacher-dashboard-large-text.png",
+      "sha256": "3e75ed5f184b1d7bcd6eb0d1bdc79371d427976c053034cd28f0607dc3a3aaf1",
+      "git_blob_sha1": "f9f1c1780af5b6f5632da4567f461ae89456fb07",
+      "bytes": 92260,
+      "width": 720,
+      "height": 1280
+    },
+    {
+      "file": "ressources-vides-android.png",
+      "description": "Ressources vides, filtres Cours et Standard",
+      "source_file": "16a-resources-empty.png",
+      "sha256": "b90c7f043d0b4643e7aaea371aa36e5ffe8c7a85063e4bcd427c4fa4c025b401",
+      "git_blob_sha1": "0335276a725627a85651173c98b006fb0b342a9a",
+      "bytes": 51646,
+      "width": 720,
+      "height": 1280
+    },
+    {
+      "file": "ressources-indisponibles-android.png",
+      "description": "Ressources indisponibles après Réessayer",
+      "source_file": "17a-resources-error.png",
+      "sha256": "53ee53cf68a1bd8c29f3c1d3b6ed251fbcf58623b9abfc9b845cfd1c1a75c2dd",
+      "git_blob_sha1": "310f3a9f404f35913a2afd8802c604e914d58c58",
+      "bytes": 58144,
+      "width": 720,
+      "height": 1280
+    },
+    {
+      "file": "bienvenue-paysage-android.png",
+      "description": "Bienvenue en paysage",
+      "source_file": "18-welcome-landscape.png",
+      "sha256": "4db18a787f24c908ebd6572d02529960c883eaaa8741fe1a9d0eaef3e3b36b63",
+      "git_blob_sha1": "9533a78a687e1b8ba7eef070b93cd461fbec4c41",
+      "bytes": 217030,
+      "width": 1600,
+      "height": 1000
+    }
+  ],
+  "source_inputs_sha256": {
+    ".github/workflows/ci.yml": "fc35ce91c28790f0f5ae4de77b4bac8dc738155006c9d408815a6c1685bd1980",
+    "android/app/build.gradle.kts": "873fc0e990fabe86e1ec0bb66c132dc6403794071ebccb1e9b53114ab34cbcfb",
+    "android/app/src/androidTest/java/ci/monprofperso/app/PresentedScreenCapture.kt": "a88fb147bfe60eea88442e3bdf2eb98dedaf340ef8bccef92c06e2c70b6882b2",
+    "android/app/src/androidTest/java/ci/monprofperso/app/VisualRegressionTest.kt": "015d07bd6dddb0969a2451d617f37a7952d6b2b95ff2a28462b7573ff2a88460",
+    "android/app/src/debug/res/xml/network_security_config.xml": "20d469638718cd786303f1504879bd6a770aff33d8e8786ab60bdad413ac3bc9",
+    "android/app/src/main/AndroidManifest.xml": "ec641ff62731f18c562a54cbfcf6918c30c6a77e431b28804f605c374dabe994",
+    "android/app/src/main/java/ci/monprofperso/app/MainActivity.kt": "c2aef074b0ea90b76c6d6c83fb84dc970489078d7aed60a849fd79df7172e3ca",
+    "android/app/src/main/java/ci/monprofperso/app/data/ApiModels.kt": "88e85fbe35b667004bd28f19ff2031290a89aec44aad75be31c5211c4a1c9d9c",
+    "android/app/src/main/java/ci/monprofperso/app/data/AppState.kt": "9c5dd7d620efa6cbfeb2b7d1a5c3e574e2859b20c448b8648946eba54ba04bf4",
+    "android/app/src/main/java/ci/monprofperso/app/data/AuthRepository.kt": "cb26d47559e41d78bdde67a743ecc98275aef15c7e03c1bb85a12cdc09015800",
+    "android/app/src/main/java/ci/monprofperso/app/data/AuthenticationFlow.kt": "c1e94da824c9c55b82633820cf1875ecc448e3477621524e3d207f7fc8d8bd17",
+    "android/app/src/main/java/ci/monprofperso/app/data/CourseOperations.kt": "cb3b9560a2a3f1f3e75b04cc4042ec47369b65ce3196050c2a141177e2a45c95",
+    "android/app/src/main/java/ci/monprofperso/app/data/MonProfPersoApi.kt": "606069316ea5e8a5e1e732c2aef2b980647fd7204c1aa4508c01ef78a2ef190c",
+    "android/app/src/main/java/ci/monprofperso/app/data/TeachersViewModel.kt": "153e92611e789ae83505999f5de01040edf92ca2ecf2285e72e7c5ef84912f6e",
+    "android/app/src/main/java/ci/monprofperso/app/data/TokenStore.kt": "2399ae72e10ebbe36a862f8355410543cf0c3965751cebe1b72c148dca8ec5ed",
+    "android/app/src/main/java/ci/monprofperso/app/data/ViewModels.kt": "5d1a5569d234bf01d7ed0b986aed1663e56268d38e2236d5d8b0daa99aa0ffd9",
+    "android/app/src/main/java/ci/monprofperso/app/nav/NavActions.kt": "819a39b158bc2a037deaf4a64ff9467deb3c160e873e1d57c727f5b7d15d9d60",
+    "android/app/src/main/java/ci/monprofperso/app/nav/NavGraph.kt": "61e937206e5e4dfd23e5bee06cde279b89bcbb13758079a6b7bfa60f2b608042",
+    "android/app/src/main/java/ci/monprofperso/app/ui/components/Common.kt": "db3d8f939559881a933c2e5b48be7da83efa13e2c03eb2ffef8eb71b77995770",
+    "android/app/src/main/java/ci/monprofperso/app/ui/components/Modifiers.kt": "05ba171f336fe60f104e46c6e84f1b4a8f3e82a7c2ec7985a0d4c278e065ebb3",
+    "android/app/src/main/java/ci/monprofperso/app/ui/components/NetworkStates.kt": "29e711e59a1bdc4464335dc1754df1c0b2d95c9e3c58d0ed959cb7ca442e7411",
+    "android/app/src/main/java/ci/monprofperso/app/ui/components/Platform.kt": "64acb30bb3c0e159bfac7b50949127f4916c0aeb559c000527ac7af439737653",
+    "android/app/src/main/java/ci/monprofperso/app/ui/components/Scaffold.kt": "6efd31adeca2745aa5def6601ffcb9ce13d54e6253ff6c1ebdc8e1997609c43a",
+    "android/app/src/main/java/ci/monprofperso/app/ui/screens/AccountScreens.kt": "3754d7fd7514777fbebcfad2c0568310c12e66bf867e0476e6f9991a00bf8a4a",
+    "android/app/src/main/java/ci/monprofperso/app/ui/screens/AdminLegalScreen.kt": "611c658eadec324f341f0eb8920e131eeac83de1269e49cddf64f79998f8b4bb",
+    "android/app/src/main/java/ci/monprofperso/app/ui/screens/AdminScreens.kt": "30602f0a693d38aa3363ff185e2cad3e8b7f489d1a4caa36bc51eb7c07343bc9",
+    "android/app/src/main/java/ci/monprofperso/app/ui/screens/AuthScreens.kt": "a389de6b91655a0cc2267f17c36b833b22417775cec1ac22eca592b565952d08",
+    "android/app/src/main/java/ci/monprofperso/app/ui/screens/BookingScreens.kt": "06b1b894f237d7311fad3c3bcefe6025e7cc4cf225359536d01a48d73c5f150d",
+    "android/app/src/main/java/ci/monprofperso/app/ui/screens/FindScreens.kt": "593cf0db62e7866f6f14b1398c816f368b885934978374c3fa149d4fa8df4664",
+    "android/app/src/main/java/ci/monprofperso/app/ui/screens/GroupScreens.kt": "13c31d45bb9b8f4a7a1b98d488eb903555ce7d9cbd3f641ef355fb9ce81327d1",
+    "android/app/src/main/java/ci/monprofperso/app/ui/screens/LearnScreens.kt": "312e64bdebc6dedf01ce7918bf41155f30b789e35c2c222a33e0f6270fcbeb51",
+    "android/app/src/main/java/ci/monprofperso/app/ui/screens/LegalScreen.kt": "e86dd5be8ee52951d246d7608a8b49d2ae3d22265d28ea4de5729caee9f10147",
+    "android/app/src/main/java/ci/monprofperso/app/ui/screens/ManageScreens.kt": "80e587340b2d2d5278ce7c5d447fae9fafd42ebb26a98a96bbd555bb54016de3",
+    "android/app/src/main/java/ci/monprofperso/app/ui/screens/MiscScreens.kt": "db761fd5d50202dcf7f57a4ca2e494b0ffdbbd4359b61819ad5f12eb1c0515dd",
+    "android/app/src/main/java/ci/monprofperso/app/ui/screens/NeedScreens.kt": "822062996e52cefb4dbbd64aa1bec4037b11da518d31dc35b15c8f4da8b7f399",
+    "android/app/src/main/java/ci/monprofperso/app/ui/screens/NotificationBell.kt": "793da6bc31432dcaee796f23e2e20e37a4a3eb1d23a88c1b5dc22706bb89bdc4",
+    "android/app/src/main/java/ci/monprofperso/app/ui/screens/PdfViewerScreen.kt": "d18b75b8f82e4ec015407888ba74944d5096551e0878c285195da51047f2f2e1",
+    "android/app/src/main/java/ci/monprofperso/app/ui/screens/ProductionScreens.kt": "d3808cbc5ee3fc73e6469c323b8776a867f190be670a785a74498dd32ffdaf78",
+    "android/app/src/main/java/ci/monprofperso/app/ui/screens/ResourcesScreen.kt": "23dfc6bcd2df1bb9cc98a31fb1685f21e355406a708b184ed0b5c75ae9f89888",
+    "android/app/src/main/java/ci/monprofperso/app/ui/screens/SubscriptionScreens.kt": "a537c412f842c9329dbbcc176d570b522bed4ffc36a72e2ebeaea8f8a4444acd",
+    "android/app/src/main/java/ci/monprofperso/app/ui/screens/TeacherMgmtScreens.kt": "66c1c53e643476fe6fc89f4cd1914d13748d37e285b4caa348a8db6593ad24de",
+    "android/app/src/main/java/ci/monprofperso/app/ui/screens/TeacherScreens.kt": "7e59500a7b57e46beeca5c0a00ac62e456b7cefdee4613cb5f09766bc5a76c68",
+    "android/app/src/main/java/ci/monprofperso/app/ui/theme/Color.kt": "cb8333e375606f2c5a03f0cd47587a8a638afdd10b1e32ce63514aa47068729c",
+    "android/app/src/main/java/ci/monprofperso/app/ui/theme/Theme.kt": "c3b9c79aac5e6de9a98fd78e5541c08d15fc8b0f4597102f953295a82a46eebd",
+    "android/app/src/main/java/ci/monprofperso/app/ui/theme/Type.kt": "2a05ea464a18f38d3870d1b142668ac5571ce30b5bce68dc40b1a1122556da3e",
+    "android/app/src/main/res/drawable-nodpi/tutoring_hero.webp": "89222eb912e583da0b70a291f4a22707a14ad323bf74df27c9843b8c0c986f7e",
+    "android/app/src/main/res/drawable/ic_launcher_foreground.xml": "e35faf7a507e792e82068d27da047f1ba9303e4af42736d9609819cd5be9b414",
+    "android/app/src/main/res/font/hanken_grotesk_bold.ttf": "e9d18189973e32e2614842ca777412639245271ee5016cbbc5024b9081d686dc",
+    "android/app/src/main/res/font/hanken_grotesk_extrabold.ttf": "9a4a18e450f6a7147d2840c87ddc6ee880eaf53302906db7210b4955f2f5f211",
+    "android/app/src/main/res/font/hanken_grotesk_medium.ttf": "366c9f60de8654362826a500399e568e6198696b8fbd999ba7d0c03c9ba742b6",
+    "android/app/src/main/res/font/hanken_grotesk_regular.ttf": "451376abefae9121f5dd0372d26865e7654b1041b9fdacdf57c6bd5cbf691da0",
+    "android/app/src/main/res/font/hanken_grotesk_semibold.ttf": "b7a672834374ef3a96e81abd2fd9bb61b282d3e75711fd4d9097e7e2e8c3b823",
+    "android/app/src/main/res/font/schibsted_grotesk_black.ttf": "cbe0fa0a24829efcfa05153ac2c2aeb0b7a1ba4d4092a707fd0e6015e3a19311",
+    "android/app/src/main/res/font/schibsted_grotesk_bold.ttf": "74fbc0e987983c4b482ba4dd789eac8e95590dc2d94a2dfecfebd5cb31bdea81",
+    "android/app/src/main/res/font/schibsted_grotesk_extrabold.ttf": "6b54e4730b14806d5555b301e274a4e8c0643124d7a1611103fa7c202574b58e",
+    "android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml": "d373cc3cac8f49c99b3fe1f3c6536822b6a0a6495f05449f8bb599c11d3bc8f8",
+    "android/app/src/main/res/mipmap-anydpi/ic_launcher.xml": "6a4e9537ce46cc1b87b022429b60cfeda5b41bad38d553a6000133ab08b57a63",
+    "android/app/src/main/res/values/colors.xml": "477979f58aaef2312bd4e61bbcfed69f3a10ea4aefb2cf9d0c144b4825fa251b",
+    "android/app/src/main/res/values/strings.xml": "547bf13f5fa42e9485817a469b9778b2335e0dc332ff437c486064d6323c75a0",
+    "android/app/src/main/res/values/themes.xml": "d55b1c6cfccdde629099b07c341d316a5edfc6db025cf6b94e23148c7f48f803",
+    "android/app/src/main/res/xml/file_paths.xml": "4b29d95c832660f4b2533aa1eabce93e84328ea8ce60fc787e0d4137274bc342",
+    "android/app/src/main/res/xml/network_security_config.xml": "9c1662814cee8937162c64c11718c75789033fb03f8aefd224539441ae876e09",
+    "android/app/src/test/java/ci/monprofperso/app/data/AuthenticationFlowTest.kt": "33f220df006a827b1699872295a5de969f2345cdd1c0c87b424f4330bdacd208",
+    "android/app/src/test/java/ci/monprofperso/app/data/CourseOperationsTest.kt": "c889e61fa7adef4da68334dd2905d277c2e8d00353a8d139e3f7aa1e0baba7c7",
+    "android/build.gradle.kts": "0637c61fc6c2d599bfcef253489fdc44f0d7921b10d75887a183df4f002badf3",
+    "android/gradle.properties": "678c35a27eeda302d6a960484179d118d08fb1edf05c1b40745bc7aed6e88f03",
+    "android/gradle/wrapper/gradle-wrapper.jar": "498495120a03b9a6ab5d155f5de3c8f0d986a449153702fb80fc80e134484f17",
+    "android/gradle/wrapper/gradle-wrapper.properties": "1b9cd6961ee86eea17b2f912bddb22030492db23fc6dff07da6c30eccaaab0c4",
+    "android/gradlew": "a3648413b47ef77af21d5ebc36c687c7d103aaef3e17f33de7d4f080a6f300a3",
+    "android/gradlew.bat": "57931b17dd228e5c24dac90e815d0bf82477e831a4618dfab4136f5446b42a9f",
+    "android/scripts/run-visual-test.sh": "4de6e3b3f26a47d00071ecf90e8181a21ac85f25c6f4bf489a3d99af26c54e1f",
+    "android/settings.gradle.kts": "6e1497778c954af9f79000d75473619776c4c8c4974f1cc5e749adae34671c1c",
+    "scripts/visual/fixture-server.mjs": "62704dacfa97c1e6a5a0a05ff7514d84da944607f9c856b33313d72b7d9db543"
+  },
+  "preservation": {
+    "method": "Copie des octets du ZIP vérifié, sans décodage ni réencodage des PNG",
+    "reason": "Archivage final repris après indisponibilité du workspace local",
+    "transport_workflow_run_id": 40768225698,
+    "transport_source_head": "d3f0cf547376bab2c67a9820b1a1030cc980e3e3",
+    "original_validation_provenance_unchanged": true
+  },
+  "limits": [
+    "Émulateur API 36 seulement ; aucun appareil physique ni TalkBack validé.",
+    "Le pipeline utilise un serveur local de fixtures et une connexion challenge/OTP.",
+    "Aucune réservation, aucun paiement ni versement réel, aucune suppression de compte exécutés.",
+    "Cette preuve ne constitue ni certification d’accessibilité ni livraison Google Play signée.",
+    "Les 15 tests JVM historiques gardent la provenance du premier build local ; ce ZIP contient le XML instrumenté."
+  ]
+}

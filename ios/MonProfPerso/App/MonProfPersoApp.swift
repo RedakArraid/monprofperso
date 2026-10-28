@@ -14,6 +14,13 @@ struct RootView: View {
     @StateObject private var router: Router
 
     init() {
+        #if DEBUG
+        // Isoler les tests UI sans injecter de session. Le parcours OTP reste exécuté.
+        if ["localhost", "127.0.0.1"].contains(ApiConfig.baseURL.host ?? ""),
+           ProcessInfo.processInfo.arguments.contains("--visual-test-reset-session") {
+            TokenStore.clear()
+        }
+        #endif
         // Restaure le rôle réel persisté (l'espace admin réapparaît au lancement).
         _router = StateObject(wrappedValue: {
             let r = Router()
@@ -44,6 +51,8 @@ struct RootView: View {
         }
         .environmentObject(router)
         .tint(Ak.green)
+        .font(AkFont.regular(16))
+        .preferredColorScheme(.light)
         .task {
             router.capabilities = (try? await ApiClient.shared.capabilities()) ?? [:]
             guard TokenStore.token != nil else { return }

@@ -1,0 +1,23 @@
+{
+  "started_utc": "2026-10-28T20:34:07.899240+00:00",
+  "git_head": "7c21d3a021f360233b3dd6e4ef2a2913d86555a2",
+  "tasks": [
+    ":app:compileDebugKotlin",
+    ":app:compileDebugAndroidTestKotlin"
+  ],
+  "kotlin_incremental": false,
+  "compiler_execution_strategy": "in-process",
+  "files": {
+    "android/app/src/main/java/ci/monprofperso/app/ui/components/NetworkStates.kt": "29e711e59a1bdc4464335dc1754df1c0b2d95c9e3c58d0ed959cb7ca442e7411",
+    "android/app/src/androidTest/java/ci/monprofperso/app/VisualRegressionTest.kt": "015d07bd6dddb0969a2451d617f37a7952d6b2b95ff2a28462b7573ff2a88460",
+    "android/app/src/androidTest/java/ci/monprofperso/app/PresentedScreenCapture.kt": "a88fb147bfe60eea88442e3bdf2eb98dedaf340ef8bccef92c06e2c70b6882b2"
+  },
+  "changed_product_files": [
+    "android/app/src/main/java/ci/monprofperso/app/ui/components/NetworkStates.kt"
+  ],
+  "test_sources_unchanged_from_git_head": true,
+  "finished_utc": "2026-10-28T20:34:47.647618+00:00",
+  "duration_seconds": 39.741,
+  "exit_code": 0,
+  "sources_unchanged_during_build": true
+}

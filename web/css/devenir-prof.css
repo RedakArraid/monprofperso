@@ -13,22 +13,22 @@
 .progress-bar span.done { width: 100%; }
 .step-kicker { font-size: 12px; color: var(--muted); margin-bottom: 20px; }
 .form-step[hidden] { display: none !important; }
-.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.field { min-width: 0; display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
 .field label { font-weight: 600; font-size: 13px; color: var(--ink); }
-.field input, .field textarea, .field select {
-  border: 1.5px solid var(--border); border-radius: 12px; padding: 12px 14px;
-  font-family: inherit; font-size: 15px;
+.field input:not([type="checkbox"]):not([type="radio"]), .field textarea, .field select {
+  border: 1.5px solid #82968B; border-radius: 12px; padding: 12px 14px;
+  font-family: inherit; font-size: 16px; min-width: 0; width: 100%; min-height: 48px; background: #fff; color: var(--ink);
 }
-.field input:focus, .field textarea:focus, .field select:focus { outline: none; border-color: var(--green); }
+.field input:focus, .field textarea:focus, .field select:focus { outline: 2px solid var(--green); outline-offset: 2px; border-color: var(--green); }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 fieldset.field { border: none; padding: 0; margin: 0 0 14px; }
 fieldset.field legend { font-weight: 600; font-size: 13px; color: var(--ink); margin-bottom: 8px; }
-.field-inline-checks .check-row { display: inline-flex; margin-right: 16px; }
+.field-inline-checks .check-row { min-height: 44px; align-items: center; display: inline-flex; margin-right: 16px; }
 .chip-grid { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip {
-  display: inline-flex; align-items: center; cursor: pointer;
-  border: 1.5px solid var(--border); border-radius: 999px; padding: 8px 14px;
-  font-size: 13px; font-weight: 600; color: var(--ink-soft); background: var(--white);
+  display: inline-flex; align-items: center; cursor: pointer; min-height: 44px;
+  border: 1.5px solid #82968B; border-radius: 999px; padding: 8px 14px;
+  font-size: 13px; font-weight: 600; color: var(--ink); background: var(--white);
   transition: background .15s, border-color .15s, color .15s;
   font-family: inherit;
 }
@@ -40,7 +40,17 @@ fieldset.field legend { font-weight: 600; font-size: 13px; color: var(--ink); ma
 .other-field[hidden] { display: none !important; }
 .file-btn.selected { border-color: var(--green); border-style: solid; }
 .check-row { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: var(--muted); margin: 12px 0; }
-.check-row input { margin-top: 3px; }
+.check-row input { margin-top: 3px; width: 20px; height: 20px; flex: 0 0 20px; accent-color: var(--green); }
+.check-row span { min-width: 0; }
+.check-row a { color: var(--green); text-decoration: underline; text-underline-offset: 3px; }
+.form-help { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; margin: 10px 0; }
+.form-version { margin: 10px 0; font-size: 13px; color: var(--muted); }
+.form-version summary { cursor: pointer; padding-block: 8px; min-height: 40px; }
+.form-version summary:focus-visible { outline: 3px solid var(--green); outline-offset: 3px; border-radius: 4px; }
+.field [aria-invalid="true"] { border-color: #A82121; }
+.form-err { padding: 12px 14px; background: #FFF0ED; border-radius: 10px; }
+.form-err:focus { outline: 2px solid #A82121; outline-offset: 3px; }
+.success-box:focus { outline: 3px solid var(--green); outline-offset: 3px; }
 .file-btn {
   display: inline-flex; align-items: center; gap: 8px; padding: 12px 16px;
   border: 1.5px dashed var(--border); border-radius: 12px; cursor: pointer;

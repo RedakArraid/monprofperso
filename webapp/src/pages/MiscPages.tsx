@@ -20,7 +20,7 @@ import { useLive } from "@/hooks/useLive";
 import { useMemo } from "react";
 
 export function NotificationsPage() {
-  const { data, offline, reload } = useLive<typeof fallback.notifications>(
+  const { data, offline, loading, reload } = useLive<typeof fallback.notifications>(
     "/api/notifications",
     fallback.notifications,
   );
@@ -28,7 +28,7 @@ export function NotificationsPage() {
     <AppShell title="Notifications" back="/compte" active="compte">
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
       {!data.length ? (
-        <Empty>Aucune notification n&apos;est disponible</Empty>
+        !offline ? <Empty>{loading ? "Chargement des notifications…" : "Aucune nouvelle notification."}</Empty> : null
       ) : (
         <ContentCard>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -47,10 +47,10 @@ export function NotificationsPage() {
           <div className="grid gap-0 divide-y divide-[#eee] md:grid-cols-2 md:gap-x-8 md:divide-y-0">
             {data.map((n, i) => (
               <div key={i} className="flex gap-3 border-b border-[#eee] py-3 md:border-b md:py-3">
-                <span className={n.unread ? "text-primary" : "text-[#ccc]"}>●</span>
+                <span className="shrink-0 text-primary" aria-label={n.unread ? "Non lue" : "Lue"}>{n.unread ? "●" : "○"}</span>
                 <div>
                   <div className="text-[15px] text-[#333]">{n.text}</div>
-                  <div className="text-sm text-[#888]">{n.time_ago}</div>
+                  <div className="text-sm text-muted-foreground">{n.time_ago}</div>
                 </div>
               </div>
             ))}
@@ -62,7 +62,7 @@ export function NotificationsPage() {
 }
 
 export function WalletPage() {
-  const { data, offline, reload } = useLive<{
+  const { data, offline, loading, reload } = useLive<{
     accounts: { provider?: string; number?: string; label?: string }[];
     transactions: { title?: string; label?: string; amount?: number; subtitle?: string }[];
   }>("/api/wallet", fallback.wallet);
@@ -71,7 +71,7 @@ export function WalletPage() {
     <AppShell title="Portefeuille" back="/compte" active="compte">
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
       {empty ? (
-        <Empty>Aucune transaction n&apos;est disponible</Empty>
+        !offline ? <Empty>{loading ? "Chargement du portefeuille…" : "Aucune transaction pour le moment."}</Empty> : null
       ) : (
         <PageGrid cols={2}>
           {(data.accounts || []).map((a, i) => (
@@ -87,7 +87,7 @@ export function WalletPage() {
                 <div key={i} className="flex justify-between gap-3 border-b border-[#eee] py-3">
                   <div>
                     <div className="text-[15px] font-medium text-[#333]">{t.title || t.label}</div>
-                    <div className="text-sm text-[#888]">{t.subtitle}</div>
+                    <div className="text-sm text-muted-foreground">{t.subtitle}</div>
                   </div>
                   <strong className="text-primary">{fcfa(t.amount)} F</strong>
                 </div>
@@ -164,7 +164,7 @@ export function GroupDetailPage() {
           <SectionHeading>{data.title}</SectionHeading>
           <p className="text-[15px] text-[#555]">{data.detail}</p>
           <p className="mt-3 text-lg font-bold text-primary">{fcfa(data.price)} F</p>
-          <p className="mt-4 text-sm text-[#888]">Inscription bientôt disponible sur le web.</p>
+          <p className="mt-4 text-sm text-muted-foreground">Inscription bientôt disponible sur le web.</p>
         </ContentCard>
       </PageStack>
     </AppShell>
@@ -221,7 +221,7 @@ export function ReferralPage() {
 
 export function ResourcesPage() {
   const { isTeacher } = useAuth();
-  const { data, offline, reload } = useLive<typeof fallback.resources>("/api/resources", fallback.resources);
+  const { data, offline, loading, reload } = useLive<typeof fallback.resources>("/api/resources", fallback.resources);
   const grouped = useMemo(() => {
     const map = new Map<string, typeof data>();
     for (const r of data) {
@@ -236,7 +236,7 @@ export function ResourcesPage() {
     <AppShell title={isTeacher ? "Mes documents" : "Ressources"} active="ressources">
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
       {!data.length ? (
-        <Empty>Aucun document n&apos;est disponible</Empty>
+        !offline ? <Empty>{loading ? "Chargement des documents…" : "Aucun document disponible pour le moment."}</Empty> : null
       ) : (
         <div className="space-y-5">
           <ContentCard>
@@ -266,7 +266,7 @@ export function ResourcesPage() {
                         rel="noreferrer"
                       >
                         {r.title}
-                        <span className="text-[#888] no-underline"> — {r.type}</span>
+                        <span className="text-muted-foreground no-underline"> — {r.type}</span>
                       </a>
                     </li>
                   ))}
@@ -338,7 +338,7 @@ export function MockPage({ title, text, active }: { title: string; text: string;
         <ContentCard>
           <SectionHeading>{title}</SectionHeading>
           <p className="text-[15px] leading-relaxed text-[#555]">{text}</p>
-          <p className="mt-3 text-sm text-[#888]">Cette fonctionnalité n’est pas encore disponible. Aucune opération ne sera effectuée.</p>
+          <p className="mt-3 text-sm text-muted-foreground">Cette fonctionnalité n’est pas encore disponible. Aucune opération ne sera effectuée.</p>
         </ContentCard>
       </PageStack>
     </AppShell>

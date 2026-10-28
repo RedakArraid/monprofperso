@@ -52,7 +52,8 @@ cd ios
 xcodegen generate
 xcodebuild -list -project MonProfPerso.xcodeproj
 xcodebuild test -project MonProfPerso.xcodeproj -scheme MonProfPerso \
-  -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO
+  -destination 'platform=iOS Simulator,name=iPhone 16' \
+  CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=-
 ```
 
 Adapter le simulateur à ceux installés. `ApiClientTests` contrôle l’encodage des filtres et du préfixe ivoirien, l’éligibilité au paiement, les liens HTTPS, les demandes de suppression en attente, les montants de versement et les conditions financières manquantes d’un cours historique. Linux permet seulement une vérification des sources ; il ne compile pas SwiftUI et n’exécute pas ces tests.
@@ -68,3 +69,150 @@ Configurer le compte Apple Developer et les certificats/profils de signature sur
 Variables optionnelles : `MPP_IOS_API_URL` (HTTPS), `MPP_IOS_VERSION_NAME` (par défaut `1.1.0`) et `MPP_IOS_BUILD_NUMBER` (par défaut `3`). Le numéro de build doit augmenter à chaque envoi. Le script exige une équipe valide, génère le projet, archive Release et exporte localement vers `ios/build/`. Il ne téléverse rien vers App Store Connect.
 
 La mise en diffusion nécessite encore les certificats et profils du propriétaire, les métadonnées et documents de confidentialité, les captures adaptées, les accès de revue et une validation des parcours sur appareils et préproduction. Une archive réussie ne prouve ni une validation App Review ni un paiement réel.
+
+
+## Recette visuelle instrumentée
+
+Le schéma Xcode `MonProfPerso-Visual` ajoute quatre parcours XCUITest aux tests
+unitaires. Il capture les vraies vues du simulateur : accueil illustré,
+connexion et OTP, parent, recherche, fiche, réservation, cours, compte,
+confidentialité, professeur, revenus, grandes polices, état vide et erreur réseau.
+
+Démarrer le serveur local depuis la racine dans un autre terminal :
+
+```sh
+MPP_VISUAL_FIXTURES=1 node scripts/visual/fixture-server.mjs
+```
+
+Puis, sur macOS, après avoir choisi un iPhone disponible avec
+`xcrun simctl list devices available` :
+
+```sh
+cd ios
+xcodegen generate
+xcodebuild test -project MonProfPerso.xcodeproj -scheme MonProfPerso-Visual \
+  -destination 'platform=iOS Simulator,name=iPhone 16' \
+  -resultBundlePath build/visual.xcresult -parallel-testing-enabled NO \
+  -test-timeouts-enabled YES -default-test-execution-time-allowance 300 \
+  -maximum-test-execution-time-allowance 300 \
+  CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=-
+bash scripts/export-visual-captures.sh build/visual.xcresult build/visual-captures
+```
+
+La signature locale ad hoc du simulateur (`CODE_SIGN_IDENTITY=-`) préserve
+l’exécution réelle du Keychain ; elle n’exige pas de certificat de publication.
+La [première CI visuelle du candidat `3539dc3`](https://github.com/RedakArraid/monprofperso/actions/runs/40745829826)
+a compilé l’application et réussi les 11 tests unitaires sur iPhone 17 Pro / iOS
+26.4.1. Ses quatre parcours UI se sont arrêtés après l’OTP : les captures montrent
+« La session n’a pas pu être enregistrée dans le trousseau » avec la signature
+désactivée. Ces captures attestent seulement les écrans atteints, pas les parcours
+connectés.
+
+La [CI du candidat `7d926c0`](https://github.com/RedakArraid/monprofperso/actions/runs/40749309467)
+a ensuite réussi les **11 tests unitaires et les quatre parcours XCUITest** sur
+**iPhone SE de troisième génération / iOS 26.4.1**, avec le vrai Keychain et une
+signature locale ad hoc. Les parcours UI ont duré 162,428 secondes. L’assertion
+de visibilité du champ OTP a réussi avec le clavier logiciel ouvert et la taille
+Dynamic Type `Accessibility XXXL`, avant tout tap ou défilement du test sur le
+champ. Les 27 PNG exportés ont été inspectés : ils correspondent à 22 images
+distinctes. Quatre pièces jointes portent à tort un nom `failure` car
+`hasSucceeded` était lu avant la clôture du test ; leurs pixels sont identiques
+aux captures de fin réussies. Le compteur d’échecs et d’exceptions
+`totalFailureCount` remplace maintenant cette condition. Les deux captures de
+détail de cours étaient aussi identiques ; la recette défile désormais jusqu’au
+bouton du formulaire pour montrer les consignes et la planification, sans
+modifier les données.
+
+Cette inspection confirme le défilement de l’accueil hors de la barre système,
+les écrans connectés et la distinction entre vide et indisponibilité. Elle a
+également révélé des initiales tronquées dans l’avatar et une pastille de
+notification trop agrandie, un texte indicatif OTP tronqué, des textes indicatifs
+trop pâles, et le code `home` présenté dans une demande professeur. Le delta
+suivant corrige ces points, limite le dessin de la connexion à sa zone défilable
+et ajoute des gestes explicites dans le test de navigation agrandie jusqu’à
+Compte puis Accueil. Les noms et textes de contenu conservent Dynamic Type ;
+seuls les repères graphiques de l’avatar et de la pastille ont une taille fixe.
+
+La [CI du candidat `2c1b4c0`](https://github.com/RedakArraid/monprofperso/actions/runs/40752999558)
+a validé ces modifications : **11 tests unitaires et quatre parcours UI réussis**
+sur iPhone SE de troisième génération / iOS 26.4.1, en 179,686 secondes pour les
+parcours UI. Les **25 PNG distincts** ont été inspectés, y compris le clavier OTP
+et le défilement de la navigation en Accessibility XXXL. Aucun nouveau défaut
+de mise en page bloquant n’a été identifié sur ces captures. Les
+[six preuves alors conservées](https://github.com/RedakArraid/monprofperso/tree/6bd10c1686e7f9e793894aa8ce86648dd40b0964/docs/visual-evidence/ios)
+restent dans l’historique avec la provenance exacte, les empreintes et la portée
+de cette validation du candidat `2c1b4c0`.
+
+Choisir un dossier `.xcresult` neuf à chaque exécution. La CI privilégie un
+iPhone SE installé ou tente d’en créer un si ce type est disponible. Sinon,
+elle utilise un iPhone installé et indique le modèle effectivement testé dans
+le journal. Elle conserve les pièces jointes et exporte des PNG nommés.
+La remise à zéro du trousseau pour ce parcours exige un build Debug, l’argument
+explicite de test et une API locale ; aucune session n’est injectée et aucun
+prestataire externe n’est contacté. Lire les captures produites avant validation.
+Cette recette ne remplace pas les essais VoiceOver, clavier, installation signée
+et retour des applications de paiement sur appareil physique.
+
+### Ressources : états réels
+
+L’écran accessible depuis **Compte → Ressources pédagogiques** remplaçait une
+liste API vide ou une erreur par des exemples locaux. Ce repli est supprimé en
+Debug comme en Release : chargement, résultat vide et erreur avec **Réessayer**
+sont distincts, et seules les ressources reçues de l’API sont affichées. Les
+filtres sont des boutons accessibles de 44 points minimum, avec sélection annoncée.
+Le badge Devoir utilise `#A94713` sur `#FBE9DA` : contraste sRGB de **4,939:1**,
+contre 2,586:1 avec l’orange décoratif précédent, pour son texte de 10,5 points.
+
+Le parcours des comptes de recette `0700000198` et `0700000199` ajoute trois
+captures obtenues, sans création de ressource :
+
+- `21-empty-resources` : réponse `200 []`, filtre Cours sélectionné et absence des anciens exemples.
+- `22-unavailable-resources` : réponse `503`, message d’erreur et réessai accessible.
+- `23-retry-resources` : après Réessayer, l’indisponibilité reste explicite et aucun exemple n’apparaît.
+
+Le [job iOS du candidat `4601340`](https://github.com/RedakArraid/monprofperso/actions/runs/40759860433/job/123068531063)
+a compilé cette révision et réussi **11 tests unitaires et quatre parcours UI**,
+sans échec ni exception inattendue, sur iPhone SE de troisième génération / iOS
+26.4.1. Les parcours UI ont duré **252,423 secondes**. Les **28 captures exportées**
+ont toutes été inspectées : elles représentent **27 images distinctes**, les
+états erreur et réessai étant identiques puisque le service reste indisponible.
+Aucun nouveau défaut de mise en page bloquant n’a été observé. Les
+[neuf preuves originales et leur manifeste](../docs/visual-evidence/ios/README.md)
+proviennent exclusivement de ce nouveau run ; les six anciennes preuves `2c1b4c0`
+gardent leur attribution dans l’historique Git.
+
+Le texte et l’icône du badge Devoir utilisent maintenant `Ak.orangeText`
+(`#A94713`) sur `Ak.orangeSoft` (`#FBE9DA`) : contraste calculé **4,939:1**, contre
+2,586:1 auparavant. Cette mesure provient de la palette du code ; les captures
+de ressources vides et indisponibles ne contiennent pas de badge Devoir.
+
+### Contrastes mesurés
+
+La revue du 28 octobre 2026 a renforcé les couleurs de petit texte. Le vert
+`#0E5A43` et l’orange `#E8722A` de marque sont conservés. Les ratios ci-dessous
+utilisent la luminance relative sRGB et la formule `(Lclair + 0,05) / (Lsombre + 0,05)`
+du [critère WCAG 2.2 1.4.3](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html),
+avec un objectif de **4,5:1** pour ces textes. Les valeurs affichées sont arrondies
+à trois décimales ; la comparaison au seuil porte sur les valeurs non arrondies.
+
+| Texte | Fond | Avant | Après | Ratio avant → après |
+| --- | --- | --- | --- | --- |
+| Sous-titre d’un rôle non sélectionné | Blanc à 10 % sur `#0E5A43` | `#C6DCD2` | `#E2EFE9` | 4,416 → **5,383** |
+| Texte secondaire (`Ak.muted`) | Canvas `#F7F4EE` | `#67756D` | `#5B685F` | 4,406 → **5,328** |
+| Texte secondaire | Champ `#F2EFE8` | `#67756D` | `#5B685F` | 4,212 → **5,094** |
+| Texte secondaire | Blanc `#FFFFFF` | `#67756D` | `#5B685F` | 4,836 → **5,849** |
+| Texte secondaire | Crème `#ECE7DE` | `#67756D` | `#5B685F` | 3,927 → **4,750** |
+| Erreur (`Ak.danger`) | Canvas `#F7F4EE` | `#E0392B` | `#BF3326` | 3,994 → **5,147** |
+| Erreur | Blanc `#FFFFFF` | `#E0392B` | `#BF3326` | 4,385 → **5,650** |
+| Erreur | Crème `#ECE7DE` | `#E0392B` | `#BF3326` | 3,560 → **4,588** |
+| Nombre de notifications | Orange `#E8722A` | `#FFFFFF` | `#18241E` | 3,056 → **5,246** |
+
+La composition de la carte de rôle est calculée avant la luminance, sans arrondir
+ses canaux (R 38,1 ; V 106,5 ; B 85,8 sur 255). `Ak.onGreenSoft` reste utilisé
+directement sur le vert, où son ratio est de 5,686:1. Ces mesures portent sur les
+couples de couleurs du code ; elles ne constituent pas un audit d’accessibilité
+complet. Les textes indicatifs des champs communs utilisent désormais `Ak.muted`,
+soit 5,849:1 sur blanc et 5,094:1 sur le fond de champ. La pastille est masquée
+aux lecteurs d’écran, car le libellé du bouton annonce déjà le nombre réel de
+notifications non lues. Le candidat `7d926c0` précède ces ajustements : ses captures
+ne permettent pas de valider leur rendu après correction.

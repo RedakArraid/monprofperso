@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,9 +22,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ci.monprofperso.app.ui.theme.AkColors
@@ -43,20 +48,24 @@ fun PrimaryButton(
     enabled: Boolean = true,
     onClick: () -> Unit = {},
 ) {
+    // Le blanc sur l'orange de marque ne contraste pas assez pour un petit libellé.
+    val foreground = if (color.luminance() > 0.25f) AkColors.Ink else AkColors.White
     Row(
         modifier = modifier
+            .heightIn(min = 52.dp)
             .alpha(if (enabled) 1f else 0.6f)
             .clip(RoundedCornerShape(15.dp))
             .background(color)
-            .clickable(enabled = enabled) { onClick() }
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(vertical = 16.dp, horizontal = 18.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, color = AkColors.White, fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 15.5.sp)
+        Text(label, color = foreground, fontFamily = Hanken, fontWeight = FontWeight.Bold,
+            fontSize = 16.sp, textAlign = TextAlign.Center, modifier = Modifier.weight(1f, fill = false))
         if (trailingIcon != null) {
             Spacer(Modifier.width(8.dp))
-            Icon(trailingIcon, null, tint = AkColors.White, modifier = Modifier.size(18.dp))
+            Icon(trailingIcon, null, tint = foreground, modifier = Modifier.size(18.dp))
         }
     }
 }
@@ -73,17 +82,18 @@ fun IconSquare(
     bg: Color = AkColors.CardField,
     tint: Color = AkColors.Ink,
     size: Int = 40,
+    contentDescription: String = if (icon == Icons.Filled.Close) "Fermer" else "Retour",
     onClick: () -> Unit = {},
 ) {
     Box(
         modifier = modifier
-            .size(size.dp)
+            .size(size.coerceAtLeast(48).dp)
             .clip(RoundedCornerShape((size * 0.3).dp))
             .background(bg)
-            .clickable { onClick() },
+            .clickable(role = Role.Button, onClickLabel = contentDescription, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, null, tint = tint, modifier = Modifier.size((size * 0.48).dp))
+        Icon(icon, contentDescription, tint = tint, modifier = Modifier.size(24.dp))
     }
 }
 
@@ -104,7 +114,8 @@ fun TopBar(
         IconSquare(if (closeIcon) Icons.Filled.Close else Icons.AutoMirrored.Filled.ArrowBack, onClick = onBack)
         Spacer(Modifier.width(13.dp))
         Column(Modifier.weight(1f)) {
-            Text(title, fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = AkColors.Ink)
+            Text(title, fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp,
+                color = AkColors.Ink, modifier = Modifier.semantics { heading() })
             if (subtitle != null) {
                 Text(subtitle, fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted)
             }
@@ -124,10 +135,13 @@ fun SectionHeader(title: String, action: String? = "Tout voir", onAction: () -> 
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(title, fontFamily = Schibsted, fontWeight = FontWeight.Bold, fontSize = 16.5.sp, color = AkColors.Ink)
+        Text(title, fontFamily = Schibsted, fontWeight = FontWeight.Bold, fontSize = 17.sp,
+            color = AkColors.Ink, modifier = Modifier.weight(1f).semantics { heading() })
         if (action != null) {
-            Text(action, fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
-                color = AkColors.Green, modifier = Modifier.clickable { onAction() })
+            androidx.compose.material3.TextButton(onClick = onAction) {
+                Text(action, fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
+                    color = AkColors.Green)
+            }
         }
     }
 }
@@ -147,10 +161,11 @@ fun Chip(
     val fg = if (selected) AkColors.White else AkColors.InkSoft
     Row(
         modifier = Modifier
+            .heightIn(min = 48.dp)
             .clip(RoundedCornerShape(11.dp))
             .background(bg)
             .then(if (selected) Modifier else Modifier.border(1.dp, AkColors.Border, RoundedCornerShape(11.dp)))
-            .clickable { onClick() }
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

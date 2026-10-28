@@ -54,6 +54,18 @@ targets:
       base:
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: ci.monprofperso.app.tests
+  MonProfPersoUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+    dependencies:
+      - target: MonProfPerso
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: ci.monprofperso.app.uitests
+        TEST_TARGET_NAME: MonProfPerso
 
 schemes:
   MonProfPerso:
@@ -76,3 +88,14 @@ schemes:
       config: Staging
     archive:
       config: Staging
+  MonProfPerso-Visual:
+    build:
+      targets:
+        MonProfPerso: all
+        MonProfPersoUITests: [test]
+    test:
+      config: Debug
+      targets:
+        - MonProfPersoTests
+        - MonProfPersoUITests
+      gatherCoverageData: false

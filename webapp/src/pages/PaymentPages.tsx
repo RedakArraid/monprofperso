@@ -67,7 +67,7 @@ export function BookingPage() {
           <SectionHeading>{teacher.name}</SectionHeading>
           <p className="mb-4 text-sm">{fcfa(teacher.price_per_hour)} F par heure. Le montant est calculé à partir du tarif du professeur et de la durée.</p>
           <form className="space-y-4" onSubmit={book}>
-            <fieldset disabled={busy || offline} className="grid gap-4 sm:grid-cols-2">
+            <fieldset disabled={busy || offline} className="grid grid-cols-1 gap-4 sm:grid-cols-2 [&>div]:min-w-0">
               <div className="space-y-1.5"><Label htmlFor="booking-subject">Matière</Label><Input id="booking-subject" name="subject" required maxLength={80} defaultValue={teacher.subjects.split("·")[0]?.trim()} /></div>
               <div className="space-y-1.5"><Label htmlFor="booking-level">Niveau</Label><Input id="booking-level" name="level" required maxLength={40} /></div>
               <div className="space-y-1.5"><Label htmlFor="booking-date">Date (Côte d&apos;Ivoire)</Label><Input id="booking-date" name="date" type="date" required min={new Date().toISOString().slice(0, 10)} /></div>

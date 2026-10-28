@@ -6,6 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.School
@@ -20,20 +22,25 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ci.monprofperso.app.data.Api
+import ci.monprofperso.app.data.Auth
 import ci.monprofperso.app.data.ResourceDto
 import ci.monprofperso.app.nav.NavActions
 import ci.monprofperso.app.ui.components.*
 import ci.monprofperso.app.ui.theme.AkColors
 import ci.monprofperso.app.ui.theme.Hanken
 import ci.monprofperso.app.ui.theme.Schibsted
+import kotlinx.coroutines.CancellationException
 
 /* ====================================================================== *
  * ÉCRAN UTILISATEUR, RESSOURCES & SUPPORTS (lecture seule)
- * Consomme /api/resources en live ; repli sur quelques exemples hors-ligne.
+ * Consomme /api/resources en live, sans contenu de remplacement.
  * Filtrage par type (cours/devoir/exercice) et par programme scolaire.
  * ====================================================================== */
 private val resourceFilters = listOf(null to "Tout", "course" to "Cours", "homework" to "Devoirs", "exercise" to "Exercices")
@@ -49,12 +56,6 @@ private fun resTypeIcon(type: String): ImageVector = when (type) {
     else -> Icons.Filled.School
 }
 
-private val fallbackResources = listOf(
-    ResourceDto(1, "course", "maths", "3eme", "standard", "Fiche, Théorème de Thalès", "Rappels de cours et exemples corrigés.", null, null, null, null),
-    ResourceDto(2, "exercise", "physique", "2nde", "standard", "Série d'exercices, Optique", "10 exercices progressifs avec corrigés.", null, null, null, null),
-    ResourceDto(3, "homework", "francais", "1ere", "francais", "Devoir, Commentaire de texte", "Sujet type BAC à rendre.", null, null, null, null),
-)
-
 private fun matchesProgram(r: ResourceDto, filter: String?): Boolean {
     if (filter == null) return true
     val p = r.program ?: "standard"
@@ -67,66 +68,76 @@ fun ResourcesScreen(nav: NavActions) {
     var all by remember { mutableStateOf<List<ResourceDto>?>(null) }
     var typeFilter by remember { mutableStateOf<String?>(null) }
     var programFilter by remember { mutableStateOf<String?>(null) }
-    var offline by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var reload by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(typeFilter, programFilter) {
-        val live = runCatching {
-            Api.service.resources(type = typeFilter, program = programFilter)
-        }.getOrNull()
-        if (live != null) {
-            offline = false
-            all = live.ifEmpty { fallbackResources }
-        } else {
-            offline = true
-            all = fallbackResources
+    LaunchedEffect(typeFilter, programFilter, reload) {
+        all = null
+        error = null
+        try {
+            all = Api.service.resources(type = typeFilter, program = programFilter)
+        } catch (failure: CancellationException) {
+            throw failure
+        } catch (failure: Exception) {
+            error = Auth.errorMessage(failure)
         }
     }
 
     val items = (all ?: emptyList()).filter { r ->
-        (typeFilter == null || r.type == typeFilter) && (offline || matchesProgram(r, programFilter))
+        (typeFilter == null || r.type == typeFilter) && matchesProgram(r, programFilter)
     }
 
-    AkScreen(applyBottomInset = false) {
+    AkScreen {
         TopBar("Ressources & supports", subtitle = "Cours, devoirs & exercices", onBack = { nav.back() })
-        Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 22.dp, vertical = 4.dp)) {
+        Row(Modifier.horizontalScroll(rememberScrollState()).selectableGroup().padding(horizontal = 22.dp, vertical = 4.dp)) {
             resourceFilters.forEach { (value, label) ->
-                FilterChip(label, typeFilter == value) { typeFilter = value }
+                ResourceFilterChip("Type de ressource", label, typeFilter == value) { typeFilter = value }
                 Spacer(Modifier.width(8.dp))
             }
         }
-        Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 22.dp, vertical = 4.dp)) {
+        Row(Modifier.horizontalScroll(rememberScrollState()).selectableGroup().padding(horizontal = 22.dp, vertical = 4.dp)) {
             programFilters.forEach { (value, label) ->
-                FilterChip(label, programFilter == value) { programFilter = value }
+                ResourceFilterChip("Programme", label, programFilter == value) { programFilter = value }
                 Spacer(Modifier.width(8.dp))
             }
         }
         Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 22.dp).padding(top = 8.dp)) {
-            if (all == null) {
-                Text("Chargement…", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Faint)
+            if (error != null) {
+                FeedbackMessage(requireNotNull(error))
+                Spacer(Modifier.height(8.dp))
+                OfflineBanner(onRetry = { reload++ })
+            } else if (all == null) {
+                LoadingRow()
             } else if (items.isEmpty()) {
-                Text("Aucune ressource disponible pour ce filtre.", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Faint)
+                EmptyContent("Aucune ressource disponible", "Aucune ressource ne correspond aux filtres sélectionnés.")
+            } else {
+                items.forEach { r -> ResourceCard(r, nav) }
             }
-            items.forEach { r -> ResourceCard(r, nav) }
             Spacer(Modifier.height(20.dp))
         }
     }
 }
 
 @Composable
-private fun FilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun ResourceFilterChip(group: String, label: String, selected: Boolean, onClick: () -> Unit) {
     val bg = if (selected) AkColors.Green else AkColors.White
     val fg = if (selected) AkColors.White else AkColors.InkSoft
-    Text(
-        label, fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.5.sp, color = fg,
-        modifier = Modifier.clip(RoundedCornerShape(11.dp)).background(bg)
+    Box(
+        modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp).clip(RoundedCornerShape(11.dp)).background(bg)
             .then(if (selected) Modifier else Modifier.border(1.dp, AkColors.Border, RoundedCornerShape(11.dp)))
-            .clickable { onClick() }.padding(horizontal = 14.dp, vertical = 9.dp),
-    )
+            .selectable(selected = selected, role = Role.Button, onClick = onClick)
+            .semantics { contentDescription = "$group : $label" }
+            .padding(horizontal = 14.dp, vertical = 9.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.5.sp, color = fg)
+    }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ResourceCard(r: ResourceDto, nav: NavActions) {
-    val accent = if (r.type == "homework") AkColors.Orange else AkColors.Green
+    val accent = if (r.type == "homework") AkColors.OrangeStrong else AkColors.Green
     val soft = if (r.type == "homework") AkColors.OrangeSoft else AkColors.GreenSoft
     val context = LocalContext.current
     val hasFile = !r.fileName.isNullOrBlank()
@@ -151,15 +162,13 @@ private fun ResourceCard(r: ResourceDto, nav: NavActions) {
         ) { Icon(resTypeIcon(r.type), null, tint = accent, modifier = Modifier.size(20.dp)) }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(resTypeLabel(r.type), fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 10.5.sp, color = accent,
                     modifier = Modifier.clip(RoundedCornerShape(7.dp)).background(soft).padding(horizontal = 7.dp, vertical = 2.dp))
-                Spacer(Modifier.width(8.dp))
                 Text(progLabel, fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 10.5.sp, color = AkColors.Green,
                     modifier = Modifier.clip(RoundedCornerShape(7.dp)).background(AkColors.GreenSoft).padding(horizontal = 7.dp, vertical = 2.dp))
                 val tags = listOfNotNull(r.subjectSlug, r.level).joinToString(" · ")
                 if (tags.isNotEmpty()) {
-                    Spacer(Modifier.width(8.dp))
                     Text(tags, fontFamily = Hanken, fontSize = 11.sp, color = AkColors.Faint)
                 }
             }

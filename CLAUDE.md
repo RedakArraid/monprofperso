@@ -257,3 +257,20 @@ Interface en français destinée au public ivoirien ; heures des cours en
 `Africa/Abidjan`. Vert `#0E5A43`, orange `#E8722A`, crème `#ECE7DE`.
 Polices Schibsted Grotesk et Hanken Grotesk ; icônes Material sur Android et
 SF Symbols sur iOS.
+
+
+## Qualité visuelle et recette mobile
+
+La revue et ses preuves sont décrites dans `docs/VISUAL-MOBILE-REVIEW.md`.
+Les polices web sont locales (`web/css/fonts.css`, licences sous
+`web/assets/fonts/`) et l’illustration éditoriale partagée dispose de variantes
+WebP/JPEG adaptées aux clients. Conserver le texte utile et les actions dans
+les vues, sans les intégrer à l’image.
+
+`npm run test:visual` dans `webapp/` contrôle les parcours avec Playwright et axe.
+Le serveur `scripts/visual/fixture-server.mjs` exige `MPP_VISUAL_FIXTURES=1`,
+refuse la production et ne représente jamais une preuve de mise en service.
+Android utilise `VisualRegressionTest` ; iOS, la scheme `MonProfPerso-Visual`.
+Les artefacts CI contiennent les captures réelles de la révision testée.
+Ne pas confondre une absence d’erreur automatique, une revue de captures,
+une validation sur appareil physique et une publication sur une boutique.

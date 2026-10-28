@@ -14,6 +14,7 @@ object AkColors {
 
     // Oranges (accent)
     val Orange = Color(0xFFE8722A)
+    val OrangeStrong = Color(0xFFAD4517) // texte orange lisible sur les surfaces claires
     val OrangeLight = Color(0xFFF2A04D)
     val OrangeSoft = Color(0xFFFBE9DA)  // fond doux orange
 
@@ -27,8 +28,8 @@ object AkColors {
     // Textes
     val Ink = Color(0xFF18241E)         // titres
     val InkSoft = Color(0xFF384640)
-    val Muted = Color(0xFF67756D)       // texte secondaire
-    val Faint = Color(0xFF9AA8A0)       // placeholders / inactifs
+    val Muted = Color(0xFF59695F)       // texte secondaire, contraste sur crème et blanc
+    val Faint = Color(0xFF5B6B61)       // légendes et placeholders lisibles
     val OnGreenSoft = Color(0xFFC6DCD2) // texte clair sur vert
     val OnGreenFaint = Color(0xFFA9C7BB)
 

@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { BrandIllustration } from "@/components/brand-illustration";
 import { useEffect, useState, type FormEvent } from "react";
 
 type Session = { token: string; user: User };
@@ -33,6 +34,7 @@ export function LoginPage() {
   const [consent, setConsent] = useState(false);
   const [parentalConsent, setParentalConsent] = useState(false);
   const [channels, setChannels] = useState<Channels | null>(null);
+  const [channelAttempt, setChannelAttempt] = useState(0);
   const [channel, setChannel] = useState<"whatsapp" | "email">("whatsapp");
   const [email, setEmail] = useState("");
   const [challenge, setChallenge] = useState<OtpChallenge | null>(null);
@@ -50,15 +52,16 @@ export function LoginPage() {
 
   useEffect(() => {
     let active = true;
+    setErr("");
     api<Channels>("/api/auth/otp-channels").then((c) => {
       if (!active) return;
       setChannels(c);
-      setChannel(!phoneProof && c.defaultChannel === "email" && c.email ? "email" : "whatsapp");
+      setChannel(!phoneProof && (c.defaultChannel === "email" || !c.whatsapp) && c.email ? "email" : "whatsapp");
     }).catch(() => {
       if (active) setErr("Les moyens de vérification sont indisponibles. Réessayez dans un instant.");
     });
     return () => { active = false; };
-  }, [phoneProof]);
+  }, [phoneProof, channelAttempt]);
 
   useEffect(() => {
     if (!challenge) return;
@@ -141,28 +144,32 @@ export function LoginPage() {
     }
   }
 
+  const channelAvailable = Boolean(channels && (tab === "signup" || phoneProof ? channels.whatsapp : channel === "email" ? channels.email : channels.whatsapp));
+
   return (
-    <div className="relative min-h-dvh overflow-hidden bg-background">
+    <main className="relative min-h-dvh bg-background">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_#e2efe9_0%,_transparent_50%),radial-gradient(ellipse_at_bottom_left,_#fbe9da_0%,_transparent_45%)]" />
-      <div className="relative mx-auto grid min-h-dvh w-full max-w-[1400px] items-center gap-8 px-4 py-8 sm:px-6 lg:grid-cols-2 lg:gap-12 lg:px-10">
-        <div className="hidden lg:block">
-          <img src="/assets/mp2-logo.png" alt="MP²" className="mb-6 h-16 w-16 rounded-2xl" />
-          <h1 className="font-display text-4xl font-black leading-tight text-primary xl:text-5xl">Mon Prof Perso</h1>
-          <p className="mt-4 max-w-md text-lg text-muted-foreground">Soutien scolaire à domicile en Côte d&apos;Ivoire.</p>
+      <div className="relative mx-auto grid min-h-dvh w-full max-w-6xl items-center gap-8 px-4 py-6 sm:px-6 sm:py-10 lg:grid-cols-2 lg:gap-12">
+        <div className="hidden min-w-0 lg:block">
+          <div className="flex items-center gap-3"><img src="/assets/mp2-logo.png" alt="" className="h-12 w-12 rounded-xl" /><p className="font-display text-lg font-extrabold text-primary">Mon Prof Perso</p></div>
+          <p className="mt-8 max-w-lg font-display text-4xl font-extrabold leading-tight text-primary">Un accompagnement qui fait grandir.</p>
+          <p className="mt-4 max-w-md text-lg leading-relaxed text-muted-foreground">Vos cours, votre professeur et le suivi de vos apprentissages, réunis dans un même espace.</p>
+          <BrandIllustration priority className="mt-6 w-full max-w-lg rounded-3xl" />
         </div>
-        <div>
-          <a href="/" className="mb-4 inline-block text-sm text-muted-foreground hover:text-foreground">← Retour au site</a>
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle className="text-2xl">{challenge ? "Vérifiez votre identité" : tab === "signup" ? "Créer un compte" : "Connexion"}</CardTitle>
+        <div className="mx-auto w-full min-w-0 max-w-lg">
+          <div className="mb-3 flex items-center gap-3 lg:hidden"><img src="/assets/mp2-logo.png" alt="" className="h-11 w-11 rounded-xl" /><p className="font-display text-lg font-extrabold text-primary">Mon Prof Perso</p></div>
+          <a href="/" className="mb-3 inline-flex min-h-11 items-center rounded-lg text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">← Retour au site</a>
+          <Card className="shadow-[0_12px_48px_rgba(14,90,67,0.08)]">
+            <CardHeader className="p-5 pb-3 sm:p-7 sm:pb-4">
+              <CardTitle as="h1" className="text-2xl text-welcome">{challenge ? "Vérifiez votre identité" : tab === "signup" ? "Créer un compte" : "Connexion"}</CardTitle>
               <CardDescription>{reauthenticate ? "Vérifiez à nouveau votre identité pour protéger les données de votre compte." : "Accédez à votre espace parent ou professeur."}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-5 p-5 pt-2 sm:p-7 sm:pt-2">
               {!challenge && !reauthenticate ? (
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2" role="group" aria-label="Accès au compte">
                   {(["login", "signup"] as const).map((value) => (
-                    <Button key={value} variant={tab === value ? "secondary" : "outline"} disabled={busy}
-                      onClick={() => { setTab(value); setErr(""); }}>
+                    <Button key={value} variant={tab === value ? "secondary" : "outline"} disabled={busy} aria-pressed={tab === value}
+                      onClick={() => { setTab(value); setErr(""); if (!channels) setChannelAttempt((attempt) => attempt + 1); }}>
                       {value === "login" ? "Connexion" : "Inscription"}
                     </Button>
                   ))}
@@ -171,10 +178,10 @@ export function LoginPage() {
               <form className="space-y-4" onSubmit={submit}>
                 {challenge ? (
                   <>
-                    <p className="text-sm">Un code a été envoyé par {challenge.channel === "email" ? "e-mail" : "WhatsApp"} à {challenge.destination}.</p>
+                    <p className="break-words text-sm">Un code a été envoyé par {challenge.channel === "email" ? "e-mail" : "WhatsApp"} à {challenge.destination}.</p>
                     <div className="space-y-1.5">
                       <Label htmlFor="code">Code à 6 chiffres</Label>
-                      <Input id="code" autoFocus required inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6}
+                      <Input id="code" autoFocus required inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} className="text-center text-xl font-semibold tracking-[.35em]"
                         value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} />
                     </div>
                     <p className="text-xs text-muted-foreground">{now >= expiresAt ? "Code expiré." : `Code valable encore ${Math.ceil((expiresAt - now) / 60_000)} minute(s).`}</p>
@@ -214,7 +221,7 @@ export function LoginPage() {
                         <label className="flex items-start gap-2 text-sm"><input type="checkbox" required disabled={!channels?.consentVersion} checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1" />
                           <span>J&apos;accepte les <a href={`${apiBase()}/api/legal/cgu/file?v=${encodeURIComponent(channels?.consentVersion || "")}`} target="_blank" rel="noreferrer" className="underline">CGU</a> et la <a href={`${apiBase()}/api/legal/confidentialite/file?v=${encodeURIComponent(channels?.consentVersion || "")}`} target="_blank" rel="noreferrer" className="underline">politique de confidentialité</a>.</span>
                         </label>
-                        <p className="text-xs text-muted-foreground">{channels?.consentVersion ? `Version présentée : ${channels.consentVersion}` : "Chargement de la version des documents…"}</p>
+                        {channels?.consentVersion ? <details className="rounded-lg border border-border px-3 text-xs text-muted-foreground"><summary className="flex min-h-11 cursor-pointer items-center font-semibold">Version des documents présentés</summary><p className="break-all pb-3 leading-relaxed">{channels.consentVersion}</p></details> : <p role="status" className="text-sm text-muted-foreground">Chargement de la version des documents…</p>}
                         {role === "student" ? <label className="flex items-start gap-2 text-sm"><input type="checkbox" required checked={parentalConsent} onChange={(e) => setParentalConsent(e.target.checked)} className="mt-1" />
                           <span>Je dispose de l&apos;accord de mon responsable légal.</span></label> : null}
                       </>
@@ -222,7 +229,9 @@ export function LoginPage() {
                   </>
                 )}
                 {err ? <p role="alert" className="text-sm font-semibold text-destructive">{err}</p> : null}
-                <Button className="w-full" disabled={busy || (!challenge && tab === "signup" && !channels?.consentVersion) || (Boolean(challenge) && now >= expiresAt)} type="submit">
+                {!challenge && !channels ? (err ? <Button type="button" variant="outline" className="w-full" onClick={() => setChannelAttempt((value) => value + 1)}>Réessayer le chargement</Button> : <p role="status" className="text-sm text-muted-foreground">Chargement des moyens de connexion…</p>) : null}
+                {!challenge && channels && !channelAvailable ? <p role="alert" className="text-sm text-destructive">Ce moyen de vérification est temporairement indisponible.</p> : null}
+                <Button className="w-full" disabled={busy || (!challenge && !channelAvailable) || (!challenge && tab === "signup" && !channels?.consentVersion) || (Boolean(challenge) && now >= expiresAt)} type="submit">
                   {busy ? "Vérification…" : challenge ? "Valider le code" : tab === "signup" ? "Créer mon compte" : "Se connecter"}
                 </Button>
               </form>
@@ -238,6 +247,6 @@ export function LoginPage() {
           </Card>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

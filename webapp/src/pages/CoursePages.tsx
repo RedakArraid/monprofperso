@@ -50,7 +50,7 @@ export function CoursesPage() {
       <Button asChild variant="outline"><Link to="/agenda">Mon agenda</Link></Button>
       <Button variant="outline" onClick={() => void reload()} disabled={loading}>Actualiser</Button>
     </div>
-    {filtered.length ? <PageGrid>{filtered.map((course) => <CourseCard key={course.id} course={course} />)}</PageGrid> : <Empty>{loading ? "Chargement…" : "Aucun cours dans cette sélection."}</Empty>}
+    {filtered.length ? <PageGrid>{filtered.map((course) => <CourseCard key={course.id} course={course} />)}</PageGrid> : !offline ? <Empty>{loading ? "Chargement…" : "Aucun cours dans cette sélection."}</Empty> : null}
   </AppShell>;
 }
 
@@ -70,7 +70,7 @@ export function AgendaPage() {
     <PageStack>
       {unscheduled.length ? <ContentCard><SectionHeading>Créneaux à convenir</SectionHeading><ul className="space-y-3">{unscheduled.map((c) => <li key={c.id}><Link className="link-green" to={`/cours/${c.id}`}>{c.subject} · {c.participant_role === "teacher" ? c.student_name || c.parent_name || "Élève" : c.teacher_name} — proposer un créneau</Link></li>)}</ul></ContentCard> : null}
       {[...groups].map(([day, courses]) => <section key={day}><SectionHeading>{courseDate(`${day}T00:00:00Z`, false)}</SectionHeading><PageGrid>{courses.map((course) => <CourseCard key={course.id} course={course} />)}</PageGrid></section>)}
-      {!scheduled.length && !unscheduled.length ? <Empty>{loading ? "Chargement…" : "Aucun cours à afficher dans votre agenda."}</Empty> : null}
+      {!scheduled.length && !unscheduled.length && !offline ? <Empty>{loading ? "Chargement…" : "Aucun cours à afficher dans votre agenda."}</Empty> : null}
     </PageStack>
   </AppShell>;
 }
@@ -119,7 +119,7 @@ export function CourseDetailPage() {
     }
   }
 
-  if (!course || !data) return <AppShell title="Détail du cours" active="cours" back="/cours">{offline ? <OfflineBanner onRetry={() => void reload()} /> : null}<Empty>{loading ? "Chargement du cours…" : "Ce cours n’est pas accessible."}</Empty></AppShell>;
+  if (!course || !data) return <AppShell title="Détail du cours" active="cours" back="/cours">{offline ? <OfflineBanner onRetry={() => void reload()} /> : null}{!offline ? <Empty>{loading ? "Chargement du cours…" : "Ce cours n’est pas accessible."}</Empty> : null}</AppShell>;
   const isTeacher = course.participant_role === "teacher";
   const meeting = safeHttpsUrl(course.meeting_url);
   const phone = isTeacher ? data.contacts.parentPhone : data.contacts.teacherPhone;

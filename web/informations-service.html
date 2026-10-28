@@ -2,14 +2,16 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Informations sur le service · Mon Prof Perso</title>
   <link rel="icon" href="assets/mp2-logo.png" />
-  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/fonts.css" />
+  <link rel="stylesheet" href="css/styles.css?v=20261024-visual" />
 </head>
 <body>
+  <a class="skip-link" href="#main-content">Aller au contenu</a>
   <header class="site-header"><div class="container header-inner"><a class="brand" href="/"><img class="brand-logo" src="assets/mp2-logo.png" alt="" /><span class="brand-name">Mon Prof Perso</span></a><a class="btn btn-ghost" href="aide.html">Aide</a></div></header>
-  <main class="public-document">
+  <main id="main-content" tabindex="-1" class="public-document">
     <span class="kicker">Informations publiées par l’exploitant</span><h1>Le service et ses conditions</h1>
     <p id="service-information-status" role="status">Chargement des informations publiées…</p>
     <section><h2>Exploitant</h2><p><strong>Nom :</strong> <span data-service="company_name">Non renseigné</span></p><p><strong>Immatriculation :</strong> <span data-service="registration_number">Non renseignée</span></p><p data-service="company_address">Adresse non renseignée</p></section>
@@ -20,7 +22,7 @@
     <p><a data-legal="cgu">Conditions d’utilisation</a> · <a data-legal="confidentialite">Politique de confidentialité</a> · <a data-legal="mentions-legales">Mentions légales</a></p>
     <p><a href="suppression-compte.html">Demander la suppression de mon compte</a> · <a href="aide.html">Contacter le support</a></p>
   </main>
-  <script src="js/main.js?v=20261024-production"></script>
+  <script src="js/main.js?v=20261024-visual"></script>
   <script src="js/service-information.js"></script>
 </body>
 </html>

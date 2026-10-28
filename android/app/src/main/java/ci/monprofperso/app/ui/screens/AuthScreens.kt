@@ -1,5 +1,8 @@
 package ci.monprofperso.app.ui.screens
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -32,6 +35,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.testTag
+import androidx.compose.runtime.saveable.rememberSaveable
+import ci.monprofperso.app.R
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -53,64 +64,45 @@ import ci.monprofperso.app.ui.theme.Schibsted
  * ====================================================================== */
 @Composable
 fun WelcomeScreen(nav: NavActions) {
-    val role = ci.monprofperso.app.data.AppState.role
+    val role = AppState.role
     AkScreen(background = AkColors.Green) {
         Column(
-            Modifier
-                .fillMaxSize()
-                .padding(horizontal = 28.dp)
-                .padding(top = 14.dp, bottom = 26.dp),
+            Modifier.weight(1f).fillMaxWidth().verticalScrollSafe()
+                .padding(horizontal = 24.dp, vertical = 16.dp),
         ) {
-            // logo
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Box(
-                    Modifier.size(36.dp).clip(RoundedCornerShape(11.dp)).background(AkColors.GreenDark),
-                    contentAlignment = Alignment.Center,
-                ) { Icon(Icons.Filled.School, null, tint = AkColors.White, modifier = Modifier.size(20.dp)) }
-                Row {
-                    Text("Mon Prof Perso", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 21.sp, color = AkColors.White)
-                    Text(".", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 21.sp, color = AkColors.OrangeLight)
+                Box(Modifier.size(38.dp).clip(RoundedCornerShape(12.dp)).background(AkColors.GreenDark), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Filled.School, null, tint = AkColors.White, modifier = Modifier.size(22.dp))
                 }
+                Text("Mon Prof Perso", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold,
+                    fontSize = 21.sp, color = AkColors.White, modifier = Modifier.weight(1f))
             }
-
-            Spacer(Modifier.height(48.dp))
-            Text(
-                "Votre prof,\nvotre rythme,\nvotre réussite.",
-                fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 39.sp,
-                lineHeight = 41.sp, color = AkColors.White,
-            )
-            Spacer(Modifier.height(18.dp))
-            Text(
-                "Trouvez un professeur, organisez vos cours et suivez l’accompagnement de votre enfant en Côte d’Ivoire.",
-                fontFamily = Hanken, fontSize = 15.5.sp, lineHeight = 23.sp, color = AkColors.OnGreenSoft,
-                modifier = Modifier.widthIn(max = 300.dp),
-            )
-
-            Spacer(Modifier.height(28.dp))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Stat("Cours", "individuels")
-                Box(Modifier.width(1.dp).height(34.dp).background(AkColors.GreenLine))
-                Stat("Suivi", "personnalisé")
-                Box(Modifier.width(1.dp).height(34.dp).background(AkColors.GreenLine))
-                Stat("Simple", "à organiser")
-            }
-
-            Spacer(Modifier.weight(1f))
-            Text("JE SUIS…", fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 12.5.sp,
-                color = AkColors.OnGreenFaint)
+            Spacer(Modifier.height(22.dp))
+            Text("Votre prof,\nà votre rythme.", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold,
+                fontSize = 34.sp, lineHeight = 39.sp, color = AkColors.White)
+            Spacer(Modifier.height(12.dp))
+            Text("Des cours individuels et un suivi adapté, en Côte d’Ivoire.",
+                fontFamily = Hanken, fontSize = 16.sp, lineHeight = 23.sp, color = AkColors.OnGreenSoft)
+            Spacer(Modifier.height(20.dp))
+            Image(painterResource(R.drawable.tutoring_hero), contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 140.dp, max = 230.dp)
+                    .clip(RoundedCornerShape(22.dp)).background(AkColors.Canvas))
+            Spacer(Modifier.height(22.dp))
+            Text("Comment souhaitez-vous utiliser l’app ?", fontFamily = Hanken, fontWeight = FontWeight.Bold,
+                fontSize = 15.sp, color = AkColors.White)
+            Spacer(Modifier.height(12.dp))
+            RoleOption(Icons.Filled.Groups, "Un parent", "Je cherche un prof pour mon enfant", selected = role == 0) { AppState.role = 0 }
             Spacer(Modifier.height(10.dp))
-            RoleOption(Icons.Filled.Groups, "Un parent", "Je cherche un prof pour mon enfant", selected = role == 0) { ci.monprofperso.app.data.AppState.role = 0 }
-            Spacer(Modifier.height(9.dp))
-            RoleOption(Icons.Filled.School, "Un élève", "Je révise pour réussir mes examens", selected = role == 1) { ci.monprofperso.app.data.AppState.role = 1 }
-            Spacer(Modifier.height(9.dp))
-            RoleOption(Icons.Filled.CoPresent, "Un professeur", "Je veux donner des cours", selected = role == 2) { ci.monprofperso.app.data.AppState.role = 2 }
-            Spacer(Modifier.height(14.dp))
+            RoleOption(Icons.Filled.School, "Un élève", "Je souhaite être accompagné", selected = role == 1) { AppState.role = 1 }
+            Spacer(Modifier.height(10.dp))
+            RoleOption(Icons.Filled.CoPresent, "Un professeur", "Je souhaite donner des cours", selected = role == 2) { AppState.role = 2 }
+        }
+        Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(top = 10.dp, bottom = 10.dp)) {
             PrimaryButton("Continuer", Modifier.fillMaxWidth(), onClick = { nav.go(Routes.Signup) })
-            Spacer(Modifier.height(10.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                Text("Déjà un compte ? ", fontFamily = Hanken, fontSize = 13.5.sp, color = AkColors.OnGreenFaint)
-                Text("Se connecter", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.5.sp,
-                    color = AkColors.White, modifier = Modifier.clickable { nav.go(Routes.Login) })
+            androidx.compose.material3.TextButton(onClick = { nav.go(Routes.Login) }, modifier = Modifier.fillMaxWidth()) {
+                Text("J’ai déjà un compte · Se connecter", fontFamily = Hanken, fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp, textAlign = TextAlign.Center, color = AkColors.White)
             }
         }
     }
@@ -128,7 +120,7 @@ private fun Stat(value: String, label: String) {
 private fun RoleOption(icon: ImageVector, title: String, subtitle: String, selected: Boolean = false, onClick: () -> Unit = {}) {
     val bg = if (selected) AkColors.White else AkColors.White.copy(alpha = 0.12f)
     val titleColor = if (selected) AkColors.Ink else AkColors.White
-    val subColor = if (selected) AkColors.Muted else AkColors.OnGreenFaint
+    val subColor = if (selected) AkColors.Muted else AkColors.GreenSoft
     Row(
         Modifier
             .fillMaxWidth()
@@ -136,7 +128,7 @@ private fun RoleOption(icon: ImageVector, title: String, subtitle: String, selec
             .background(bg)
             .then(if (selected) Modifier.border(2.dp, AkColors.OrangeLight, RoundedCornerShape(16.dp))
             else Modifier.border(1.5.dp, AkColors.White.copy(alpha = 0.18f), RoundedCornerShape(16.dp)))
-            .clickable { onClick() }
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 15.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -161,9 +153,9 @@ private fun RoleOption(icon: ImageVector, title: String, subtitle: String, selec
 fun SignupScreen(nav: NavActions) {
     val role = AppState.role
     val scope = rememberCoroutineScope()
-    var phone by remember { mutableStateOf(AppState.authPhone) }
-    var email by remember { mutableStateOf(AppState.authEmail) }
-    var fullName by remember { mutableStateOf(AppState.authFullName) }
+    var phone by rememberSaveable { mutableStateOf(AppState.authPhone) }
+    var email by rememberSaveable { mutableStateOf(AppState.authEmail) }
+    var fullName by rememberSaveable { mutableStateOf(AppState.authFullName) }
     var consent by remember { mutableStateOf(false) }
     var consentVersion by remember { mutableStateOf<String?>(null) }
     var parentalConsent by remember { mutableStateOf(false) }
@@ -197,10 +189,11 @@ fun SignupScreen(nav: NavActions) {
             Text("E-mail facultatif. Il ne permettra pas de se connecter avant sa vérification.",
                 fontFamily = Hanken, fontSize = 12.sp, color = AkColors.Muted)
             Spacer(Modifier.height(14.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Je m'inscris en tant que", fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = AkColors.Muted)
-                Text("Modifier", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = AkColors.Green,
-                    modifier = Modifier.clickable { nav.back() })
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Je m'inscris en tant que", modifier = Modifier.weight(1f), fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = AkColors.Muted)
+                androidx.compose.material3.TextButton(onClick = { nav.back() }) {
+                    Text("Modifier", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AkColors.Green)
+                }
             }
             Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(AkColors.GreenSoft)
@@ -211,19 +204,19 @@ fun SignupScreen(nav: NavActions) {
             }
             Spacer(Modifier.height(16.dp))
             if (consentVersion == null) androidx.compose.material3.TextButton(onClick = { scope.launch { loadConsentVersion() } }) { Text("Recharger les conditions") }
-            ConsentCheckboxLinked(checked = consent, onToggle = { if (consentVersion != null && !busy) consent = !consent },
+            ConsentCheckboxLinked(checked = consent, enabled = consentVersion != null && !busy, onToggle = { consent = !consent },
                 onOpenCgu = { openLegal("cgu", "Conditions d'utilisation") },
                 onOpenPrivacy = { openLegal("confidentialite", "Politique de confidentialité") })
             if (isStudent) {
                 Spacer(Modifier.height(12.dp))
                 ConsentCheckbox(checked = parentalConsent, onToggle = { parentalConsent = !parentalConsent },
-                    "Je confirme avoir le consentement d'un parent ou tuteur légal (élève mineur).")
+                    "Je confirme avoir le consentement d'un parent ou tuteur légal (élève mineur).", enabled = !busy)
             }
-            AppState.authError?.let { Text(it, color = AkColors.Orange, modifier = Modifier.padding(top = 12.dp)) }
+            AppState.authError?.let { Text(it, color = AkColors.OrangeStrong, modifier = Modifier.padding(top = 12.dp)) }
         }
         Column(Modifier.padding(horizontal = 24.dp).padding(bottom = 24.dp, top = 12.dp)) {
             PrimaryButton(if (busy) "Vérification…" else "Créer mon compte", Modifier.fillMaxWidth(),
-                color = if (canSubmit) AkColors.Green else AkColors.Border, onClick = {
+                color = AkColors.Green, enabled = canSubmit, onClick = {
                     if (!canSubmit) return@PrimaryButton
                     busy = true
                     scope.launch {
@@ -243,10 +236,8 @@ fun SignupScreen(nav: NavActions) {
                     }
                 })
             Spacer(Modifier.height(13.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                Text("Déjà un compte ? ", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Muted)
-                Text("Se connecter", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.sp,
-                    color = AkColors.Green, modifier = Modifier.clickable { nav.go(Routes.Login) })
+            androidx.compose.material3.TextButton(onClick = { nav.go(Routes.Login) }, modifier = Modifier.fillMaxWidth()) {
+                Text("Déjà un compte ? Se connecter", textAlign = TextAlign.Center, color = AkColors.Green)
             }
         }
     }
@@ -256,10 +247,11 @@ fun SignupScreen(nav: NavActions) {
 private fun SegTab(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit = {}) {
     Box(
         modifier
+            .heightIn(min = 48.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(if (selected) AkColors.Green else AkColors.White)
             .then(if (selected) Modifier else Modifier.border(1.dp, AkColors.Border, RoundedCornerShape(12.dp)))
-            .clickable { onClick() }
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
             .padding(vertical = 11.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -303,7 +295,11 @@ fun PhoneField(
                 textStyle = TextStyle(fontFamily = Hanken, fontWeight = FontWeight.Medium, fontSize = 14.5.sp, color = AkColors.Ink),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 singleLine = true,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("auth-phone")
+                    .semantics { contentDescription = "Numéro de téléphone, indicatif Côte d’Ivoire +225" },
+                decorationBox = { field ->
+                    Box(Modifier.fillMaxWidth().heightIn(min = 48.dp), contentAlignment = Alignment.CenterStart) { field() }
+                },
             )
         }
     }
@@ -321,7 +317,7 @@ private fun EmailField(value: String, onValueChange: (String) -> Unit) {
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             singleLine = true,
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxWidth().heightIn(min = 56.dp).semantics { contentDescription = "Adresse e-mail" }
                 .clip(RoundedCornerShape(14.dp))
                 .background(AkColors.White)
                 .border(1.dp, AkColors.Border, RoundedCornerShape(14.dp))
@@ -348,9 +344,9 @@ private fun OtpChannelPicker(selected: String, onSelect: (String) -> Unit) {
 @Composable
 fun LoginScreen(nav: NavActions) {
     val scope = rememberCoroutineScope()
-    var phone by remember { mutableStateOf(AppState.authPhone) }
+    var phone by rememberSaveable { mutableStateOf(AppState.authPhone) }
     var channel by remember { mutableStateOf("whatsapp") }
-    var email by remember { mutableStateOf(AppState.authEmail) }
+    var email by rememberSaveable { mutableStateOf(AppState.authEmail) }
     var busy by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -372,14 +368,15 @@ fun LoginScreen(nav: NavActions) {
         }
     }
     AkScreen {
-        Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 26.dp).padding(top = 30.dp),
+        TopBar("Connexion", onBack = { nav.back() })
+        Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 26.dp).padding(top = 20.dp, bottom = 18.dp),
             horizontalAlignment = Alignment.CenterHorizontally) {
             Box(Modifier.size(56.dp).clip(RoundedCornerShape(16.dp)).background(AkColors.Green), contentAlignment = Alignment.Center) {
                 Icon(Icons.Filled.School, null, tint = AkColors.White, modifier = Modifier.size(29.dp))
             }
             Spacer(Modifier.height(14.dp))
-            Text("Content de vous revoir", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, color = AkColors.Ink)
-            Text("Connectez-vous avec un code de vérification.", fontFamily = Hanken, fontSize = 13.5.sp, color = AkColors.Muted)
+            Text("Content de vous revoir", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, color = AkColors.Ink, textAlign = TextAlign.Center)
+            Text("Connectez-vous avec un code de vérification.", fontFamily = Hanken, fontSize = 14.sp, color = AkColors.Muted, textAlign = TextAlign.Center)
             Spacer(Modifier.height(30.dp))
             PhoneField(value = phone, onValueChange = { phone = it })
             if (AppState.otpWhatsappEnabled && AppState.otpEmailEnabled && !AppState.otpDemo) {
@@ -391,16 +388,15 @@ fun LoginScreen(nav: NavActions) {
                 EmailField(value = email, onValueChange = { email = it })
                 Text("Utilisez uniquement l'adresse déjà vérifiée pour ce compte.", fontFamily = Hanken, fontSize = 12.sp, color = AkColors.Muted)
             }
-            AppState.authError?.let { Text(it, color = AkColors.Orange, modifier = Modifier.padding(top = 14.dp)) }
+            AppState.authError?.let { Text(it, color = AkColors.OrangeStrong, modifier = Modifier.padding(top = 14.dp)) }
             Spacer(Modifier.height(20.dp))
             PrimaryButton(if (busy) "Connexion…" else "Se connecter", Modifier.fillMaxWidth(),
-                color = if (busy) AkColors.Border else AkColors.Green, trailingIcon = null, onClick = { connect() })
+                color = AkColors.Green, enabled = !busy && phone.count(Char::isDigit) >= 10, trailingIcon = null, onClick = { connect() })
         }
         Column(Modifier.fillMaxWidth().padding(bottom = 26.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(horizontalArrangement = Arrangement.Center) {
-                Text("Nouveau sur Mon Prof Perso ? ", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Muted)
-                Text("Créer un compte", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.sp,
-                    color = AkColors.Green, modifier = Modifier.clickable { nav.go(Routes.Signup) })
+            Text("Nouveau sur Mon Prof Perso ?", fontFamily = Hanken, fontSize = 14.sp, color = AkColors.Muted, textAlign = TextAlign.Center)
+            androidx.compose.material3.TextButton(onClick = { nav.go(Routes.Signup) }, modifier = Modifier.fillMaxWidth()) {
+                Text("Créer un compte", color = AkColors.Green)
             }
             if (AppState.otpDemo) {
                 Spacer(Modifier.height(10.dp))
@@ -430,53 +426,22 @@ private fun SocialButton(label: String, icon: ImageVector, modifier: Modifier = 
 
 /** Case à cocher de consentement (CGU / parental), conforme au design Akwaba. */
 @Composable
-private fun ConsentCheckbox(checked: Boolean, onToggle: () -> Unit, label: String) {
-    Row(Modifier.clickable { onToggle() }, verticalAlignment = Alignment.Top) {
-        Box(
-            Modifier.size(20.dp).clip(RoundedCornerShape(6.dp))
-                .background(if (checked) AkColors.Green else AkColors.White)
-                .border(1.5.dp, if (checked) AkColors.Green else AkColors.Border, RoundedCornerShape(6.dp)),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (checked) Icon(Icons.Filled.Check, null, tint = AkColors.White, modifier = Modifier.size(13.dp))
-        }
-        Spacer(Modifier.width(9.dp))
-        Text(label, fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted, lineHeight = 18.sp)
+private fun ConsentCheckbox(checked: Boolean, onToggle: () -> Unit, label: String, enabled: Boolean = true) {
+    Row(Modifier.fillMaxWidth().toggleable(value = checked, enabled = enabled, role = Role.Checkbox, onValueChange = { onToggle() }),
+        verticalAlignment = Alignment.CenterVertically) {
+        androidx.compose.material3.Checkbox(checked = checked, onCheckedChange = null, enabled = enabled, modifier = Modifier.padding(12.dp))
+        Text(label, fontFamily = Hanken, fontSize = 14.sp, color = AkColors.Muted, lineHeight = 21.sp,
+            modifier = Modifier.weight(1f).padding(vertical = 12.dp))
     }
 }
 
-/** Case CGU avec « Conditions d'utilisation » et « politique de confidentialité » cliquables (ouvrent le PDF). */
+/** Les liens des documents restent des actions séparées du consentement. */
 @Composable
-private fun ConsentCheckboxLinked(checked: Boolean, onToggle: () -> Unit, onOpenCgu: () -> Unit, onOpenPrivacy: () -> Unit) {
-    val link = SpanStyle(color = AkColors.Green, fontWeight = FontWeight.Bold)
-    val annotated = buildAnnotatedString {
-        append("J'accepte les ")
-        pushStringAnnotation("cgu", "cgu"); withStyle(link) { append("Conditions d'utilisation") }; pop()
-        append(" et la ")
-        pushStringAnnotation("privacy", "privacy"); withStyle(link) { append("politique de confidentialité") }; pop()
-        append(".")
-    }
-    Row(verticalAlignment = Alignment.Top) {
-        Box(
-            Modifier.size(20.dp).clip(RoundedCornerShape(6.dp))
-                .background(if (checked) AkColors.Green else AkColors.White)
-                .border(1.5.dp, if (checked) AkColors.Green else AkColors.Border, RoundedCornerShape(6.dp))
-                .clickable { onToggle() },
-            contentAlignment = Alignment.Center,
-        ) {
-            if (checked) Icon(Icons.Filled.Check, null, tint = AkColors.White, modifier = Modifier.size(13.dp))
-        }
-        Spacer(Modifier.width(9.dp))
-        ClickableText(
-            text = annotated,
-            style = TextStyle(fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted, lineHeight = 18.sp),
-        ) { offset ->
-            when {
-                annotated.getStringAnnotations("cgu", offset, offset).isNotEmpty() -> onOpenCgu()
-                annotated.getStringAnnotations("privacy", offset, offset).isNotEmpty() -> onOpenPrivacy()
-                else -> onToggle()
-            }
-        }
+private fun ConsentCheckboxLinked(checked: Boolean, onToggle: () -> Unit, onOpenCgu: () -> Unit, onOpenPrivacy: () -> Unit, enabled: Boolean = true) {
+    Column {
+        ConsentCheckbox(checked, onToggle, "J’accepte les conditions d’utilisation et la politique de confidentialité.", enabled)
+        androidx.compose.material3.TextButton(onClick = onOpenCgu) { Text("Lire les conditions d’utilisation") }
+        androidx.compose.material3.TextButton(onClick = onOpenPrivacy) { Text("Lire la politique de confidentialité") }
     }
 }
 
@@ -513,17 +478,17 @@ fun OtpScreen(nav: NavActions) {
             androidx.compose.material3.OutlinedTextField(value = code,
                 onValueChange = { code = it.filter { digit -> digit in '0'..'9' }.take(codeLen); AppState.authError = null },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                label = { Text("Code de vérification") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            AppState.authError?.let { Text(it, fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Orange, modifier = Modifier.padding(top = 12.dp)) }
+                label = { Text("Code de vérification") }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("auth-otp"))
+            AppState.authError?.let { Text(it, fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.OrangeStrong, modifier = Modifier.padding(top = 12.dp)) }
             Spacer(Modifier.height(24.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                Text("Vous n'avez rien reçu ? ", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Muted)
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Vous n'avez rien reçu ?", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Muted)
                 if (resendSec > 0) {
                     Text("Renvoyer dans ${resendSec / 60}:${(resendSec % 60).toString().padStart(2, '0')}",
-                        fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Faint)
+                        fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Muted, modifier = Modifier.padding(vertical = 12.dp))
                 } else {
                     Text(if (sending) "Envoi…" else "Renvoyer", fontFamily = Hanken, fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp, color = AkColors.Green, modifier = Modifier.clickable(enabled = !sending && !verifying) {
+                        fontSize = 13.sp, color = AkColors.Green, modifier = Modifier.heightIn(min = 48.dp).clickable(enabled = !sending && !verifying, role = Role.Button) {
                             sending = true
                             scope.launch {
                                 try { if (Auth.resendOtp()) { resendSec = 60; code = "" } } finally { sending = false }
@@ -534,7 +499,7 @@ fun OtpScreen(nav: NavActions) {
         }
         Box(Modifier.padding(horizontal = 28.dp).padding(bottom = 26.dp)) {
             PrimaryButton(if (verifying) "Vérification…" else "Vérifier", Modifier.fillMaxWidth(),
-                color = if (code.length == codeLen && !verifying) AkColors.Green else AkColors.Border, onClick = {
+                color = AkColors.Green, enabled = code.length == codeLen && !verifying && !sending, onClick = {
                     if (verifying || sending || code.length != codeLen) return@PrimaryButton
                     verifying = true
                     scope.launch {

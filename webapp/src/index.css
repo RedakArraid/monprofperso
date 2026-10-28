@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "../../web/css/fonts.css";
 
 @theme inline {
   --color-background: var(--background);
@@ -29,10 +30,10 @@
 }
 
 :root {
-  /* Style extranet type Completude, charte MP² */
+  /* Palette partagée avec la vitrine et les applications natives. */
   --radius: 0.75rem;
-  --background: #f2f2f2;
-  --foreground: #2d2d2d;
+  --background: #f5f4f0;
+  --foreground: #243b30;
   --card: #ffffff;
   --card-foreground: #2d2d2d;
   --primary: #0e5a43;
@@ -40,12 +41,12 @@
   --secondary: #e2efe9;
   --secondary-foreground: #0e5a43;
   --muted: #ebebeb;
-  --muted-foreground: #6b6b6b;
+  --muted-foreground: #58685e;
   --accent: #e8722a;
-  --accent-foreground: #ffffff;
-  --destructive: #e0392b;
-  --border: #e5e5e5;
-  --input: #e5e5e5;
+  --accent-foreground: #2d1b10;
+  --destructive: #b92f25;
+  --border: #dde5df;
+  --input: #85968c;
   --ring: #0e5a43;
   --orange: #e8722a;
   --orange-soft: #fbe9da;
@@ -64,7 +65,8 @@ body,
 }
 
 html {
-  overflow-x: clip;
+  color-scheme: light;
+  scroll-padding-top: 6rem;
 }
 
 body {
@@ -73,7 +75,83 @@ body {
   background: var(--background);
   color: var(--foreground);
   -webkit-font-smoothing: antialiased;
-  overflow-x: clip;
+  line-height: 1.5;
+}
+
+:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 3px;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+input[type="checkbox"], input[type="radio"] {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  accent-color: var(--primary);
+}
+
+/* WebKit otherwise dims the native date/time text below the form text contrast. */
+input[type="date"], input[type="time"] {
+  -webkit-text-fill-color: var(--foreground);
+}
+
+img { max-width: 100%; }
+fieldset { min-width: 0; }
+
+.app-shell-pad {
+  padding-left: max(env(safe-area-inset-left), clamp(1rem, 2.5vw, 2.5rem));
+  padding-right: max(env(safe-area-inset-right), clamp(1rem, 2.5vw, 2.5rem));
+}
+
+.app-header { padding-top: env(safe-area-inset-top); }
+.app-footer { padding-bottom: env(safe-area-inset-bottom); }
+.app-drawer {
+  position: fixed;
+  inset: 0 auto 0 0;
+  margin: 0;
+  width: min(340px, 90vw);
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  border: 0;
+  color: var(--foreground);
+  background: white;
+  box-shadow: 10px 0 60px #12352926;
+}
+.app-drawer::backdrop { background: #102c2466; }
+
+.skip-link {
+  position: fixed;
+  top: max(.5rem, env(safe-area-inset-top));
+  left: 1rem;
+  z-index: 100;
+  transform: translateY(-200%);
+  border-radius: .75rem;
+  padding: .75rem 1rem;
+  color: white;
+  background: var(--primary);
+}
+.skip-link:focus { transform: translateY(0); }
+
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]), select, textarea { font-size: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
 
 h1,
@@ -86,7 +164,8 @@ h3,
 a.link-green {
   color: var(--primary);
   font-weight: 600;
-  text-decoration: none;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 a.link-green:hover {
   text-decoration: underline;

@@ -117,15 +117,42 @@ async function openAuthFile(path, filename) {
 }
 
 // --- Modale générique. ---
+let modalSequence = 0;
 function modal(title, innerHTML, onMount) {
-  const back = document.createElement("div");
+  const opener = document.activeElement;
+  const back = document.createElement("dialog");
+  const titleId = `admin-modal-${++modalSequence}`;
   back.className = "modal-back";
-  back.innerHTML = `<div class="modal"><div class="modal-head"><h3>${esc(title)}</h3><button type="button" class="modal-close" aria-label="Fermer">×</button></div>${innerHTML}</div>`;
-  back.querySelector(".modal-close")?.addEventListener("click", () => back.remove());
-  back.addEventListener("click", (e) => { if (e.target === back) back.remove(); });
+  back.setAttribute("aria-labelledby", titleId);
+  back.innerHTML = `<div class="modal"><div class="modal-head"><h2 id="${titleId}" tabindex="-1">${esc(title)}</h2><button type="button" class="modal-close" aria-label="Fermer">×</button></div>${innerHTML}</div>`;
+  const close = () => {
+    if (back.open) back.close();
+    back.remove();
+    document.body.classList.toggle("modal-open", Boolean(document.querySelector("dialog.modal-back[open]")));
+    if (opener?.isConnected && !opener.closest("[hidden]")) opener.focus({ preventScroll: true });
+  };
+  back.mppClose = close;
+  back.querySelector(".modal-close")?.addEventListener("click", close);
+  back.addEventListener("click", (event) => { if (event.target === back) close(); });
+  back.addEventListener("cancel", (event) => { event.preventDefault(); close(); });
+  back.addEventListener("keydown", (event) => {
+    if (event.key !== "Tab") return;
+    const controls = [...back.querySelectorAll('a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+      .filter((control) => !control.matches(":disabled") && control.tabIndex >= 0 && control.getClientRects().length > 0);
+    const first = controls[0];
+    const last = controls[controls.length - 1];
+    if (!first) { event.preventDefault(); return; }
+    if (event.shiftKey && (document.activeElement === first || !controls.includes(document.activeElement))) {
+      event.preventDefault(); last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault(); first.focus();
+    }
+  });
   document.body.appendChild(back);
-  const close = () => back.remove();
   if (onMount) onMount(back, close);
+  back.showModal();
+  document.body.classList.add("modal-open");
+  back.querySelector(".modal-head h2").focus({ preventScroll: true });
   return { back, close };
 }
 
@@ -248,6 +275,8 @@ $("#loginForm").addEventListener("submit", async (e) => {
 });
 
 function logout() {
+  document.querySelectorAll(".modal-back").forEach((element) => element.mppClose ? element.mppClose() : element.remove());
+  setSidebarOpen(false, false);
   token.clear();
   localStorage.removeItem("mpp_user_jwt");
   localStorage.removeItem("mpp_user_role");
@@ -256,6 +285,7 @@ function logout() {
   $("#app").hidden = true;
   $("#login").hidden = false;
   $("#phone").value = "";
+  $("#phone").focus();
 }
 
 let adminUserId = null;
@@ -264,7 +294,6 @@ let currentAdminView = "dashboard";
 let returnAdminView = null;
 function reauthenticateAdmin() {
   const destination = currentAdminView; const phone = adminPhone;
-  document.querySelectorAll(".modal-back").forEach((element) => element.remove());
   logout(); returnAdminView = destination; $("#phone").value = phone;
   $("#loginErr").textContent = "Une nouvelle vérification d’identité est nécessaire. Connectez-vous puis recommencez l’action."; $("#loginErr").hidden = false;
 }
@@ -319,30 +348,46 @@ const VIEWS = {
   otp: { title: "Vérification OTP", render: renderOtp },
 };
 
-function setSidebarOpen(open) {
-  const sidebar = $("#sidebar");
-  const backdrop = $("#sidebarBackdrop");
+const mobileSidebar = window.matchMedia("(max-width: 800px)");
+function setSidebarOpen(open, restoreFocus = true) {
+  const sidebar = $("#sidebar"), backdrop = $("#sidebarBackdrop"), burger = $("#burger");
   if (!sidebar) return;
+  open = Boolean(open && mobileSidebar.matches);
+  const wasOpen = sidebar.classList.contains("open");
   sidebar.classList.toggle("open", open);
+  sidebar.inert = mobileSidebar.matches && !open;
+  $("#app .main").inert = open;
+  burger.setAttribute("aria-expanded", String(open));
+  burger.setAttribute("aria-label", open ? "Fermer le menu" : "Ouvrir le menu");
   document.body.classList.toggle("sidebar-open", open);
   if (backdrop) {
-    backdrop.hidden = !open;
-    backdrop.classList.toggle("visible", open);
+    backdrop.hidden = !open; backdrop.classList.toggle("visible", open);
     backdrop.setAttribute("aria-hidden", String(!open));
   }
+  if (open) { sidebar.setAttribute("role", "dialog"); sidebar.setAttribute("aria-modal", "true"); sidebar.setAttribute("aria-label", "Menu d’administration"); $("#sidebarClose").focus(); }
+  else {
+    sidebar.removeAttribute("role"); sidebar.removeAttribute("aria-modal"); sidebar.removeAttribute("aria-label");
+    if (wasOpen && restoreFocus && mobileSidebar.matches) burger.focus();
+  }
 }
+mobileSidebar.addEventListener("change", () => setSidebarOpen(false, false));
+setSidebarOpen(false, false);
 
 function navigate(view) {
   currentAdminView = view;
   const v = VIEWS[view] || VIEWS.dashboard;
   $("#viewTitle").textContent = v.title;
-  document.querySelectorAll(".menu-item").forEach((b) =>
-    b.classList.toggle("active", b.dataset.view === view));
-  $("#content").innerHTML = `<p class="muted">Chargement…</p>`;
-  setSidebarOpen(false);
+  document.querySelectorAll(".menu-item").forEach((button) => {
+    const active = button.dataset.view === view; button.classList.toggle("active", active);
+    if (active) button.setAttribute("aria-current", "page"); else button.removeAttribute("aria-current");
+  });
+  $("#content").innerHTML = `<p class="muted" role="status">Chargement…</p>`;
+  setSidebarOpen(false, false);
+  $("#viewTitle").focus({ preventScroll: true });
   v.render($("#content")).catch((e) => {
     if (e.status === 401 || e.status === 403) { toast("Session expirée", true); logout(); return; }
-    $("#content").innerHTML = `<div class="card"><p class="muted">Erreur de chargement : ${esc(e.message)}</p></div>`;
+    $("#content").innerHTML = `<div class="card"><p class="muted" role="alert">Erreur de chargement : ${esc(e.message)}</p><button class="btn btn-ghost" data-retry-view>Réessayer</button></div>`;
+    $("[data-retry-view]").addEventListener("click", () => navigate(view));
   });
 }
 
@@ -358,8 +403,17 @@ $("#burger").addEventListener("click", () => {
   setSidebarOpen(!sidebar?.classList.contains("open"));
 });
 $("#sidebarBackdrop")?.addEventListener("click", () => setSidebarOpen(false));
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") setSidebarOpen(false);
+$("#sidebarClose")?.addEventListener("click", () => setSidebarOpen(false));
+document.addEventListener("keydown", (event) => {
+  const sidebar = $("#sidebar");
+  if (!sidebar.classList.contains("open") || document.querySelector("dialog.modal-back[open]")) return;
+  if (event.key === "Escape") { event.preventDefault(); setSidebarOpen(false); }
+  if (event.key === "Tab") {
+    const items = [...sidebar.querySelectorAll("button, a[href]")].filter((item) => !item.disabled && item.getClientRects().length);
+    const index = items.indexOf(document.activeElement);
+    const next = event.shiftKey ? (index <= 0 ? items.length - 1 : index - 1) : (index + 1) % items.length;
+    event.preventDefault(); items[next].focus();
+  }
 });
 
 /* =====================================================================
@@ -383,12 +437,12 @@ async function renderDashboard(root) {
   root.innerHTML = `
     <div class="stats-grid">
       ${cards.map(([lbl, n, v]) => `
-        <div class="stat-card" role="button" data-go="${v}" style="cursor:pointer">
-          <div class="num">${n}</div><div class="lbl">${esc(lbl)}</div>
-        </div>`).join("")}
+        <button type="button" class="stat-card" data-go="${v}">
+          <span class="num">${n}</span><span class="lbl">${esc(lbl)}</span>
+        </button>`).join("")}
     </div>
     <div class="card">
-      <h3>Bienvenue 👋</h3>
+      <h2>Bienvenue</h2>
       <p class="card-sub">Gérez candidatures, besoins parents (tarification fixe), professeurs,
       cours, paiements, reversements, suppressions de comptes, catalogue, ressources et paramètres plateforme.</p>
     </div>`;
@@ -413,7 +467,7 @@ async function renderApplications(root) {
   const apps = asList(await api("/api/admin/teacher-applications" + (filter !== "all" ? "?status=" + filter : "")));
   root.innerHTML = `
     <div class="section-head">
-      <h3>Candidatures <span class="count">${apps.length}</span></h3>
+      <h2>Candidatures <span class="count">${apps.length}</span></h2>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         ${["pending", "interview", "test", "training", "approved", "rejected", "all"].map((s) =>
           `<button type="button" class="btn btn-sm ${filter === s ? "btn-primary" : "btn-ghost"}" data-filter="${s}">${s === "all" ? "Toutes" : APP_STATUS_LABEL[s]}</button>`
@@ -463,7 +517,7 @@ async function openApplication(id) {
     <p class="muted" style="margin-bottom:12px">${esc(a.phone)}${a.email ? " · " + esc(a.email) : ""}</p>
     <p><strong>Matières :</strong> ${esc(a.subjects)}</p>
     <p><strong>Niveaux :</strong> ${esc((a.levels || []).join(", ") || "—")}</p>
-    ${a.rejection_reason ? `<p style="color:var(--orange)"><strong>Motif refus :</strong> ${esc(a.rejection_reason)}</p>` : ""}
+    ${a.rejection_reason ? `<p style="color:var(--orange-ink)"><strong>Motif refus :</strong> ${esc(a.rejection_reason)}</p>` : ""}
     <hr class="divider">
     <p class="muted" style="font-size:13px">Les documents et le profil détaillé sont complétés par le professeur dans son espace après validation.</p>
     ${hasAnyDoc ? `
@@ -476,8 +530,8 @@ async function openApplication(id) {
     ${a.interview_at || a.interview_notes ? `<p><strong>Entretien :</strong> ${a.interview_at ? esc(new Date(a.interview_at).toLocaleString("fr-FR")) : "date à fixer"}${a.interview_notes ? " · " + esc(a.interview_notes) : ""}</p>` : ""}
     ${a.test_result ? `<p><strong>Test :</strong> ${a.test_result === "passed" ? "Réussi" : "Échoué"}${a.test_notes ? " · " + esc(a.test_notes) : ""}</p>` : ""}
     ${a.status === "pending" ? `
-      <div class="field full"><label>Date d'entretien (optionnel)</label><input id="apInterviewAt" type="datetime-local"></div>
-      <div class="field full"><label>Notes entretien</label><textarea id="apInterviewNotes" placeholder="Créneau proposé, contact…"></textarea></div>
+      <div class="field full"><label for="apInterviewAt">Date d'entretien (optionnel)</label><input id="apInterviewAt" type="datetime-local"></div>
+      <div class="field full"><label for="apInterviewNotes">Notes entretien</label><textarea id="apInterviewNotes" placeholder="Créneau proposé, contact…"></textarea></div>
       <div class="form-actions"><button type="button" class="btn btn-primary" id="proposeInterview">Proposer un entretien</button></div>
     ` : ""}
     ${a.status === "interview" ? `
@@ -487,7 +541,7 @@ async function openApplication(id) {
       <div class="field field-check">
         <label class="check-row" for="testPassed"><input type="checkbox" id="testPassed" checked><span>Test réussi</span></label>
       </div>
-      <div class="field full"><label>Notes (résultat, feedback)</label><textarea id="apTestNotes" placeholder="Ex. bonne pédagogie, à l'aise avec les élèves…"></textarea></div>
+      <div class="field full"><label for="apTestNotes">Notes (résultat, feedback)</label><textarea id="apTestNotes" placeholder="Ex. bonne pédagogie, à l'aise avec les élèves…"></textarea></div>
       <div class="form-actions"><button type="button" class="btn btn-primary" id="saveTestResult">Enregistrer le résultat</button></div>
     ` : ""}
     ${a.status === "training" ? `
@@ -501,7 +555,7 @@ async function openApplication(id) {
       <div class="form-actions"><button type="button" class="btn btn-primary" id="approveApp">Accepter et créer le prof</button></div>
     ` : ""}
     ${["pending", "interview", "test", "training"].includes(a.status) ? `
-      <div class="field full"><label>Motif de refus (si refus)</label><textarea id="rejReason" placeholder="Ex. informations incohérentes…"></textarea></div>
+      <div class="field full"><label for="rejReason">Motif de refus (si refus)</label><textarea id="rejReason" placeholder="Ex. informations incohérentes…"></textarea></div>
       <div class="form-actions"><button type="button" class="btn btn-danger" id="rejectApp">Refuser</button></div>
     ` : `<p class="muted">Candidature déjà traitée.</p>`}
   `, (back, close) => {
@@ -592,7 +646,7 @@ async function renderNeeds(root) {
   const needs = asList(await api("/api/admin/needs" + (status ? "?status=" + encodeURIComponent(status) : "")));
   root.innerHTML = `
     <div class="card">
-      <h3>Besoins parents</h3>
+      <h2>Besoins parents</h2>
       <p class="card-sub">Les parents décrivent le besoin ; vous fixez le tarif parent.
       Le prof voit uniquement le <strong>gain net</strong> (après commission).</p>
       <div class="chip-row" style="margin-bottom:14px">
@@ -629,7 +683,7 @@ function needRow(n) {
       <div class="row-meta">${parentP}${n.netTeacherAmount != null ? " → prof " + net : ""}</div>
       ${n.description ? `<div class="row-meta">${esc(n.description)}</div>` : ""}
       ${n.recommendedTeacherName ? `<div class="row-meta">Recommandé : ${esc(n.recommendedTeacherName)}</div>` : ""}
-      ${n.documentName ? `<div class="row-meta">📎 ${esc(n.documentName)}</div>` : ""}
+      ${n.documentName ? `<div class="row-meta">Fichier : ${esc(n.documentName)}</div>` : ""}
     </div>
     <div class="row-actions">
       ${n.status === "submitted" ? `<button type="button" class="btn btn-primary btn-sm" data-price="${n.id}">Proposer un tarif</button>` : `<button type="button" class="btn btn-ghost btn-sm" data-need="${n.id}">Détail</button>`}
@@ -641,11 +695,11 @@ function openNeedPrice(id) {
   modal("Proposer un tarif", `
     <p class="muted">Le parent paiera ce montant par séance. Le prof verra uniquement le gain net (commission déduite).</p>
     <div class="form-grid">
-      <div class="field"><label>Tarif parent (F / séance) *</label><input id="np_price" type="number" min="1000" step="500" placeholder="10000"></div>
-      <div class="field"><label>Fréquence</label><input id="np_freq" placeholder="1 fois/sem"></div>
-      <div class="field"><label>Début souhaité</label><input id="np_start" type="date"></div>
-      <div class="field full"><label>Professeur recommandé (optionnel)</label><select id="np_teacher"><option value="">— Aucun —</option></select></div>
-      <div class="field full"><label>Note sur la recommandation</label><input id="np_note" placeholder="Ex. très bon retour BEPC"></div>
+      <div class="field"><label for="np_price">Tarif parent (F / séance) *</label><input id="np_price" type="number" min="1000" step="500" placeholder="10000"></div>
+      <div class="field"><label for="np_freq">Fréquence</label><input id="np_freq" placeholder="1 fois/sem"></div>
+      <div class="field"><label for="np_start">Début souhaité</label><input id="np_start" type="date"></div>
+      <div class="field full"><label for="np_teacher">Professeur recommandé (optionnel)</label><select id="np_teacher"><option value="">— Aucun —</option></select></div>
+      <div class="field full"><label for="np_note">Note sur la recommandation</label><input id="np_note" placeholder="Ex. très bon retour BEPC"></div>
     </div>
     <p class="muted" id="np_preview" style="margin-top:8px;font-size:13px">Gain prof estimé : —</p>
     <div class="form-actions"><button type="button" class="btn btn-primary" id="np_save">Envoyer au parent</button></div>
@@ -717,7 +771,7 @@ function openNeedDetail(n) {
     ${n.netTeacherAmount != null ? `<p><strong>Gain prof (net) :</strong> ${fcfa(n.netTeacherAmount)} F / séance${n.netTeacherHourly != null ? " · " + fcfa(n.netTeacherHourly) + " F/h" : ""}</p>` : ""}
     ${n.startDate ? `<p><strong>Début :</strong> ${esc(n.startDate)}</p>` : ""}
     ${n.recommendedTeacherName ? `<p><strong>Prof recommandé :</strong> ${esc(n.recommendedTeacherName)}${n.recommendedNote ? " · " + esc(n.recommendedNote) : ""}</p>` : ""}
-    ${n.documentName ? `<div class="form-actions" style="margin-top:0"><button type="button" class="btn btn-ghost btn-sm" id="needDoc">📎 ${esc(n.documentName)}</button></div>` : ""}
+    ${n.documentName ? `<div class="form-actions" style="margin-top:0"><button type="button" class="btn btn-ghost btn-sm" id="needDoc">Fichier : ${esc(n.documentName)}</button></div>` : ""}
     <div class="form-actions"><button type="button" class="btn btn-ghost" id="needClose">Fermer</button></div>
   `, (back, close) => {
     back.querySelector("#needDoc")?.addEventListener("click", () => {
@@ -734,7 +788,7 @@ async function renderTeachers(root, includeArchived = false) {
   const teachers = asList(await api(`/api/admin/teachers${includeArchived ? "?includeArchived=true" : ""}`));
   root.innerHTML = `
     <div class="section-head">
-      <h3>Professeurs <span class="count">${teachers.length}</span></h3>
+      <h2>Professeurs <span class="count">${teachers.length}</span></h2>
       <button class="btn btn-primary btn-sm" id="addT">Examiner les candidatures</button>
     </div>
     <label class="check-row"><input id="includeArchivedTeachers" type="checkbox"${includeArchived ? " checked" : ""} /> Inclure les profils retirés du catalogue</label>
@@ -785,11 +839,11 @@ function teacherForm(t) {
   const fmt = t.formats || ["home", "online"];
   const html = `
     <div class="form-grid">
-      <div class="field full"><label>Nom complet *</label><input id="f_name" value="${esc(t.name || "")}" placeholder="Koffi N'Guessan"></div>
-      <div class="field full"><label>Matières *</label><input id="f_subjects" value="${esc(t.subjects || "")}" placeholder="Maths · Physique-Chimie"></div>
-      <div class="field full"><label>Niveaux (séparés par des virgules)</label><input id="f_levels" value="${esc((t.levels || []).join(", "))}" placeholder="Collège, Lycée"></div>
-      <div class="field"><label>Programmes (slugs)</label><input id="f_programs" value="${esc((t.programs || ["standard"]).join(", "))}" placeholder="standard, francais"></div>
-      <div class="field"><label>Quartier / Ville</label><input id="f_location" value="${esc(t.location || "")}" placeholder="Cocody"></div>
+      <div class="field full"><label for="f_name">Nom complet *</label><input id="f_name" value="${esc(t.name || "")}" placeholder="Koffi N'Guessan"></div>
+      <div class="field full"><label for="f_subjects">Matières *</label><input id="f_subjects" value="${esc(t.subjects || "")}" placeholder="Maths · Physique-Chimie"></div>
+      <div class="field full"><label for="f_levels">Niveaux (séparés par des virgules)</label><input id="f_levels" value="${esc((t.levels || []).join(", "))}" placeholder="Collège, Lycée"></div>
+      <div class="field"><label for="f_programs">Programmes (slugs)</label><input id="f_programs" value="${esc((t.programs || ["standard"]).join(", "))}" placeholder="standard, francais"></div>
+      <div class="field"><label for="f_location">Quartier / Ville</label><input id="f_location" value="${esc(t.location || "")}" placeholder="Cocody"></div>
       <div class="field field-check full">
         <label class="check-row" for="f_needs_confirmed">
           <input type="checkbox" id="f_needs_confirmed"${t.needs_confirmed ? " checked" : ""}>
@@ -798,22 +852,22 @@ function teacherForm(t) {
         <p class="field-hint">À activer après validation des tests. Les tarifs des cours passent par l'admin (besoins parents).</p>
       </div>
       <div class="field full" style="grid-column:1/-1"><p class="muted" style="font-size:12px;margin:4px 0 0"><strong>Profil public (optionnel)</strong> — affichage catalogue / vitrine</p></div>
-      <div class="field"><label>Tarif horaire (F CFA)</label><input id="f_price" type="number" min="1" step="1" value="${t.price_per_hour ?? 0}" placeholder="Tarif horaire"></div>
-      <div class="field"><label>Expérience</label><input id="f_exp" value="${esc(t.experience || "")}" placeholder="8 ans"></div>
-      <div class="field"><label>Formats</label>
+      <div class="field"><label for="f_price">Tarif horaire (F CFA)</label><input id="f_price" type="number" min="1" step="1" value="${t.price_per_hour ?? 0}" placeholder="Tarif horaire"></div>
+      <div class="field"><label for="f_exp">Expérience</label><input id="f_exp" value="${esc(t.experience || "")}" placeholder="8 ans"></div>
+      <div class="field"><label for="f_formats">Formats</label>
         <select id="f_formats"><option value="home,online"${fmt.length === 2 ? " selected" : ""}>Domicile + En ligne</option><option value="home"${fmt.length === 1 && fmt[0] === "home" ? " selected" : ""}>Domicile</option><option value="online"${fmt.length === 1 && fmt[0] === "online" ? " selected" : ""}>En ligne</option></select></div>
       <div class="field"><label>Avis des cours réalisés</label><p>${Number(t.reviews_count) > 0 ? esc(t.rating) + " / 5 · " + esc(t.reviews_count) + " avis" : "Pas encore d’avis"}</p><p class="field-hint">Note calculée à partir des avis publiés.</p></div>
-      <div class="field"><label>Élèves</label><input id="f_students" value="${esc(t.students || "")}" placeholder="340+"></div>
-      <div class="field"><label>Réussite BAC</label><input id="f_bac" value="${esc(t.bac_success || "")}" placeholder="94%"></div>
-      <div class="field"><label>Couleur</label>
+      <div class="field"><label for="f_students">Élèves</label><input id="f_students" value="${esc(t.students || "")}" placeholder="340+"></div>
+      <div class="field"><label for="f_bac">Réussite BAC</label><input id="f_bac" value="${esc(t.bac_success || "")}" placeholder="94%"></div>
+      <div class="field"><label for="f_accent">Couleur</label>
         <select id="f_accent"><option value="green"${t.accent !== "orange" ? " selected" : ""}>Vert</option><option value="orange"${t.accent === "orange" ? " selected" : ""}>Orange</option></select></div>
-      <div class="field"><label>Options</label>
+      <div class="field"><label for="f_flags">Options</label>
         <select id="f_flags">
           <option value="vb"${t.verified !== false && t.special_bepc ? " selected" : ""}>Vérifié + spécialiste BEPC</option>
           <option value="v"${(t.verified !== false && !t.special_bepc) || !isEdit && false ? " selected" : ""}>Vérifié</option>
           <option value="n"${t.verified === false ? " selected" : ""}>Non vérifié</option>
         </select></div>
-      <div class="field full"><label>Biographie</label><textarea id="f_bio" placeholder="Présentation du professeur…">${esc(t.bio || "")}</textarea></div>
+      <div class="field full"><label for="f_bio">Biographie</label><textarea id="f_bio" placeholder="Présentation du professeur…">${esc(t.bio || "")}</textarea></div>
     </div>
     <div class="form-actions">
       <button class="btn btn-primary" id="save">${isEdit ? "Enregistrer" : "Ajouter"}</button>
@@ -858,7 +912,7 @@ async function renderGroups(root) {
   const groups = asList(await api("/api/groups"));
   root.innerHTML = `
     <div class="section-head">
-      <h3>Cours de groupe <span class="count">${groups.length}</span></h3>
+      <h2>Cours de groupe <span class="count">${groups.length}</span></h2>
       <button class="btn btn-primary btn-sm" id="addG">+ Ajouter un cours de groupe</button>
     </div>
     <div class="list">
@@ -897,20 +951,20 @@ function groupForm(g) {
   g = g || {};
   const html = `
     <div class="form-grid">
-      <div class="field"><label>Étiquette *</label><input id="g_tag" value="${esc(g.tag || "")}" placeholder="PRÉPA BAC"></div>
-      <div class="field"><label>Couleur étiquette</label>
+      <div class="field"><label for="g_tag">Étiquette *</label><input id="g_tag" value="${esc(g.tag || "")}" placeholder="PRÉPA BAC"></div>
+      <div class="field"><label for="g_tagAccent">Couleur étiquette</label>
         <select id="g_tagAccent"><option value="orange"${g.tag_accent === "orange" ? " selected" : ""}>Orange</option><option value="green"${g.tag_accent !== "orange" ? " selected" : ""}>Vert</option></select></div>
-      <div class="field full"><label>Titre *</label><input id="g_title" value="${esc(g.title || "")}" placeholder="Maths & Physique-Chimie"></div>
-      <div class="field full"><label>Détail *</label><input id="g_detail" value="${esc(g.detail || "")}" placeholder="Terminale D · 8 semaines · Sam & Dim"></div>
-      <div class="field"><label>Prix (F)</label><input id="g_price" type="number" value="${g.price ?? 2000}"></div>
-      <div class="field"><label>Professeur</label><input id="g_teacher" value="${esc(g.teacher_name || "")}" placeholder="Koffi N'Guessan"></div>
-      <div class="field"><label>Inscrits</label><input id="g_enrolled" type="number" value="${g.enrolled ?? ""}"></div>
-      <div class="field"><label>Capacité</label><input id="g_capacity" type="number" value="${g.capacity ?? ""}"></div>
-      <div class="field"><label>Places restantes</label><input id="g_places" type="number" value="${g.places_left ?? ""}"></div>
-      <div class="field"><label>Type</label>
+      <div class="field full"><label for="g_title">Titre *</label><input id="g_title" value="${esc(g.title || "")}" placeholder="Maths & Physique-Chimie"></div>
+      <div class="field full"><label for="g_detail">Détail *</label><input id="g_detail" value="${esc(g.detail || "")}" placeholder="Terminale D · 8 semaines · Sam & Dim"></div>
+      <div class="field"><label for="g_price">Prix (F)</label><input id="g_price" type="number" value="${g.price ?? 2000}"></div>
+      <div class="field"><label for="g_teacher">Professeur</label><input id="g_teacher" value="${esc(g.teacher_name || "")}" placeholder="Koffi N'Guessan"></div>
+      <div class="field"><label for="g_enrolled">Inscrits</label><input id="g_enrolled" type="number" value="${g.enrolled ?? ""}"></div>
+      <div class="field"><label for="g_capacity">Capacité</label><input id="g_capacity" type="number" value="${g.capacity ?? ""}"></div>
+      <div class="field"><label for="g_places">Places restantes</label><input id="g_places" type="number" value="${g.places_left ?? ""}"></div>
+      <div class="field"><label for="g_kind">Type</label>
         <select id="g_kind"><option value="regular"${g.kind !== "stage" ? " selected" : ""}>Cours régulier</option><option value="stage"${g.kind === "stage" ? " selected" : ""}>Stage vacances</option></select></div>
-      <div class="field"><label>Début (stage)</label><input id="g_start" type="date" value="${g.start_date || ""}"></div>
-      <div class="field"><label>Fin (stage)</label><input id="g_end" type="date" value="${g.end_date || ""}"></div>
+      <div class="field"><label for="g_start">Début (stage)</label><input id="g_start" type="date" value="${g.start_date || ""}"></div>
+      <div class="field"><label for="g_end">Fin (stage)</label><input id="g_end" type="date" value="${g.end_date || ""}"></div>
     </div>
     <div class="form-actions">
       <button class="btn btn-primary" id="save">${isEdit ? "Enregistrer" : "Ajouter"}</button>
@@ -955,29 +1009,29 @@ async function renderCatalog(root) {
   ]).then((rows) => rows.map(asList));
   root.innerHTML = `
     <div class="card">
-      <div class="section-head"><h3>Matières <span class="count">${subjects.length}</span></h3></div>
+      <div class="section-head"><h2>Matières <span class="count">${subjects.length}</span></h2></div>
       <div class="form-grid">
-        <div class="field"><label>Nouvelle matière</label><input id="s_name" placeholder="Ex. Musique, Espagnol…"></div>
-        <div class="field"><label>Couleur</label><select id="s_accent"><option value="green">Vert</option><option value="orange">Orange</option></select></div>
+        <div class="field"><label for="s_name">Nouvelle matière</label><input id="s_name" placeholder="Ex. Musique, Espagnol…"></div>
+        <div class="field"><label for="s_accent">Couleur</label><select id="s_accent"><option value="green">Vert</option><option value="orange">Orange</option></select></div>
       </div>
       <div class="form-actions"><button class="btn btn-primary btn-sm" id="addS">+ Ajouter la matière</button></div>
       <hr class="divider">
       <div class="list" id="sList">${subjects.map((s) => catalogRow(s.name, s.slug, s.accent, "s")).join("")}</div>
     </div>
     <div class="card">
-      <div class="section-head"><h3>Niveaux <span class="count">${levels.length}</span></h3></div>
+      <div class="section-head"><h2>Niveaux <span class="count">${levels.length}</span></h2></div>
       <div class="form-grid">
-        <div class="field full"><label>Nouveau niveau</label><input id="l_name" placeholder="Ex. Université, Master…"></div>
+        <div class="field full"><label for="l_name">Nouveau niveau</label><input id="l_name" placeholder="Ex. Université, Master…"></div>
       </div>
       <div class="form-actions"><button class="btn btn-primary btn-sm" id="addL">+ Ajouter le niveau</button></div>
       <hr class="divider">
       <div class="list" id="lList">${levels.map((l) => catalogRow(l.name, l.slug, "green", "l")).join("")}</div>
     </div>
     <div class="card">
-      <div class="section-head"><h3>Programmes <span class="count">${programs.length}</span></h3></div>
+      <div class="section-head"><h2>Programmes <span class="count">${programs.length}</span></h2></div>
       <p class="card-sub">Programmes scolaires (jusqu'en Terminale) : standard, français…</p>
       <div class="form-grid">
-        <div class="field full"><label>Nouveau programme</label><input id="p_name" placeholder="Ex. Programme Cambridge…"></div>
+        <div class="field full"><label for="p_name">Nouveau programme</label><input id="p_name" placeholder="Ex. Programme Cambridge…"></div>
       </div>
       <div class="form-actions"><button class="btn btn-primary btn-sm" id="addP">+ Ajouter le programme</button></div>
       <hr class="divider">
@@ -1073,30 +1127,30 @@ async function renderResources(root) {
 
   root.innerHTML = `
     <div class="section-head">
-      <h3>Ressources <span class="count">${resources.length}</span></h3>
+      <h2>Ressources <span class="count">${resources.length}</span></h2>
       <button type="button" class="btn btn-primary btn-sm" id="addR">+ Nouvelle ressource</button>
     </div>
     <div class="card filter-bar">
       <div class="form-grid">
-        <div class="field"><label>Recherche (titre)</label>
+        <div class="field"><label for="rf_q">Recherche (titre)</label>
           <input id="rf_q" type="search" placeholder="Thalès, fiche révision…" value="${esc(fQ)}"></div>
-        <div class="field"><label>Type</label>
+        <div class="field"><label for="rf_type">Type</label>
           <select id="rf_type">
             <option value="">Tous</option>
             ${Object.entries(R_TYPES).map(([v, l]) => `<option value="${v}"${fType === v ? " selected" : ""}>${l}</option>`).join("")}
           </select></div>
-        <div class="field"><label>Programme</label>
+        <div class="field"><label for="rf_program">Programme</label>
           <select id="rf_program">
             <option value="">Tous</option>
             ${Object.entries(R_PROGRAM_KNOWN).map(([v, l]) => `<option value="${v}"${fProgram === v ? " selected" : ""}>${l}</option>`).join("")}
             <option value="other"${fProgram === "other" ? " selected" : ""}>Autre</option>
           </select></div>
-        <div class="field"><label>Matière</label>
+        <div class="field"><label for="rf_subject">Matière</label>
           <select id="rf_subject">
             <option value="">Toutes</option>
             ${subjects.map((s) => `<option value="${esc(s.slug)}"${fSubject === s.slug ? " selected" : ""}>${esc(s.name)}</option>`).join("")}
           </select></div>
-        <div class="field"><label>Niveau</label>
+        <div class="field"><label for="rf_level">Niveau</label>
           <select id="rf_level">
             <option value="">Tous</option>
             ${levels.map((l) => `<option value="${esc(l.slug)}"${fLevel === l.slug ? " selected" : ""}>${esc(l.name)}</option>`).join("")}
@@ -1151,7 +1205,7 @@ function resourceRow(r, subjectMap, levelMap) {
   return `<div class="row">
     <div class="row-main">
       <div class="row-title"><span class="pill ${accent}">${esc(R_TYPES[r.type] || r.type)}</span> ${esc(r.title)}</div>
-      <div class="row-meta">${tags || "—"}${r.file_name ? ` · 📎 <a data-file="${r.id}" target="_blank" rel="noopener">${esc(r.file_name)}</a>` : ""}</div>
+      <div class="row-meta">${tags || "—"}${r.file_name ? ` · Fichier : <a data-file="${r.id}" target="_blank" rel="noopener">${esc(r.file_name)}</a>` : ""}</div>
       ${desc}
     </div>
     <div class="row-actions">
@@ -1170,10 +1224,10 @@ function resourceForm(r, subjects, levels, programs) {
     `<option value="${esc(p.slug)}"${progVal === p.slug ? " selected" : ""}>${esc(p.name)}</option>`).join("");
   const html = `
     <div class="form-grid">
-      <div class="field"><label>Type *</label>
+      <div class="field"><label for="r_type">Type *</label>
         <select id="r_type">${Object.entries(R_TYPES).map(([v, l]) =>
           `<option value="${v}"${r.type === v ? " selected" : ""}>${l}</option>`).join("")}</select></div>
-      <div class="field"><label>Programme scolaire *</label>
+      <div class="field"><label for="r_program">Programme scolaire *</label>
         <select id="r_program">${progOptions}
           <option value="${R_PROGRAM_OTHER}"${progVal === R_PROGRAM_OTHER ? " selected" : ""}>Autre</option>
         </select></div>
@@ -1181,19 +1235,19 @@ function resourceForm(r, subjects, levels, programs) {
         <label for="r_other">Précisez le programme</label>
         <input id="r_other" value="${esc(otherVal)}" placeholder="Ex. Programme IB, Cambridge…" />
       </div>
-      <div class="field"><label>Fichier ${isEdit ? "(remplacer)" : "(optionnel)"}</label>
+      <div class="field"><label for="r_file">Fichier ${isEdit ? "(remplacer)" : "(optionnel)"}</label>
         <input id="r_file" type="file" accept="application/pdf,image/*">
         ${r.file_name ? `<p class="muted" style="margin-top:6px;font-size:12px">Actuel : ${esc(r.file_name)}</p>` : ""}</div>
-      <div class="field full"><label>Titre *</label><input id="r_title" value="${esc(r.title || "")}" placeholder="Fiche, Théorème de Thalès"></div>
-      <div class="field"><label>Matière</label>
+      <div class="field full"><label for="r_title">Titre *</label><input id="r_title" value="${esc(r.title || "")}" placeholder="Fiche, Théorème de Thalès"></div>
+      <div class="field"><label for="r_subject">Matière</label>
         <select id="r_subject"><option value="">— Aucune —</option>
           ${subjects.map((s) => `<option value="${esc(s.slug)}"${r.subject_slug === s.slug ? " selected" : ""}>${esc(s.name)}</option>`).join("")}
         </select></div>
-      <div class="field"><label>Niveau</label>
+      <div class="field"><label for="r_level">Niveau</label>
         <select id="r_level"><option value="">— Aucun —</option>
           ${levels.map((l) => `<option value="${esc(l.slug)}"${r.level === l.slug ? " selected" : ""}>${esc(l.name)}</option>`).join("")}
         </select></div>
-      <div class="field full"><label>Description</label>
+      <div class="field full"><label for="r_desc">Description</label>
         <textarea id="r_desc" placeholder="Quelques mots sur la ressource…">${esc(r.description || "")}</textarea></div>
     </div>
     <div class="form-actions">
@@ -1252,7 +1306,7 @@ async function renderLegal(root) {
   const docs = asList(await api("/api/legal"));
   root.innerHTML = `
     <div class="card">
-      <h3>Documents légaux</h3>
+      <h2>Documents légaux</h2>
       <p class="card-sub">Téléversez le PDF de chaque document. Conformité Loi CI N°2013-450.</p>
       <div class="list">
         ${docs.map(legalRow).join("")}
@@ -1281,7 +1335,7 @@ function legalRow(d) {
   return `<div class="row">
     <div class="row-main">
       <div class="row-title">${esc(d.title)}</div>
-      <div class="row-meta">${d.version ? "v" + esc(d.version) + " · " : ""}${d.hasFile ? `📎 <a data-file="${esc(d.slug)}" target="_blank" rel="noopener">${esc(d.file_name || "PDF")}</a>` : "aucun fichier"}</div>
+      <div class="row-meta">${d.version ? "v" + esc(d.version) + " · " : ""}${d.hasFile ? `Fichier : <a data-file="${esc(d.slug)}" target="_blank" rel="noopener">${esc(d.file_name || "PDF")}</a>` : "aucun fichier"}</div>
     </div>
     <div class="row-actions">
       <label class="btn btn-ghost btn-sm" style="display:inline-block">
@@ -1312,14 +1366,14 @@ async function renderSocial(root) {
   const settings = await api("/api/settings");
   root.innerHTML = `
     <div class="card">
-      <h3>Réseaux sociaux &amp; contact</h3>
+      <h2>Réseaux sociaux &amp; contact</h2>
       <p class="card-sub">Ces liens s'affichent sur le site vitrine et dans les applications.
       La commission s'applique aux tarifs des <strong>besoins parents</strong> (gain net affiché au prof).
       Laissez un champ réseau vide pour le masquer.</p>
       <div class="form-grid">
         ${SOCIAL_FIELDS.map(([key, label, ph]) => `
           <div class="field${key.startsWith("contact") || key === "commission_pct" ? "" : " full"}">
-            <label>${esc(label)}</label>
+            <label for="set_${key}">${esc(label)}</label>
             <input id="set_${key}" value="${esc(settings[key] || "")}" placeholder="${esc(ph)}"
               ${key === "commission_pct" ? 'type="number" min="0" max="50" step="0.5"' : ""}>
             ${key === "commission_pct" ? '<p class="field-hint">Ex. 15 → parent 10 000 F, prof voit 8 500 F nets.</p>' : ""}
@@ -1395,7 +1449,7 @@ async function renderOtp(root) {
   root.innerHTML = `
     ${otpStatusBanner(s)}
     <div class="card">
-      <h3>Général</h3>
+      <h2>Général</h2>
       <div class="form-grid">
         ${boolField("otp_enabled", "OTP réel")}
         ${boolField("otp_demo_mode", "Mode démo")}
@@ -1413,7 +1467,7 @@ async function renderOtp(root) {
       </div>
     </div>
     <div class="card">
-      <h3>WhatsApp</h3>
+      <h2>WhatsApp</h2>
       <div class="form-grid">
         ${boolField("otp_whatsapp_enabled", "Activer")}
         <div class="field full">
@@ -1438,7 +1492,7 @@ async function renderOtp(root) {
       </div>
     </div>
     <div class="card">
-      <h3>E-mail</h3>
+      <h2>E-mail</h2>
       <div class="form-grid">
         ${boolField("otp_smtp_enabled", "Activer")}
         <div class="field">

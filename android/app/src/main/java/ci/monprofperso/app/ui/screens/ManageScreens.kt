@@ -55,7 +55,7 @@ fun ManageCourseScreen(nav: NavActions) {
                         Text("Koffi N'Guessan", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AkColors.Ink)
                         Text("Professeur de Maths", fontFamily = Hanken, fontSize = 12.sp, color = AkColors.Muted)
                     }
-                    IconSquare(Icons.AutoMirrored.Filled.Chat, bg = AkColors.CardField, tint = AkColors.Green, size = 38, onClick = { nav.go(ci.monprofperso.app.nav.Routes.Messaging) })
+                    IconSquare(Icons.AutoMirrored.Filled.Chat, contentDescription = "Ouvrir la messagerie", bg = AkColors.CardField, tint = AkColors.Green, size = 38, onClick = { nav.go(ci.monprofperso.app.nav.Routes.Messaging) })
                 }
                 Box(Modifier.fillMaxWidth().padding(vertical = 13.dp).height(1.dp).background(AkColors.CardField))
                 IconLine(Icons.Filled.DateRange, "Samedi 22 juin · 16h00 · 1h30")

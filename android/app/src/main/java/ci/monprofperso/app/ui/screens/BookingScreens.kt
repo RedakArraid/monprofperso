@@ -1,9 +1,14 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package ci.monprofperso.app.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -36,7 +41,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -86,7 +93,7 @@ fun BookingScreen(nav: NavActions) {
                 }
             }
             SubLabel("Format du cours")
-            if (app.bkFormats.isEmpty()) Text("Aucun format de cours disponible pour ce professeur dans la version actuelle.", color = AkColors.Orange)
+            if (app.bkFormats.isEmpty()) Text("Aucun format de cours disponible pour ce professeur dans la version actuelle.", color = AkColors.OrangeStrong)
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 if ("home" in app.bkFormats) FormatCard(Icons.Filled.Home, "À domicile", "Adresse du cours", format == "home", Modifier.weight(1f)) { format = "home" }
                 if ("online" in app.bkFormats) FormatCard(Icons.Filled.Videocam, "En ligne", "À convenir avec le prof", format == "online", Modifier.weight(1f)) { format = "online" }
@@ -99,21 +106,21 @@ fun BookingScreen(nav: NavActions) {
             Text(app.bkSubject, fontFamily = Hanken, color = AkColors.Ink)
             OutlinedTextField(level, { level = it }, label = { Text("Niveau de l'élève") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             SubLabel("Proposer un créneau · heure d'Abidjan")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 days.forEachIndexed { i, date -> DayCell(shortDay.format(date).uppercase(Locale.FRENCH), dayNumber.format(date), day == i, Modifier.weight(1f)) { day = i } }
             }
             Text(fullDay.format(days[day]), fontFamily = Hanken, color = AkColors.Muted, modifier = Modifier.padding(top = 8.dp))
             Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 times.forEachIndexed { i, label -> TimeChip(label, if (time == i) TimeState.Selected else TimeState.Idle) { time = i } }
             }
             SubLabel("Durée")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 durations.forEachIndexed { i, label -> DurationChip(label, duration == i, Modifier.weight(1f)) { duration = i } }
             }
             Text("Le professeur doit accepter votre demande. Le paiement sera ensuite disponible dans Mes cours.",
                 fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Muted, modifier = Modifier.padding(top = 18.dp))
-            bookingError?.let { Text(it, color = AkColors.Orange, modifier = Modifier.padding(top = 12.dp)) }
+            bookingError?.let { Text(it, color = AkColors.OrangeStrong, modifier = Modifier.padding(top = 12.dp)) }
             if (consentRequired) TextButton(onClick = { nav.go(Routes.Settings) }) { Text("Lire et accepter les conditions dans mes paramètres") }
             Spacer(Modifier.height(16.dp))
         }
@@ -166,7 +173,7 @@ private fun FormatCard(icon: ImageVector, title: String, subtitle: String, selec
     Column(
         modifier.clip(RoundedCornerShape(15.dp)).background(if (selected) AkColors.GreenSoft else AkColors.White)
             .border(if (selected) 2.dp else 1.5.dp, if (selected) AkColors.Green else AkColors.Border, RoundedCornerShape(15.dp))
-            .clickable { onClick() }
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
             .padding(13.dp),
         verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
@@ -179,9 +186,9 @@ private fun FormatCard(icon: ImageVector, title: String, subtitle: String, selec
 @Composable
 private fun DayCell(day: String, num: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit = {}) {
     Column(
-        modifier.clip(RoundedCornerShape(13.dp)).background(if (selected) AkColors.Green else AkColors.White)
+        modifier.heightIn(min = 56.dp).clip(RoundedCornerShape(13.dp)).background(if (selected) AkColors.Green else AkColors.White)
             .border(if (selected) 2.dp else 1.5.dp, if (selected) AkColors.Green else AkColors.Border, RoundedCornerShape(13.dp))
-            .clickable { onClick() }
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
             .padding(vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(day, fontFamily = Hanken, fontSize = 11.sp, color = if (selected) AkColors.OnGreenSoft else AkColors.Faint)
@@ -194,24 +201,25 @@ private enum class TimeState { Idle, Selected, Disabled }
 @Composable
 private fun TimeChip(time: String, state: TimeState, onClick: () -> Unit = {}) {
     val bg = when (state) { TimeState.Selected -> AkColors.Orange; TimeState.Disabled -> AkColors.CardField; else -> AkColors.White }
-    val fg = when (state) { TimeState.Selected -> AkColors.White; TimeState.Disabled -> AkColors.Faint; else -> AkColors.InkSoft }
-    Text(
+    val fg = when (state) { TimeState.Selected -> AkColors.Ink; TimeState.Disabled -> AkColors.Faint; else -> AkColors.InkSoft }
+    Box(Modifier.heightIn(min = 48.dp).clip(RoundedCornerShape(11.dp)).background(bg)
+        .then(if (state == TimeState.Idle) Modifier.border(1.5.dp, AkColors.Border, RoundedCornerShape(11.dp)) else Modifier)
+        .selectable(selected = state == TimeState.Selected, enabled = state != TimeState.Disabled, role = Role.RadioButton, onClick = onClick)
+        .padding(horizontal = 14.dp, vertical = 9.dp), contentAlignment = Alignment.Center) {
+        Text(
         time, fontFamily = Hanken, fontWeight = if (state == TimeState.Selected) FontWeight.Bold else FontWeight.SemiBold,
         fontSize = 12.5.sp, color = fg,
         textDecoration = if (state == TimeState.Disabled) TextDecoration.LineThrough else null,
-        modifier = Modifier.clip(RoundedCornerShape(11.dp)).background(bg)
-            .then(if (state == TimeState.Idle) Modifier.border(1.5.dp, AkColors.Border, RoundedCornerShape(11.dp)) else Modifier)
-            .clickable(enabled = state != TimeState.Disabled) { onClick() }
-            .padding(horizontal = 14.dp, vertical = 9.dp),
-    )
+        )
+    }
 }
 
 @Composable
 private fun DurationChip(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit = {}) {
     Box(
-        modifier.clip(RoundedCornerShape(11.dp)).background(if (selected) AkColors.Green else AkColors.White)
+        modifier.heightIn(min = 48.dp).clip(RoundedCornerShape(11.dp)).background(if (selected) AkColors.Green else AkColors.White)
             .then(if (selected) Modifier else Modifier.border(1.5.dp, AkColors.Border, RoundedCornerShape(11.dp)))
-            .clickable { onClick() }
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
             .padding(vertical = 10.dp), contentAlignment = Alignment.Center,
     ) {
         Text(label, fontFamily = Hanken, fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
@@ -284,13 +292,14 @@ fun PaymentScreen(nav: NavActions) {
             text = {
                 Column {
                     Text("Saisissez le code reçu sur votre téléphone.", fontFamily = Hanken, fontSize = 13.sp)
-                    payError?.let { Text(it, color = AkColors.Orange) }
+                    payError?.let { Text(it, color = AkColors.OrangeStrong) }
                     Spacer(Modifier.height(10.dp))
                     OutlinedTextField(
                         value = otpCode,
                         onValueChange = { if (it.length <= 6) otpCode = it.filter { c -> c.isDigit() } },
                         singleLine = true,
-                        placeholder = { Text("000000") },
+                        label = { Text("Code reçu") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -329,7 +338,7 @@ fun PaymentScreen(nav: NavActions) {
                 Row(Modifier.padding(top = 11.dp), verticalAlignment = Alignment.CenterVertically) {
                     InitialsAvatar(app.bkTeacherInitials, size = 42, radius = 12, fontSize = 15)
                     Spacer(Modifier.width(11.dp))
-                    Column {
+                    Column(Modifier.weight(1f)) {
                         Text("Cours de ${app.bkSubject} · ${app.bkLevel}", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AkColors.Ink)
                         Text("avec ${app.bkTeacherName}", fontFamily = Hanken, fontSize = 12.sp, color = AkColors.Muted)
                     }
@@ -363,7 +372,7 @@ fun PaymentScreen(nav: NavActions) {
         }
         Column(Modifier.fillMaxWidth().background(AkColors.White).padding(horizontal = 22.dp).padding(top = 14.dp, bottom = 24.dp)) {
             RecapRow("Cours (${app.bkDuration})", priceLabel, valueColor = AkColors.Ink)
-            PrimaryButton(if (sending) "Validation…" else "Payer $priceLabel", Modifier.fillMaxWidth(), color = if (payable && !loading) AkColors.Green else AkColors.Border, trailingIcon = Icons.Filled.Lock, onClick = {
+            PrimaryButton(if (sending) "Validation…" else "Payer $priceLabel", Modifier.fillMaxWidth(), color = AkColors.Green, enabled = payable && !loading && !sending, trailingIcon = Icons.Filled.Lock, onClick = {
                 if (sending || loading || !payable) return@PrimaryButton
                 sending = true
                 payError = null
@@ -398,9 +407,10 @@ fun PaymentScreen(nav: NavActions) {
 
 @Composable
 private fun RecapRow(label: String, value: String, last: Boolean = false, valueColor: Color = AkColors.Ink) {
-    Row(Modifier.fillMaxWidth().padding(bottom = if (last) 0.dp else 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, fontFamily = Hanken, fontSize = 13.sp, color = Color(0xFF4A574F))
-        Text(value, fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = valueColor)
+    Row(Modifier.fillMaxWidth().padding(bottom = if (last) 0.dp else 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
+        Text(label, modifier = Modifier.weight(.9f), fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Muted)
+        Text(value, modifier = Modifier.weight(1.4f), textAlign = TextAlign.End,
+            fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = valueColor)
     }
 }
 
@@ -415,7 +425,7 @@ private fun PaymentMethod(badge: Color, icon: ImageVector, title: String, subtit
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(AkColors.White)
             .border(if (selected) 2.dp else 1.5.dp, if (selected) AkColors.Orange else AkColors.Border, RoundedCornerShape(15.dp))
-            .clickable { onClick() }
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
             .padding(14.dp), verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.size(38.dp).clip(RoundedCornerShape(10.dp)).background(badge), contentAlignment = Alignment.Center) {
@@ -465,13 +475,11 @@ fun ConfirmedScreen(nav: NavActions) {
                 RecapRow("Matière", "${app.bkSubject} · ${app.bkLevel}"); Spacer(Modifier.height(3.dp))
                 RecapRow("Date", "${app.bkDayFull} · ${app.bkTime}"); Spacer(Modifier.height(3.dp))
                 RecapRow("Lieu", lieu); Spacer(Modifier.height(3.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(if (app.bkPaymentConfirmed) "Montant payé" else "Montant du cours", fontFamily = Hanken, fontSize = 13.sp, color = Color(0xFF4A574F))
-                    Text("%,d F".format(app.bkPrice).replace(',', ' '), fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, color = AkColors.Green)
-                }
+                RecapRow(if (app.bkPaymentConfirmed) "Montant payé" else "Montant du cours",
+                    "%,d F".format(app.bkPrice).replace(',', ' '), last = true, valueColor = AkColors.Green)
             }
             Spacer(Modifier.height(16.dp))
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { nav.go(Routes.MyCourses) }) {
+            TextButton(onClick = { nav.go(Routes.MyCourses) }) {
                 Icon(Icons.Filled.CalendarMonth, null, tint = AkColors.Green, modifier = Modifier.size(17.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("Consulter mes cours", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, color = AkColors.Green)
@@ -480,7 +488,7 @@ fun ConfirmedScreen(nav: NavActions) {
         }
         Column(Modifier.padding(horizontal = 26.dp).padding(bottom = 26.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             PrimaryButton("Voir mon cours", Modifier.fillMaxWidth(), trailingIcon = null, onClick = { nav.go(Routes.MyCourses) })
-            Box(Modifier.fillMaxWidth().clickable { nav.go(Routes.Home) }.padding(6.dp), contentAlignment = Alignment.Center) {
+            TextButton(onClick = { nav.go(Routes.Home) }, modifier = Modifier.fillMaxWidth()) {
                 Text("Retour à l'accueil", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AkColors.Muted)
             }
         }

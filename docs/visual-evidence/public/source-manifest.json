@@ -1,0 +1,197 @@
+{
+  "checkedAt": "2026-10-28T18:24:11.508Z",
+  "baseCommit": "3d1da9ef20d7072a6b285fccceaeedc23b05cd32",
+  "sourceState": "working tree with uncommitted visual changes; baseCommit is not the reviewed release commit",
+  "browser": "Chrome for Testing 156.0.8078.73",
+  "playwright": "1.64.1",
+  "axe": "4.14.0",
+  "fixture": "http://127.0.0.1:8099; synthetic data only; no external provider",
+  "sources": [
+    {
+      "path": "scripts/visual/fixture-server.mjs",
+      "sha256": "fc71f30f2b968226a07ca4674bbd66dda4400cd5e56447b8b47e36ba200d0db3"
+    },
+    {
+      "path": "web/.dockerignore",
+      "sha256": "6146c193761385bbb4480ce4b5cdbda00724c5e79f16ae65f454161d67b01ebc"
+    },
+    {
+      "path": "web/admin/css/admin.css",
+      "sha256": "8b7592d8eddd244c0aa8a9d172098e1dbd30839d327d7c44a8259aacbf8efe82"
+    },
+    {
+      "path": "web/admin/index.html",
+      "sha256": "51e6e8326069075ce323b349e188929b5dc646fd61dfd2fe33eac448681ccb57"
+    },
+    {
+      "path": "web/admin/js/admin.js",
+      "sha256": "f4903986e20aaafa0482ed68471c72e01eea8da97978ee09ef51e00491f69e6f"
+    },
+    {
+      "path": "web/admin/js/operations.js",
+      "sha256": "77ba8f35c6e0a08fb337101301d4e646dc58dbb467e8f329523d32e1e89b6eae"
+    },
+    {
+      "path": "web/aide.html",
+      "sha256": "c78a42faec4463144dc774590105657decf492dba0572cda177fc5e179a9111c"
+    },
+    {
+      "path": "web/assets/fonts/hanken_grotesk_bold.woff2",
+      "sha256": "7d4c530c38c986cb9aba1bc433597708d1b05197aee946632a2d43f17474643e"
+    },
+    {
+      "path": "web/assets/fonts/hanken_grotesk_extrabold.woff2",
+      "sha256": "b0edc1765965fb8b60a8443bff0c6ceb43abef40dcfef8012a6cc8eb0db90aec"
+    },
+    {
+      "path": "web/assets/fonts/hanken_grotesk_medium.woff2",
+      "sha256": "7670002b36305bade01c731d548a33626af04d307df4b7261496d8b8d4fc8372"
+    },
+    {
+      "path": "web/assets/fonts/hanken_grotesk_regular.woff2",
+      "sha256": "8bbd607a97e0d1bd0df570fadc955d7d8df90348ed8cacc3d0dce85a43501107"
+    },
+    {
+      "path": "web/assets/fonts/hanken_grotesk_semibold.woff2",
+      "sha256": "cc618e31c06549dc727fd416a374a288617d4d7520560568c2cd5deae03e6773"
+    },
+    {
+      "path": "web/assets/fonts/OFL-Hanken-Grotesk.txt",
+      "sha256": "e02ccb89a86839b22feff7872ff5cc355cc0f58318d29eee20e2cf83a612f16d"
+    },
+    {
+      "path": "web/assets/fonts/OFL-Schibsted-Grotesk.txt",
+      "sha256": "3b4f3063b6ac7c1e403e2c4a5e8ef3a58190ff83ed7b15af66511858699139ce"
+    },
+    {
+      "path": "web/assets/fonts/schibsted_grotesk_black.woff2",
+      "sha256": "514392ce1dd3ad53434cf3df350ef17c5c324fc865c62df324d55e5e99bb7eb3"
+    },
+    {
+      "path": "web/assets/fonts/schibsted_grotesk_bold.woff2",
+      "sha256": "1f6e7663c55e99bbe899410e2c79111c52dd801b0bc21339bb7b533a6a87b7b0"
+    },
+    {
+      "path": "web/assets/fonts/schibsted_grotesk_extrabold.woff2",
+      "sha256": "889ddfdbd07041436ec33255474ef57bbf0b5ef246dd3f39def502ac263880c2"
+    },
+    {
+      "path": "web/assets/illustrations/learning-together-small.webp",
+      "sha256": "afe35eb075b89ed5186bbc0a9bb169faad97020f62fed554c8abde619ff8187b"
+    },
+    {
+      "path": "web/assets/illustrations/learning-together.webp",
+      "sha256": "6a683c2be43cd92be648ef6bf65a89f2f1a3ae15b982799b2204c8f70e7861b2"
+    },
+    {
+      "path": "web/assets/mp2-logo.png",
+      "sha256": "18b89fb4dfcb291b82fea79a5ba48b9a70e3e551a621a0ee3c68b617a1f12248"
+    },
+    {
+      "path": "web/assets/screens/app_courses.png",
+      "sha256": "0d3fa3776b46ae50deb58ed26fb33faec09e2dfa30b26f50fad909a43b05236b"
+    },
+    {
+      "path": "web/assets/screens/app_home.png",
+      "sha256": "2a046c78ff0bcb4ddfddca1207d56669cce95a62dbae7f6b879cb5ee61341e20"
+    },
+    {
+      "path": "web/assets/screens/app_progress.png",
+      "sha256": "8c872308758255f20e3447dc04c513ae5945b7da2dbc036a63bfe2f2496411b9"
+    },
+    {
+      "path": "web/assets/screens/app_search.png",
+      "sha256": "858a6c590b3586107e8f98559dfd3d6c87ec414d0cdbad324e71146d28fca3dc"
+    },
+    {
+      "path": "web/assets/screens/app_teacher_dashboard.png",
+      "sha256": "9fa66864a9f9375a18f0854d057106e2f3aafd76ce2327a6a15a43754571179e"
+    },
+    {
+      "path": "web/assets/screens/app_welcome.png",
+      "sha256": "21e5193674e70a5bc6f6b51c1cc4a76367760ef2cffc1e40677a66625cb4b1b7"
+    },
+    {
+      "path": "web/connexion.html",
+      "sha256": "a1afa06a111c02897f8adc07cc08f706bab80e3eedd4f1137a195301ca20d3fb"
+    },
+    {
+      "path": "web/css/devenir-prof.css",
+      "sha256": "bf998de4d15b210e6591eda4c071ee6bd276a10354cacced28bf796ee7966476"
+    },
+    {
+      "path": "web/css/fonts.css",
+      "sha256": "07ec3f6a96dfb55914b5c5c0636d702cc34a4fb09278c5c767cf0a59152aa00f"
+    },
+    {
+      "path": "web/css/styles.css",
+      "sha256": "e0b72fbffbcac2575738d36e0562b0490e24ef478933654ab7aa510906a02dac"
+    },
+    {
+      "path": "web/devenir-prof.html",
+      "sha256": "91999914176740d70f21bd04cce5c234e67ddaec5c336fe0d298350638f902b4"
+    },
+    {
+      "path": "web/Dockerfile",
+      "sha256": "c3906e6fb88f9a7d47aea64697f04747a90ae333864cdda08bcdc9dae2b6aabb"
+    },
+    {
+      "path": "web/index.html",
+      "sha256": "8c22cd194b0bddc55921fa0189904f58bd6736c29750448c5a9bbc90eeb51b2a"
+    },
+    {
+      "path": "web/informations-service.html",
+      "sha256": "bb5223a536034e0477dded31cb11c840b33df46799682daf99b88ec2aa977949"
+    },
+    {
+      "path": "web/js/account-public.js",
+      "sha256": "deeadca628be7a37ddaa60d9f4a4080a5e5a563f2b97f531abaf588040bdb2e2"
+    },
+    {
+      "path": "web/js/api-client.js",
+      "sha256": "8424513a2bb7dd69e24d404650486214c3d64844381424d8452ccf075af44485"
+    },
+    {
+      "path": "web/js/besoin.js",
+      "sha256": "4b05b6bd434bf3be0b5a42bee6c549deda3a05997ff9cb8f94703436bd5ef8ae"
+    },
+    {
+      "path": "web/js/devenir-prof.js",
+      "sha256": "3e3f80012ae152681a1e0b44b949edea380dab487454dced448c2b343f62172f"
+    },
+    {
+      "path": "web/js/main.js",
+      "sha256": "b07c8bd095e4f0202ef634eee1b081ab97430830449972e6b6f7af9075cb915b"
+    },
+    {
+      "path": "web/js/service-information.js",
+      "sha256": "ca52f5390f16cdc1d22a1e86d756f506a5d1dec75e6f3f3f2d4206463c995a77"
+    },
+    {
+      "path": "web/nginx.conf",
+      "sha256": "640afe7277cf3e5b20a7f4d0f9f5619635167d7be0b6f37c9bbdab25f2e25097"
+    },
+    {
+      "path": "web/README.md",
+      "sha256": "81c83cdad85974452f67cac8e55e16b9bc77bf92c82f261658d2297d05d1bac5"
+    },
+    {
+      "path": "web/suppression-compte.html",
+      "sha256": "578477b6319ca10934091363c329cd0547cead3e5b0124572976252e42785d00"
+    }
+  ],
+  "postReviewFormattingOnly": [
+    {
+      "path": "web/assets/fonts/OFL-Schibsted-Grotesk.txt",
+      "reviewedSha256": "3b4f3063b6ac7c1e403e2c4a5e8ef3a58190ff83ed7b15af66511858699139ce",
+      "releaseSha256": "851b03806ddbd92890a59a8512a883ff231587f9bef037895efa544a0f250432",
+      "reason": "Trailing whitespace normalized in the upstream license text only; font bytes and interface sources unchanged."
+    },
+    {
+      "path": "web/assets/fonts/OFL-Hanken-Grotesk.txt",
+      "reviewedSha256": "e02ccb89a86839b22feff7872ff5cc355cc0f58318d29eee20e2cf83a612f16d",
+      "releaseSha256": "bb93c61eef5b10204ac305aeb3d204ce74c22c40aa8398f9e2c3bdab2263f2d1",
+      "reason": "Trailing whitespace normalized in the upstream license text only; font bytes and interface sources unchanged."
+    }
+  ]
+}

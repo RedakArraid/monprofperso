@@ -39,12 +39,25 @@
     return p;
   }
 
-  function showErr(msg, which) {
+  function showErr(msg, which, fieldId) {
+    form?.querySelectorAll("[aria-invalid]").forEach(function (field) { field.removeAttribute("aria-invalid"); field.removeAttribute("aria-describedby"); });
     if (errStep0) errStep0.hidden = true;
     if (errStep1) errStep1.hidden = true;
     var target = which === 0 ? errStep0 : errStep1;
     if (target) { target.textContent = msg || ""; target.hidden = !msg; }
+    if (msg && fieldId) {
+      var field = document.getElementById(fieldId);
+      if (field) {
+        if (field.classList.contains("chip-grid")) field = field.querySelector("button") || field;
+        field.setAttribute("aria-invalid", "true"); field.setAttribute("aria-describedby", target.id);
+        field.focus();
+      }
+    }
   }
+
+  form?.addEventListener("input", function (event) {
+    if (event.target.getAttribute("aria-invalid") === "true") showErr("");
+  });
 
   function finalizeSubjects(list) {
     var out = list.filter(function (s) { return s !== OTHER; });
@@ -138,34 +151,38 @@
       });
   }
 
-  function goStep(n) {
+  function goStep(n, focusStep) {
     step = n;
     stepEls.forEach(function (el, i) { el.hidden = i !== step; });
     progressBars.forEach(function (el, i) { el.classList.toggle("done", i <= step); });
     if (stepLabel) stepLabel.textContent = "Étape " + (step + 1) + " / 2";
     showErr("");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (focusStep !== false) {
+      stepLabel?.focus({ preventScroll: true });
+      window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    }
   }
 
   function validateStep0() {
-    if (!document.getElementById("fullName").value.trim()) return "Indiquez votre nom complet.";
-    if (!document.getElementById("phone").value.trim()) return "Indiquez votre numéro.";
-    if (!checkedLabels("subjects").length) return "Sélectionnez au moins une matière.";
+    if (!document.getElementById("fullName").value.trim()) return { message: "Indiquez votre nom complet.", field: "fullName" };
+    if (!document.getElementById("phone").value.trim()) return { message: "Indiquez votre numéro.", field: "phone" };
+    if (!document.getElementById("email").checkValidity()) return { message: "Indiquez une adresse e-mail valide ou laissez ce champ vide.", field: "email" };
+    if (!checkedLabels("subjects").length) return { message: "Sélectionnez au moins une matière.", field: "subjectsGrid" };
     if (isChecked("subjects", OTHER) && !(document.getElementById("otherSubject").value || "").trim()) {
-      return "Précisez la matière « Autre ».";
+      return { message: "Précisez la matière « Autre ».", field: "otherSubject" };
     }
-    if (!checkedLabels("levels").length) return "Sélectionnez au moins un niveau.";
+    if (!checkedLabels("levels").length) return { message: "Sélectionnez au moins un niveau.", field: "levelsGrid" };
     if (isChecked("levels", OTHER) && !(document.getElementById("otherLevel").value || "").trim()) {
-      return "Précisez le niveau « Autre ».";
+      return { message: "Précisez le niveau « Autre ».", field: "otherLevel" };
     }
-    return "";
+    return null;
   }
 
   document.querySelectorAll("[data-next]").forEach(function (btn) {
     btn.addEventListener("click", function () {
       if (step === 0) {
         var e0 = validateStep0();
-        if (e0) return showErr(e0, 0);
+        if (e0) return showErr(e0.message, 0, e0.field);
       }
       goStep(Math.min(step + 1, 1));
     });
@@ -215,7 +232,7 @@
       var btn = document.getElementById("submitBtn");
       if (btn.disabled || !consentVersion) return;
       if (!document.getElementById("consent").checked) {
-        return showErr("Acceptez les conditions d'utilisation.", 1);
+        return showErr("Acceptez les conditions d’utilisation.", 1, "consent");
       }
       btn.disabled = true;
       btn.textContent = "Envoi en cours…";
@@ -246,9 +263,10 @@
         if (!res.ok) throw new Error(data.message || data.error || "Erreur " + res.status);
 
         if (formCard) formCard.hidden = true;
-        if (successEl) successEl.hidden = false;
+        if (successEl) { successEl.hidden = false; successEl.focus(); }
       } catch (ex) {
         showErr(ex.message || "Envoi impossible", 1);
+        errStep1?.focus();
         btn.disabled = !consentVersion;
         btn.textContent = "Envoyer ma candidature";
       }
@@ -271,6 +289,7 @@
     statusBtn.addEventListener("click", async function () {
       var phone = normalizePhone(document.getElementById("statusPhone").value);
       if (!phone) { statusResult.innerHTML = '<p class="form-err">Indiquez un numéro valide.</p>'; return; }
+      statusResult.setAttribute("aria-busy", "true");
       statusBtn.disabled = true;
       statusBtn.textContent = "Recherche…";
       try {
@@ -312,6 +331,8 @@
       } catch (ex) {
         statusResult.innerHTML = '<p class="form-err">Recherche impossible, réessayez.</p>';
       } finally {
+        statusResult.removeAttribute("aria-busy");
+        statusResult.focus();
         statusBtn.disabled = false;
         statusBtn.textContent = "Voir mon statut";
       }
@@ -324,6 +345,6 @@
     });
   }
 
-  goStep(0);
+  goStep(0, false);
   loadCatalog();
 })();

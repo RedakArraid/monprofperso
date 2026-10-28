@@ -1,14 +1,20 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package ci.monprofperso.app.ui.screens
 
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import ci.monprofperso.app.data.*
 import ci.monprofperso.app.nav.NavActions
@@ -20,6 +26,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
@@ -77,7 +84,9 @@ private fun money(amount: Int) = "%,d F CFA".format(Locale.FRANCE, amount).repla
 
 @Composable
 private fun OperationCard(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = AkColors.White)) {
+    Card(Modifier.fillMaxWidth(), shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, AkColors.Border),
+        colors = CardDefaults.cardColors(containerColor = AkColors.White)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium, color = AkColors.Ink)
             content()
@@ -86,9 +95,43 @@ private fun OperationCard(title: String, content: @Composable ColumnScope.() -> 
 }
 
 @Composable
-private fun OperationField(label: String, value: String, onChange: (String) -> Unit, enabled: Boolean = true) {
-    OutlinedTextField(value = value, onValueChange = onChange, label = { Text(label) }, modifier = Modifier.fillMaxWidth(), enabled = enabled)
+private fun OperationField(label: String, value: String, onChange: (String) -> Unit, enabled: Boolean = true, keyboardType: KeyboardType = KeyboardType.Text) {
+    OutlinedTextField(value = value, onValueChange = onChange, label = { Text(label) }, modifier = Modifier.fillMaxWidth(),
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType), enabled = enabled)
 }
+
+@Composable
+private fun SchedulePicker(value: String, enabled: Boolean, onChange: (String) -> Unit) {
+    val context = LocalContext.current
+    val zone = TimeZone.getTimeZone("Africa/Abidjan")
+    val machineFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).apply { timeZone = zone; isLenient = false }
+    val date = runCatching { machineFormat.parse(value) }.getOrNull()
+    val label = date?.let { SimpleDateFormat("EEEE d MMMM yyyy 'à' HH:mm", Locale.FRENCH).apply { timeZone = zone }.format(it) }
+        ?: "Choisir la date et l’heure"
+    OutlinedButton(enabled = enabled, modifier = Modifier.fillMaxWidth(), onClick = {
+        val calendar = Calendar.getInstance(zone).apply {
+            if (date != null) time = date else { add(Calendar.DAY_OF_YEAR, 1); set(Calendar.HOUR_OF_DAY, 16); set(Calendar.MINUTE, 0) }
+            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }
+        DatePickerDialog(context, { _, year, month, day ->
+            calendar.set(year, month, day)
+            TimePickerDialog(context, { _, hour, minute ->
+                calendar.set(Calendar.HOUR_OF_DAY, hour); calendar.set(Calendar.MINUTE, minute)
+                onChange(machineFormat.format(calendar.time))
+            }, calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), true).show()
+        }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).apply {
+            datePicker.minDate = Calendar.getInstance(zone).apply {
+                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
+        }.show()
+    }) { Text(label) }
+}
+
+private fun readableCourseDate(value: String): String = runCatching {
+    val parser = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }
+    val parsed = parser.parse(value) ?: return@runCatching value
+    SimpleDateFormat("d MMMM yyyy 'à' HH:mm", Locale.FRENCH).apply { timeZone = TimeZone.getTimeZone("Africa/Abidjan") }.format(parsed)
+}.getOrDefault(value)
 
 @Composable
 fun ProductionAccountScreen(nav: NavActions) {
@@ -100,7 +143,7 @@ fun ProductionAccountScreen(nav: NavActions) {
     AkScreen(applyBottomInset = false) {
         TopBar("Mon compte", onBack = { nav.back() })
         Column(Modifier.weight(1f).verticalScrollSafe().padding(22.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            error?.let { Text(it, color = AkColors.Orange) }
+            error?.let { FeedbackMessage(it) }
             OperationCard(user?.fullName ?: AppState.authFullName.ifBlank { "Mon compte" }) {
                 Text(user?.phone ?: AppState.authPhone)
                 Text(when (user?.role ?: AppState.authRole) { "teacher" -> "Professeur"; "admin" -> "Administrateur"; "student" -> "Élève"; else -> "Parent" })
@@ -179,8 +222,8 @@ fun PrivacySettingsScreen(nav: NavActions) {
         TopBar("Mes données et mon compte", onBack = { nav.back() })
         Column(Modifier.weight(1f).verticalScrollSafe().padding(22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-            error?.let { Text(it, color = AkColors.Orange) }
-            info?.let { Text(it, color = AkColors.Green) }
+            error?.let { FeedbackMessage(it) }
+            info?.let { FeedbackMessage(it, error = false) }
             OperationCard("Conditions et confidentialité") {
                 val legal = accountConsent
                 if (legal == null) {
@@ -244,7 +287,7 @@ fun PrivacySettingsScreen(nav: NavActions) {
             OperationCard("Supprimer mon compte") {
                 Text("La suppression retire votre profil et anonymise vos données personnelles. Les éléments nécessaires au règlement des cours, aux litiges et aux obligations de conservation sont traités selon la politique de confidentialité.")
                 Text("Une connexion OTP de moins de 15 minutes est requise pour confirmer. Une demande reste en attente tant que des opérations doivent être clôturées.")
-                state?.blockers.orEmpty().forEach { Text("• ${it.message}", color = AkColors.Orange) }
+                state?.blockers.orEmpty().forEach { Text("• ${it.message}", color = AkColors.OrangeStrong) }
                 if (state?.request?.status == "pending") {
                     Text("Votre demande est enregistrée. Vous pouvez la retirer avant son traitement.")
                     Button(enabled = !busy, onClick = { perform { state = Api.service.cancelAccountDeletion(); info = "Demande de suppression annulée." } }) { Text("Annuler ma demande de suppression") }
@@ -308,8 +351,8 @@ fun CourseOperationsScreen(nav: NavActions) {
         TopBar("Détail du cours", onBack = { nav.back() })
         Column(Modifier.weight(1f).verticalScrollSafe().padding(22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-            error?.let { Text(it, color = AkColors.Orange) }
-            info?.let { Text(it, color = AkColors.Green) }
+            error?.let { FeedbackMessage(it) }
+            info?.let { FeedbackMessage(it, error = false) }
             if (id == null) {
                 Text("Choisissez d’abord un cours dans votre agenda.")
                 Button(onClick = { nav.go(Routes.MyCourses) }) { Text("Voir mes cours") }
@@ -352,7 +395,7 @@ fun CourseOperationsScreen(nav: NavActions) {
                 }
                 d.scheduleRequests.filter { it.status == "pending" }.forEach { proposal ->
                     OperationCard("Créneau proposé") {
-                        Text(proposal.startAt); Text(proposal.reason.orEmpty())
+                        Text(readableCourseDate(proposal.startAt)); Text(proposal.reason.orEmpty())
                         if ("respond_schedule" in d.permissions) {
                             Button(enabled = !busy, onClick = { perform("Créneau accepté.") { Api.service.respondSchedule(it, proposal.id, mapOf("decision" to "accept")) } }) { Text("Accepter ce créneau") }
                             OutlinedButton(enabled = !busy, onClick = { perform("Proposition refusée.") { Api.service.respondSchedule(it, proposal.id, mapOf("decision" to "decline")) } }) { Text("Refuser ce créneau") }
@@ -361,7 +404,7 @@ fun CourseOperationsScreen(nav: NavActions) {
                 }
                 if ("schedule" in d.permissions) OperationCard("Convenir d’un créneau") {
                     Text("Heure de Côte d’Ivoire. Le créneau doit être accepté par l’autre participant.")
-                    OperationField("Date et heure : AAAA-MM-JJ HH:mm", dateText, { dateText = it }, !busy)
+                    SchedulePicker(dateText, !busy) { dateText = it }
                     OperationField("Motif ou précision", scheduleReason, { scheduleReason = it }, !busy)
                     Button(enabled = !busy && dateText.isNotBlank() && scheduleReason.isNotBlank(), onClick = { perform("Proposition envoyée.") {
                         Api.service.proposeSchedule(it, mapOf("startAt" to parseCourseLocalDate(dateText), "reason" to scheduleReason))
@@ -388,7 +431,7 @@ fun CourseOperationsScreen(nav: NavActions) {
                 }
                 if ("request_refund" in d.permissions) OperationCard("Demander un remboursement") {
                     Text("Le support examine la demande. Le remboursement est confirmé uniquement après vérification de l’opération.")
-                    OperationField("Montant en F CFA", refundAmount, { refundAmount = it.filter(Char::isDigit) }, !busy)
+                    OperationField("Montant en F CFA", refundAmount, { refundAmount = it.filter(Char::isDigit) }, !busy, KeyboardType.Number)
                     OperationField("Motif", refundReason, { refundReason = it }, !busy)
                     Button(enabled = !busy && refundReason.isNotBlank(), onClick = { perform("Demande de remboursement enregistrée.") {
                         val amount = refundAmount.toIntOrNull()
@@ -434,8 +477,8 @@ fun ProductionEarningsScreen(nav: NavActions) {
         TopBar("Revenus et versements", onBack = { nav.back() })
         Column(Modifier.weight(1f).verticalScrollSafe().padding(22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-            error?.let { Text(it, color = AkColors.Orange) }
-            info?.let { Text(it, color = AkColors.Green) }
+            error?.let { FeedbackMessage(it) }
+            info?.let { FeedbackMessage(it, error = false) }
             state?.summary?.let { s ->
                 OperationCard("Mes revenus") {
                     Text("Prévisionnel : ${money(s.expected)}")
@@ -449,7 +492,7 @@ fun ProductionEarningsScreen(nav: NavActions) {
                     Text("Les montants deviennent disponibles selon la réalisation des cours et la résolution des éventuels litiges.")
                     Text("Votre numéro doit avoir été vérifié par OTP et votre connexion dater de moins de 15 minutes pour envoyer une demande.")
                     OutlinedButton(enabled = !busy, onClick = { Auth.logout(); nav.go(Routes.Login) }) { Text("Me reconnecter et vérifier mon numéro") }
-                    OperationField("Montant en F CFA", amount, { amount = it.filter(Char::isDigit) }, !busy)
+                    OperationField("Montant en F CFA", amount, { amount = it.filter(Char::isDigit) }, !busy, KeyboardType.Number)
                     listOf("orange" to "Orange Money", "mtn" to "MTN Money", "wave" to "Wave").forEach { (key, label) ->
                         Row { RadioButton(selected = provider == key, onClick = { provider = key }, enabled = !busy); Text(label, Modifier.padding(top = 12.dp)) }
                     }
@@ -467,7 +510,7 @@ fun ProductionEarningsScreen(nav: NavActions) {
                 }
             }
             OperationCard("Historique des demandes") {
-                if (state?.payoutRequests.orEmpty().isEmpty()) Text("Aucune demande de versement.")
+                if (state != null && state?.payoutRequests.orEmpty().isEmpty()) Text("Aucune demande de versement.")
                 state?.payoutRequests.orEmpty().forEach { p ->
                     Text("${money(p.amount)} · ${p.provider.orEmpty()}")
                     Text(financeStateLabel(p.status))
@@ -491,7 +534,7 @@ fun ProductionSupportScreen(nav: NavActions) {
     AkScreen {
         TopBar("Aide et support", onBack = { nav.back() })
         Column(Modifier.weight(1f).verticalScrollSafe().padding(22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            error?.let { Text(it, color = AkColors.Orange) }
+            error?.let { FeedbackMessage(it) }
             OperationCard("Contacter le support") {
                 val phone = settings["contact_phone"].orEmpty()
                 val email = settings["contact_email"].orEmpty()
@@ -519,7 +562,7 @@ fun ProductionSupportScreen(nav: NavActions) {
 fun UnavailableFeatureScreen(nav: NavActions, title: String) {
     AkScreen {
         TopBar(title, onBack = { nav.back() })
-        Column(Modifier.weight(1f).padding(22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(Modifier.weight(1f).verticalScrollSafe().padding(22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text("Ce service n’est pas proposé dans la version actuelle. Retrouvez vos cours individuels et leur suivi dans votre espace.")
             Button(onClick = { nav.go(Routes.MyCourses) }) { Text("Mes cours") }
             OutlinedButton(onClick = { nav.go(Routes.HelpFaq) }) { Text("Contacter le support") }
@@ -553,15 +596,15 @@ fun ProductionSearchScreen(nav: NavActions) {
         Column(Modifier.weight(1f).verticalScrollSafe().padding(22.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             OperationField("Nom, matière ou quartier", query, { query = it })
             OperationField("Niveau, facultatif", level, { level = it })
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 FilterChip(selected = format.isBlank(), onClick = { format = "" }, label = { Text("Tous") })
                 FilterChip(selected = format == "home", onClick = { format = "home" }, label = { Text("À domicile") })
                 if (AppState.featureEnabled("onlineCourses")) FilterChip(selected = format == "online", onClick = { format = "online" }, label = { Text("En ligne") })
             }
             if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-            error?.let { Text(it, color = AkColors.Orange) }
+            error?.let { FeedbackMessage(it) }
             OutlinedButton(enabled = !busy, onClick = { scope.launch { load() } }) { Text("Actualiser") }
-            if (!busy && visible.isEmpty()) Text("Aucun professeur ne correspond à ces critères.")
+            if (!busy && error == null && visible.isEmpty()) EmptyContent("Aucun professeur trouvé", "Essayez une autre matière, un autre quartier ou un niveau différent.")
             visible.forEach { teacher ->
                 OperationCard(teacher.name) {
                     Text(teacher.subjects)
@@ -589,13 +632,13 @@ fun ProductionProgressScreen(nav: NavActions) {
         TopBar("Suivi pédagogique", onBack = { nav.back() })
         Column(Modifier.weight(1f).verticalScrollSafe().padding(22.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-            error?.let { Text(it, color = AkColors.Orange) }
-            if (!busy && entries.isEmpty()) Text("Les bilans saisis par les professeurs après vos cours apparaîtront ici.")
+            error?.let { FeedbackMessage(it) }
+            if (!busy && error == null && entries.isEmpty()) EmptyContent("Vos bilans apparaîtront ici", "Retrouvez le suivi pédagogique saisi par le professeur après chaque cours.")
             entries.forEach { entry ->
                 OperationCard(entry.subject) {
                     Text("Professeur : ${entry.teacherName}")
                     entry.studentName?.let { Text("Élève : $it") }
-                    entry.completedAt?.let { Text(it) }
+                    entry.completedAt?.let { Text(readableCourseDate(it)) }
                     Text(entry.summary)
                     OutlinedButton(onClick = { AppState.selectedCourseId = entry.courseId; nav.go(Routes.ManageCourse) }) { Text("Voir le cours") }
                 }
@@ -627,7 +670,7 @@ fun ProductionTeacherDashboardScreen(nav: NavActions) {
         TopBar("Espace professeur", onBack = { nav.back() })
         Column(Modifier.weight(1f).verticalScrollSafe().padding(22.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-            error?.let { Text(it, color = AkColors.Orange) }
+            error?.let { FeedbackMessage(it) }
             dashboard?.let { d ->
                 OperationCard("Bonjour, ${d.name}") {
                     d.profileCompletion?.takeIf { !it.complete }?.let { p ->
@@ -645,7 +688,7 @@ fun ProductionTeacherDashboardScreen(nav: NavActions) {
                 Button(onClick = { nav.go(Routes.Earnings) }) { Text("Revenus et versements") }
             } }
             Text("Prochains cours", style = MaterialTheme.typography.titleMedium)
-            if (!busy && courses.isEmpty()) Text("Aucun cours à venir.")
+            if (!busy && error == null && courses.isEmpty()) EmptyContent("Aucun cours à venir", "Consultez les demandes disponibles pour organiser vos prochaines séances.")
             courses.sortedBy { it.startAt ?: "9999" }.take(5).forEach { c ->
                 OperationCard("${c.subject} · ${c.level}") {
                     if (c.isTeacherParticipant(AppState.authRole)) c.parentName?.let { Text("Parent : $it") }
@@ -689,10 +732,10 @@ fun ProductionRequestsScreen(nav: NavActions) {
         TopBar("Demandes et offres", onBack = { nav.back() })
         Column(Modifier.weight(1f).verticalScrollSafe().padding(22.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-            error?.let { Text(it, color = AkColors.Orange) }
-            info?.let { Text(it, color = AkColors.Green) }
+            error?.let { FeedbackMessage(it) }
+            info?.let { FeedbackMessage(it, error = false) }
             OperationField("Rechercher une matière ou un quartier", query, { query = it })
-            if (!busy && visible.isEmpty()) Text("Aucune demande correspondant à ces critères.")
+            if (!busy && error == null && visible.isEmpty()) EmptyContent("Aucune demande disponible", "Les nouvelles demandes et les offres correspondant à votre profil apparaîtront ici.")
             visible.forEach { request ->
                 OperationCard(if (request.isOpportunity) "Offre de cours" else "Réservation directe") {
                     Text(request.name)

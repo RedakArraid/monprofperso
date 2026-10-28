@@ -1,0 +1,20 @@
+{
+  "started_utc": "2026-10-28T19:57:34.923636+00:00",
+  "git_head": "6bd10c1686e7f9e793894aa8ce86648dd40b0964",
+  "tasks": [
+    ":app:compileDebugKotlin",
+    ":app:compileDebugAndroidTestKotlin"
+  ],
+  "kotlin_incremental": false,
+  "compiler_execution_strategy": "in-process",
+  "files": {
+    "android/app/src/main/java/ci/monprofperso/app/ui/components/Scaffold.kt": "6efd31adeca2745aa5def6601ffcb9ce13d54e6253ff6c1ebdc8e1997609c43a",
+    "android/app/src/main/java/ci/monprofperso/app/ui/screens/LearnScreens.kt": "312e64bdebc6dedf01ce7918bf41155f30b789e35c2c222a33e0f6270fcbeb51",
+    "android/app/src/main/java/ci/monprofperso/app/ui/screens/ResourcesScreen.kt": "23dfc6bcd2df1bb9cc98a31fb1685f21e355406a708b184ed0b5c75ae9f89888",
+    "android/app/src/androidTest/java/ci/monprofperso/app/VisualRegressionTest.kt": "1d31bac0a7c957117ce23d4866ef6b79584be603b299935216d7cce6bec3523e",
+    "android/app/src/androidTest/java/ci/monprofperso/app/PresentedScreenCapture.kt": "fd1212fbdf3b71f4e69ded75868f5a5b4021434ba06c5289230e3afda741919c"
+  },
+  "finished_utc": "2026-10-28T19:58:23.986294+00:00",
+  "exit_code": 0,
+  "sources_unchanged_during_build": true
+}

@@ -1,0 +1,12 @@
+{
+  "started_utc": "2026-10-28T19:15:36.422364+00:00",
+  "git_head": "7d926c022d7475ed63f79213e50cd8b16aab77d0",
+  "tasks": [
+    ":app:compileDebugKotlin"
+  ],
+  "files": {
+    "android/app/src/main/java/ci/monprofperso/app/ui/screens/NotificationBell.kt": "793da6bc31432dcaee796f23e2e20e37a4a3eb1d23a88c1b5dc22706bb89bdc4"
+  },
+  "finished_utc": "2026-10-28T19:15:54.730687+00:00",
+  "exit_code": 0
+}

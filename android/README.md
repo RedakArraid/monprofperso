@@ -73,4 +73,37 @@ Résultat : `app/build/outputs/bundle/release/app-release.aab`. Les tâches prod
 
 Les tests JVM couvrent challenges/authentification, formats et dates, conditions de paiement, refus des liens non HTTPS, lecture des demandes de suppression et séparation des montants dus/réservés/versés. Ils vérifient aussi les finances historiques dont les conditions n’ont pas encore été documentées.
 
+### Recette visuelle sur émulateur
+
+Les résultats observés, les révisions concernées et les limites sont suivis dans
+[VISUAL-VALIDATION.md](VISUAL-VALIDATION.md).
+
+`VisualRegressionTest` parcourt les vraies vues Compose avec le serveur local de fixtures partagé avec iOS. Le test exige un build Debug, une URL locale et l’en-tête explicite du serveur de fixtures ; les comptes de capture ne sont jamais injectés dans un build Release. Depuis la racine du dépôt, démarrer le serveur dans un terminal séparé :
+
+```sh
+MPP_VISUAL_FIXTURES=1 node scripts/visual/fixture-server.mjs
+```
+
+Puis, depuis `android/`, avec un émulateur Android API 36 démarré :
+
+```sh
+bash scripts/run-visual-test.sh
+```
+
+Le serveur écoute sur le port 8099 de la machine hôte ; l’émulateur l’atteint via `10.0.2.2`. Les captures PNG, leurs métadonnées d’écran et les arbres sémantiques sont produits dans le répertoire `additionalTestOutputDir` fourni par Gradle. UTP les rapatrie avant de désinstaller les APK, sous `app/build/outputs/connected_android_test_additional_output/debugAndroidTest/`. Le scénario utilise des OTP de fixture et ne déclenche aucun message ni paiement prestataire.
+
+Le script conserve ces sorties natives même lorsqu’une assertion échoue, puis préserve le code de sortie du test. L’absence de PNG fait échouer la collecte. Chaque exécution utilise un sous-dossier distinct de `$RUNNER_TEMP/mpp-android-captures` en CI ou `app/build/mpp-android-captures` en local ; la destination peut être remplacée par `MPP_ANDROID_CAPTURE_DIR`. Les sorties régénérables UTP de la variante Debug sont nettoyées avant le test pour éviter de réattribuer d’anciennes images à une nouvelle exécution.
+
+La capture attend une frame soumise par la fenêtre, puis utilise `PixelCopy` comme référence. L’image finale reste la capture Android de l’écran entier, avec son clavier et ses barres système, sans assemblage ni retouche. La fenêtre doit occuper exactement les dimensions de l’écran, notamment après le passage en paysage. L’image n’est acceptée que si ses pixels correspondent exactement à la zone visible de la fenêtre, hors insets système/clavier et marge de 8 dp protégeant de leurs ombres. La comparaison n’accepte aucune différence de couleur et attend une nouvelle frame entre les essais, avec une limite globale de 15 secondes. Les JSON décrivent la zone comparée et l’état du clavier. Un garde interdit des contenus de fenêtre identiques entre les accueils à 100 % et 200 %, indépendamment de l’horloge système.
+
+La recette couvre l’accueil illustré, l’inscription, la connexion et l’OTP avec clavier ouvert, le catalogue, le profil professeur, la réservation, les cours, les paramètres, les données personnelles, le tableau de bord professeur, les revenus, les ressources pédagogiques, l’état vide et la panne réseau. Elle vérifie les boutons principaux sur un téléphone de 360 dp de large, le texte à 200 % sur l’accueil et le profil professeur, ainsi que la navigation des accueils parent et professeur à 200 %, puis un accueil en paysage. Les ressources vides restent vides, leurs filtres sont nommés et sélectionnables avec des cibles de 48 dp, et l’indisponibilité conserve un réessai sans afficher de faux supports. Une erreur réseau doit rester un état d’erreur et ne pas être annoncée comme une liste vide. Le rapport de validation distingue cette couverture prévue des exécutions et images réellement obtenues.
+
+À police agrandie, la navigation garde des libellés entiers et défile horizontalement. La recette atteint « Compte » puis revient à « Accueil » par de vrais gestes tactiles, pour les deux rôles, et vérifie visibilité entière, cible minimale, libellé sur une ligne et sélection unique. La répartition de la barre à police normale est conservée. L’apparence des barres système est appliquée par la destination `RESUMED` ; l’inscription et la connexion vérifient les icônes sombres attendues sur leur fond clair.
+
+La mise en page tient compte des barres système, des découpes latérales et du clavier. Les contenus longs défilent ; les sélecteurs de créneau et la navigation exposent leur sélection aux services d’accessibilité. L’illustration de tutorat est décorative et tous les libellés restent du texte natif. Le thème clair garde des icônes système lisibles quand le téléphone utilise le mode sombre.
+
+Le changement de taille du texte ou la rotation conserve la destination courante : la vérification initiale de session est mémorisée dans un `ViewModel` pendant la vie de l’activité et ses recréations. Un nouveau processus revérifie la session auprès de l’API. Le changement de police sur le profil professeur couvre cette régression de navigation.
+
+Lire les captures produites : un test réussi prouve le parcours et ses assertions, mais ne remplace pas leur inspection visuelle. Les émulateurs ne couvrent pas à eux seuls les claviers constructeurs, TalkBack, tous les formats d’appareils, le retour des applications de paiement ou les exigences de publication Google Play.
+
 Une compilation ne valide pas le parcours sur appareil : tester avec l’API de préproduction les deux rôles, l’OTP, le cycle complet d’un cours, une panne réseau, le retour de l’opérateur de paiement, l’export, la suppression et les alertes configurées. Les comptes et clés de publication, fiches Play Console, déclarations Data Safety et validation sur appareils restent nécessaires pour diffuser une version.

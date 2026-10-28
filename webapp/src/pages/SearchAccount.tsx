@@ -39,14 +39,14 @@ export function SearchPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-xl font-bold text-[#222]">Trouver un professeur</h2>
-            <p className="mt-1 text-sm text-[#666]">{data.length} professeur(s) disponible(s)</p>
+            <p className="mt-1 text-sm text-[#666]">{loading ? "Chargement des professeurs…" : offline ? "Résultats momentanément indisponibles" : `${data.length} professeur${data.length > 1 ? "s" : ""} disponible${data.length > 1 ? "s" : ""}`}</p>
           </div>
           <Button asChild variant="outline">
             <Link to="/recherche/filtres">Filtres</Link>
           </Button>
         </div>
       </ContentCard>
-      {!data.length ? <Empty>{loading ? "Chargement des professeurs…" : "Aucun professeur trouvé."}</Empty> : null}
+      {!data.length && !offline ? <Empty>{loading ? "Chargement des professeurs…" : "Aucun professeur trouvé."}</Empty> : null}
       <PageGrid cols={4}>
         {data.map((t) => (
           <Link key={t.id} to={`/prof/${t.id}`} className="block h-full">
@@ -94,16 +94,16 @@ export function FiltersPage() {
           >
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label className="text-welcome">Format</Label>
-                <Select name="format" defaultValue="">
+                <Label htmlFor="filter-format" className="text-welcome">Format</Label>
+                <Select id="filter-format" name="format" defaultValue="">
                   <option value="">Tous</option>
                   <option value="home">À domicile</option>
                   {capabilities.onlineCourses ? <option value="online">En ligne (lien externe)</option> : null}
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-welcome">Niveau</Label>
-                <Select name="level" defaultValue="">
+                <Label htmlFor="filter-level" className="text-welcome">Niveau</Label>
+                <Select id="filter-level" name="level" defaultValue="">
                   <option value="">Tous</option>
                   <option value="college">Collège</option>
                   <option value="lycee">Lycée</option>
@@ -130,7 +130,7 @@ export function TeacherProfilePage() {
     return (
       <AppShell title="Profil" back active="recherche">
         {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
-        <Empty>{loading ? "Chargement du professeur…" : "Professeur introuvable."}</Empty>
+        {!offline ? <Empty>{loading ? "Chargement du professeur…" : "Professeur introuvable."}</Empty> : null}
       </AppShell>
     );
   }
@@ -163,7 +163,7 @@ export function TeacherProfilePage() {
         <ContentCard>
           <SectionHeading>Avis</SectionHeading>
           {(data.reviews || []).length === 0 ? (
-            <p className="text-sm text-[#888]">Pas encore d&apos;avis.</p>
+            <p className="text-sm text-muted-foreground">Pas encore d&apos;avis.</p>
           ) : null}
           <div className="divide-y divide-[#eee]">
             {(data.reviews || []).map((r, i) => (
@@ -192,7 +192,7 @@ export function ProgressPage() {
       <p className="mb-2 text-sm text-muted-foreground">{entry.teacherName} · {courseDate(entry.completedAt, false)}</p>
       <p className="whitespace-pre-wrap text-sm">{entry.summary}</p>
       <Link className="link-green mt-4 inline-block" to={`/cours/${entry.courseId}`}>Consulter le cours</Link>
-    </ContentCard>)}</PageGrid> : <Empty>{loading ? "Chargement…" : "Aucun bilan pédagogique partagé pour le moment."}</Empty>}
+    </ContentCard>)}</PageGrid> : !offline ? <Empty>{loading ? "Chargement…" : "Aucun bilan pédagogique partagé pour le moment."}</Empty> : null}
   </AppShell>;
 }
 
@@ -247,12 +247,12 @@ export function AccountPage() {
 }
 
 export function LegalPage() {
-  const { data, offline, reload } = useLive<{ slug: string; title?: string; hasFile?: boolean }[]>("/api/legal", []);
+  const { data, offline, loading, reload } = useLive<{ slug: string; title?: string; hasFile?: boolean }[]>("/api/legal", []);
   return (
     <AppShell title="Documents légaux" back="/compte" active="compte">
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
       {!data.length ? (
-        <Empty>Aucun document n&apos;est disponible</Empty>
+        !offline ? <Empty>{loading ? "Chargement des documents…" : "Aucun document disponible pour le moment."}</Empty> : null
       ) : (
         <ContentCard>
           <SectionHeading>Documents utiles</SectionHeading>

@@ -1,0 +1,317 @@
+{
+  "analysis": "read-only analysis of original CI PNGs, no image alteration",
+  "source_commit": "4601340fc7a3983d81d924a654deda4645c45149",
+  "created_at_utc": "2026-10-28T20:13:57.957731+00:00",
+  "expected_background_rgb": [
+    247,
+    244,
+    238
+  ],
+  "background_source": "android/app/src/main/java/ci/monprofperso/app/ui/theme/Color.kt: AkColors.Canvas",
+  "contrast_threshold": 4.5,
+  "minimum_contrasting_glyph_pixels": 16,
+  "required_background_fraction_exclusive": 0.5,
+  "pixelcopy_background_uniformity": "not available retrospectively; next instrumentation checks the original PixelCopy bitmap",
+  "screens": [
+    {
+      "screen": "03-signup",
+      "sha256": "2955ba48f69619e81abcb6d5e6835fe6a17f117f0a89008da0f99ab430d55118",
+      "expected_acceptance": false,
+      "regions": {
+        "statusClock": {
+          "bounds": [
+            32,
+            0,
+            224,
+            48
+          ],
+          "total_pixels": 9216,
+          "matching_background_pixels": 8730,
+          "contrasting_glyph_pixels": 0,
+          "ready": false,
+          "dominant_colors": [
+            {
+              "rgb": [
+                247,
+                244,
+                238
+              ],
+              "pixels": 8730
+            },
+            {
+              "rgb": [
+                255,
+                255,
+                255
+              ],
+              "pixels": 203
+            },
+            {
+              "rgb": [
+                249,
+                247,
+                243
+              ],
+              "pixels": 23
+            },
+            {
+              "rgb": [
+                251,
+                250,
+                247
+              ],
+              "pixels": 23
+            }
+          ]
+        },
+        "navigationHandle": {
+          "bounds": [
+            180,
+            1232,
+            540,
+            1280
+          ],
+          "total_pixels": 17280,
+          "matching_background_pixels": 15556,
+          "contrasting_glyph_pixels": 0,
+          "ready": false,
+          "dominant_colors": [
+            {
+              "rgb": [
+                247,
+                244,
+                238
+              ],
+              "pixels": 15556
+            },
+            {
+              "rgb": [
+                254,
+                254,
+                254
+              ],
+              "pixels": 1696
+            },
+            {
+              "rgb": [
+                254,
+                254,
+                253
+              ],
+              "pixels": 12
+            },
+            {
+              "rgb": [
+                248,
+                246,
+                241
+              ],
+              "pixels": 8
+            }
+          ]
+        }
+      },
+      "accepted": false
+    },
+    {
+      "screen": "04-login",
+      "sha256": "2c89a9aa48ef97b2901ba78ef935c42390d61081c77bdae8a3fd8886eac2d2ec",
+      "expected_acceptance": true,
+      "regions": {
+        "statusClock": {
+          "bounds": [
+            32,
+            0,
+            224,
+            48
+          ],
+          "total_pixels": 9216,
+          "matching_background_pixels": 8109,
+          "contrasting_glyph_pixels": 542,
+          "ready": true,
+          "dominant_colors": [
+            {
+              "rgb": [
+                247,
+                244,
+                238
+              ],
+              "pixels": 8109
+            },
+            {
+              "rgb": [
+                99,
+                98,
+                95
+              ],
+              "pixels": 490
+            },
+            {
+              "rgb": [
+                172,
+                170,
+                166
+              ],
+              "pixels": 80
+            },
+            {
+              "rgb": [
+                232,
+                230,
+                224
+              ],
+              "pixels": 80
+            }
+          ]
+        },
+        "navigationHandle": {
+          "bounds": [
+            180,
+            1232,
+            540,
+            1280
+          ],
+          "total_pixels": 17280,
+          "matching_background_pixels": 15554,
+          "contrasting_glyph_pixels": 1708,
+          "ready": true,
+          "dominant_colors": [
+            {
+              "rgb": [
+                247,
+                244,
+                238
+              ],
+              "pixels": 15554
+            },
+            {
+              "rgb": [
+                99,
+                98,
+                95
+              ],
+              "pixels": 1696
+            },
+            {
+              "rgb": [
+                104,
+                102,
+                100
+              ],
+              "pixels": 12
+            },
+            {
+              "rgb": [
+                218,
+                215,
+                210
+              ],
+              "pixels": 8
+            }
+          ]
+        }
+      },
+      "accepted": true
+    },
+    {
+      "screen": "05-otp",
+      "sha256": "d6f98e399e1b5ab8f661b68a2abf3e305117bb8952dbcee722b6f71942f9d1b6",
+      "expected_acceptance": true,
+      "regions": {
+        "statusClock": {
+          "bounds": [
+            32,
+            0,
+            224,
+            48
+          ],
+          "total_pixels": 9216,
+          "matching_background_pixels": 8109,
+          "contrasting_glyph_pixels": 542,
+          "ready": true,
+          "dominant_colors": [
+            {
+              "rgb": [
+                247,
+                244,
+                238
+              ],
+              "pixels": 8109
+            },
+            {
+              "rgb": [
+                99,
+                98,
+                95
+              ],
+              "pixels": 490
+            },
+            {
+              "rgb": [
+                172,
+                170,
+                166
+              ],
+              "pixels": 80
+            },
+            {
+              "rgb": [
+                232,
+                230,
+                224
+              ],
+              "pixels": 80
+            }
+          ]
+        },
+        "navigationHandle": {
+          "bounds": [
+            180,
+            1232,
+            540,
+            1280
+          ],
+          "total_pixels": 17280,
+          "matching_background_pixels": 15554,
+          "contrasting_glyph_pixels": 1708,
+          "ready": true,
+          "dominant_colors": [
+            {
+              "rgb": [
+                247,
+                244,
+                238
+              ],
+              "pixels": 15554
+            },
+            {
+              "rgb": [
+                99,
+                98,
+                95
+              ],
+              "pixels": 1696
+            },
+            {
+              "rgb": [
+                104,
+                102,
+                100
+              ],
+              "pixels": 12
+            },
+            {
+              "rgb": [
+                218,
+                215,
+                210
+              ],
+              "pixels": 8
+            }
+          ]
+        }
+      },
+      "accepted": true
+    }
+  ]
+}
