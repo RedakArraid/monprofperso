@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package ci.monprofperso.app.ui.screens
 
 import androidx.compose.foundation.background
@@ -25,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -84,7 +87,7 @@ fun HomeScreen(nav: NavActions, vm: ci.monprofperso.app.data.HomeViewModel = and
             ) {
                 Icon(Icons.Filled.Search, null, tint = AkColors.Faint, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
-                Text("Rechercher une matière, un prof…", fontFamily = Hanken, fontSize = 14.5.sp, color = AkColors.Faint)
+                Text("Rechercher une matière, un prof…", fontFamily = Hanken, fontSize = 15.sp, color = AkColors.Muted, modifier = Modifier.weight(1f))
             }
             // besoin parent
             Spacer(Modifier.height(12.dp))
@@ -108,17 +111,16 @@ fun HomeScreen(nav: NavActions, vm: ci.monprofperso.app.data.HomeViewModel = and
             }
             // matières
             Spacer(Modifier.height(20.dp))
-            SectionHeader("Matières")
+            SectionHeader("Matières", onAction = { nav.go(Routes.SearchResults) })
             Spacer(Modifier.height(13.dp))
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 subjectItems.chunked(4).forEach { row ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         row.forEach { s ->
-                            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                            Column(Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).clickable(role = Role.Button) { nav.go(Routes.SearchResults) },
+                                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(7.dp)) {
                                 Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(16.dp))
-                                    .background(if (s.green) AkColors.GreenSoft else AkColors.OrangeSoft)
-                                    .clickable { nav.go(Routes.SearchResults) }, contentAlignment = Alignment.Center) {
+                                    .background(if (s.green) AkColors.GreenSoft else AkColors.OrangeSoft), contentAlignment = Alignment.Center) {
                                     Icon(s.icon, null, tint = if (s.green) AkColors.Green else AkColors.Orange,
                                         modifier = Modifier.size(24.dp))
                                 }
@@ -152,7 +154,7 @@ private fun RecoTeacher(
 ) {
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(AkColors.White)
-            .border(1.dp, AkColors.Border, RoundedCornerShape(18.dp)).clickable { onClick() }.padding(13.dp),
+            .border(1.dp, AkColors.Border, RoundedCornerShape(18.dp)).clickable(role = Role.Button) { onClick() }.padding(13.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         InitialsAvatar(initials, size = 54, bg = if (green) AkColors.GreenSoft else AkColors.OrangeSoft,
@@ -162,11 +164,10 @@ private fun RecoTeacher(
             Text(name, fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = AkColors.Ink)
             Text(subjects, fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted, modifier = Modifier.padding(top = 1.dp))
             Spacer(Modifier.height(5.dp))
-            RatingInline(rating, reviews, place)
-        }
-        Column(horizontalAlignment = Alignment.End) {
-            Text(price, fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, color = AkColors.Green)
-            Text("/ heure", fontFamily = Hanken, fontSize = 11.sp, color = AkColors.Faint)
+            Text("$rating · $reviews", fontFamily = Hanken, fontSize = 12.sp, color = AkColors.InkSoft)
+            Text(place, fontFamily = Hanken, fontSize = 12.sp, color = AkColors.Muted)
+            Text("$price / heure", fontFamily = Schibsted, fontWeight = FontWeight.Bold, fontSize = 15.sp,
+                color = AkColors.Green, modifier = Modifier.padding(top = 7.dp))
         }
     }
 }
@@ -215,7 +216,7 @@ fun SearchResultsScreen(nav: NavActions, vm: ci.monprofperso.app.data.TeachersVi
                     val count = (state as? ci.monprofperso.app.data.UiState.Success)?.data?.size
                     Text(if (count != null) "$count profs · Cocody, Abidjan" else "Chargement…", fontFamily = Hanken, fontSize = 12.5.sp, color = AkColors.Muted)
                 }
-                IconSquare(Icons.Filled.Tune, bg = AkColors.Green, tint = AkColors.White, onClick = { nav.go(Routes.Filters) })
+                IconSquare(Icons.Filled.Tune, bg = AkColors.Green, tint = AkColors.White, contentDescription = "Filtrer les professeurs", onClick = { nav.go(Routes.Filters) })
             }
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -240,7 +241,7 @@ fun SearchResultsScreen(nav: NavActions, vm: ci.monprofperso.app.data.TeachersVi
                     is ci.monprofperso.app.data.UiState.Loading ->
                         Text("Chargement des professeurs…", fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Muted, modifier = Modifier.padding(top = 40.dp))
                     is ci.monprofperso.app.data.UiState.Error ->
-                        Text(s.message, fontFamily = Hanken, fontSize = 13.sp, color = AkColors.Orange, modifier = Modifier.padding(top = 40.dp))
+                        Text(s.message, fontFamily = Hanken, fontSize = 13.sp, color = AkColors.OrangeStrong, modifier = Modifier.padding(top = 40.dp))
                     is ci.monprofperso.app.data.UiState.Success -> s.data.forEach { t ->
                         SearchTeacherCard(t.toCard()) { nav.openTeacher(t.id) }
                         Spacer(Modifier.height(12.dp))
@@ -313,7 +314,7 @@ fun FiltersScreen(nav: NavActions) {
             IconSquare(Icons.Filled.Close, onClick = { nav.back() })
             Spacer(Modifier.width(13.dp))
             Text("Filtres", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = AkColors.Ink, modifier = Modifier.weight(1f))
-            Text("Réinitialiser", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AkColors.Orange,
+            Text("Réinitialiser", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AkColors.OrangeStrong,
                 modifier = Modifier.clickable { format = emptySet(); niveau = -1; matiere = -1; distance = -1 })
         }
         Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 22.dp).padding(top = 16.dp)) {
@@ -381,90 +382,76 @@ fun TeacherProfileScreen(nav: NavActions, vm: ci.monprofperso.app.data.TeacherPr
         }
         return
     }
-    val levels = t.levels.orEmpty()
-    val review = t.reviews?.firstOrNull()
-    AkScreen(applyTopInset = false, applyBottomInset = false) {
-        // header banner green
-        Column(Modifier.fillMaxWidth().background(AkColors.Green).statusBarsPaddingCompat().padding(horizontal = 22.dp).padding(top = 6.dp, bottom = 22.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                IconSquare(Icons.AutoMirrored.Filled.ArrowBack, bg = AkColors.White.copy(alpha = 0.14f), tint = AkColors.White, onClick = { nav.back() })
-            }
-            Spacer(Modifier.height(14.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                InitialsAvatar(t.initials, size = 76, radius = 22, fontSize = 27, bg = AkColors.OrangeLight, fg = AkColors.Green, verified = t.verified)
-                Spacer(Modifier.width(15.dp))
-                Column {
-                    Text(t.name, fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, color = AkColors.White)
-                    Text(t.subjects, fontFamily = Hanken, fontSize = 13.5.sp, color = AkColors.OnGreenSoft, modifier = Modifier.padding(top = 2.dp))
-                    Spacer(Modifier.height(7.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(Modifier.clip(RoundedCornerShape(8.dp)).background(AkColors.White.copy(alpha = 0.15f)).padding(horizontal = 9.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Filled.Star, null, tint = AkColors.Star, modifier = Modifier.size(13.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("${t.ratingLabel} · ${t.reviewsCount} avis", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.5.sp, color = AkColors.White)
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Filled.LocationOn, null, tint = AkColors.OnGreenSoft, modifier = Modifier.size(13.dp))
-                            Text(t.location, fontFamily = Hanken, fontSize = 12.sp, color = AkColors.OnGreenSoft)
-                        }
+    AkScreen {
+        TopBar("Profil du professeur", onBack = { nav.back() })
+        Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 22.dp).padding(top = 12.dp, bottom = 22.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(AkColors.Green).padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    InitialsAvatar(t.initials, size = 68, radius = 20, fontSize = 25, bg = AkColors.OrangeLight, fg = AkColors.Green, verified = t.verified)
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(t.name, fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 23.sp, color = AkColors.White)
+                        Text(t.subjects, fontFamily = Hanken, fontSize = 15.sp, color = AkColors.OnGreenSoft, modifier = Modifier.padding(top = 4.dp))
                     }
                 }
+                Text(t.location, fontFamily = Hanken, fontSize = 14.sp, color = AkColors.OnGreenSoft)
+                Text("${t.ratingLabel}" + if (t.reviewsCount > 0) " · ${t.reviewsCount} avis" else "",
+                    fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AkColors.White)
+                if (t.verified) Text("Profil vérifié", fontFamily = Hanken, fontWeight = FontWeight.SemiBold, color = AkColors.OnGreenSoft)
             }
-        }
-        Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 22.dp).padding(top = 16.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StatTile(t.experience ?: "—", "expérience", Modifier.weight(1f))
-                StatTile(t.students ?: "—", "élèves suivis", Modifier.weight(1f))
-                StatTile(t.bacSuccess ?: "—", "réussite BAC", Modifier.weight(1f))
+            val facts = listOfNotNull(
+                t.experience?.takeIf { it.isNotBlank() && it != "—" }?.let { "Expérience" to it },
+                t.students?.takeIf { it.isNotBlank() && it != "—" }?.let { "Accompagnement" to it },
+                t.bacSuccess?.takeIf { it.isNotBlank() && it != "—" }?.let { "Réussite au BAC" to it },
+            )
+            if (facts.isNotEmpty()) Card(padding = 16) {
+                facts.forEachIndexed { index, (label, value) ->
+                    if (index > 0) Spacer(Modifier.height(12.dp))
+                    Text(label, fontFamily = Hanken, fontSize = 12.sp, color = AkColors.Muted)
+                    Text(value, fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = AkColors.Ink)
+                }
             }
-            Spacer(Modifier.height(18.dp))
-            Text("À propos", fontFamily = Schibsted, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = AkColors.Ink)
-            Text(t.bio ?: "Présentation à venir.",
-                fontFamily = Hanken, fontSize = 13.5.sp, lineHeight = 21.sp, color = Color(0xFF4A574F), modifier = Modifier.padding(top = 8.dp))
-            Spacer(Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                levels.forEach { NeutralTag(it) }
+            Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                SectionHeader("À propos", action = null)
+                Text(t.bio?.takeIf { it.isNotBlank() } ?: "Présentation à venir.",
+                    fontFamily = Hanken, fontSize = 15.sp, lineHeight = 23.sp, color = AkColors.InkSoft)
+            }
+            if (!t.levels.isNullOrEmpty()) {
+                SectionHeader("Niveaux accompagnés", action = null)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    t.levels.forEach { NeutralTag(it) }
+                }
             }
             if (!t.programs.isNullOrEmpty()) {
-                Spacer(Modifier.height(10.dp))
-                Text("Programmes", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = AkColors.Muted)
-                Spacer(Modifier.height(7.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                SectionHeader("Programmes", action = null)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     t.programs.forEach { NeutralTag(programLabel(it)) }
                 }
             }
-            if (t.negotiable) {
-                Spacer(Modifier.height(12.dp))
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(AkColors.OrangeSoft).padding(horizontal = 12.dp, vertical = 8.dp)) {
-                    Icon(Icons.Filled.Handshake, null, tint = AkColors.Orange, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Tarif & fréquence à négocier", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 12.5.sp, color = AkColors.Orange)
+            if (t.negotiable) Tag("Tarif et fréquence à convenir", fg = AkColors.OrangeStrong, bg = AkColors.OrangeSoft)
+            SectionHeader("Avis des parents", action = null)
+            if (t.reviews.isNullOrEmpty()) Text("Aucun avis pour le moment.", fontFamily = Hanken, color = AkColors.Muted)
+            t.reviews.orEmpty().forEach { review ->
+                Card(radius = 16, padding = 16) {
+                    Text(review.authorName, fontFamily = Hanken, fontWeight = FontWeight.Bold, color = AkColors.Ink)
+                    Text("${review.rating}/5 · ${review.timeAgo}", fontFamily = Hanken, color = AkColors.Muted)
+                    Spacer(Modifier.height(8.dp))
+                    Text(review.text, fontFamily = Hanken, fontSize = 14.sp, lineHeight = 21.sp, color = AkColors.Ink)
                 }
             }
-            Spacer(Modifier.height(18.dp))
-            SectionHeader("Avis des parents")
-            Spacer(Modifier.height(11.dp))
-            if (review != null) Card(radius = 16, padding = 14) {
-                Text(review.authorName, fontFamily = Hanken, fontWeight = FontWeight.Bold, color = AkColors.Ink)
-                Text("${review.rating}/5 · ${review.timeAgo}", fontFamily = Hanken, color = AkColors.Muted)
-                Text(review.text, fontFamily = Hanken, color = AkColors.Ink)
-            } else Text("Aucun avis pour le moment.", fontFamily = Hanken, color = AkColors.Muted)
-            Spacer(Modifier.height(16.dp))
         }
-        // sticky CTA
-        Column(Modifier.fillMaxWidth().background(AkColors.White).padding(horizontal = 22.dp).padding(top = 12.dp, bottom = 24.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column {
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text(t.priceLabel, fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 21.sp, color = AkColors.Ink)
-                        Text("/h", fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = AkColors.Faint)
-                    }
-                    Text("Tarif par heure", fontFamily = Hanken, fontSize = 11.5.sp, color = AkColors.Muted)
-                }
-                Spacer(Modifier.width(14.dp))
-                PrimaryButton("Réserver un cours", Modifier.weight(1f), onClick = { if (result?.fromApi == true) { ci.monprofperso.app.data.AppState.startBooking(t); nav.go(Routes.Booking) } })
+        Column(Modifier.fillMaxWidth().background(AkColors.White).padding(horizontal = 22.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Tarif par heure", fontFamily = Hanken, fontSize = 14.sp, color = AkColors.Muted, modifier = Modifier.weight(1f))
+                Text(t.priceLabel, fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, color = AkColors.Green,
+                    modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.End)
             }
+            PrimaryButton("Réserver un cours", Modifier.fillMaxWidth(), enabled = result?.fromApi == true, onClick = {
+                ci.monprofperso.app.data.AppState.startBooking(t); nav.go(Routes.Booking)
+            })
         }
     }
 }

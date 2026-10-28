@@ -27,6 +27,15 @@ final class ApiClientTests: XCTestCase {
         XCTAssertEqual(ApiClient.normalizePhone("+33612345678"), "+33612345678")
     }
 
+    func testPhoneFieldPreservesNationalNumberWhenPastingInternationalFormat() {
+        for value in ["07 01 23 45 67", "+225 07 01 23 45 67", "2250701234567", "00 225 07 01 23 45 67"] {
+            XCTAssertEqual(PhoneField.normalizedInput(value), "0701234567")
+        }
+        XCTAssertEqual(PhoneField.normalizedInput("07 01"), "0701")
+        XCTAssertEqual(PhoneField.normalizedInput("070123456789"), "0701234567")
+        XCTAssertEqual(PhoneField.normalizedInput(""), "")
+    }
+
     func testPaymentRequiresAcceptedUpcomingUnpaidCourse() throws {
         func course(accepted: Bool?, payment: String, status: String = "upcoming", lifecycle: String = "scheduled", startAt: String = "2099-10-26T16:00:00.000Z") throws -> CourseDTO {
             var json: [String: Any] = ["id": 42, "teacher_name": "Prof", "subject": "Maths", "level": "3eme",

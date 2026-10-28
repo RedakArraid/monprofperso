@@ -44,7 +44,9 @@ private struct OperationField: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(label).font(AkFont.semibold(12)).foregroundColor(Ak.muted)
-            TextField(label, text: $value, axis: .vertical).textFieldStyle(.roundedBorder)
+            TextField(label, text: $value, axis: .vertical).font(AkFont.regular(16)).foregroundColor(Ak.ink)
+                .padding(13).frame(minHeight: 48).background(Ak.cardField).clipShape(RoundedRectangle(cornerRadius: 12))
+                .accessibilityLabel(label)
         }
     }
 }
@@ -57,52 +59,62 @@ struct ProductionAccountScreen: View {
         AkScreen(ignoresBottom: true) {
             TopBar(title: "Mon compte", onBack: { router.back() })
             ScrollView {
-                VStack(alignment: .leading, spacing: 15) {
-                    if let error { Text(error).foregroundColor(Ak.danger) }
-                    OperationCard(title: user?.full_name ?? router.authFullName) {
-                        Text(user?.phone ?? router.authPhone)
-                        Text(router.isTeacher ? "Professeur" : router.isAdmin ? "Administrateur" : "Parent / élève")
+                VStack(alignment: .leading, spacing: 18) {
+                    if let error { ScreenState(icon: "wifi.slash", title: "Profil indisponible", message: error) }
+                    HStack(alignment: .top, spacing: 14) {
+                        InitialsAvatar(initials: (user?.full_name ?? router.authFullName).split(separator: " ").prefix(2).map { String($0.prefix(1)) }.joined(), size: 58, radius: 18, fontSize: 20)
+                            .accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 7) {
+                            Text(user?.full_name ?? router.authFullName).font(AkFont.schibstedBold(22)).foregroundColor(Ak.ink)
+                            Text(user?.phone ?? router.authPhone).font(AkFont.regular(14)).foregroundColor(Ak.muted)
+                            Tag(label: router.isTeacher ? "Professeur" : router.isAdmin ? "Administrateur" : "Parent / élève")
+                        }.fixedSize(horizontal: false, vertical: true)
+                    }.frame(maxWidth: .infinity, alignment: .leading).akCard(radius: 22, padding: 20)
+                    SectionHeader(title: "Mon accompagnement", action: nil)
+                    VStack(spacing: 10) {
+                        if router.isTeacher {
+                            accountLink("Mon profil professeur", .completeTeacherProfile, icon: "person.crop.rectangle")
+                            AccountNavigationRow(title: "Mon profil public", icon: "person.crop.circle.badge.checkmark") {
+                                router.selectedTeacherId = TokenStore.user?.teacher_id; router.go(.teacherProfile)
+                            }
+                            accountLink("Revenus et versements", .earnings, icon: "creditcard")
+                            accountLink("Mon agenda", .agenda, icon: "calendar")
+                        } else {
+                            accountLink("Mes enfants", .myChildren, icon: "person.2")
+                            accountLink("Mes demandes de cours", .myNeeds, icon: "tray")
+                        }
+                        accountLink("Mes cours et paiements", .myCourses, icon: "book.closed")
+                        accountLink("Ressources pédagogiques", .resources, icon: "doc.text")
                     }
-                    if router.isTeacher {
-                        accountLink("Compléter mon profil professeur", .completeTeacherProfile)
-                        Button("Voir mon profil public") {
-                            router.selectedTeacherId = TokenStore.user?.teacher_id
-                            router.go(.teacherProfile)
-                        }.buttonStyle(.bordered)
-                        accountLink("Revenus et versements", .earnings)
-                        accountLink("Mon agenda", .agenda)
-                    } else {
-                        accountLink("Mes enfants", .myChildren)
-                        accountLink("Mes demandes de cours", .myNeeds)
-                        accountLink("Devenir professeur", .becomeTeacher)
+                    SectionHeader(title: "Préférences et assistance", action: nil)
+                    VStack(spacing: 10) {
+                        accountLink("Mes données et mon compte", .settings, icon: "hand.raised", identifier: "account.privacy")
+                        accountLink("Documents légaux", .legal, icon: "doc.plaintext")
+                        accountLink("Aide et support", .helpFaq, icon: "questionmark.circle")
+                        if !router.isTeacher { accountLink("Devenir professeur", .becomeTeacher, icon: "graduationcap") }
                     }
-                    accountLink("Mes cours et paiements", .myCourses)
-                    accountLink("Ressources pédagogiques", .resources)
-                    accountLink("Documents légaux", .legal)
-                    accountLink("Mes données et mon compte", .settings)
-                    accountLink("Aide et support", .helpFaq)
                     if router.isAdmin {
                         OperationCard(title: "Administration") {
-                            accountLink("Catalogue", .adminCatalog)
-                            accountLink("Ressources", .adminResources)
-                            accountLink("Documents légaux", .adminLegal)
-                            accountLink("Coordonnées et réseaux", .adminSocial)
-                            accountLink("Configuration OTP", .adminOtp)
-                            Text("Le suivi des opérations financières et des demandes de suppression est disponible dans la console web d’administration.").font(AkFont.regular(13))
+                            accountLink("Catalogue", .adminCatalog, icon: "books.vertical")
+                            accountLink("Ressources", .adminResources, icon: "doc.text")
+                            accountLink("Documents légaux", .adminLegal, icon: "doc.plaintext")
+                            accountLink("Coordonnées et réseaux", .adminSocial, icon: "phone")
+                            accountLink("Configuration OTP", .adminOtp, icon: "lock")
+                            Text("Le suivi des opérations financières et des demandes de suppression est disponible dans la console web d’administration.").font(AkFont.regular(14)).foregroundColor(Ak.muted)
                         }
                     }
-                    Button("Se déconnecter", role: .destructive) {
-                        router.logout()
-                    }.buttonStyle(.bordered)
-                }.padding(22)
-            }
+                    Button("Se déconnecter", role: .destructive) { router.logout() }
+                        .font(AkFont.bold(15)).frame(maxWidth: .infinity, minHeight: 48)
+                        .buttonStyle(.bordered).accessibilityIdentifier("account.logout")
+                }.padding(20)
+            }.accessibilityIdentifier("account.scroll")
             if router.isTeacher { TeacherBottomNav(current: .profil) } else { BottomNav(current: .profil) }
         }.task {
             do { user = try await ApiClient.shared.me() } catch { self.error = error.localizedDescription }
         }
     }
-    private func accountLink(_ title: String, _ route: Route) -> some View {
-        Button(title) { router.go(route) }.buttonStyle(.bordered).frame(maxWidth: .infinity, alignment: .leading)
+    private func accountLink(_ title: String, _ route: Route, icon: String, identifier: String = "") -> some View {
+        AccountNavigationRow(title: title, icon: icon, identifier: identifier) { router.go(route) }
     }
 }
 
@@ -227,7 +239,7 @@ struct PrivacySettingsScreen: View {
         OperationCard(title: "Supprimer mon compte") {
             Text("La suppression retire votre profil et anonymise vos données personnelles. Les éléments nécessaires au règlement des cours, aux litiges et aux obligations de conservation sont traités selon la politique de confidentialité.")
             Text("Une connexion OTP de moins de 15 minutes est requise. Une demande reste en attente tant que des opérations doivent être clôturées.")
-            ForEach(Array((state?.blockers ?? []).enumerated()), id: \.offset) { _, blocker in Text(blocker.message).foregroundColor(Ak.orange) }
+            ForEach(Array((state?.blockers ?? []).enumerated()), id: \.offset) { _, blocker in Text(blocker.message).foregroundColor(Ak.orangeText) }
             if state?.request?.status == "pending" {
                 Text("Votre demande est enregistrée. Vous pouvez la retirer avant son traitement.")
                 Button("Annuler ma demande de suppression") {
@@ -472,6 +484,7 @@ struct CourseOperationsScreen: View {
 
 struct ProductionEarningsScreen: View {
     @EnvironmentObject var router: Router
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var state: TeacherEarningsDTO?
     @State private var busy = false
     @State private var error: String?
@@ -488,23 +501,26 @@ struct ProductionEarningsScreen: View {
                     if let error { Text(error).foregroundColor(Ak.danger) }
                     if let info { Text(info).foregroundColor(Ak.green) }
                     if let summary = state?.summary {
-                        OperationCard(title: "Mes revenus") {
-                            Text("Prévisionnel : \(summary.expected.formattedFCFA) F CFA")
-                            Text("Dû après validation : \(summary.due.formattedFCFA) F CFA")
-                            Text("Disponible : \(summary.releasable.formattedFCFA) F CFA")
-                            Text("Réservé pour des versements : \(summary.reserved.formattedFCFA) F CFA")
-                            Text("Déjà versé et vérifié : \(summary.paid.formattedFCFA) F CFA")
+                        FinancialMetric(title: "Disponible pour versement", amount: summary.releasable, emphasized: true)
+                            .accessibilityIdentifier("earnings.available")
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: typeSize.isAccessibilitySize ? 260 : 140), spacing: 12)], spacing: 12) {
+                            FinancialMetric(title: "Prévisionnel", amount: summary.expected)
+                            FinancialMetric(title: "Dû après validation", amount: summary.due)
+                            FinancialMetric(title: "Réservé", amount: summary.reserved)
+                            FinancialMetric(title: "Déjà versé et vérifié", amount: summary.paid)
                         }
                         payoutForm(summary)
                     }
-                    OperationCard(title: "Historique des demandes") {
-                        if (state?.payoutRequests ?? []).isEmpty { Text("Aucune demande de versement.") }
-                        ForEach(state?.payoutRequests ?? []) { request in
-                            Text("\(request.amount.formattedFCFA) F CFA · \(request.provider ?? "")")
-                            Text(payoutLabel(request.status))
-                            if let ref = request.providerReference { Text("Référence : \(ref)") }
-                            if let reason = request.reason, !reason.isEmpty { Text(reason) }
-                            Divider()
+                    if let state {
+                        OperationCard(title: "Historique des demandes") {
+                            if (state.payoutRequests ?? []).isEmpty { Text("Aucune demande de versement.") }
+                            ForEach(state.payoutRequests ?? []) { request in
+                                Text("\(request.amount.formattedFCFA) F CFA · \(request.provider ?? "")")
+                                Text(payoutLabel(request.status))
+                                if let ref = request.providerReference { Text("Référence : \(ref)") }
+                                if let reason = request.reason, !reason.isEmpty { Text(reason) }
+                                Divider()
+                            }
                         }
                     }
                     Button("Actualiser") { Task { await reload() } }.buttonStyle(.bordered).disabled(busy)
@@ -609,11 +625,11 @@ struct ProductionSearchScreen: View {
     @State private var query = ""
     @State private var level = ""
     @State private var format = ""
-    @State private var busy = false
+    @State private var busy = true
     @State private var error: String?
     private var visible: [TeacherDTO] {
         teachers.filter { teacher in
-            (query.isEmpty || "\(teacher.name) \(teacher.subjects) \(teacher.location)".localizedCaseInsensitiveContains(query.trimmingCharacters(in: .whitespaces))) &&
+            (query.trimmingCharacters(in: .whitespaces).isEmpty || "\(teacher.name) \(teacher.subjects) \(teacher.location)".localizedCaseInsensitiveContains(query.trimmingCharacters(in: .whitespaces))) &&
             (level.isEmpty || (teacher.levels ?? []).contains { $0.localizedCaseInsensitiveContains(level.trimmingCharacters(in: .whitespaces)) }) &&
             (format.isEmpty || (teacher.formats ?? []).contains(format))
         }
@@ -622,36 +638,48 @@ struct ProductionSearchScreen: View {
         AkScreen(ignoresBottom: true) {
             TopBar(title: "Trouver un professeur", onBack: { router.back() })
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 14) {
-                    OperationField(label: "Nom, matière ou quartier", value: $query)
-                    OperationField(label: "Niveau, facultatif", value: $level)
-                    Picker("Format", selection: $format) {
-                        Text("Tous").tag("")
-                        Text("À domicile").tag("home")
-                        if router.featureEnabled("onlineCourses") { Text("En ligne").tag("online") }
-                    }.pickerStyle(.segmented)
-                    if busy { ProgressView() }
-                    if let error { Text(error).foregroundColor(Ak.danger) }
-                    Button("Actualiser") { Task { await load() } }.buttonStyle(.bordered).disabled(busy)
-                    if !busy && visible.isEmpty { Text("Aucun professeur ne correspond à ces critères.") }
-                    ForEach(visible) { teacher in
-                        OperationCard(title: teacher.name) {
-                            Text(teacher.subjects)
-                            Text(teacher.location)
-                            Text("\(teacher.priceLabel) / heure")
-                            Text(teacher.ratingLabel + (teacher.reviews_count > 0 ? " · \(teacher.reviews_count) avis" : ""))
-                            if teacher.verified { Text("Profil vérifié").foregroundColor(Ak.green) }
-                            Button("Consulter le profil") { router.selectedTeacherId = teacher.id; router.go(.teacherProfile) }.buttonStyle(.bordered)
+                LazyVStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("Le bon prof pour vos objectifs").font(AkFont.schibstedExtra(24)).foregroundColor(Ak.greenDark)
+                        Text("Cherchez une matière, un nom ou un quartier, puis découvrez les profils.").font(AkFont.regular(15)).foregroundColor(Ak.muted)
+                        HStack(spacing: 10) {
+                            Image(systemName: "magnifyingglass").foregroundColor(Ak.green).accessibilityHidden(true)
+                            TextField("Matière, professeur ou quartier", text: $query).font(AkFont.regular(16))
+                                .autocorrectionDisabled().submitLabel(.search).accessibilityIdentifier("search.query")
+                        }.padding(15).background(.white).clipShape(RoundedRectangle(cornerRadius: 15))
+                            .overlay(RoundedRectangle(cornerRadius: 15).stroke(Ak.border, lineWidth: 1))
+                        OperationField(label: "Niveau scolaire, facultatif", value: $level)
+                        Picker("Format du cours", selection: $format) {
+                            Text("Tous les formats").tag("")
+                            Text("À domicile").tag("home")
+                            if router.featureEnabled("onlineCourses") { Text("En ligne").tag("online") }
+                        }.pickerStyle(.menu).tint(Ak.green).frame(minHeight: 44)
+                    }
+                    if busy { LoadingRow() }
+                    else if let error {
+                        ScreenState(icon: "wifi.slash", title: "La recherche est indisponible", message: error) { Task { await load() } }
+                    } else if visible.isEmpty {
+                        ScreenState(icon: "magnifyingglass", title: "Aucun profil pour ces critères", message: "Essayez une autre matière ou élargissez votre recherche.")
+                        if !query.isEmpty || !level.isEmpty || !format.isEmpty {
+                            Button("Effacer les filtres") { query = ""; level = ""; format = "" }.font(AkFont.bold(15)).frame(minHeight: 44)
+                        }
+                    } else {
+                        Text("\(visible.count) profil\(visible.count > 1 ? "s" : "") à découvrir").font(AkFont.semibold(14)).foregroundColor(Ak.muted)
+                        ForEach(visible) { teacher in
+                            TeacherPreviewCard(teacher: teacher) { router.selectedTeacherId = teacher.id; router.go(.teacherProfile) }
                         }
                     }
-                }.padding(22)
-            }
+                }.padding(20)
+            }.scrollDismissesKeyboard(.interactively).refreshable { await load() }.accessibilityIdentifier("search.scroll")
             BottomNav(current: .recherche)
-        }.task { await load() }
+        }.task {
+            if !router.searchQuery.isEmpty { query = router.searchQuery; router.searchQuery = "" }
+            await load()
+        }
     }
     @MainActor private func load() async {
         busy = true; defer { busy = false }
-        do { teachers = try await ApiClient.shared.teachers(); error = nil } catch { self.error = error.localizedDescription }
+        do { teachers = try await ApiClient.shared.teachers(); error = nil } catch { teachers = []; self.error = error.localizedDescription }
     }
 }
 
@@ -667,7 +695,7 @@ struct ProductionProgressScreen: View {
                 LazyVStack(alignment: .leading, spacing: 14) {
                     if busy { ProgressView() }
                     if let error { Text(error).foregroundColor(Ak.danger) }
-                    if !busy && entries.isEmpty { Text("Les bilans saisis par les professeurs après vos cours apparaîtront ici.") }
+                    if !busy && error == nil && entries.isEmpty { Text("Les bilans saisis par les professeurs après vos cours apparaîtront ici.") }
                     ForEach(entries) { entry in
                         OperationCard(title: entry.subject) {
                             Text("Professeur : \(entry.teacherName)")
@@ -696,11 +724,15 @@ struct ProductionTeacherDashboardScreen: View {
     @State private var busy = true
     var body: some View {
         AkScreen(ignoresBottom: true) {
-            TopBar(title: "Espace professeur", onBack: { router.back() })
+            HStack {
+                Text("Espace professeur").font(AkFont.schibstedExtra(23)).foregroundColor(Ak.ink).fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 12)
+                NotificationBell()
+            }.padding(.horizontal, 20).padding(.vertical, 12)
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 14) {
                     if busy { ProgressView() }
-                    if let error { Text(error).foregroundColor(Ak.danger) }
+                    if let error { ScreenState(icon: "wifi.slash", title: "Votre espace est indisponible", message: error) { Task { await load() } } }
                     if let dashboard {
                         OperationCard(title: "Bonjour, \(dashboard.name)") {
                             if let completion = dashboard.profileCompletion, !completion.complete {
@@ -713,14 +745,11 @@ struct ProductionTeacherDashboardScreen: View {
                         }
                     }
                     if let earnings {
-                        OperationCard(title: "Mes revenus") {
-                            Text("Montant net dû : \(earnings.due.formattedFCFA) F CFA")
-                            Text("Disponible pour versement : \(earnings.releasable.formattedFCFA) F CFA")
-                            Button("Revenus et versements") { router.go(.earnings) }.buttonStyle(.borderedProminent)
-                        }
+                        FinancialMetric(title: "Disponible pour versement", amount: earnings.releasable, emphasized: true)
+                        AccountNavigationRow(title: "Mes revenus et versements", icon: "creditcard", identifier: "teacher.earnings") { router.go(.earnings) }
                     }
                     Text("Prochains cours").font(AkFont.schibstedBold(17))
-                    if !busy && courses.isEmpty { Text("Aucun cours à venir.") }
+                    if !busy && error == nil && courses.isEmpty { ScreenState(icon: "calendar", title: "Un agenda encore libre", message: "Les cours acceptés apparaîtront ici avec leur créneau et les informations utiles.") }
                     ForEach(Array(courses.sorted { ($0.starts_at ?? "9999") < ($1.starts_at ?? "9999") }.prefix(5))) { course in
                         OperationCard(title: "\(course.subject) · \(course.level)") {
                             if course.isTeacherParticipant(accountRole: router.authRole) {
@@ -732,7 +761,7 @@ struct ProductionTeacherDashboardScreen: View {
                         }
                     }
                     Button("Actualiser") { Task { await load() } }.buttonStyle(.bordered).disabled(busy)
-                }.padding(22)
+                }.padding(20)
             }
             TeacherBottomNav(current: .tableau)
         }.task { await load() }
@@ -767,7 +796,7 @@ struct ProductionRequestsScreen: View {
                     if let error { Text(error).foregroundColor(Ak.danger) }
                     if let info { Text(info).foregroundColor(Ak.green) }
                     OperationField(label: "Rechercher une matière ou un quartier", value: $query)
-                    if !busy && visible.isEmpty { Text("Aucune demande correspondant à ces critères.") }
+                    if !busy && error == nil && visible.isEmpty { Text("Aucune demande correspondant à ces critères.") }
                     ForEach(Array(visible.enumerated()), id: \.offset) { _, request in offer(request) }
                     Button("Actualiser") { Task { await load() } }.buttonStyle(.bordered).disabled(busy)
                     Button("Ouvrir mon agenda") { router.go(.agenda) }.buttonStyle(.bordered)

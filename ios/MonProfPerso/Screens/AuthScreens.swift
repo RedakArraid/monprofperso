@@ -1,82 +1,68 @@
 import SwiftUI
 
-// MARK: - Écran 1, Bienvenue & choix du rôle
+// MARK: - Bienvenue et choix du rôle
 struct WelcomeScreen: View {
     @EnvironmentObject var router: Router
 
     var body: some View {
         AkScreen(background: Ak.green) {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 10) {
-                    Image(systemName: "graduationcap.fill").font(.system(size: 20)).foregroundColor(.white)
-                        .frame(width: 36, height: 36).background(Ak.greenDark)
-                        .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-                    HStack(spacing: 0) {
-                        Text("Mon Prof Perso").font(AkFont.schibstedExtra(21)).foregroundColor(.white)
-                        Text(".").font(AkFont.schibstedExtra(21)).foregroundColor(Ak.orangeLight)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "graduationcap.fill").font(.system(size: 22)).foregroundColor(Ak.green)
+                            .frame(width: 44, height: 44).background(Ak.greenSoft).clipShape(RoundedRectangle(cornerRadius: 14))
+                            .accessibilityHidden(true)
+                        Text("Mon Prof Perso").font(AkFont.schibstedExtra(22)).foregroundColor(.white)
                     }
-                }
-                .padding(.top, 14)
-
-                Text("Votre prof,\nvotre rythme,\nvotre réussite.")
-                    .font(AkFont.schibstedExtra(39)).foregroundColor(.white)
-                    .lineSpacing(2).padding(.top, 48)
-                Text("Trouvez un professeur, organisez vos cours et suivez l’accompagnement de votre enfant en Côte d’Ivoire.")
-                    .font(AkFont.regular(15.5)).foregroundColor(Ak.onGreenSoft)
-                    .lineSpacing(4).frame(maxWidth: 300, alignment: .leading).padding(.top, 18)
-
-                HStack(spacing: 14) {
-                    stat("Cours", "individuels")
-                    Rectangle().fill(Ak.greenLine).frame(width: 1, height: 34)
-                    stat("Suivi", "personnalisé")
-                    Rectangle().fill(Ak.greenLine).frame(width: 1, height: 34)
-                    stat("Simple", "à organiser")
-                }.padding(.top, 28)
-
-                Spacer()
-
-                Text("JE SUIS…").font(AkFont.semibold(12.5)).foregroundColor(Ak.onGreenFaint).padding(.bottom, 10)
-                roleRow(icon: "person.3.fill", title: "Un parent", sub: "Je cherche un prof pour mon enfant", index: 0)
-                roleRow(icon: "graduationcap.fill", title: "Un élève", sub: "Je révise pour réussir mes examens", index: 1).padding(.top, 9)
-                roleRow(icon: "rectangle.inset.filled.and.person.filled", title: "Un professeur", sub: "Je veux donner des cours", index: 2).padding(.top, 9)
-
-                PrimaryButton(label: "Continuer") { router.go(.signup) }.padding(.top, 14)
-                HStack(spacing: 4) {
-                    Text("Déjà un compte ?").font(AkFont.regular(13.5)).foregroundColor(Ak.onGreenFaint)
-                    Text("Se connecter").font(AkFont.bold(13.5)).foregroundColor(.white).onTapGesture { router.go(.login) }
-                }.frame(maxWidth: .infinity).padding(.top, 10)
-            }
-            .padding(.horizontal, 28).padding(.bottom, 26)
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Un prof à vos côtés.\nÀ chaque étape.")
+                            .font(AkFont.schibstedExtra(31)).foregroundColor(.white)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text("Des cours individuels et un suivi attentif, au rythme de votre enfant en Côte d’Ivoire.")
+                            .font(AkFont.regular(15)).foregroundColor(Ak.onGreenSoft)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    LearningArtwork().frame(maxWidth: 290).frame(maxWidth: .infinity)
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("VOTRE ESPACE").font(AkFont.semibold(12)).foregroundColor(Ak.onGreenSoft)
+                        roleRow(icon: "person.2.fill", title: "Un parent", sub: "Accompagner mon enfant", index: 0)
+                        roleRow(icon: "graduationcap.fill", title: "Un élève", sub: "Apprendre avec confiance", index: 1)
+                        roleRow(icon: "person.crop.rectangle", title: "Un professeur", sub: "Partager mes connaissances", index: 2)
+                    }
+                }.padding(.horizontal, 24).padding(.top, 20).padding(.bottom, 24)
+            }.accessibilityIdentifier("welcome.scroll")
+            VStack(spacing: 2) {
+                PrimaryButton(label: "Continuer", color: Ak.orangeAction) { router.go(.signup) }
+                    .accessibilityIdentifier("welcome.continue")
+                Button("Déjà un compte ? Se connecter") { router.go(.login) }
+                    .font(AkFont.bold(14)).foregroundColor(.white).frame(minHeight: 48)
+                    .accessibilityIdentifier("welcome.login")
+            }.padding(.horizontal, 24).padding(.top, 12).padding(.bottom, 8)
+                .background(Ak.green)
         }
     }
 
-    func stat(_ v: String, _ l: String) -> some View {
-        VStack(alignment: .leading, spacing: 1) {
-            Text(v).font(AkFont.schibstedExtra(20)).foregroundColor(.white)
-            Text(l).font(AkFont.regular(11.5)).foregroundColor(Ak.onGreenFaint)
-        }
-    }
-
-    func roleRow(icon: String, title: String, sub: String, index: Int) -> some View {
-        let sel = router.role == index
-        return HStack(spacing: 13) {
-            Image(systemName: icon).font(.system(size: 20)).foregroundColor(sel ? Ak.orange : .white)
-                .frame(width: 40, height: 40)
-                .background(sel ? Ak.orangeSoft : Color.white.opacity(0.16))
-                .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title).font(AkFont.bold(15.5)).foregroundColor(sel ? Ak.ink : .white)
-                Text(sub).font(AkFont.regular(12.5)).foregroundColor(sel ? Ak.muted : Ak.onGreenFaint)
-            }
-            Spacer()
-            if sel { Image(systemName: "checkmark.circle.fill").font(.system(size: 22)).foregroundColor(Ak.orange) }
-        }
-        .padding(.horizontal, 16).padding(.vertical, 15)
-        .background(sel ? Color.white : Color.white.opacity(0.12))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(sel ? Ak.orangeLight : Color.white.opacity(0.18), lineWidth: sel ? 2 : 1.5))
-        .contentShape(Rectangle())
-        .onTapGesture { router.role = index }
+    private func roleRow(icon: String, title: String, sub: String, index: Int) -> some View {
+        let selected = router.role == index
+        return Button { router.role = index } label: {
+            HStack(alignment: .center, spacing: 13) {
+                Image(systemName: icon).font(.system(size: 21)).foregroundColor(selected ? Ak.green : .white)
+                    .frame(width: 42, height: 42).background(selected ? Ak.greenSoft : .white.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 13)).accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title).font(AkFont.bold(16)).foregroundColor(selected ? Ak.ink : .white)
+                    Text(sub).font(AkFont.regular(13)).foregroundColor(selected ? Ak.muted : Ak.onGreenSoft)
+                }.fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 22)).foregroundColor(selected ? Ak.green : Ak.onGreenSoft).accessibilityHidden(true)
+            }.multilineTextAlignment(.leading).padding(15)
+                .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+                .background(selected ? Color.white : Color.white.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 18))
+                .overlay(RoundedRectangle(cornerRadius: 18).stroke(selected ? Ak.orangeLight : .white.opacity(0.2), lineWidth: selected ? 2 : 1))
+        }.buttonStyle(.plain).accessibilityIdentifier("welcome.role.\(index)")
+            .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 
@@ -114,7 +100,7 @@ struct SignupScreen: View {
                     HStack {
                         Text("Compte \(roleLabels[router.role].lowercased())").font(AkFont.bold(14)).foregroundColor(Ak.ink)
                         Spacer()
-                        Button("Modifier") { router.back() }.font(AkFont.bold(12)).foregroundColor(Ak.green)
+                        Button("Modifier") { router.popToRoot() }.font(AkFont.bold(12)).foregroundColor(Ak.green)
                     }.padding(14).background(Ak.greenSoft).clipShape(RoundedRectangle(cornerRadius: 12))
                     consentCheckboxLinked
                     if consentVersion == nil { Button("Recharger les conditions") { Task { await loadConsentVersion() } }.disabled(sending) }
@@ -169,8 +155,8 @@ struct SignupScreen: View {
         return HStack(alignment: .top, spacing: 9) {
             Button { consent.toggle() } label: {
                 Image(systemName: consent ? "checkmark.square.fill" : "square")
-                    .font(.system(size: 23)).foregroundColor(Ak.green)
-            }.disabled(consentVersion == nil || sending).accessibilityLabel("Accepter les CGU et la politique de confidentialité")
+                    .font(.system(size: 23)).foregroundColor(Ak.green).frame(width: 44, height: 44)
+            }.accessibilityValue(consent ? "Accepté" : "Non accepté").disabled(consentVersion == nil || sending).accessibilityLabel("Accepter les CGU et la politique de confidentialité")
             Text(text).font(AkFont.regular(12.5)).foregroundColor(Ak.muted).tint(Ak.green)
         }
     }
@@ -201,7 +187,7 @@ struct LoginScreen: View {
                 VStack(spacing: 16) {
                     Image(systemName: "graduationcap.fill").font(.system(size: 29)).foregroundColor(.white)
                         .frame(width: 56, height: 56).background(Ak.green).clipShape(RoundedRectangle(cornerRadius: 16))
-                    Text("Content de vous revoir").font(AkFont.schibstedExtra(24)).foregroundColor(Ak.ink)
+                    Text("Content de vous revoir").font(AkFont.schibstedExtra(26)).foregroundColor(Ak.ink).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
                     Text("Recevez un code de connexion sur votre téléphone.")
                         .font(AkFont.regular(13.5)).foregroundColor(Ak.muted)
                     PhoneField(value: $router.authPhone)
@@ -218,7 +204,7 @@ struct LoginScreen: View {
                     if let error { authError(error) }
                     PrimaryButton(label: sending ? "Envoi…" : "Recevoir mon code", color: Ak.green, trailingSystemIcon: nil) {
                         login(phone: ApiClient.normalizePhone(router.authPhone))
-                    }.disabled(sending || router.authPhone.filter(\.isNumber).count < 10)
+                    }.disabled(sending || router.authPhone.filter(\.isNumber).count < 10).accessibilityIdentifier("auth.submit")
                     #if DEBUG
                     if router.otpDemo {
                         Button("Compte administrateur de démonstration") { login(phone: ApiConfig.adminPhone) }
@@ -228,7 +214,7 @@ struct LoginScreen: View {
                 }.padding(.horizontal, 26).padding(.top, 30)
             }
             Button("Nouveau sur Mon Prof Perso ? Créer un compte") { router.go(.signup) }
-                .font(AkFont.bold(13)).foregroundColor(Ak.green).padding(.bottom, 20)
+                .font(AkFont.bold(14)).foregroundColor(Ak.green).multilineTextAlignment(.center).frame(minHeight: 48).padding(.horizontal, 24).padding(.bottom, 8)
         }
         .task {
             await ApiClient.shared.refreshOtpChannels(router: router)
@@ -263,7 +249,8 @@ struct OtpScreen: View {
     var body: some View {
         AkScreen {
             TopBar(title: "", onBack: { router.back() })
-            VStack(alignment: .leading, spacing: 18) {
+            ScrollView {
+              VStack(alignment: .leading, spacing: 18) {
                 Image(systemName: "ellipsis.bubble.fill").font(.system(size: 30)).foregroundColor(Ak.green)
                     .frame(width: 64, height: 64).background(Ak.greenSoft).clipShape(RoundedRectangle(cornerRadius: 18))
                 Text("Entrez le code").font(AkFont.schibstedExtra(25)).foregroundColor(Ak.ink)
@@ -271,6 +258,8 @@ struct OtpScreen: View {
                     .font(AkFont.regular(13.5)).foregroundColor(Ak.muted)
                 TextField("Code à 6 chiffres", text: $code)
                     .keyboardType(.numberPad).textContentType(.oneTimeCode).focused($focused)
+                    .accessibilityIdentifier("otp.code")
+                    .toolbar { ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Terminé") { focused = false } } }
                     .font(.system(size: 28, weight: .semibold, design: .monospaced))
                     .padding(18).background(.white).clipShape(RoundedRectangle(cornerRadius: 14))
                     .overlay(RoundedRectangle(cornerRadius: 14).stroke(Ak.border, lineWidth: 1))
@@ -281,10 +270,10 @@ struct OtpScreen: View {
                 if let error { authError(error) }
                 Button(resendSec > 0 ? "Renvoyer dans \(resendSec) s" : "Renvoyer le code") { resend() }
                     .font(AkFont.bold(13)).foregroundColor(Ak.green).disabled(resendSec > 0 || sending)
-            }.padding(.horizontal, 28).padding(.top, 16)
-            Spacer()
+              }.padding(.horizontal, 24).padding(.vertical, 16)
+            }.scrollDismissesKeyboard(.interactively)
             PrimaryButton(label: sending ? "Vérification…" : "Vérifier", color: Ak.green) { verify() }
-                .disabled(sending || code.count != codeLen)
+                .disabled(sending || code.count != codeLen).accessibilityIdentifier("otp.verify")
                 .padding(.horizontal, 28).padding(.bottom, 18)
         }
         .onAppear {

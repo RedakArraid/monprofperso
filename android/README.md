@@ -73,4 +73,30 @@ Résultat : `app/build/outputs/bundle/release/app-release.aab`. Les tâches prod
 
 Les tests JVM couvrent challenges/authentification, formats et dates, conditions de paiement, refus des liens non HTTPS, lecture des demandes de suppression et séparation des montants dus/réservés/versés. Ils vérifient aussi les finances historiques dont les conditions n’ont pas encore été documentées.
 
+### Recette visuelle sur émulateur
+
+`VisualRegressionTest` parcourt les vraies vues Compose avec le serveur local de fixtures partagé avec iOS. Le test exige un build Debug, une URL locale et l’en-tête explicite du serveur de fixtures ; les comptes de capture ne sont jamais injectés dans un build Release. Depuis la racine du dépôt, démarrer le serveur dans un terminal séparé :
+
+```sh
+MPP_VISUAL_FIXTURES=1 node scripts/visual/fixture-server.mjs
+```
+
+Puis, depuis `android/`, avec un émulateur Android API 36 démarré :
+
+```sh
+./gradlew --no-daemon :app:connectedDebugAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.class=ci.monprofperso.app.VisualRegressionTest
+adb pull /sdcard/Android/data/ci.monprofperso.app.dev/files/visual-proof ./visual-proof
+```
+
+Le serveur écoute sur le port 8099 de la machine hôte ; l’émulateur l’atteint via `10.0.2.2`. Les captures PNG et les arbres sémantiques sont produits sur l’appareil, puis récupérés avant l’arrêt de l’émulateur. Le scénario utilise des OTP de fixture et ne déclenche aucun message ni paiement prestataire.
+
+La recette couvre l’accueil illustré, l’inscription, la connexion et l’OTP avec clavier ouvert, le catalogue, le profil professeur, la réservation, les cours, les paramètres, les données personnelles, le tableau de bord professeur, les revenus, l’état vide et la panne réseau. Elle vérifie les boutons principaux sur un téléphone de 360 dp de large, le texte à 160 % sur l’accueil et le profil professeur, puis un accueil en paysage. Une erreur réseau doit rester un état d’erreur et ne pas être annoncée comme une liste vide.
+
+La mise en page tient compte des barres système, des découpes latérales et du clavier. Les contenus longs défilent ; les sélecteurs de créneau et la navigation exposent leur sélection aux services d’accessibilité. L’illustration de tutorat est décorative et tous les libellés restent du texte natif. Le thème clair garde des icônes système lisibles quand le téléphone utilise le mode sombre.
+
+Le changement de taille du texte ou la rotation conserve la destination courante : la vérification initiale de session est mémorisée dans un `ViewModel` pendant la vie de l’activité et ses recréations. Un nouveau processus revérifie la session auprès de l’API. Le passage du profil professeur à 160 % de police dans la recette couvre cette régression de navigation.
+
+Lire les captures produites : un test réussi prouve le parcours et ses assertions, mais ne remplace pas leur inspection visuelle. Les émulateurs ne couvrent pas à eux seuls les claviers constructeurs, TalkBack, tous les formats d’appareils, le retour des applications de paiement ou les exigences de publication Google Play.
+
 Une compilation ne valide pas le parcours sur appareil : tester avec l’API de préproduction les deux rôles, l’OTP, le cycle complet d’un cours, une panne réseau, le retour de l’opérateur de paiement, l’export, la suppression et les alertes configurées. Les comptes et clés de publication, fiches Play Console, déclarations Data Safety et validation sur appareils restent nécessaires pour diffuser une version.

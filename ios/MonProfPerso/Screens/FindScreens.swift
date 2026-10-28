@@ -14,100 +14,87 @@ func sfSubjectIcon(_ name: String) -> String {
     }
 }
 
-// MARK: - Écran 5, Accueil
+// MARK: - Accueil
 struct HomeScreen: View {
     @EnvironmentObject var router: Router
+    @Environment(\.dynamicTypeSize) private var typeSize
     @StateObject private var store = HomeStore()
     var body: some View {
         AkScreen(ignoresBottom: true) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack(spacing: 11) {
-                        InitialsAvatar(initials: router.authFullName.split(separator: " ").prefix(2).map { String($0.prefix(1)) }.joined(), size: 44, radius: 13, fontSize: 17)
-                        VStack(alignment: .leading, spacing: 0) {
-                            Text("Bonjour,").font(AkFont.regular(12.5)).foregroundColor(Ak.muted)
-                            Text(router.authFullName.isEmpty ? "Mon compte" : router.authFullName).font(AkFont.bold(16)).foregroundColor(Ak.ink)
+                VStack(alignment: .leading, spacing: 22) {
+                    HStack(alignment: .center, spacing: 12) {
+                        InitialsAvatar(initials: router.authFullName.split(separator: " ").prefix(2).map { String($0.prefix(1)) }.joined(), size: 48, radius: 16, fontSize: 18)
+                            .accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Bonjour,").font(AkFont.regular(14)).foregroundColor(Ak.muted)
+                            Text(router.authFullName.isEmpty ? "Mon compte" : router.authFullName)
+                                .font(AkFont.schibstedBold(21)).foregroundColor(Ak.ink).fixedSize(horizontal: false, vertical: true)
                         }
-                        Spacer()
+                        Spacer(minLength: 0)
                         NotificationBell()
                     }
-                    Button { router.go(.searchResults) } label: {
-                        HStack(spacing: 10) {
-                            Image(systemName: "magnifyingglass").font(.system(size: 18)).foregroundColor(Ak.faint)
-                            Text("Rechercher une matière, un prof…").font(AkFont.regular(14.5)).foregroundColor(Ak.faint)
-                            Spacer()
-                        }.padding(.horizontal, 16).padding(.vertical, 14)
-                        .background(.white).clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 15).stroke(Ak.border, lineWidth: 1))
-                    }.buttonStyle(.plain).padding(.top, 16)
-
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Exprimer un besoin").font(AkFont.bold(14)).foregroundColor(Ak.ink)
-                            Text("On clarifie, on fixe un tarif, un prof accepte").font(AkFont.regular(12)).foregroundColor(Ak.muted)
+                    VStack(alignment: .leading, spacing: 18) {
+                        if typeSize.isAccessibilitySize {
+                            heroText
+                            LearningArtwork().frame(maxWidth: 220)
+                        } else {
+                            HStack(alignment: .center, spacing: 12) {
+                                heroText
+                                LearningArtwork().frame(width: 120)
+                            }
                         }
-                        Spacer()
-                        Image(systemName: "arrow.right").foregroundColor(Ak.orange)
-                    }.padding(16).background(Ak.orangeSoft).clipShape(RoundedRectangle(cornerRadius: 15)).padding(.top, 12)
-                    .onTapGesture { router.go(.expressNeed) }
-
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Un accompagnement adapté à votre enfant").font(AkFont.schibstedExtra(19)).foregroundColor(.white)
-                        Text("Choisissez un professeur, convenez d’un créneau et suivez chaque cours depuis votre espace.").font(AkFont.regular(13)).foregroundColor(Ak.onGreenSoft)
-                    }.padding(18).frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Ak.green).clipShape(RoundedRectangle(cornerRadius: 20)).padding(.top, 16)
-
-                    SectionHeader(title: "Matières", action: nil).padding(.top, 20)
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 4), spacing: 12) {
-                        ForEach(store.subjects) { s in
-                            let green = s.accent == "green"
-                            VStack(spacing: 7) {
-                                Image(systemName: sfSubjectIcon(s.icon)).font(.system(size: 22)).foregroundColor(green ? Ak.green : Ak.orange)
-                                    .frame(maxWidth: .infinity).frame(height: 64)
-                                    .background(green ? Ak.greenSoft : Ak.orangeSoft)
-                                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                                Text(s.name).font(AkFont.semibold(11.5)).foregroundColor(Ak.inkSoft)
-                            }.onTapGesture { router.go(.searchResults) }
-                        }
-                    }.padding(.top, 13)
-
-                    SectionHeader(title: "Profs recommandés") { router.go(.searchResults) }.padding(.top, 20)
-                    if store.loading { LoadingRow() }
-                    if let error = store.error {
-                        Text(error).font(AkFont.regular(13)).foregroundColor(Ak.danger)
-                        Button("Réessayer") { Task { await store.load() } }
+                        PrimaryButton(label: "Trouver un professeur", color: Ak.green, trailingSystemIcon: "magnifyingglass") {
+                            router.go(.searchResults)
+                        }.accessibilityIdentifier("home.search")
+                    }.akCard(radius: 24, bg: Ak.greenSoft, bordered: false, padding: 18)
+                    if router.featureEnabled("needs") {
+                        AccountNavigationRow(title: "Décrire mon besoin de cours", icon: "square.and.pencil", identifier: "home.need") { router.go(.expressNeed) }
                     }
-                    if store.teachers.isEmpty {
-                        Text("Consultez la recherche pour voir les professeurs disponibles.")
-                            .font(AkFont.regular(13)).foregroundColor(Ak.muted).padding(.top, 13)
-                    } else {
-                        ForEach(Array(store.teachers.prefix(2).enumerated()), id: \.element.id) { i, t in
-                            recoTeacher(t.id, t.initials, t.name, t.subjects, t.ratingLabel, "\(t.reviews_count) avis", t.location, t.priceLabel, t.isGreen, t.verified).padding(.top, i == 0 ? 13 : 11)
+                    if !store.subjects.isEmpty {
+                        VStack(alignment: .leading, spacing: 14) {
+                            SectionHeader(title: "À chaque matière, son prof", action: nil)
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: typeSize.isAccessibilitySize ? 150 : 88), spacing: 12)], spacing: 12) {
+                                ForEach(store.subjects) { subject in
+                                    Button {
+                                        router.searchQuery = subject.name
+                                        router.go(.searchResults)
+                                    } label: {
+                                        VStack(spacing: 10) {
+                                            Image(systemName: sfSubjectIcon(subject.icon)).font(.system(size: 24)).foregroundColor(Ak.green).accessibilityHidden(true)
+                                            Text(subject.name).font(AkFont.semibold(13)).foregroundColor(Ak.ink)
+                                                .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                                        }.frame(maxWidth: .infinity, minHeight: 78).padding(12)
+                                            .background(.white).clipShape(RoundedRectangle(cornerRadius: 17))
+                                            .overlay(RoundedRectangle(cornerRadius: 17).stroke(Ak.border, lineWidth: 1))
+                                    }.buttonStyle(.plain)
+                                }
+                            }
                         }
                     }
-                }.padding(.horizontal, 22).padding(.top, 8).padding(.bottom, 16)
-            }
-            .task { await store.load() }
+                    VStack(alignment: .leading, spacing: 14) {
+                        SectionHeader(title: "Des professeurs à découvrir") { router.go(.searchResults) }
+                        if store.loading { LoadingRow() }
+                        else if let error = store.error {
+                            ScreenState(icon: "wifi.slash", title: "Le catalogue est indisponible", message: error) { Task { await store.load() } }
+                        } else if store.teachers.isEmpty {
+                            ScreenState(icon: "person.crop.rectangle.badge.plus", title: "Le catalogue se prépare", message: "Aucun professeur n’est disponible pour le moment. Revenez consulter la recherche.")
+                        } else {
+                            ForEach(store.teachers.prefix(2)) { teacher in
+                                TeacherPreviewCard(teacher: teacher) { router.selectedTeacherId = teacher.id; router.go(.teacherProfile) }
+                            }
+                        }
+                    }
+                }.padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 24)
+            }.refreshable { await store.load() }.task { await store.load() }.accessibilityIdentifier("home.scroll")
             BottomNav(current: .accueil)
         }
     }
-
-    func recoTeacher(_ id: Int, _ ini: String, _ name: String, _ subj: String, _ rating: String, _ reviews: String, _ place: String, _ price: String, _ green: Bool, _ verified: Bool) -> some View {
-        HStack(spacing: 13) {
-            InitialsAvatar(initials: ini, size: 54, bg: green ? Ak.greenSoft : Ak.orangeSoft, fg: green ? Ak.green : Ak.orange, verified: verified)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(name).font(AkFont.bold(15)).foregroundColor(Ak.ink)
-                Text(subj).font(AkFont.regular(12.5)).foregroundColor(Ak.muted)
-                RatingInline(value: rating, reviews: reviews, place: place).padding(.top, 5)
-            }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 0) {
-                Text(price).font(AkFont.schibstedExtra(15)).foregroundColor(Ak.green)
-                Text("/ heure").font(AkFont.regular(11)).foregroundColor(Ak.faint)
-            }
-        }
-        .akCard(radius: 18)
-        .onTapGesture { router.selectedTeacherId = id; router.go(.teacherProfile) }
+    private var heroText: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Text("Apprendre,\navec confiance.").font(AkFont.schibstedExtra(23)).foregroundColor(Ak.greenDark)
+            Text("Un professeur et un suivi adaptés à votre enfant.").font(AkFont.regular(14)).foregroundColor(Ak.inkSoft)
+        }.frame(maxWidth: .infinity, alignment: .leading).fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -272,96 +259,81 @@ struct TeacherProfileScreen: View {
         await store.load(id)
     }
 
-    private func profile(_ t: TeacherDTO) -> some View {
-        let levels = t.levels ?? []
-        let review = t.reviews?.first
-        return AkScreen(ignoresBottom: true) {
-            // header vert
-            VStack(alignment: .leading, spacing: 0) {
-                HStack {
-                    IconSquare(system: "arrow.left", bg: .white.opacity(0.14), tint: .white) { router.back() }
-                    Spacer()
-                }
-                HStack(spacing: 15) {
-                    InitialsAvatar(initials: t.initials, size: 76, bg: Ak.orangeLight, fg: Ak.green, radius: 22, fontSize: 27, verified: t.verified)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(t.name).font(AkFont.schibstedExtra(22)).foregroundColor(.white)
-                        Text(t.subjects).font(AkFont.regular(13.5)).foregroundColor(Ak.onGreenSoft)
-                        HStack(spacing: 8) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "star.fill").font(.system(size: 11)).foregroundColor(Ak.star)
-                                Text("\(t.ratingLabel) · \(t.reviews_count) avis").font(AkFont.bold(12.5)).foregroundColor(.white)
-                            }.padding(.horizontal, 9).padding(.vertical, 4).background(.white.opacity(0.15)).clipShape(RoundedRectangle(cornerRadius: 8))
-                            HStack(spacing: 2) {
-                                Image(systemName: "mappin.and.ellipse").font(.system(size: 11)).foregroundColor(Ak.onGreenSoft)
-                                Text(t.location).font(AkFont.regular(12)).foregroundColor(Ak.onGreenSoft)
-                            }
-                        }.padding(.top, 7)
-                    }
-                    Spacer()
-                }.padding(.top, 14)
-            }.padding(.horizontal, 22).padding(.top, 6).padding(.bottom, 22).background(Ak.green)
-
+    private func profile(_ teacher: TeacherDTO) -> some View {
+        AkScreen(ignoresBottom: true) {
+            TopBar(title: "Profil professeur", onBack: { router.back() })
             ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack(spacing: 10) {
-                        statTile(t.experience ?? "—", "expérience"); statTile(t.students ?? "—", "élèves suivis"); statTile(t.bac_success ?? "—", "réussite BAC")
-                    }
-                    Text("À propos").font(AkFont.schibstedBold(16)).foregroundColor(Ak.ink).padding(.top, 18)
-                    Text(t.bio ?? "Présentation à venir.")
-                        .font(AkFont.regular(13.5)).foregroundColor(Ak.textBody).lineSpacing(4).padding(.top, 8)
-                    HStack(spacing: 7) { ForEach(levels, id: \.self) { neutralTag($0) } }.padding(.top, 14)
-                    if let progs = t.programs, !progs.isEmpty {
-                        Text("Programmes").font(AkFont.bold(12)).foregroundColor(Ak.muted).padding(.top, 10)
-                        HStack(spacing: 7) { ForEach(progs, id: \.self) { neutralTag(programLabel($0)) } }.padding(.top, 7)
-                    }
-                    SectionHeader(title: "Avis des parents").padding(.top, 18)
-                    if let review {
-                    VStack(alignment: .leading, spacing: 0) {
-                        HStack(spacing: 10) {
-                            InitialsAvatar(initials: review.author_initials, size: 36, bg: Ak.orangeSoft, fg: Ak.orange, radius: 11, fontSize: 13)
-                            VStack(alignment: .leading, spacing: 0) {
-                                Text(review.author_name).font(AkFont.bold(13.5)).foregroundColor(Ak.ink)
-                                Text(review.time_ago).font(AkFont.regular(11)).foregroundColor(Ak.faint)
-                            }
-                            Spacer()
-                            HStack(spacing: 1) { ForEach(0..<max(0, min(5, review.rating)), id: \.self) { _ in Image(systemName: "star.fill").font(.system(size: 11)).foregroundColor(Ak.star) } }
+                VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 17) {
+                        HStack(alignment: .top, spacing: 15) {
+                            InitialsAvatar(initials: teacher.initials, size: 68, bg: Ak.greenSoft, fg: Ak.green, radius: 21, fontSize: 24, verified: teacher.verified)
+                                .accessibilityHidden(true)
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(teacher.name).font(AkFont.schibstedExtra(24)).foregroundColor(.white)
+                                Text(teacher.subjects).font(AkFont.regular(15)).foregroundColor(Ak.onGreenSoft)
+                            }.fixedSize(horizontal: false, vertical: true)
                         }
-                        Text(review.text)
-                            .font(AkFont.regular(13)).foregroundColor(Ak.textBody).lineSpacing(3).padding(.top, 9)
-                    }.akCard(radius: 16, padding: 14).padding(.top, 11)
-                    } else { Text("Aucun avis pour le moment.").font(AkFont.regular(13)).foregroundColor(Ak.muted).padding(.top, 11) }
-                }.padding(.horizontal, 22).padding(.top, 16)
-            }
-            // CTA collant
-            VStack(spacing: 12) {
-                HStack(spacing: 14) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        HStack(spacing: 0) {
-                            Text(t.priceLabel).font(AkFont.schibstedExtra(21)).foregroundColor(Ak.ink)
-                            Text("/h").font(AkFont.semibold(13)).foregroundColor(Ak.faint)
+                        Label(teacher.location, systemImage: "mappin.and.ellipse").font(AkFont.regular(14)).foregroundColor(Ak.onGreenSoft)
+                        Text(teacher.ratingLabel + (teacher.reviews_count > 0 ? " · \(teacher.reviews_count) avis" : ""))
+                            .font(AkFont.bold(14)).foregroundColor(.white)
+                        FlowLayout(spacing: 8) {
+                            if teacher.verified { Tag(label: "Profil vérifié") }
+                            if teacher.formats?.contains("home") == true { Tag(label: "À domicile") }
+                            if router.featureEnabled("onlineCourses"), teacher.formats?.contains("online") == true { Tag(label: "En ligne") }
                         }
-                        Text("Tarif par heure").font(AkFont.regular(11.5)).foregroundColor(Ak.muted)
+                    }.akCard(radius: 24, bg: Ak.green, bordered: false, padding: 20)
+                    VStack(alignment: .leading, spacing: 10) {
+                        SectionHeader(title: "À propos", action: nil)
+                        Text(teacher.bio?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false ? teacher.bio! : "La présentation de ce professeur n’est pas encore renseignée.")
+                            .font(AkFont.regular(16)).foregroundColor(Ak.textBody).lineSpacing(4).fixedSize(horizontal: false, vertical: true)
+                        if let experience = teacher.experience, !experience.isEmpty {
+                            Label(experience + " d’expérience", systemImage: "briefcase").font(AkFont.semibold(14)).foregroundColor(Ak.green)
+                        }
+                    }.akCard(radius: 20, padding: 18)
+                    if let levels = teacher.levels, !levels.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            SectionHeader(title: "Niveaux accompagnés", action: nil)
+                            FlowLayout(spacing: 8) { ForEach(levels, id: \.self) { Tag(label: $0, fg: Ak.inkSoft, bg: Ak.cardField) } }
+                        }
                     }
-                    PrimaryButton(label: "Réserver un cours") { router.startBooking(t); router.go(.booking) }
-                }
-            }.padding(.horizontal, 22).padding(.top, 12).padding(.bottom, 12).background(.white)
+                    if let programs = teacher.programs, !programs.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            SectionHeader(title: "Programmes", action: nil)
+                            FlowLayout(spacing: 8) { ForEach(programs, id: \.self) { Tag(label: programLabel($0), fg: Ak.inkSoft, bg: Ak.cardField) } }
+                        }
+                    }
+                    VStack(alignment: .leading, spacing: 12) {
+                        SectionHeader(title: "Avis des parents", action: nil)
+                        if (teacher.reviews ?? []).isEmpty {
+                            Text("Aucun avis pour le moment.").font(AkFont.regular(15)).foregroundColor(Ak.muted)
+                        }
+                        ForEach(Array((teacher.reviews ?? []).enumerated()), id: \.offset) { _, review in
+                            VStack(alignment: .leading, spacing: 12) {
+                                HStack(alignment: .top, spacing: 12) {
+                                    InitialsAvatar(initials: review.author_initials, size: 42, radius: 13, fontSize: 15).accessibilityHidden(true)
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(review.author_name).font(AkFont.bold(15)).foregroundColor(Ak.ink)
+                                        Text(review.time_ago).font(AkFont.regular(12)).foregroundColor(Ak.muted)
+                                        Text("\(max(0, min(5, review.rating))) / 5").font(AkFont.semibold(13)).foregroundColor(Ak.green)
+                                            .accessibilityLabel("\(review.rating) étoiles sur 5")
+                                    }
+                                }
+                                Text(review.text).font(AkFont.regular(15)).foregroundColor(Ak.textBody).fixedSize(horizontal: false, vertical: true)
+                            }.akCard(radius: 18, padding: 16)
+                        }
+                    }
+                }.padding(20)
+            }.accessibilityIdentifier("teacher.profile.scroll")
+            VStack(alignment: .leading, spacing: 10) {
+                Text("\(teacher.price_per_hour.formattedFCFA) F CFA / heure").font(AkFont.schibstedBold(19)).foregroundColor(Ak.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                PrimaryButton(label: "Réserver un cours") { router.startBooking(teacher); router.go(.booking) }
+                    .accessibilityIdentifier("teacher.book")
+            }.padding(.horizontal, 20).padding(.vertical, 12).background(.white)
         }
     }
 
-    func statTile(_ v: String, _ l: String) -> some View {
-        VStack(spacing: 2) {
-            Text(v).font(AkFont.schibstedExtra(19)).foregroundColor(Ak.green)
-            Text(l).font(AkFont.regular(11)).foregroundColor(Ak.muted)
-        }.frame(maxWidth: .infinity).padding(.vertical, 13)
-        .background(.white).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Ak.border, lineWidth: 1))
-    }
-    func neutralTag(_ t: String) -> some View {
-        Text(t).font(AkFont.semibold(12)).foregroundColor(Ak.inkSoft)
-            .padding(.horizontal, 12).padding(.vertical, 7).background(Ak.cardField).clipShape(RoundedRectangle(cornerRadius: 9))
-    }
-    func programLabel(_ slug: String) -> String {
+    private func programLabel(_ slug: String) -> String {
         switch slug {
         case "standard": return "Programme standard"
         case "francais": return "Programme français"

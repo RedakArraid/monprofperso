@@ -38,7 +38,7 @@ fun NotificationBell(nav: NavActions, size: Int = 44) {
     LaunchedEffect(Unit) { count = runCatching { Api.service.unreadCount().count }.getOrDefault(0) }
 
     Box {
-        IconSquare(Icons.Outlined.Notifications, bg = AkColors.White, tint = AkColors.InkSoft, size = size,
+        IconSquare(Icons.Outlined.Notifications, bg = AkColors.White, tint = AkColors.InkSoft, size = size, contentDescription = "Notifications",
             onClick = { nav.go(Routes.Notifications) })
         if (count > 0) {
             Box(

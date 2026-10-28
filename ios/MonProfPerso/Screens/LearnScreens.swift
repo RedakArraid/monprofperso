@@ -3,6 +3,7 @@ import SwiftUI
 // MARK: - Mes cours : données réelles et paiement après acceptation
 struct MyCoursesScreen: View {
     @EnvironmentObject var router: Router
+    @Environment(\.dynamicTypeSize) private var typeSize
     @StateObject private var store = CoursesStore()
     @State private var selectedStatus = "upcoming"
     private var visible: [CourseDTO] {
@@ -14,19 +15,17 @@ struct MyCoursesScreen: View {
         AkScreen(ignoresBottom: true) {
             Text("Mes cours").font(AkFont.schibstedExtra(23)).foregroundColor(Ak.ink)
                 .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 22).padding(.vertical, 8)
-            Picker("Statut", selection: $selectedStatus) {
-                Text("À venir").tag("upcoming")
-                Text("Terminés").tag("done")
-                Text("Annulés / refusés").tag("cancelled")
-            }.pickerStyle(.segmented).padding(.horizontal, 22)
+            Group {
+                if typeSize.isAccessibilitySize { statusPicker.pickerStyle(.menu) }
+                else { statusPicker.pickerStyle(.segmented) }
+            }.padding(.horizontal, 20).padding(.vertical, 8)
             ScrollView {
                 VStack(alignment: .leading, spacing: 13) {
                     if store.loading { LoadingRow() }
                     if let error = store.error {
-                        Text(error).font(AkFont.regular(13)).foregroundColor(Ak.danger)
-                        Button("Réessayer") { Task { await store.load() } }.foregroundColor(Ak.green)
+                        ScreenState(icon: "wifi.slash", title: "Vos cours sont indisponibles", message: error) { Task { await store.load() } }
                     } else if !store.loading && visible.isEmpty {
-                        Text("Aucun cours dans cette catégorie.").font(AkFont.regular(14)).foregroundColor(Ak.muted)
+                        ScreenState(icon: "calendar.badge.plus", title: "Aucun cours pour le moment", message: "Vos réservations et leur suivi apparaîtront ici. Vous pouvez découvrir les professeurs depuis la recherche.")
                     }
                     ForEach(visible) { course in
                         VStack(alignment: .leading, spacing: 12) {
@@ -51,7 +50,7 @@ struct MyCoursesScreen: View {
                                 Text("\(course.price.formattedFCFA) F").font(AkFont.bold(14)).foregroundColor(Ak.ink)
                             }
                             Button("Détails et suivi") { router.selectedCourseId = course.id; router.go(.manageCourse) }
-                                .buttonStyle(.bordered)
+                                .buttonStyle(.bordered).controlSize(.large).accessibilityIdentifier("course.details.\(course.id)")
                             Text(CourseOperations.statusLabel(course.lifecycle_status)).font(AkFont.semibold(12)).foregroundColor(Ak.green)
                             if course.canPay && !course.isTeacherParticipant(accountRole: router.authRole) {
                                 PrimaryButton(label: "Payer ce cours", color: Ak.green, trailingSystemIcon: "lock.fill") {
@@ -65,6 +64,13 @@ struct MyCoursesScreen: View {
             }.refreshable { await store.load() }
             if router.isTeacher { TeacherBottomNav(current: .agenda) } else { BottomNav(current: .cours) }
         }.task { await store.load() }
+    }
+    private var statusPicker: some View {
+        Picker("Statut des cours", selection: $selectedStatus) {
+            Text("À venir").tag("upcoming")
+            Text("Terminés").tag("done")
+            Text("Annulés").tag("cancelled")
+        }
     }
 }
 

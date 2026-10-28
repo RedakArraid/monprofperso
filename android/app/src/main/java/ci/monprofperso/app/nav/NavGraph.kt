@@ -4,6 +4,8 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import ci.monprofperso.app.ui.screens.*
 
 /** Toutes les destinations de l'app (37 écrans de la maquette). */
@@ -71,12 +73,22 @@ object Routes {
     const val AdminOtp = "admin_otp"
 }
 
+/** Conservé lors d'une rotation, recréé avec le processus : la session reste revérifiée au lancement. */
+class SessionStartupViewModel : ViewModel() {
+    var completed = false
+}
+
 @Composable
 fun MonProfPersoNavGraph() {
     val nav = rememberNavController()
     val actions = NavActions(nav)
+    val startup: SessionStartupViewModel = viewModel()
     androidx.compose.runtime.LaunchedEffect(Unit) {
-        if (ci.monprofperso.app.data.Auth.restoreSession()) actions.enterApp()
+        if (!startup.completed) {
+            val restored = ci.monprofperso.app.data.Auth.restoreSession()
+            startup.completed = true
+            if (restored) actions.enterApp()
+        }
     }
     androidx.compose.runtime.LaunchedEffect(Unit) {
         ci.monprofperso.app.data.AppState.capabilities = runCatching { ci.monprofperso.app.data.Api.service.capabilities() }.getOrDefault(emptyMap())

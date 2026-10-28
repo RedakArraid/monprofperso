@@ -5,6 +5,7 @@ package ci.monprofperso.app.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -52,24 +54,29 @@ fun MyCoursesScreen(nav: NavActions, vm: ci.monprofperso.app.data.CoursesViewMod
     val result = state as? ci.monprofperso.app.data.UiState.Success
     val courses = result?.data.orEmpty().filter { if (tab == 0) it.status == "upcoming" else if (tab == 1) it.status == "done" else it.status in listOf("cancelled", "refused") }
     AkScreen(applyBottomInset = false) {
-        Text("Mes cours", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 23.sp,
-            color = AkColors.Ink, modifier = Modifier.padding(horizontal = 22.dp, vertical = 8.dp))
-        Row(Modifier.padding(horizontal = 22.dp).padding(bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Mes cours", fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 23.sp,
+                color = AkColors.Ink, modifier = Modifier.weight(1f))
+            androidx.compose.material3.IconButton(onClick = { vm.load() }) {
+                Icon(Icons.Filled.Refresh, contentDescription = "Actualiser les cours", tint = AkColors.Green)
+            }
+        }
+        FlowRow(Modifier.padding(horizontal = 22.dp).padding(bottom = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             PillTab("À venir", tab == 0) { tab = 0 }
             PillTab("Terminés", tab == 1) { tab = 1 }
             PillTab("Annulés", tab == 2) { tab = 2 }
-            PillTab("Actualiser", false) { vm.load() }
         }
         Column(Modifier.weight(1f).verticalScrollSafe().padding(horizontal = 22.dp).padding(top = 16.dp)) {
             when (val current = state) {
                 ci.monprofperso.app.data.UiState.Loading -> LoadingRow()
                 is ci.monprofperso.app.data.UiState.Error -> {
-                    Text(current.message, color = AkColors.Orange)
+                    FeedbackMessage(current.message)
                     OfflineBanner(onRetry = { vm.load() })
                 }
                 is ci.monprofperso.app.data.UiState.Success -> {
-                    if (!current.fromApi) Text("Données de démonstration", color = AkColors.Orange)
-                    if (courses.isEmpty()) Text("Aucun cours dans cette rubrique.", fontFamily = Hanken, color = AkColors.Muted)
+                    if (!current.fromApi) Text("Données de démonstration", color = AkColors.OrangeStrong)
+                    if (courses.isEmpty()) EmptyContent("Aucun cours dans cette rubrique", "Vos réservations et leur suivi apparaîtront ici.")
                 }
             }
             courses.forEach { course ->
@@ -112,12 +119,20 @@ fun MyCoursesScreen(nav: NavActions, vm: ci.monprofperso.app.data.CoursesViewMod
 /** Ligne « horaire · format » d'une carte de cours. */
 @Composable
 private fun CourseMeta(c: ci.monprofperso.app.data.CourseDto) {
-    Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Filled.Schedule, null, tint = AkColors.Green, modifier = Modifier.size(15.dp))
-        Text(" ${c.time} · ${c.duration} ", fontFamily = Hanken, fontSize = 12.5.sp, color = Color(0xFF4A574F))
-        Text("·", color = Color(0xFFD8D2C8))
-        Icon(if (c.format == "online") Icons.Filled.Videocam else Icons.Filled.Home, null, tint = AkColors.Green, modifier = Modifier.size(15.dp).padding(start = 4.dp))
-        Text(if (c.format == "online") " En ligne" else " ${c.location ?: "À domicile"}", fontFamily = Hanken, fontSize = 12.5.sp, color = Color(0xFF4A574F))
+    Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.Schedule, null, tint = AkColors.Green, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("${c.time} · ${c.duration}", fontFamily = Hanken, fontSize = 14.sp,
+                color = AkColors.InkSoft, modifier = Modifier.weight(1f))
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(if (c.format == "online") Icons.Filled.Videocam else Icons.Filled.Home, null,
+                tint = AkColors.Green, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(if (c.format == "online") "En ligne" else c.location?.takeIf { it.isNotBlank() } ?: "À domicile",
+                fontFamily = Hanken, fontSize = 14.sp, color = AkColors.InkSoft, modifier = Modifier.weight(1f))
+        }
     }
 }
 
@@ -125,15 +140,15 @@ private fun CourseMeta(c: ci.monprofperso.app.data.CourseDto) {
 fun PillTab(label: String, selected: Boolean, onClick: () -> Unit = {}) {
     Text(label, fontFamily = Hanken, fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold, fontSize = 13.sp,
         color = if (selected) AkColors.White else AkColors.Muted,
-        modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(if (selected) AkColors.Green else AkColors.White)
+        modifier = Modifier.heightIn(min = 48.dp).clip(RoundedCornerShape(999.dp)).background(if (selected) AkColors.Green else AkColors.White)
             .then(if (selected) Modifier else Modifier.border(1.dp, AkColors.Border, RoundedCornerShape(999.dp)))
-            .clickable { onClick() }
-            .padding(horizontal = 18.dp, vertical = 9.dp))
+            .selectable(selected = selected, role = Role.Tab, onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 12.dp))
 }
 
 @Composable
 private fun DateTile(day: String, num: String, green: Boolean) {
-    Column(Modifier.size(50.dp).clip(RoundedCornerShape(14.dp)).background(if (green) AkColors.GreenSoft else AkColors.OrangeSoft),
+    Column(Modifier.widthIn(min = 56.dp, max = 90.dp).heightIn(min = 56.dp).clip(RoundedCornerShape(14.dp)).background(if (green) AkColors.GreenSoft else AkColors.OrangeSoft).padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Text(day, fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 10.sp, color = if (green) AkColors.Green else AkColors.Orange)
         Text(num, fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = if (green) AkColors.Green else AkColors.Orange)

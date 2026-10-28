@@ -12,6 +12,9 @@ enum Ak {
     static let orange      = Color(hex: 0xE8722A)
     static let orangeLight = Color(hex: 0xF2A04D)
     static let orangeSoft  = Color(hex: 0xFBE9DA)
+    /// Orange de texte / action sur fond clair, distinct de l'accent décoratif.
+    static let orangeText  = Color(hex: 0xA94713)
+    static let orangeAction = Color(hex: 0xB44912)
 
     // Fonds crème
     static let cream       = Color(hex: 0xECE7DE)
@@ -24,7 +27,7 @@ enum Ak {
     static let ink         = Color(hex: 0x18241E)
     static let inkSoft     = Color(hex: 0x384640)
     static let muted       = Color(hex: 0x67756D)
-    static let faint       = Color(hex: 0x9AA8A0)
+    static let faint       = Color(hex: 0x66736B)
     static let onGreenSoft = Color(hex: 0xC6DCD2)
     static let onGreenFaint = Color(hex: 0xA9C7BB)
 

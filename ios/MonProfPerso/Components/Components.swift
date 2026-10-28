@@ -19,23 +19,25 @@ struct AkScreen<Content: View>: View {
 
 struct PrimaryButton: View {
     let label: String
-    var color: Color = Ak.orange
+    var color: Color = Ak.green
     var trailingSystemIcon: String? = "arrow.right"
     var action: () -> Void = {}
+    @Environment(\.isEnabled) private var isEnabled
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                Text(label).font(AkFont.bold(15.5))
-                if let icon = trailingSystemIcon { Image(systemName: icon).font(.system(size: 15, weight: .bold)) }
+                Text(label).font(AkFont.bold(16)).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                if let icon = trailingSystemIcon { Image(systemName: icon).font(.system(size: 15, weight: .bold)).accessibilityHidden(true) }
             }
             .foregroundColor(.white)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(color)
+            .frame(maxWidth: .infinity, minHeight: 52)
+            .padding(.horizontal, 16).padding(.vertical, 8)
+            .background(isEnabled ? color : Ak.muted)
             .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
         }
         .buttonStyle(.plain)
+        .opacity(isEnabled ? 1 : 0.6)
     }
 }
 
@@ -48,6 +50,7 @@ struct NotificationBell: View {
 
     var body: some View {
         IconSquare(system: "bell", bg: .white, tint: Ak.inkSoft, size: size) { router.go(.notifications) }
+            .accessibilityLabel(count > 0 ? "Notifications, \(count) non lues" : "Notifications")
             .overlay(alignment: .topTrailing) {
                 if count > 0 {
                     Text(count > 9 ? "9+" : "\(count)")
@@ -62,17 +65,15 @@ struct NotificationBell: View {
 }
 
 /// États réseau réutilisables et cohérents sur les écrans branchés en live.
-/// Le design privilégie le repli sur données de démo : on signale le mode
-/// hors-ligne par un bandeau discret avec « Réessayer » plutôt qu'un écran bloquant.
+/// Une panne de réseau ne crée ni données de démonstration ni faux résultat.
 struct OfflineBanner: View {
     var onRetry: () -> Void
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "wifi.slash").font(.system(size: 13, weight: .semibold)).foregroundColor(Ak.orange)
-            Text("Hors-ligne, données de démonstration").font(AkFont.semibold(12)).foregroundColor(Color(hex: 0x8A5B33))
+            Text("Connexion indisponible. Réessayez dans un instant.").font(AkFont.semibold(13)).foregroundColor(Ak.orangeText)
             Spacer()
-            Text("Réessayer").font(AkFont.bold(12)).foregroundColor(Ak.orange)
-                .contentShape(Rectangle()).onTapGesture { onRetry() }
+            Button("Réessayer", action: onRetry).font(AkFont.bold(13)).foregroundColor(Ak.orangeText).frame(minHeight: 44)
         }
         .padding(.horizontal, 14).padding(.vertical, 10)
         .background(Ak.orangeSoft).clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -94,7 +95,7 @@ struct IconSquare: View {
     let system: String
     var bg: Color = Ak.cardField
     var tint: Color = Ak.ink
-    var size: CGFloat = 40
+    var size: CGFloat = 44
     var action: () -> Void = {}
 
     var body: some View {
@@ -107,6 +108,7 @@ struct IconSquare: View {
                 .clipShape(RoundedRectangle(cornerRadius: size * 0.3, style: .continuous))
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(system == "arrow.left" ? "Retour" : system == "xmark" ? "Fermer" : system == "bell" ? "Notifications" : system == "slider.horizontal.3" ? "Filtres" : system == "bubble.left" ? "Messages" : "Ouvrir")
     }
 }
 
@@ -142,10 +144,10 @@ struct SectionHeader: View {
 
     var body: some View {
         HStack {
-            Text(title).font(AkFont.schibstedBold(16.5)).foregroundColor(Ak.ink)
+            Text(title).font(AkFont.schibstedBold(17)).foregroundColor(Ak.ink).fixedSize(horizontal: false, vertical: true)
             Spacer()
             if let a = action {
-                Text(a).font(AkFont.semibold(13)).foregroundColor(Ak.green).onTapGesture(perform: onAction)
+                Button(a, action: onAction).font(AkFont.semibold(13)).foregroundColor(Ak.green).frame(minHeight: 44)
             }
         }
     }
@@ -286,6 +288,15 @@ struct PhoneField: View {
     init(value: String = "0758421903") {
         _value = .constant(value)
     }
+    /// Le champ affiche déjà +225 : conserver le numéro national lors d'un collage.
+    static func normalizedInput(_ raw: String) -> String {
+        let digits = raw.filter(\.isNumber)
+        let local: String
+        if digits.hasPrefix("00225") { local = String(digits.dropFirst(5)) }
+        else if digits.hasPrefix("225") { local = String(digits.dropFirst(3)) }
+        else { local = digits }
+        return String(local.prefix(10))
+    }
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Numéro de téléphone").font(AkFont.semibold(12)).foregroundColor(Ak.muted)
@@ -301,13 +312,24 @@ struct PhoneField: View {
                 }
                 .padding(.horizontal, 9).padding(.vertical, 6)
                 .background(Ak.cardField).clipShape(RoundedRectangle(cornerRadius: 9))
-                TextField("", text: $value)
+                TextField("07 00 00 00 00", text: $value)
                     .keyboardType(.phonePad)
+                    .textContentType(.telephoneNumber)
+                    .accessibilityLabel("Numéro de téléphone, indicatif +225")
+                    .accessibilityIdentifier("auth.phone")
+                    .toolbar {
+                        ToolbarItemGroup(placement: .keyboard) {
+                            Spacer()
+                            Button("Terminé") {
+                                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                            }
+                        }
+                    }
                     .font(AkFont.medium(14.5))
                     .foregroundColor(Ak.ink)
                     .onChange(of: value) { v in
-                        let d = v.filter(\.isNumber)
-                        if d != v || d.count > 10 { value = String(d.prefix(10)) }
+                        let normalized = Self.normalizedInput(v)
+                        if normalized != v { value = normalized }
                     }
             }
             .padding(.horizontal, 14).padding(.vertical, 11)
@@ -345,7 +367,8 @@ struct FlowLayout: Layout {
         var rowWidth: CGFloat = 0, rowHeight: CGFloat = 0
         var totalHeight: CGFloat = 0, totalWidth: CGFloat = 0
         for sub in subviews {
-            let size = sub.sizeThatFits(.unspecified)
+            let natural = sub.sizeThatFits(.unspecified)
+            let size = sub.sizeThatFits(ProposedViewSize(width: min(natural.width, maxWidth), height: nil))
             if rowWidth + size.width > maxWidth, rowWidth > 0 {
                 totalHeight += rowHeight + spacing
                 totalWidth = max(totalWidth, rowWidth - spacing)
@@ -362,7 +385,8 @@ struct FlowLayout: Layout {
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         var x = bounds.minX, y = bounds.minY, rowHeight: CGFloat = 0
         for sub in subviews {
-            let size = sub.sizeThatFits(.unspecified)
+            let natural = sub.sizeThatFits(.unspecified)
+            let size = sub.sizeThatFits(ProposedViewSize(width: min(natural.width, bounds.width), height: nil))
             if x + size.width > bounds.maxX, x > bounds.minX {
                 x = bounds.minX; y += rowHeight + spacing; rowHeight = 0
             }
