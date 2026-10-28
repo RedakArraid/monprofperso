@@ -30,7 +30,7 @@ struct WelcomeScreen: View {
                         roleRow(icon: "person.crop.rectangle", title: "Un professeur", sub: "Partager mes connaissances", index: 2)
                     }
                 }.padding(.horizontal, 24).padding(.top, 20).padding(.bottom, 24)
-            }.accessibilityIdentifier("welcome.scroll")
+            }.clipped().accessibilityIdentifier("welcome.scroll")
             VStack(spacing: 2) {
                 PrimaryButton(label: "Continuer", color: Ak.orangeAction) { router.go(.signup) }
                     .accessibilityIdentifier("welcome.continue")
@@ -249,7 +249,8 @@ struct OtpScreen: View {
     var body: some View {
         AkScreen {
             TopBar(title: "", onBack: { router.back() })
-            ScrollView {
+            ScrollViewReader { scroll in
+              ScrollView {
               VStack(alignment: .leading, spacing: 18) {
                 Image(systemName: "ellipsis.bubble.fill").font(.system(size: 30)).foregroundColor(Ak.green)
                     .frame(width: 64, height: 64).background(Ak.greenSoft).clipShape(RoundedRectangle(cornerRadius: 18))
@@ -267,11 +268,19 @@ struct OtpScreen: View {
                         code = String(value.filter { $0 >= "0" && $0 <= "9" }.prefix(codeLen))
                         error = nil
                     }
+                    .id("otp.input")
                 if let error { authError(error) }
                 Button(resendSec > 0 ? "Renvoyer dans \(resendSec) s" : "Renvoyer le code") { resend() }
                     .font(AkFont.bold(13)).foregroundColor(Ak.green).disabled(resendSec > 0 || sending)
               }.padding(.horizontal, 24).padding(.vertical, 16)
-            }.scrollDismissesKeyboard(.interactively)
+              }.scrollDismissesKeyboard(.interactively).clipped().accessibilityIdentifier("otp.scroll")
+                .onChange(of: focused) { isFocused in
+                    if isFocused { scroll.scrollTo("otp.input", anchor: .bottom) }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { _ in
+                    if focused { scroll.scrollTo("otp.input", anchor: .bottom) }
+                }
+            }
             PrimaryButton(label: sending ? "Vérification…" : "Vérifier", color: Ak.green) { verify() }
                 .disabled(sending || code.count != codeLen).accessibilityIdentifier("otp.verify")
                 .padding(.horizontal, 28).padding(.bottom, 18)

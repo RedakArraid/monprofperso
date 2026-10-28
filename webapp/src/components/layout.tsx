@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   BookOpen,
@@ -74,12 +74,13 @@ function NavItemLink({
       <Link
         to={item.to}
         onClick={onNavigate}
+        aria-current={on ? "page" : undefined}
         className={cn(
-          "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-[13px] font-medium transition-colors",
+          "inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-2 text-[13px] font-semibold transition-colors",
           on ? "bg-primary text-white" : "text-[#555] hover:bg-[#f0f0f0]",
         )}
       >
-        <Icon className="h-3.5 w-3.5" />
+        <Icon className="h-4 w-4" aria-hidden="true" />
         {item.label}
       </Link>
     );
@@ -88,19 +89,20 @@ function NavItemLink({
     <Link
       to={item.to}
       onClick={onNavigate}
+      aria-current={on ? "page" : undefined}
       className={cn(
         "flex items-center gap-3 border-b border-[#eee] px-4 py-3.5 text-[15px] font-medium transition-colors",
         on ? "bg-primary text-white" : "text-[#444] hover:bg-[#f7f7f7]",
       )}
     >
-      <Icon className={cn("h-5 w-5", on ? "text-white" : "text-[#888]")} />
+      <Icon className={cn("h-5 w-5 shrink-0", on ? "text-white" : "text-muted-foreground")} aria-hidden="true" />
       {item.label}
     </Link>
   );
 }
 
 /** Padding horizontal plein écran, responsive */
-export const shellPad = "px-3 sm:px-4 md:px-6 xl:px-8 2xl:px-10";
+export const shellPad = "app-shell-pad";
 
 export function AppShell({
   title,
@@ -126,6 +128,35 @@ export function AppShell({
   const { isTeacher, user } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const drawerRef = useRef<HTMLDialogElement>(null);
+  const footerRef = useRef<HTMLDivElement>(null);
+  const hasFooter = Boolean(stickyFooter);
+  const [footerHeight, setFooterHeight] = useState(hasFooter ? 96 : 0);
+  useEffect(() => {
+    const drawer = drawerRef.current;
+    if (!menuOpen || !drawer) return;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    if (!drawer.open) drawer.showModal();
+    const desktop = window.matchMedia("(min-width: 1280px)");
+    const closeOnDesktop = () => { if (desktop.matches) setMenuOpen(false); };
+    desktop.addEventListener("change", closeOnDesktop);
+    closeOnDesktop();
+    return () => {
+      desktop.removeEventListener("change", closeOnDesktop);
+      document.body.style.overflow = overflow;
+      if (drawer.open) drawer.close();
+    };
+  }, [menuOpen]);
+  useEffect(() => {
+    const footer = footerRef.current;
+    if (!hasFooter || !footer) return;
+    const measure = () => setFooterHeight(Math.ceil(footer.getBoundingClientRect().height));
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(footer);
+    return () => observer.disconnect();
+  }, [hasFooter]);
   const { capabilities } = useCapabilities();
   const tabs = (isTeacher ? teacherTabs : parentTabs).filter((item) => {
     if (item.to === "/progres") return capabilities.progress;
@@ -148,27 +179,31 @@ export function AppShell({
           : null;
 
   return (
-    <div className={cn("flex min-h-dvh w-full flex-col bg-background", stickyFooter && "pb-16")}>
-      <header className="sticky top-0 z-40 w-full border-b border-[#e8e8e8] bg-white">
-        <div className={cn("flex h-14 w-full items-center gap-2 sm:gap-3 lg:h-[58px]", shellPad)}>
-          {!hideNav ? (
+    <div className="flex min-h-dvh w-full flex-col bg-background" style={hasFooter ? { paddingBottom: footerHeight } : undefined}>
+      <a href="#main-content" className="skip-link" onClick={(event) => { event.preventDefault(); document.getElementById("main-content")?.focus(); }}>Aller au contenu</a>
+      <header className="app-header sticky top-0 z-40 w-full border-b border-border bg-white">
+        <div className={cn("flex min-h-16 w-full items-center gap-2 py-2 sm:gap-3", shellPad)}>
+          {!hideNav && !back ? (
             <button
               type="button"
-              className="flex flex-col items-center justify-center px-1 text-primary xl:hidden"
-              aria-label="Menu"
+              className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-lg text-primary hover:bg-secondary xl:hidden"
+              aria-label="Ouvrir le menu"
+              aria-haspopup="dialog"
+              aria-controls="mobile-navigation"
+              aria-expanded={menuOpen}
               onClick={() => setMenuOpen(true)}
             >
-              <Menu className="h-6 w-6" />
-              <span className="text-[10px] font-medium leading-none">Menu</span>
+              <Menu className="h-6 w-6" aria-hidden="true" />
             </button>
-          ) : back ? (
+          ) : null}
+          {back ? (
             <Button
               variant="ghost"
               size="icon"
               aria-label="Retour"
               onClick={() => (typeof back === "string" ? navigate(back) : navigate(-1))}
             >
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeft className="h-5 w-5" aria-hidden="true" />
             </Button>
           ) : null}
 
@@ -180,10 +215,10 @@ export function AppShell({
             </span>
           </a>
 
-          <h1 className="min-w-0 flex-1 truncate text-center text-base font-semibold text-welcome xl:hidden">{title}</h1>
+          <h1 className="min-w-0 flex-1 break-words text-center text-base font-bold leading-snug text-welcome xl:sr-only">{title}</h1>
 
           {!hideNav ? (
-            <nav className="hidden min-w-0 flex-1 items-center justify-center gap-0.5 overflow-x-auto overscroll-x-contain px-1 xl:flex">
+            <nav aria-label="Navigation principale" className="hidden min-w-0 flex-1 items-center justify-center gap-0.5 overflow-x-auto overscroll-x-contain px-1 xl:flex">
               {tabs.map((t) => (
                 <NavItemLink key={t.to + t.label} item={t} active={active} variant="top" />
               ))}
@@ -194,18 +229,23 @@ export function AppShell({
 
           <Link
             to="/compte"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary text-white"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-white"
             aria-label="Mon compte"
           >
-            <User className="h-5 w-5" />
+            <User className="h-5 w-5" aria-hidden="true" />
           </Link>
         </div>
       </header>
 
-      {menuOpen ? (
-        <div className="fixed inset-0 z-50 xl:hidden">
-          <button type="button" className="absolute inset-0 bg-black/35" aria-label="Fermer" onClick={() => setMenuOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 flex w-[min(320px,88vw)] flex-col bg-white shadow-xl">
+      <dialog id="mobile-navigation" ref={drawerRef} className="app-drawer" aria-labelledby="mobile-navigation-title"
+        onCancel={(event) => { event.preventDefault(); setMenuOpen(false); }} onClose={() => setMenuOpen(false)}
+        onClick={(event) => {
+          if (event.target !== event.currentTarget) return;
+          const bounds = event.currentTarget.getBoundingClientRect();
+          if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) setMenuOpen(false);
+        }}>
+          <div className="flex h-full flex-col">
+            <h2 id="mobile-navigation-title" className="sr-only">Navigation principale</h2>
             <div className="flex items-center justify-between border-b border-[#eee] px-4 py-3">
               <a href="/" className="flex items-center gap-2" onClick={() => setMenuOpen(false)}>
                 <img src="/assets/mp2-logo.png" alt="" className="h-8 w-8 rounded-lg" />
@@ -214,11 +254,11 @@ export function AppShell({
                   <span className="block text-[11px] font-semibold text-primary">soutien scolaire</span>
                 </span>
               </a>
-              <button type="button" className="p-2 text-[#666]" onClick={() => setMenuOpen(false)} aria-label="Fermer">
-                <X className="h-5 w-5" />
+              <button type="button" autoFocus className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-foreground hover:bg-secondary" onClick={() => setMenuOpen(false)} aria-label="Fermer le menu">
+                <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
-            <nav className="flex-1 overflow-y-auto">
+            <nav aria-label="Navigation mobile" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
               {tabs.map((t) => (
                 <NavItemLink
                   key={t.to + t.label}
@@ -229,9 +269,8 @@ export function AppShell({
                 />
               ))}
             </nav>
-          </aside>
-        </div>
-      ) : null}
+          </div>
+      </dialog>
 
       {capabilities.serviceOpen === false ? <p role="status" className="border-b bg-orange-soft px-4 py-3 text-center text-sm">Les nouvelles inscriptions et réservations sont temporairement limitées. Vos cours existants et la gestion de votre compte restent accessibles.</p> : null}
       {welcomeText ? (
@@ -243,8 +282,10 @@ export function AppShell({
       ) : null}
 
       <main
+        id="main-content"
+        tabIndex={-1}
         className={cn(
-          "w-full flex-1",
+          "min-w-0 w-full flex-1 outline-none",
           fullBleed ? "pb-0" : cn(shellPad, stickyFooter ? "py-4 pb-6 sm:py-5" : "py-4 pb-8 sm:py-5 lg:py-6"),
         )}
       >
@@ -252,7 +293,7 @@ export function AppShell({
       </main>
 
       {stickyFooter ? (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-primary/20 bg-primary">
+        <div ref={footerRef} className="app-footer fixed inset-x-0 bottom-0 z-30 border-t border-primary/20 bg-primary" role="region" aria-label="Actions de la page">
           <div className={cn("w-full", shellPad)}>{stickyFooter}</div>
         </div>
       ) : null}
@@ -262,7 +303,7 @@ export function AppShell({
 
 export function ContentCard({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn("h-full rounded-xl bg-white p-4 shadow-[0_1px_4px_rgba(0,0,0,0.08)] sm:p-5 md:p-6", className)}>
+    <div className={cn("min-w-0 h-full break-words rounded-2xl border border-border bg-white p-5 shadow-[0_2px_8px_rgba(14,90,67,0.035)] sm:p-6", className)}>
       {children}
     </div>
   );
@@ -290,7 +331,7 @@ export function PageGrid({
       : cols === 4
         ? "sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
         : "sm:grid-cols-2 xl:grid-cols-3";
-  return <div className={cn("grid w-full gap-4 sm:gap-5", colClass, className)}>{children}</div>;
+  return <div className={cn("grid w-full grid-cols-1 gap-4 sm:gap-5", colClass, className)}>{children}</div>;
 }
 
 /** Empilement pleine largeur ; `narrow` pour formulaires centrés */
@@ -322,17 +363,18 @@ export function PageTabs({
   onChange: (id: string) => void;
 }) {
   return (
-    <div className="mb-5 flex border-b border-[#ddd] bg-white">
+    <div role="group" aria-label="Affichage" className="mb-5 flex border-b border-border bg-white">
       {tabs.map((t) => {
         const on = t.id === value;
         return (
           <button
             key={t.id}
             type="button"
+            aria-pressed={on}
             onClick={() => onChange(t.id)}
             className={cn(
-              "flex-1 px-3 py-3.5 text-center text-[12px] font-bold uppercase tracking-wide transition-colors sm:text-[13px]",
-              on ? "border-b-[3px] border-welcome text-welcome" : "text-[#888]",
+              "min-h-11 min-w-0 flex-1 px-3 py-3.5 text-center text-sm font-bold transition-colors",
+              on ? "border-b-[3px] border-welcome text-welcome" : "text-muted-foreground",
             )}
           >
             {t.label}
@@ -375,7 +417,7 @@ export function InfoRow({ label, children }: { label: string; children: ReactNod
 }
 
 export function DocLink({ to, children, external }: { to: string; children: ReactNode; external?: boolean }) {
-  const className = "link-green block py-1.5 text-[15px] underline-offset-2";
+  const className = "link-green flex min-h-11 items-center py-2 text-[15px] underline-offset-2";
   if (external) {
     return (
       <a href={to} className={className} target="_blank" rel="noreferrer">
@@ -392,10 +434,10 @@ export function DocLink({ to, children, external }: { to: string; children: Reac
 
 export function OfflineBanner({ onRetry }: { onRetry?: () => void }) {
   return (
-    <div className="mb-4 rounded-lg bg-orange-soft px-4 py-3 text-sm text-[#8a5b33]">
+    <div role="alert" className="mb-4 rounded-xl border border-orange/25 bg-orange-soft px-4 py-3 text-sm text-[#744521]">
       Les données n’ont pas pu être chargées.{" "}
       {onRetry ? (
-        <button type="button" className="font-bold underline" onClick={onRetry}>
+        <button type="button" className="min-h-11 rounded-lg px-2 font-bold underline underline-offset-2" onClick={onRetry}>
           Réessayer
         </button>
       ) : null}
@@ -406,7 +448,7 @@ export function OfflineBanner({ onRetry }: { onRetry?: () => void }) {
 export function Empty({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-[40vh] items-center justify-center px-4">
-      <p className="text-center text-[15px] text-[#888]">{children}</p>
+      <p role="status" className="max-w-md text-center text-[15px] leading-relaxed text-muted-foreground">{children}</p>
     </div>
   );
 }
@@ -418,14 +460,14 @@ export function MenuRow({ to, label, external }: { to: string; label: string; ex
     return (
       <a href={to} className={className}>
         <span>{label}</span>
-        <span className="text-[#aaa]">›</span>
+        <span className="text-muted-foreground">›</span>
       </a>
     );
   }
   return (
     <Link to={to} className={className}>
       <span>{label}</span>
-      <span className="text-[#aaa]">›</span>
+      <span className="text-muted-foreground">›</span>
     </Link>
   );
 }

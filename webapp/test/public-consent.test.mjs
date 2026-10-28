@@ -5,13 +5,26 @@ import vm from "node:vm";
 
 function formHarness(kind, initialVersion = "cgu-1|confidentialite-1") {
   const elements = new Map(), created = [], writes = [];
-  let version = initialVersion, changeOnSubmit = true;
+  let version = initialVersion, changeOnSubmit = true, focusedElement = null;
   function element(id = "") {
+    const attributes = new Map(), classes = new Set();
     return { id, value: "", textContent: "", checked: false, disabled: false, hidden: false, children: [], dataset: {}, handlers: {},
-      classList: { toggle() {} }, setAttribute() {},
+      classList: {
+        contains(name) { return classes.has(name); },
+        toggle(name, enabled = !classes.has(name)) { if (enabled) classes.add(name); else classes.delete(name); return enabled; },
+      },
+      setAttribute(name, value) { attributes.set(name, String(value)); },
+      getAttribute(name) { return attributes.get(name) ?? null; },
+      removeAttribute(name) { attributes.delete(name); },
+      focus() { focusedElement = this; },
       addEventListener(name, handler) { this.handlers[name] = handler; },
       appendChild(child) { child.parent = this; this.children.push(child); if (!this.value && child.value) this.value = child.value; },
       querySelector(tag) { return this.children.find(child => child.tag === tag) || null; },
+      querySelectorAll(selector) {
+        // IDs in this small harness stand in for the fields of the single form.
+        if (selector === "[aria-invalid]") return [...elements.values(), ...created].filter(node => node.getAttribute("aria-invalid") !== null);
+        return this.children.filter(child => child.tag === selector);
+      },
       closest() { return this.parent; },
     };
   }
@@ -24,7 +37,7 @@ function formHarness(kind, initialVersion = "cgu-1|confidentialite-1") {
   const format = element(); format.value = "home";
   const context = {
     location: { hostname: "test.local", origin: "https://test.local" },
-    window: { scrollTo() {} },
+    window: { scrollTo() {}, matchMedia() { return { matches: false }; } },
     document: {
       getElementById: byId,
       createElement(tag) { const node = element(); node.tag = tag; created.push(node); return node; },
@@ -55,7 +68,7 @@ function formHarness(kind, initialVersion = "cgu-1|confidentialite-1") {
   };
   vm.createContext(context);
   vm.runInContext(readFileSync(new URL(`../../web/js/${kind}.js`, import.meta.url), "utf8"), context);
-  return { byId, writes, button: byId(buttonId), checkbox: byId(consentId),
+  return { byId, writes, button: byId(buttonId), checkbox: byId(consentId), focused: () => focusedElement,
     ready: () => new Promise(resolve => setImmediate(resolve)),
     submit: () => byId(formId).handlers.submit({ preventDefault() {} }),
   };
@@ -71,12 +84,17 @@ for (const kind of ["besoin", "devenir-prof"]) {
     assert.equal(form.writes[0].consentVersion, "cgu-1|confidentialite-1");
     assert.equal(form.checkbox.checked, false);
     assert.equal(form.button.disabled, false);
+    assert.equal(form.focused(), form.byId(kind === "besoin" ? "besoinErr" : "formErrStep1"), "le changement de documents est annoncé avec le focus sur l’erreur");
     await form.submit();
     assert.equal(form.writes.length, 1, "aucune acceptation implicite de la nouvelle version");
+    assert.equal(form.focused(), form.checkbox, "le consentement manquant est accessible au clavier");
+    assert.equal(form.checkbox.getAttribute("aria-invalid"), "true");
     form.checkbox.checked = true;
     await form.submit();
     assert.equal(form.writes.length, 2);
     assert.equal(form.writes[1].consentVersion, "cgu-2|confidentialite-2");
+    assert.equal(form.checkbox.getAttribute("aria-invalid"), null);
+    assert.equal(form.focused(), form.byId(kind === "besoin" ? "besoinSuccess" : "formSuccess"));
   });
 
   test(`${kind} : une version indisponible bloque l'envoi`, async () => {

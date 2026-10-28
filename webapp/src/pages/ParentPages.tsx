@@ -1,5 +1,7 @@
 import { Link } from "react-router-dom";
-import { AppShell, OfflineBanner, ContentCard, PageGrid, DocLink } from "@/components/layout";
+import { Bell, BookOpen, CalendarDays, Search } from "lucide-react";
+import { AppShell, OfflineBanner, ContentCard, PageGrid, DocLink, SectionHeading } from "@/components/layout";
+import { BrandIllustration } from "@/components/brand-illustration";
 import { Button } from "@/components/ui/button";
 import { useCapabilities } from "@/lib/capabilities";
 import { useAuth } from "@/lib/auth";
@@ -19,99 +21,47 @@ export function HomePage() {
   const first = user?.full_name?.split(" ")[0];
 
   return (
-    <AppShell title="Accueil" active="accueil">
-      {offline ? (
-        <OfflineBanner
-          onRetry={() => {
-            void unread.reload();
-            void courses.reload();
-          }}
-        />
-      ) : null}
-
-      <PageGrid cols={2}>
-        <ContentCard>
-          <h2 className="mb-3 text-[20px] font-bold leading-snug text-[#222] sm:text-[22px]">
-            Bonjour{first ? ` ${first}` : ""}, bienvenue sur votre espace Mon Prof Perso !
-          </h2>
-          <p className="mb-3 text-[15px] leading-relaxed text-[#444]">
-            Vous cherchez un professeur ? Trouvez en quelques clics le profil qui vous correspond grâce à la{" "}
-            <Link to="/recherche" className="link-green">
-              recherche
-            </Link>
-            , ou{" "}
-            <Link to="/exprimer-besoin" className="link-green">
-              exprimez votre besoin
-            </Link>{" "}
-            : nous vous proposons un tarif adapté.
-          </p>
-          <p className="mb-5 text-[15px] leading-relaxed text-[#444]">
-            Retrouvez vos rendez-vous, vos paiements, les bilans partagés par vos professeurs et les ressources pédagogiques.
-          </p>
-
-          <div className="mb-5 overflow-hidden rounded-lg bg-[#e8f2ee]">
-            <div className="flex aspect-[16/9] max-h-48 items-center justify-center bg-gradient-to-br from-primary/15 to-welcome/20 px-6 text-center">
-              <div>
-                <p className="text-sm font-semibold text-welcome">Votre prochain cours</p>
-                {next ? (
-                  <>
-                    <p className="mt-1 text-[15px] font-bold text-[#222]">
-                      {next.subject} · {next.level}
-                    </p>
-                    <p className="text-xs text-[#666]">
-                      {next.teacher_name} · {next.day_label} {next.day_num} · {next.time}
-                    </p>
-                    <p className="mt-1 text-sm font-bold text-primary">{fcfa(next.price)} F</p>
-                  </>
-                ) : (
-                  <p className="mt-1 text-xs text-[#666]">Aucun cours à venir pour le moment</p>
-                )}
-                <div className="mt-3 flex flex-wrap justify-center gap-2">
-                  <Button asChild size="sm">
-                    <Link to="/recherche">Rechercher un prof</Link>
-                  </Button>
-                  <Button asChild size="sm" variant="outline">
-                    <Link to="/exprimer-besoin">Exprimer un besoin</Link>
-                  </Button>
-                </div>
-              </div>
+    <AppShell title="Accueil" active="accueil" welcome={false}>
+      {offline ? <OfflineBanner onRetry={() => { void unread.reload(); void courses.reload(); }} /> : null}
+      <div className="mx-auto max-w-7xl space-y-5">
+        <section className="grid min-w-0 items-center gap-6 rounded-3xl border border-border bg-[#f5f2eb] p-5 sm:p-8 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]" aria-labelledby="home-welcome">
+          <div className="min-w-0">
+            <p className="mb-3 text-sm font-semibold text-primary">Votre espace d’apprentissage</p>
+            <h2 id="home-welcome" className="font-display text-3xl font-extrabold leading-tight text-welcome sm:text-4xl">Bonjour{first ? ` ${first}` : ""}.</h2>
+            <p className="mt-4 max-w-lg text-base leading-relaxed text-muted-foreground">Un professeur à vos côtés, des cours à votre rythme. Retrouvez ici les prochaines étapes de votre accompagnement.</p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Button asChild size="lg"><Link to="/recherche"><Search className="h-4 w-4" aria-hidden="true" />Trouver un professeur</Link></Button>
+              {capabilities.needs ? <Button asChild variant="outline" size="lg"><Link to="/exprimer-besoin">Exprimer un besoin</Link></Button> : null}
             </div>
           </div>
-
-          {(unread.data.count || 0) > 0 ? (
-            <p className="mb-4 text-[14px]">
-              <Link to="/notifications" className="link-green">
-                {unread.data.count} notification{(unread.data.count || 0) > 1 ? "s" : ""} non lue
-                {(unread.data.count || 0) > 1 ? "s" : ""}
-              </Link>
-            </p>
-          ) : null}
-
-          <p className="text-sm"><Link to="/agenda" className="link-green">Consulter mon agenda</Link> · <Link to="/parametres" className="link-green">Gérer mes données</Link></p>
-        </ContentCard>
-
-        <ContentCard>
-          <h2 className="mb-3 text-[20px] font-bold leading-snug text-[#222] sm:text-[22px]">
-            Mon Prof Perso s&apos;engage sur la qualité de son service de soutien scolaire
-          </h2>
-          <p className="mb-3 text-[15px] font-semibold leading-relaxed text-[#444]">
-            Des professeurs vérifiés, des rendez-vous suivis et un paiement Mobile Money pour les familles
-            ivoiriennes.
-          </p>
-          <p className="mb-4 text-[15px] leading-relaxed text-[#555]">
-            Notre équipe valide chaque profil avant la mise en relation. Les programmes scolaires (standard et français)
-            sont couverts jusqu&apos;en Terminale, avec un accompagnement dédié pour le BEPC et le BAC.
-          </p>
-          <div className="mb-4 space-y-1 border-t border-[#eee] pt-3">
-            <DocLink to="/mes-besoins">Mes besoins</DocLink>
-            <DocLink to="/enfants">Mes enfants</DocLink>
-            {capabilities.groups ? <DocLink to="/groupes">Cours en groupe</DocLink> : null}
-          </div>
-          <Link to="/aide" className="link-green text-[15px]">
-            Voir plus…
-          </Link>
-        </ContentCard>
-      </PageGrid>
+          <BrandIllustration className="hidden w-full max-w-sm justify-self-end rounded-2xl md:block" />
+        </section>
+        <PageGrid cols={2}>
+          <ContentCard>
+            <div className="mb-5 flex items-center gap-3"><span className="rounded-xl bg-secondary p-3 text-primary"><CalendarDays className="h-5 w-5" aria-hidden="true" /></span><SectionHeading className="mb-0">Votre prochain cours</SectionHeading></div>
+            {courses.loading ? <p role="status" className="py-4 text-sm text-muted-foreground">Chargement de votre prochain cours…</p> : courses.offline ? <p className="py-4 text-sm text-muted-foreground">Le planning est momentanément indisponible.</p> : next ? (
+              <div className="rounded-xl bg-secondary/50 p-4 sm:p-5">
+                <p className="text-xl font-bold text-welcome">{next.subject} · {next.level}</p>
+                <p className="mt-2 text-sm text-muted-foreground">Avec {next.teacher_name}</p>
+                <p className="mt-3 font-semibold">{next.day_label} {next.day_num} · {next.time}</p>
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><p className="font-bold text-primary">{fcfa(next.price)} F</p><Button asChild><Link to={`/cours/${next.id}`}>Voir le cours</Link></Button></div>
+              </div>
+            ) : <div className="rounded-xl border border-dashed border-border p-5"><BookOpen className="mb-3 h-7 w-7 text-primary" aria-hidden="true" /><p className="font-semibold text-welcome">Votre prochain cours commence ici.</p><p className="mt-2 text-sm leading-relaxed text-muted-foreground">Vous n’avez pas encore de cours à venir. Recherchez un professeur ou décrivez votre besoin pour commencer.</p></div>}
+            <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1"><DocLink to="/cours">Tous mes cours</DocLink>{capabilities.agenda ? <DocLink to="/agenda">Mon agenda</DocLink> : null}</div>
+          </ContentCard>
+          <ContentCard>
+            <SectionHeading>Votre accompagnement</SectionHeading>
+            <p className="mb-4 text-sm leading-relaxed text-muted-foreground">Gérez les besoins de votre famille et retrouvez les bilans partagés après les cours.</p>
+            <div className="divide-y divide-border">
+              {capabilities.needs ? <DocLink to="/mes-besoins">Suivre mes demandes de cours</DocLink> : null}
+              <DocLink to="/enfants">Gérer les profils de mes enfants</DocLink>
+              {capabilities.progress ? <DocLink to="/progres">Lire les bilans pédagogiques</DocLink> : null}
+              <DocLink to="/aide">Obtenir de l’aide</DocLink>
+            </div>
+            {!unread.loading && !unread.offline && unread.data.count > 0 ? <Link to="/notifications" className="mt-5 flex min-h-11 items-center gap-3 rounded-xl bg-orange-soft p-4 text-sm font-semibold text-[#744521]"><Bell className="h-5 w-5 shrink-0" aria-hidden="true" /><span>{unread.data.count} notification{unread.data.count > 1 ? "s" : ""} non lue{unread.data.count > 1 ? "s" : ""}</span></Link> : null}
+          </ContentCard>
+        </PageGrid>
+      </div>
     </AppShell>
   );
 }

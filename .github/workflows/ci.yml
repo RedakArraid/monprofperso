@@ -106,7 +106,7 @@ jobs:
   web:
     name: Web — types, lint, tests et build
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: webapp
@@ -123,6 +123,20 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+      - name: Installer le navigateur de recette
+        run: npx playwright install --with-deps chromium
+      - name: Vérifier les parcours, les petits écrans et l’accessibilité
+        run: npm run test:visual
+      - name: Conserver les preuves visuelles web
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: web-visual-${{ github.sha }}
+          path: |
+            webapp/test-results
+            webapp/playwright-report
+          retention-days: 14
+          if-no-files-found: warn
       - name: Vérifier les scripts du site et de l’administration
         run: |
           node --check ../web/admin/js/admin.js
@@ -179,14 +193,7 @@ jobs:
           profile: pixel_2
           disable-animations: true
           working-directory: android
-          script: |
-            set +e
-            ./gradlew --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ci.monprofperso.app.VisualRegressionTest
-            mpp_test_status=$?
-            adb pull /sdcard/Android/data/ci.monprofperso.app.dev/files/visual-proof "$RUNNER_TEMP/mpp-android-captures"
-            mpp_capture_status=$?
-            if [ "$mpp_test_status" -ne 0 ]; then exit "$mpp_test_status"; fi
-            exit "$mpp_capture_status"
+          script: bash scripts/run-visual-test.sh
       - name: Conserver les preuves Android
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -247,17 +254,33 @@ jobs:
       - name: Choisir un simulateur iPhone installé
         run: |
           mpp_simulator_id="$(xcrun simctl list devices available --json | python3 -c '
-          import json, sys
+          import json, subprocess, sys
           devices = json.load(sys.stdin).get("devices", {})
-          match = next((device["udid"] for runtime, items in devices.items()
-                        if ".iOS-" in runtime for device in items
-                        if device.get("isAvailable") and device["name"].startswith("iPhone")), None)
-          if not match:
+          phones = [dict(device, runtime=runtime) for runtime, items in devices.items()
+                    if ".iOS-" in runtime for device in items
+                    if device.get("isAvailable") and device["name"].startswith("iPhone")]
+          if not phones:
               raise SystemExit("Aucun simulateur iPhone disponible")
-          print(match)
+          match = next((device for device in phones if "iPhone SE" in device["name"]), None)
+          if match is None:
+              types = json.loads(subprocess.check_output(["xcrun", "simctl", "list", "devicetypes", "--json"]))
+              compact = next((item for item in types.get("devicetypes", [])
+                              if item["name"] == "iPhone SE (3rd generation)"), None)
+              if compact:
+                  created = subprocess.run(["xcrun", "simctl", "create", "MonProfPerso Visual SE",
+                                            compact["identifier"], phones[0]["runtime"]],
+                                           capture_output=True, text=True, timeout=45)
+                  if created.returncode == 0:
+                      match = {"name": compact["name"], "udid": created.stdout.strip()}
+                  else:
+                      print("Création du simulateur compact indisponible : " + created.stderr[:1000], file=sys.stderr)
+          match = match or phones[0]
+          print("Simulateur de recette : " + match["name"], file=sys.stderr)
+          print(match["udid"])
           ')"
           printf 'MPP_IOS_SIMULATOR_ID=%s\n' "$mpp_simulator_id" >> "$GITHUB_ENV"
       - name: Tester les contrats et les parcours visuels sur le simulateur
+        timeout-minutes: 28
         run: >-
           xcodebuild test
           -project MonProfPerso.xcodeproj
@@ -268,7 +291,11 @@ jobs:
           -derivedDataPath "$RUNNER_TEMP/monprofperso-ios"
           -resultBundlePath "$RUNNER_TEMP/mpp-ios-visual.xcresult"
           -parallel-testing-enabled NO
-          CODE_SIGNING_ALLOWED=NO
+          -test-timeouts-enabled YES
+          -default-test-execution-time-allowance 300
+          -maximum-test-execution-time-allowance 300
+          CODE_SIGNING_ALLOWED=YES
+          CODE_SIGN_IDENTITY=-
       - name: Exporter les captures réelles iOS
         if: always()
         run: |

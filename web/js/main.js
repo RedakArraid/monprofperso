@@ -11,56 +11,57 @@
   var nav = document.getElementById("nav");
   var backdrop = document.getElementById("navBackdrop");
 
-  function setNavOpen(open) {
+  var mobileNav = window.matchMedia("(max-width: 1100px)");
+  function setNavOpen(open, restoreFocus) {
     if (!nav || !toggle) return;
+    open = Boolean(open && mobileNav.matches);
+    var wasOpen = nav.classList.contains("open");
     nav.classList.toggle("open", open);
+    nav.inert = mobileNav.matches && !open;
     toggle.setAttribute("aria-expanded", String(open));
     toggle.setAttribute("aria-label", open ? "Fermer le menu" : "Ouvrir le menu");
     document.body.classList.toggle("nav-open", open);
+    document.querySelectorAll("main, body > footer").forEach(function (element) { element.inert = open; });
     if (backdrop) {
       backdrop.hidden = !open;
       backdrop.classList.toggle("visible", open);
       backdrop.setAttribute("aria-hidden", String(!open));
     }
+    if (open) nav.querySelector("a[href]")?.focus();
+    else if (wasOpen && restoreFocus !== false && mobileNav.matches) toggle.focus();
   }
 
   if (toggle && nav) {
-    toggle.addEventListener("click", function () {
-      setNavOpen(!nav.classList.contains("open"));
+    setNavOpen(false, false);
+    toggle.addEventListener("click", function () { setNavOpen(!nav.classList.contains("open")); });
+    if (backdrop) backdrop.addEventListener("click", function () { setNavOpen(false); });
+    document.addEventListener("keydown", function (event) {
+      if (!nav.classList.contains("open")) return;
+      if (event.key === "Escape") { event.preventDefault(); setNavOpen(false); }
+      if (event.key === "Tab") {
+        var items = Array.from(nav.querySelectorAll("a[href], button:not(:disabled)")).concat(toggle);
+        var index = items.indexOf(document.activeElement);
+        var next = event.shiftKey ? (index <= 0 ? items.length - 1 : index - 1) : (index + 1) % items.length;
+        event.preventDefault(); items[next].focus();
+      }
     });
-    if (backdrop) {
-      backdrop.addEventListener("click", function () { setNavOpen(false); });
-    }
-    document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape") setNavOpen(false);
+    nav.querySelectorAll("a").forEach(function (anchor) {
+      anchor.addEventListener("click", function () {
+        setNavOpen(false, false);
+        if (anchor.pathname === location.pathname && anchor.hash) {
+          var target = document.getElementById(anchor.hash.slice(1));
+          if (target) { target.setAttribute("tabindex", "-1"); target.focus({ preventScroll: true }); }
+        }
+      });
     });
-    nav.querySelectorAll("a").forEach(function (a) {
-      a.addEventListener("click", function () { setNavOpen(false); });
-    });
-  }
-
-  // --- Apparition au défilement (IntersectionObserver) ---
-  var reveals = document.querySelectorAll(".reveal");
-  if ("IntersectionObserver" in window) {
-    var io = new IntersectionObserver(
-      function (entries) {
-        entries.forEach(function (e) {
-          if (e.isIntersecting) {
-            e.target.classList.add("in");
-            io.unobserve(e.target);
-          }
-        });
-      },
-      { threshold: 0.12, rootMargin: "0px 0px -40px 0px" }
-    );
-    reveals.forEach(function (el) { io.observe(el); });
-  } else {
-    reveals.forEach(function (el) { el.classList.add("in"); });
+    mobileNav.addEventListener("change", function () { setNavOpen(false, false); });
   }
 
   // --- Lien connexion / Mon espace si session utilisateur ---
   var authLink = document.getElementById("authLink");
-  if (authLink && localStorage.getItem("mpp_user_jwt")) {
+  var hasSession = false;
+  try { hasSession = Boolean(localStorage.getItem("mpp_user_jwt")); } catch (_) { /* Browsing remains available without storage. */ }
+  if (authLink && hasSession) {
     authLink.textContent = "Mon espace";
     authLink.href = "espace/";
     authLink.classList.remove("btn-ghost");
@@ -95,6 +96,10 @@
     }).catch(function () { /* Initially hidden; never enable a service on a failed request. */ });
 
   // Liens légaux : pointent vers le PDF géré par l'admin (s'il existe).
+  document.querySelectorAll("[data-legal]").forEach(function (anchor) {
+    anchor.removeAttribute("href"); anchor.setAttribute("aria-disabled", "true");
+    anchor.setAttribute("title", "Document temporairement indisponible");
+  });
   fetch(API_BASE + "/api/legal")
     .then(function (r) { return r.ok ? r.json() : []; })
     .then(function (docs) {
@@ -106,6 +111,7 @@
           a.setAttribute("href", API_BASE + "/api/legal/" + d.slug + "/file");
           a.setAttribute("target", "_blank");
           a.setAttribute("rel", "noopener");
+          a.removeAttribute("aria-disabled"); a.removeAttribute("title");
         } else {
           a.removeAttribute("href");
           a.setAttribute("aria-disabled", "true");

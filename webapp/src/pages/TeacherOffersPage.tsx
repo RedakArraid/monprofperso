@@ -192,23 +192,23 @@ function OfferCard({
       <div className="mt-3 space-y-1.5 text-[13px] text-[#333]">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           <span className="inline-flex items-center gap-1.5">
-            <Briefcase className="h-3.5 w-3.5 text-[#888]" />
+            <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
             {r.subject || "—"}
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <GraduationCap className="h-3.5 w-3.5 text-[#888]" />
+            <GraduationCap className="h-3.5 w-3.5 text-muted-foreground" />
             {level !== "—" ? level : pupil}
           </span>
           {gender || (pupil !== "Élève" && level !== "—") ? (
             <span className="inline-flex items-center gap-1.5">
-              <UserRound className="h-3.5 w-3.5 text-[#888]" />
+              <UserRound className="h-3.5 w-3.5 text-muted-foreground" />
               {gender || pupil}
             </span>
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           <span className="inline-flex items-center gap-1.5">
-            <Clock className="h-3.5 w-3.5 text-[#888]" />
+            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
             {freq}
           </span>
           <span className="font-bold text-[#222]">{pay}</span>
@@ -240,7 +240,7 @@ function OfferCard({
             <div className="mb-1.5 flex flex-wrap gap-1.5">
               {r.hasCat ? (
                 <span
-                  className="inline-flex items-center gap-1 rounded bg-[#4a90d9] px-2 py-0.5 text-[11px] font-semibold text-white"
+                  className="inline-flex items-center gap-1 rounded bg-[#24649f] px-2 py-0.5 text-[11px] font-semibold text-white"
                   title="Famille avec chat(s)"
                 >
                   <Cat className="h-3 w-3" />
@@ -249,7 +249,7 @@ function OfferCard({
               ) : null}
               {r.hasDog ? (
                 <span
-                  className="inline-flex items-center gap-1 rounded bg-[#4a90d9] px-2 py-0.5 text-[11px] font-semibold text-white"
+                  className="inline-flex items-center gap-1 rounded bg-[#24649f] px-2 py-0.5 text-[11px] font-semibold text-white"
                   title="Famille avec chien(s)"
                 >
                   <Dog className="h-3 w-3" />
@@ -258,7 +258,7 @@ function OfferCard({
               ) : null}
             </div>
           ) : null}
-          <div className="text-[11px] text-[#999]">
+          <div className="text-[11px] text-muted-foreground">
             {ref} — {r.ago || "nouveau"}
           </div>
         </div>
@@ -268,7 +268,7 @@ function OfferCard({
             e.stopPropagation();
             onConsult();
           }}
-          className="rounded-md bg-primary px-4 py-2 text-[12px] font-bold uppercase tracking-wide text-white hover:bg-welcome"
+          className="min-h-11 rounded-lg bg-primary px-4 py-2 text-sm font-bold uppercase tracking-wide text-white hover:bg-welcome"
         >
           Consulter
         </button>
@@ -294,6 +294,20 @@ function OfferDetailModal({
   onAccept: () => void;
   onMark: (m: OfferMark) => void;
 }) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const overflow = document.body.style.overflow;
+    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    document.body.style.overflow = "hidden";
+    dialog.showModal();
+    return () => {
+      dialog.close();
+      document.body.style.overflow = overflow;
+      if (trigger?.isConnected) trigger.focus({ preventScroll: true });
+    };
+  }, []);
   const place = (r.name || r.slot || "Localisation à préciser").replace(/,?\s*Côte d'Ivoire/i, "").trim();
   const dist = distanceKmFromHome(r.slot || r.name || place, home, r.lat, r.lng);
   const { name: pupil, level, gender } = parseStudent(r.student);
@@ -306,15 +320,16 @@ function OfferDetailModal({
         : "—";
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center" role="dialog" aria-modal>
-      <button type="button" className="absolute inset-0 bg-black/40" aria-label="Fermer" onClick={onClose} />
-      <div className="relative z-10 max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl sm:p-6">
+    <dialog ref={dialogRef} aria-label="Détail de l’offre" className="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-lg overflow-y-auto rounded-2xl border-0 bg-white p-0 text-foreground shadow-xl backdrop:bg-black/40"
+      onCancel={(event) => { event.preventDefault(); onClose(); }}
+      onClick={(event) => { if (event.target !== event.currentTarget) return; const bounds = event.currentTarget.getBoundingClientRect(); if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) onClose(); }}>
+      <div className="p-5 sm:p-6">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-welcome">Détail de l&apos;offre</p>
             <h2 className="mt-1 text-xl font-bold uppercase text-[#222]">{place || "Offre"}</h2>
           </div>
-          <button type="button" className="rounded-md p-2 text-[#666] hover:bg-[#f5f5f5]" onClick={onClose} aria-label="Fermer">
+          <button type="button" autoFocus className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary" onClick={onClose} aria-label="Fermer">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -403,7 +418,7 @@ function OfferDetailModal({
           </Button>
         </div>
       </div>
-    </div>
+    </dialog>
   );
 }
 
@@ -418,19 +433,29 @@ function PopMenu({
   children: ReactNode;
   align?: "left" | "right";
 }) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const title = align === "right" ? "Trier les offres" : "Filtrer les offres";
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!open || !dialog) return;
+    const overflow = document.body.style.overflow;
+    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    document.body.style.overflow = "hidden";
+    dialog.showModal();
+    return () => {
+      dialog.close();
+      document.body.style.overflow = overflow;
+      if (trigger?.isConnected) trigger.focus({ preventScroll: true });
+    };
+  }, [open]);
   if (!open) return null;
-  return (
-    <>
-      <button type="button" className="fixed inset-0 z-20 cursor-default" aria-label="Fermer" onClick={onClose} />
-      <div
-        className={`absolute top-full z-30 mt-1 w-[min(320px,calc(100vw-2rem))] rounded-lg border border-[#ddd] bg-white p-3 shadow-lg ${
-          align === "right" ? "right-0" : "left-0"
-        }`}
-      >
-        {children}
-      </div>
-    </>
-  );
+  return <dialog ref={dialogRef} aria-label={title}
+    className="fixed inset-0 m-auto max-h-[85dvh] w-[calc(100%_-_2rem)] max-w-sm overflow-y-auto rounded-2xl border border-border bg-white p-5 text-foreground shadow-xl backdrop:bg-black/40"
+    onCancel={(event) => { event.preventDefault(); onClose(); }}
+    onClick={(event) => { if (event.target !== event.currentTarget) return; const bounds = event.currentTarget.getBoundingClientRect(); if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) onClose(); }}>
+    <div className="mb-4 flex items-center justify-between gap-3"><h2 className="font-display text-lg font-bold text-welcome">{title}</h2><button type="button" autoFocus onClick={onClose} aria-label={align === "right" ? "Fermer le tri" : "Fermer les filtres"} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg hover:bg-secondary"><X className="h-5 w-5" aria-hidden="true" /></button></div>
+    {children}
+  </dialog>;
 }
 
 export function TeacherRequestsPage() {
@@ -692,7 +717,7 @@ export function TeacherRequestsPage() {
       {msg ? (
         <p className="flex items-center justify-between gap-2 px-4 pt-2 text-sm font-semibold text-primary">
           <span>{msg}</span>
-          <button type="button" className="text-xs font-normal text-[#888]" onClick={() => setMsg("")}>
+          <button type="button" className="text-xs font-normal text-muted-foreground" onClick={() => setMsg("")}>
             Fermer
           </button>
         </p>
@@ -758,7 +783,7 @@ export function TeacherRequestsPage() {
                     placeholder="Ex. Cocody, Marcory…"
                     className="rounded-none border-0 border-b border-[#ccc] bg-transparent px-0 shadow-none focus-visible:ring-0"
                   />
-                  <p className="mt-1 text-[11px] text-[#888]">Côte d&apos;Ivoire — recentre la carte au clic sur Voir les offres</p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">Côte d&apos;Ivoire — recentre la carte au clic sur Voir les offres</p>
                 </div>
                 <div className="rounded-lg bg-white p-3 shadow-sm">
                   <div className="mb-1 text-[14px] font-semibold text-welcome">Quand ?</div>
@@ -796,7 +821,7 @@ export function TeacherRequestsPage() {
                     onChange={(v) => setPrefs((s) => ({ ...s, acceptCats: v }))}
                   />
                   {!prefs.vehicle ? (
-                    <p className="mt-2 text-[11px] text-[#888]">Sans véhicule : offres à plus de {NO_VEHICLE_MAX_KM} km exclues.</p>
+                    <p className="mt-2 text-[11px] text-muted-foreground">Sans véhicule : offres à plus de {NO_VEHICLE_MAX_KM} km exclues.</p>
                   ) : null}
                 </div>
               </>
@@ -831,7 +856,7 @@ export function TeacherRequestsPage() {
                     checked={propFilters.refused}
                     onChange={(v) => setPropFilters((s) => ({ ...s, refused: v }))}
                   />
-                  <p className="mt-2 text-[11px] text-[#888]">
+                  <p className="mt-2 text-[11px] text-muted-foreground">
                     Classement conservé sur cet appareil. Seule l’acceptation transmet votre décision.
                   </p>
                 </div>
@@ -859,7 +884,8 @@ export function TeacherRequestsPage() {
                 <div className="relative flex-1">
                   <button
                     type="button"
-                    className="w-full rounded border border-[#ddd] bg-[#fafafa] py-2 text-[12px] font-semibold text-[#444] hover:border-primary"
+                    className="min-h-11 w-full rounded-lg border border-border bg-white px-2 py-2 text-sm font-semibold text-foreground hover:border-primary"
+                    aria-haspopup="dialog" aria-expanded={filterOpen}
                     onClick={() => {
                       setDraftList(applied.list);
                       setFilterOpen((o) => !o);
@@ -869,9 +895,8 @@ export function TeacherRequestsPage() {
                     Filtrer ({filtered.length} offre{filtered.length > 1 ? "s" : ""})
                   </button>
                   <PopMenu open={filterOpen} onClose={() => setFilterOpen(false)}>
-                    <p className="mb-2 text-[13px] font-semibold text-welcome">Filtrer les offres</p>
                     <div className="mb-2 max-h-36 space-y-1 overflow-y-auto">
-                      <p className="text-[11px] font-semibold uppercase text-[#888]">Matières</p>
+                      <p className="text-[11px] font-semibold uppercase text-muted-foreground">Matières</p>
                       {allSubjects.length ? (
                         allSubjects.map((s) => (
                           <label key={s} className="flex items-center gap-2 text-[13px]">
@@ -892,10 +917,10 @@ export function TeacherRequestsPage() {
                           </label>
                         ))
                       ) : (
-                        <p className="text-[12px] text-[#888]">Aucune matière</p>
+                        <p className="text-[12px] text-muted-foreground">Aucune matière</p>
                       )}
                     </div>
-                    <p className="mb-1 text-[11px] font-semibold uppercase text-[#888]">Format</p>
+                    <p className="mb-1 text-[11px] font-semibold uppercase text-muted-foreground">Format</p>
                     <CheckRow
                       label="À domicile"
                       checked={draftList.home}
@@ -906,7 +931,7 @@ export function TeacherRequestsPage() {
                       checked={draftList.online}
                       onChange={(v) => setDraftList((d) => ({ ...d, online: v }))}
                     />
-                    <p className="mb-1 mt-2 text-[11px] font-semibold uppercase text-[#888]">Distance max</p>
+                    <p className="mb-1 mt-2 text-[11px] font-semibold uppercase text-muted-foreground">Distance max</p>
                     <div className="mb-3 flex flex-wrap gap-1.5">
                       {[
                         { label: "Illimitée", v: null },
@@ -918,7 +943,8 @@ export function TeacherRequestsPage() {
                         <button
                           key={String(o.v)}
                           type="button"
-                          className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+                          aria-pressed={draftList.maxKm === o.v}
+                          className={`min-h-11 rounded-full border px-3 py-2 text-sm font-semibold ${
                             draftList.maxKm === o.v
                               ? "border-primary bg-primary text-white"
                               : "border-[#ddd] text-[#444]"
@@ -951,7 +977,8 @@ export function TeacherRequestsPage() {
                 <div className="relative flex-1">
                   <button
                     type="button"
-                    className="w-full rounded border border-[#ddd] bg-[#fafafa] py-2 text-[12px] font-semibold text-[#444] hover:border-primary"
+                    className="min-h-11 w-full rounded-lg border border-border bg-white px-2 py-2 text-sm font-semibold text-foreground hover:border-primary"
+                    aria-haspopup="dialog" aria-expanded={sortOpen}
                     onClick={() => {
                       setSortOpen((o) => !o);
                       setFilterOpen(false);
@@ -960,7 +987,6 @@ export function TeacherRequestsPage() {
                     Trier · {sortLabel}
                   </button>
                   <PopMenu open={sortOpen} onClose={() => setSortOpen(false)} align="right">
-                    <p className="mb-2 text-[13px] font-semibold text-welcome">Trier par</p>
                     {(
                       [
                         ["recent", "Plus récentes"],
@@ -972,7 +998,8 @@ export function TeacherRequestsPage() {
                       <button
                         key={key}
                         type="button"
-                        className="flex w-full items-center justify-between rounded px-2 py-2 text-left text-[13px] hover:bg-[#f5f5f5]"
+                        aria-pressed={sort === key}
+                        className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-secondary"
                         onClick={() => {
                           setSort(key);
                           setSortOpen(false);

@@ -39,15 +39,27 @@
     return p;
   }
 
-  function showErr(msg) {
+  function showErr(msg, fieldId) {
+    form.querySelectorAll("[aria-invalid]").forEach(function (field) { field.removeAttribute("aria-invalid"); field.removeAttribute("aria-describedby"); });
     if (!errEl) return;
     errEl.textContent = msg || "";
     errEl.hidden = !msg;
+    if (msg && fieldId) {
+      var field = document.getElementById(fieldId);
+      if (field) { field.setAttribute("aria-invalid", "true"); field.setAttribute("aria-describedby", errEl.id); field.focus(); }
+    }
   }
+
+  form.addEventListener("input", function (event) {
+    if (event.target.getAttribute("aria-invalid") === "true") showErr("");
+  });
 
   function fillSelect(select, items) {
     if (!select) return;
     select.innerHTML = "";
+    var placeholder = document.createElement("option"); placeholder.value = ""; placeholder.disabled = true; placeholder.selected = true;
+    placeholder.textContent = select.id === "besoinSubject" ? "Choisir une matière" : "Choisir un niveau";
+    select.appendChild(placeholder);
     items.forEach(function (item) {
       var opt = document.createElement("option");
       opt.value = typeof item === "string" ? item : item.name;
@@ -98,12 +110,12 @@
     var description = document.getElementById("besoinDescription").value.trim();
     var consent = document.getElementById("besoinConsent").checked;
 
-    if (!name) return showErr("Indiquez votre nom complet.");
-    if (!phone) return showErr("Indiquez votre numéro.");
-    if (!subject) return showErr("Sélectionnez une matière.");
-    if (!level) return showErr("Sélectionnez un niveau.");
-    if (format === "home" && !location) return showErr("Indiquez le quartier ou la commune du cours.");
-    if (!consent) return showErr("Acceptez les conditions d'utilisation.");
+    if (!name) return showErr("Indiquez votre nom complet.", "besoinName");
+    if (!phone) return showErr("Indiquez votre numéro.", "besoinPhone");
+    if (!subject) return showErr("Sélectionnez une matière.", "besoinSubject");
+    if (!level) return showErr("Sélectionnez un niveau.", "besoinLevel");
+    if (format === "home" && !location) return showErr("Indiquez le quartier ou la commune du cours.", "besoinLocation");
+    if (!consent) return showErr("Acceptez les conditions d’utilisation.", "besoinConsent");
 
     submitBtn.disabled = true;
     submitBtn.textContent = "Envoi en cours…";
@@ -135,9 +147,10 @@
       if (successText && data.reference) {
         successText.textContent = "Merci ! Référence " + data.reference + ". Votre demande a été enregistrée. Notre équipe vous contactera après son examen.";
       }
-      if (successEl) successEl.hidden = false;
+      if (successEl) { successEl.hidden = false; successEl.focus(); }
     } catch (ex) {
       showErr(ex.message || "Envoi impossible");
+      errEl.focus();
       submitBtn.disabled = !ready || !consentVersion;
       submitBtn.textContent = "Recevoir un devis";
     }

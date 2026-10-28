@@ -75,6 +75,9 @@ Les tests JVM couvrent challenges/authentification, formats et dates, conditions
 
 ### Recette visuelle sur émulateur
 
+Les résultats observés, les révisions concernées et les limites sont suivis dans
+[VISUAL-VALIDATION.md](VISUAL-VALIDATION.md).
+
 `VisualRegressionTest` parcourt les vraies vues Compose avec le serveur local de fixtures partagé avec iOS. Le test exige un build Debug, une URL locale et l’en-tête explicite du serveur de fixtures ; les comptes de capture ne sont jamais injectés dans un build Release. Depuis la racine du dépôt, démarrer le serveur dans un terminal séparé :
 
 ```sh
@@ -90,6 +93,8 @@ adb pull /sdcard/Android/data/ci.monprofperso.app.dev/files/visual-proof ./visua
 ```
 
 Le serveur écoute sur le port 8099 de la machine hôte ; l’émulateur l’atteint via `10.0.2.2`. Les captures PNG et les arbres sémantiques sont produits sur l’appareil, puis récupérés avant l’arrêt de l’émulateur. Le scénario utilise des OTP de fixture et ne déclenche aucun message ni paiement prestataire.
+
+En CI, `bash scripts/run-visual-test.sh` exécute le test et la récupération dans un seul shell. Le script tente aussi de récupérer la capture d’échec lorsqu’une assertion échoue, puis conserve le code de sortie du test. La destination est `$RUNNER_TEMP/mpp-android-captures` en CI et peut être remplacée par `MPP_ANDROID_CAPTURE_DIR`.
 
 La recette couvre l’accueil illustré, l’inscription, la connexion et l’OTP avec clavier ouvert, le catalogue, le profil professeur, la réservation, les cours, les paramètres, les données personnelles, le tableau de bord professeur, les revenus, l’état vide et la panne réseau. Elle vérifie les boutons principaux sur un téléphone de 360 dp de large, le texte à 160 % sur l’accueil et le profil professeur, puis un accueil en paysage. Une erreur réseau doit rester un état d’erreur et ne pas être annoncée comme une liste vide.
 

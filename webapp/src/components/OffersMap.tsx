@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import L from "leaflet";
+import { cn } from "@/lib/utils";
 import { resolveCoords } from "@/lib/geography";
 import { offerPopupContent } from "@/lib/map-popup";
 import "leaflet/dist/leaflet.css";
@@ -21,10 +22,10 @@ function makeOfferDot(selected: boolean) {
   const size = selected ? 22 : 16;
   const bg = selected ? "#E8722A" : "#0E5A43";
   return L.divIcon({
-    className: "",
-    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${bg};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)"></div>`,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
+    className: "mpp-offer-marker",
+    html: `<div style="display:flex;width:44px;height:44px;align-items:center;justify-content:center"><span aria-hidden="true" style="width:${size}px;height:${size}px;border-radius:50%;background:${bg};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)"></span></div>`,
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
     popupAnchor: [0, -size / 2],
   });
 }
@@ -102,18 +103,27 @@ export function CoteIvoireOffersMap({
     const map = mapRef.current;
     const layer = L.layerGroup().addTo(map);
 
-    if (home) L.marker(home, { icon: homeIcon, zIndexOffset: 1000 })
-      .bindPopup("<strong>Zone de départ</strong><br/>Centre approximatif de la zone renseignée")
-      .addTo(layer);
+    if (home) {
+      // This reference marker is decorative: it must not cover the interactive
+      // offers when both coordinates resolve to the same commune centre.
+      const reference = L.marker(home, { icon: homeIcon, interactive: false, keyboard: false, zIndexOffset: -100 }).addTo(layer);
+      const element = reference.getElement();
+      if (element) { element.style.pointerEvents = "none"; element.setAttribute("aria-hidden", "true"); }
+    }
 
     for (const m of markers) {
       const selected = selectedId != null && selectedId === m.id;
-      const marker = L.marker(m.coords, { icon: makeOfferDot(selected), zIndexOffset: selected ? 500 : 0 });
+      const label = `Offre de cours : ${m.label}${m.subject ? ` — ${m.subject}` : ""}`;
+      const marker = L.marker(m.coords, { icon: makeOfferDot(selected), title: label, alt: label, keyboard: true, zIndexOffset: selected ? 500 : 0 });
       marker.bindPopup(offerPopupContent(m));
       marker.on("click", () => {
         onSelectRef.current?.(m.id);
       });
       marker.addTo(layer);
+      marker.getElement()?.setAttribute("aria-label", label);
+      marker.getElement()?.addEventListener("keydown", (event) => {
+        if (event.key === " ") { event.preventDefault(); marker.fire("click"); marker.openPopup(); }
+      });
       if (selected) marker.openPopup();
     }
 
@@ -149,7 +159,7 @@ export function CoteIvoireOffersMap({
     };
   }, []);
 
-  return <div className={className || "h-full min-h-[320px] w-full"}><p className="bg-white px-3 py-2 text-xs text-muted-foreground">Repères de communes approximatifs. Les distances sont indicatives ; les lieux non reconnus ne sont pas positionnés.</p><div ref={containerRef} className="h-full min-h-[320px] w-full" /></div>;
+  return <div className={cn("flex w-full min-h-0 flex-col", className || "h-full min-h-[320px]")}><p className="shrink-0 bg-white px-3 py-2 text-xs text-muted-foreground">Repères de communes approximatifs, y compris la zone de départ. Distances indicatives ; les lieux non reconnus ne sont pas positionnés.</p><div ref={containerRef} role="region" aria-label="Carte des offres de cours" className="min-h-0 w-full flex-1" /></div>;
 }
 
 export function formatLieuCi(place?: string | null, format?: string | null): string {

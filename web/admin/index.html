@@ -6,17 +6,15 @@
   <meta name="robots" content="noindex, nofollow" />
   <title>Administration, Mon Prof Perso</title>
   <link rel="icon" href="../assets/mp2-logo.png" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/admin.css?v=20260706s" />
+  <link rel="stylesheet" href="../css/fonts.css" />
+  <link rel="stylesheet" href="css/admin.css?v=20261024-visual" />
 </head>
 <body>
 
   <!-- ============================ CONNEXION ============================ -->
-  <div id="login" class="login">
+  <main id="login" class="login">
     <form class="login-card" id="loginForm">
-      <img src="../assets/mp2-logo.png" alt="Logo MP²" class="login-logo" />
+      <img src="../assets/mp2-logo.png" alt="" class="login-logo" />
       <h1>Espace administrateur</h1>
       <p class="login-sub">Connectez-vous pour gérer la plateforme Mon Prof Perso.</p>
       <label for="phone">Numéro administrateur</label>
@@ -33,23 +31,24 @@
         <p id="otpExpiry" class="login-hint"></p>
       </div>
       <button type="submit" class="btn btn-primary" id="loginBtn">Se connecter</button>
-      <p class="login-err" id="loginErr" hidden></p>
+      <p class="login-err" id="loginErr" role="alert" hidden></p>
       <div id="otpActions" hidden>
         <button type="button" class="btn" id="resendOtpBtn">Renvoyer le code</button>
         <button type="button" class="btn" id="resetOtpBtn">Changer de numéro</button>
       </div>
     </form>
-  </div>
+  </main>
 
   <!-- ============================ APPLICATION ============================ -->
   <div id="app" class="app" hidden>
     <div class="sidebar-backdrop" id="sidebarBackdrop" hidden aria-hidden="true"></div>
-    <aside class="sidebar" id="sidebar">
+    <div class="sidebar" id="sidebar">
       <div class="sidebar-brand">
-        <img src="../assets/mp2-logo.png" alt="Logo MP²" />
+        <img src="../assets/mp2-logo.png" alt="" />
         <div><strong>Mon Prof Perso</strong><span>Administration</span></div>
+        <button type="button" class="sidebar-close" id="sidebarClose" aria-label="Fermer le menu">×</button>
       </div>
-      <nav class="menu" id="menu">
+      <nav class="menu" id="menu" aria-label="Administration">
         <button class="menu-item active" data-view="dashboard">Tableau de bord</button>
         <button class="menu-item" data-view="applications">Candidatures profs</button>
         <button class="menu-item" data-view="needs">Besoins parents</button>
@@ -71,19 +70,19 @@
         <button class="link-quiet" id="reauthBtn">Vérifier à nouveau mon identité</button>
         <button class="link-quiet" id="logoutBtn">Se déconnecter</button>
       </div>
-    </aside>
+    </div>
 
     <main class="main">
       <header class="topbar">
-        <button class="burger" id="burger" aria-label="Menu">☰</button>
-        <h2 id="viewTitle">Tableau de bord</h2>
+        <button type="button" class="burger" id="burger" aria-label="Ouvrir le menu" aria-controls="sidebar" aria-expanded="false">☰</button>
+        <h1 id="viewTitle" tabindex="-1">Tableau de bord</h1>
         <span class="who" id="who"></span>
       </header>
       <div class="content" id="content"><!-- injecté par admin.js --></div>
     </main>
   </div>
 
-  <div class="toast" id="toast" hidden></div>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
   <script>
     // Toujours same-origin en prod (proxy nginx /api), même si un ancien admin.js est en cache.
@@ -91,7 +90,7 @@
       ? "http://localhost:8099"
       : location.origin;
   </script>
-  <script src="js/operations.js?v=20261024-production"></script>
-  <script src="js/admin.js?v=20261024-production"></script>
+  <script src="js/operations.js?v=20261024-visual"></script>
+  <script src="js/admin.js?v=20261024-visual"></script>
 </body>
 </html>

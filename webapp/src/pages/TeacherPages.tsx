@@ -6,7 +6,11 @@ import {
   PageGrid,
   PageStack,
   SectionHeading,
+  DocLink,
 } from "@/components/layout";
+import { BrandIllustration } from "@/components/brand-illustration";
+import { useAuth } from "@/lib/auth";
+import { useCapabilities } from "@/lib/capabilities";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,79 +25,45 @@ type Dash = typeof fallback.teacherDashboard & {
 };
 
 export function TeacherDashboardPage() {
-  const { data, offline, reload } = useLive<Dash>("/api/teacher/dashboard", fallback.teacherDashboard);
+  const { data, loading, offline, reload } = useLive<Dash>("/api/teacher/dashboard", fallback.teacherDashboard);
+  const { user } = useAuth();
+  const { capabilities } = useCapabilities();
+  const first = user?.full_name?.split(" ")[0];
   return (
-    <AppShell title="Accueil" active="prof-espace">
-      {data.needsConfirmed === false ? (
-        <div className="mb-4 rounded-lg bg-orange-soft px-4 py-3 text-sm text-[#8a5b33]">
-          Votre accès aux offres est en cours de validation par l&apos;équipe Mon Prof Perso.
-        </div>
-      ) : null}
+    <AppShell title="Accueil" active="prof-espace" welcome={false}>
+      {!loading && !offline && data.needsConfirmed === false ? <p role="status" className="mb-4 rounded-xl bg-orange-soft px-4 py-3 text-sm text-[#744521]">Votre accès aux offres est en cours de validation par l’équipe Mon Prof Perso.</p> : null}
       {offline ? <OfflineBanner onRetry={() => void reload()} /> : null}
-
-      <PageGrid cols={2}>
-        <ContentCard>
-          <h2 className="mb-3 text-[20px] font-bold leading-snug text-[#222] sm:text-[22px]">
-            Bonjour, bienvenue sur votre espace professeur Mon Prof Perso !
-          </h2>
-          <p className="mb-3 text-[15px] leading-relaxed text-[#444]">
-            Vous cherchez de nouveaux cours ? Trouvez en quelques clics les{" "}
-            <Link to="/prof-offres" className="link-green">
-              offres de cours
-            </Link>{" "}
-            qui vous correspondent.
-          </p>
-          <p className="mb-5 text-[15px] leading-relaxed text-[#444]">
-            Faites le plein de ressources pédagogiques sur{" "}
-            <Link to="/ressources" className="link-green">
-              Mes documents
-            </Link>
-            &nbsp;!
-          </p>
-
-          <div className="mb-5 overflow-hidden rounded-lg bg-[#e8f2ee]">
-            <div className="flex aspect-video items-center justify-center bg-gradient-to-br from-primary/15 to-welcome/20 px-6 text-center">
-              <div>
-                <p className="text-sm font-semibold text-welcome">Espace professeur</p>
-                <p className="mt-1 text-xs text-[#666]">
-                  {data.pendingRequests
-                    ? `${data.pendingRequests} offre${data.pendingRequests > 1 ? "s" : ""} disponible${data.pendingRequests > 1 ? "s" : ""}`
-                    : "Consultez les offres parents"}
-                </p>
-                {data.profileCompletion && !data.profileCompletion.complete ? (
-                  <Button asChild size="sm" variant="outline" className="mt-3">
-                    <Link to="/prof-profil">Compléter mon profil ({data.profileCompletion.percent}%)</Link>
-                  </Button>
-                ) : (
-                  <Button asChild size="sm" className="mt-3">
-                    <Link to="/prof-offres">Voir les offres</Link>
-                  </Button>
-                )}
-              </div>
-            </div>
+      <div className="mx-auto max-w-7xl space-y-5">
+        <section aria-labelledby="teacher-welcome" className="grid min-w-0 items-center gap-6 rounded-3xl border border-border bg-[#f5f2eb] p-5 sm:p-8 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+          <div className="min-w-0">
+            <p className="mb-3 text-sm font-semibold text-primary">Votre espace professeur</p>
+            <h2 id="teacher-welcome" className="font-display text-3xl font-extrabold leading-tight text-welcome sm:text-4xl">Bonjour{first ? ` ${first}` : ""}.</h2>
+            <p className="mt-4 max-w-lg text-base leading-relaxed text-muted-foreground">Préparez vos prochains cours et accompagnez chaque élève dans ses progrès.</p>
+            <div className="mt-6 flex flex-wrap gap-3"><Button asChild size="lg"><Link to="/prof-offres">Voir les offres de cours</Link></Button><Button asChild variant="outline" size="lg"><Link to="/cours">Mes élèves et mes cours</Link></Button></div>
           </div>
-
-          <p className="text-sm"><Link className="link-green" to="/agenda">Consulter mon agenda</Link> · <Link className="link-green" to="/prof-revenus">Mes revenus et reversements</Link></p>
-        </ContentCard>
-
-        <ContentCard>
-          <h2 className="mb-3 text-[20px] font-bold leading-snug text-[#222] sm:text-[22px]">
-            Mon Prof Perso s&apos;engage sur la qualité de son service de soutien scolaire
-          </h2>
-          <p className="mb-3 text-[15px] font-semibold leading-relaxed text-[#444]">
-            Des professeurs vérifiés, des rendez-vous suivis et un paiement Mobile Money pour les familles
-            ivoiriennes.
-          </p>
-          <p className="mb-4 text-[15px] leading-relaxed text-[#555]">
-            Notre équipe contrôle régulièrement le respect des engagements pris en matière de déontologie, d&apos;éthique
-            et de qualité de service. Chaque profil est validé avant l&apos;accès aux offres parents. Vous enseignez dans
-            le respect des programmes scolaires (standard et français) jusqu&apos;en Terminale.
-          </p>
-          <Link to="/aide" className="link-green text-[15px]">
-            Voir plus…
-          </Link>
-        </ContentCard>
-      </PageGrid>
+          <BrandIllustration className="hidden w-full max-w-sm justify-self-end rounded-2xl md:block" />
+        </section>
+        <PageGrid cols={2}>
+          <ContentCard>
+            <SectionHeading>À suivre aujourd’hui</SectionHeading>
+            {loading ? <p role="status" className="text-sm text-muted-foreground">Chargement de votre activité…</p> : offline ? <p className="text-sm text-muted-foreground">Votre activité est momentanément indisponible.</p> : <>
+              <div className="rounded-xl bg-secondary/60 p-5"><p className="text-xl font-bold text-welcome">{data.pendingRequests} demande{data.pendingRequests > 1 ? "s" : ""} à consulter</p><p className="mt-2 text-sm leading-relaxed text-muted-foreground">{data.pendingRequests ? "Consultez les besoins des familles et les détails des cours proposés." : "Vos prochaines demandes apparaîtront ici."}</p><DocLink to="/prof-offres">Ouvrir mes offres de cours</DocLink></div>
+              {data.profileCompletion && !data.profileCompletion.complete ? <div className="mt-4 rounded-xl border border-border p-4"><p className="text-sm font-semibold text-welcome">Votre profil est complété à {data.profileCompletion.percent} %.</p><Button asChild variant="outline" className="mt-3"><Link to="/prof-profil">Compléter mon profil</Link></Button></div> : null}
+            </>}
+          </ContentCard>
+          <ContentCard>
+            <SectionHeading>Vos outils au quotidien</SectionHeading>
+            <p className="mb-4 text-sm leading-relaxed text-muted-foreground">Un accès direct à votre planning, vos documents et le suivi de vos règlements.</p>
+            <div className="divide-y divide-border">
+              {capabilities.agenda ? <DocLink to="/agenda">Consulter mon agenda</DocLink> : null}
+              {capabilities.payouts ? <DocLink to="/prof-revenus">Mes revenus et reversements</DocLink> : null}
+              <DocLink to="/ressources">Mes documents pédagogiques</DocLink>
+              <DocLink to="/prof-profil">Mettre à jour mon profil</DocLink>
+              <DocLink to="/aide">Contacter l’équipe</DocLink>
+            </div>
+          </ContentCard>
+        </PageGrid>
+      </div>
     </AppShell>
   );
 }
@@ -159,11 +129,11 @@ export function TeacherProfileEditPage() {
             }
           }}>
             <fieldset disabled={!data || loading || offline || busy} className="space-y-4">
-              <div><Label>Localisation</Label><Input name="location" required maxLength={120} defaultValue={data?.location || ""} key={data?.location} className="mt-1" /></div>
-              <div><Label>Matières</Label><Input name="subjects" required maxLength={200} defaultValue={data?.subjects || ""} key={data?.subjects} className="mt-1" /></div>
-              <div><Label>Programmes (séparés par des virgules)</Label><Input name="programs" required defaultValue={(data?.programs || []).join(", ")} key={(data?.programs || []).join()} className="mt-1" /></div>
-              <div><Label>Niveaux (séparés par des virgules)</Label><Input name="levels" required defaultValue={(data?.levels || []).join(", ")} key={(data?.levels || []).join()} className="mt-1" /></div>
-              <div><Label>Tarif horaire souhaité (F)</Label><Input name="pricePerHour" type="number" required min={1} max={1000000} step={1} defaultValue={data?.pricePerHour ?? ""} key={data?.pricePerHour} className="mt-1" /></div>
+              <div><Label htmlFor="profile-location">Localisation</Label><Input id="profile-location" name="location" required maxLength={120} defaultValue={data?.location || ""} key={data?.location} className="mt-1" /></div>
+              <div><Label htmlFor="profile-subjects">Matières</Label><Input id="profile-subjects" name="subjects" required maxLength={200} defaultValue={data?.subjects || ""} key={data?.subjects} className="mt-1" /></div>
+              <div><Label htmlFor="profile-programs">Programmes (séparés par des virgules)</Label><Input id="profile-programs" name="programs" required defaultValue={(data?.programs || []).join(", ")} key={(data?.programs || []).join()} className="mt-1" /></div>
+              <div><Label htmlFor="profile-levels">Niveaux (séparés par des virgules)</Label><Input id="profile-levels" name="levels" required defaultValue={(data?.levels || []).join(", ")} key={(data?.levels || []).join()} className="mt-1" /></div>
+              <div><Label htmlFor="profile-pricePerHour">Tarif horaire souhaité (F)</Label><Input id="profile-pricePerHour" name="pricePerHour" type="number" required min={1} max={1000000} step={1} defaultValue={data?.pricePerHour ?? ""} key={data?.pricePerHour} className="mt-1" /></div>
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="negotiable" defaultChecked={data?.negotiable ?? false} key={String(data?.negotiable)} /><span>Tarif négociable</span></label>
               <div className="space-y-3 border-t pt-4">
                 <h3 className="font-semibold">Justificatifs</h3>

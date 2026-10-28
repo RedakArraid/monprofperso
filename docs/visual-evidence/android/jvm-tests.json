@@ -1,0 +1,29 @@
+{
+  "tests": 15,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "suites": [
+    {
+      "name": "ci.monprofperso.app.data.AuthenticationFlowTest",
+      "tests": "6",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.039",
+      "timestamp": "2026-10-28T18:33:22"
+    },
+    {
+      "name": "ci.monprofperso.app.data.CourseOperationsTest",
+      "tests": "9",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.088",
+      "timestamp": "2026-10-28T18:33:22"
+    }
+  ],
+  "apk_sha256": "25de4a7de5f9b9e5129d6b7d56056bae3e6d347841e25db0b2055969e6a495ae",
+  "android_index_sha256": "800d10b9cb57fe2c96e8b06772ebe51eb33df7c9a0011b4d4dfbf04e1dd21e6d",
+  "verified_utc": "2026-10-28T18:33:40.787471+00:00"
+}

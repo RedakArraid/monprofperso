@@ -1,0 +1,531 @@
+{
+  "checkedAt": "2026-10-28T18:24:11.508Z",
+  "baseCommit": "3d1da9ef20d7072a6b285fccceaeedc23b05cd32",
+  "sourceState": "working tree with uncommitted visual changes; baseCommit is not the reviewed release commit",
+  "browser": "Chrome for Testing 156.0.8078.73",
+  "playwright": "1.64.1",
+  "axe": "4.14.0",
+  "fixture": "http://127.0.0.1:8099; synthetic data only; no external provider",
+  "sourceFilesUnchanged": true,
+  "records": [
+    {
+      "label": "index.html-320",
+      "width": 320,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "devenir-prof.html-320",
+      "width": 320,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin/index.html-320",
+      "width": 320,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "index.html-390",
+      "width": 390,
+      "violations": [],
+      "overflow": 0,
+      "capture": "home-390.png"
+    },
+    {
+      "label": "devenir-prof.html-390",
+      "width": 390,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin/index.html-390",
+      "width": 390,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "index.html-768",
+      "width": 768,
+      "violations": [],
+      "overflow": 0,
+      "capture": "home-768.png"
+    },
+    {
+      "label": "devenir-prof.html-768",
+      "width": 768,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin/index.html-768",
+      "width": 768,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "index.html-1024",
+      "width": 1024,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "devenir-prof.html-1024",
+      "width": 1024,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin/index.html-1024",
+      "width": 1024,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "index.html-1440",
+      "width": 1440,
+      "violations": [],
+      "overflow": 0,
+      "capture": "home-1440.png"
+    },
+    {
+      "label": "devenir-prof.html-1440",
+      "width": 1440,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin/index.html-1440",
+      "width": 1440,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "public-menu-320",
+      "width": 320,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "public-need-success-320",
+      "width": 320,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "public-application-step2-320",
+      "width": 320,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "public-application-success-320",
+      "width": 320,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-dashboard-320",
+      "width": 320,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-menu-320",
+      "width": 320,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-applications-320",
+      "width": 320,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-needs-320",
+      "width": 320,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-teachers-320",
+      "width": 320,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-teacher-dialog-320",
+      "width": 320,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-courses-320",
+      "width": 320,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-finance-320",
+      "width": 320,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-deletions-320",
+      "width": 320,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-readiness-320",
+      "width": 320,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-catalog-320",
+      "width": 320,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-resources-320",
+      "width": 320,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-legal-320",
+      "width": 320,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-social-320",
+      "width": 320,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-otp-320",
+      "width": 320,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "public-menu-390",
+      "width": 390,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "public-need-success-390",
+      "width": 390,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "public-application-step2-390",
+      "width": 390,
+      "violations": [],
+      "overflow": 0,
+      "capture": "application-mobile.png"
+    },
+    {
+      "label": "public-application-success-390",
+      "width": 390,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-dashboard-390",
+      "width": 390,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-menu-390",
+      "width": 390,
+      "violations": [],
+      "overflow": 0,
+      "capture": "admin-menu-mobile.png"
+    },
+    {
+      "label": "admin-applications-390",
+      "width": 390,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-needs-390",
+      "width": 390,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-teachers-390",
+      "width": 390,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-teacher-dialog-390",
+      "width": 390,
+      "violations": [],
+      "overflow": 0,
+      "capture": "admin-teacher-dialog-mobile.png"
+    },
+    {
+      "label": "admin-courses-390",
+      "width": 390,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-finance-390",
+      "width": 390,
+      "violations": [],
+      "overflow": 0,
+      "capture": "admin-finance-mobile.png"
+    },
+    {
+      "label": "admin-deletions-390",
+      "width": 390,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-readiness-390",
+      "width": 390,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-catalog-390",
+      "width": 390,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-resources-390",
+      "width": 390,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-legal-390",
+      "width": 390,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-social-390",
+      "width": 390,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-otp-390",
+      "width": 390,
+      "violations": [],
+      "overflow": 0,
+      "capture": "admin-otp-mobile.png"
+    },
+    {
+      "label": "public-need-success-1440",
+      "width": 1440,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "public-application-step2-1440",
+      "width": 1440,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "public-application-success-1440",
+      "width": 1440,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-dashboard-1440",
+      "width": 1440,
+      "violations": [],
+      "overflow": 0,
+      "capture": "admin-desktop.png"
+    },
+    {
+      "label": "admin-applications-1440",
+      "width": 1440,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-needs-1440",
+      "width": 1440,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-teachers-1440",
+      "width": 1440,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-teacher-dialog-1440",
+      "width": 1440,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-courses-1440",
+      "width": 1440,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-finance-1440",
+      "width": 1440,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-deletions-1440",
+      "width": 1440,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-readiness-1440",
+      "width": 1440,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-catalog-1440",
+      "width": 1440,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-resources-1440",
+      "width": 1440,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-legal-1440",
+      "width": 1440,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-social-1440",
+      "width": 1440,
+      "violations": [],
+      "overflow": 0
+    },
+    {
+      "label": "admin-otp-1440",
+      "width": 1440,
+      "violations": [],
+      "overflow": 0
+    }
+  ],
+  "checks": [
+    {
+      "name": "public-menu-keyboard-320",
+      "ok": true
+    },
+    {
+      "name": "public-need-validation-and-submit-320",
+      "ok": true
+    },
+    {
+      "name": "public-application-validation-steps-submit-320",
+      "ok": true
+    },
+    {
+      "name": "admin-ui-login-otp-320",
+      "ok": true
+    },
+    {
+      "name": "admin-menu-keyboard-320",
+      "ok": true
+    },
+    {
+      "name": "admin-dialog-keyboard-320",
+      "ok": true
+    },
+    {
+      "name": "admin-table-keyboard-320",
+      "ok": true
+    },
+    {
+      "name": "admin-otp-render-320",
+      "ok": true,
+      "note": "Synthetic GET only; no settings write, provider test or message."
+    },
+    {
+      "name": "public-menu-keyboard-390",
+      "ok": true
+    },
+    {
+      "name": "public-need-validation-and-submit-390",
+      "ok": true
+    },
+    {
+      "name": "public-application-validation-steps-submit-390",
+      "ok": true
+    },
+    {
+      "name": "admin-ui-login-otp-390",
+      "ok": true
+    },
+    {
+      "name": "admin-menu-keyboard-390",
+      "ok": true
+    },
+    {
+      "name": "admin-dialog-keyboard-390",
+      "ok": true
+    },
+    {
+      "name": "admin-table-keyboard-390",
+      "ok": true
+    },
+    {
+      "name": "admin-otp-render-390",
+      "ok": true,
+      "note": "Synthetic GET only; no settings write, provider test or message."
+    },
+    {
+      "name": "public-need-validation-and-submit-1440",
+      "ok": true
+    },
+    {
+      "name": "public-application-validation-steps-submit-1440",
+      "ok": true
+    },
+    {
+      "name": "admin-ui-login-otp-1440",
+      "ok": true
+    },
+    {
+      "name": "admin-dialog-keyboard-1440",
+      "ok": true
+    },
+    {
+      "name": "admin-otp-render-1440",
+      "ok": true,
+      "note": "Synthetic GET only; no settings write, provider test or message."
+    }
+  ],
+  "exceptions": []
+}

@@ -45,7 +45,21 @@ final class VisualJourneyTests: XCTestCase {
         if done.exists && done.isHittable { done.tap() }
     }
 
-    private func login(_ phone: String, capturePrefix: String? = nil) {
+    private func assertOTPInputVisible(_ field: XCUIElement) {
+        let keyboard = app.keyboards.firstMatch
+        XCTAssertTrue(keyboard.waitForExistence(timeout: 10))
+        let viewport = app.scrollViews["otp.scroll"]
+        let visible = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            guard field.exists, field.isHittable, viewport.exists, keyboard.exists else { return false }
+            let frame = field.frame
+            return !frame.isEmpty && frame.minY >= viewport.frame.minY
+                && frame.maxY <= min(viewport.frame.maxY, keyboard.frame.minY)
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [visible], timeout: 10), .completed,
+                       "Le champ OTP doit être entièrement visible au-dessus du clavier, avant tout tap ou défilement du test.")
+    }
+
+    private func login(_ phone: String, capturePrefix: String? = nil, assertVisibleOtp: Bool = false) {
         app.buttons["welcome.login"].tap()
         let field = app.textFields["auth.phone"]
         XCTAssertTrue(field.waitForExistence(timeout: 10))
@@ -57,6 +71,7 @@ final class VisualJourneyTests: XCTestCase {
         request.tap()
         let code = app.textFields["otp.code"]
         XCTAssertTrue(code.waitForExistence(timeout: 10))
+        if assertVisibleOtp { assertOTPInputVisible(code) }
         if let capturePrefix { capture(capturePrefix + "-otp-keyboard") }
         code.tap(); code.typeText("123456")
         dismissKeyboard()
@@ -133,7 +148,7 @@ final class VisualJourneyTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(continueFrame.minX, bounds.minX)
         XCTAssertLessThanOrEqual(continueFrame.maxX, bounds.maxX)
         capture("16-accessibility-welcome-roles")
-        login("0700000101", capturePrefix: "17-accessibility")
+        login("0700000101", capturePrefix: "17-accessibility", assertVisibleOtp: true)
         XCTAssertTrue(app.buttons["home.search"].waitForExistence(timeout: 15))
         capture("18-accessibility-home")
     }

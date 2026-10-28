@@ -1,0 +1,163 @@
+{
+  "scope": "Recette locale du rendu de l’espace connecté, données exclusivement fictives",
+  "base_commit": "3539dc3c74d9db160d52854bdf2e6723670c7828",
+  "revision_note": "Les captures vérifient le contenu compilé du worktree. Le commit de base seul ne désigne pas les modifications non encore commitées ; leurs empreintes de build et de recette sont conservées ci-dessous.",
+  "browser": "Google Chrome for Testing 156.0.8078.73",
+  "playwright": "1.64.1",
+  "axe_core": "4.14.0",
+  "test_statistics": {
+    "startTime": "2026-10-28T18:37:35.940Z",
+    "duration": 31224.782000000003,
+    "expected": 12,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "automated_accessibility": {
+    "checkpoints": 51,
+    "violations": 0,
+    "tags": [
+      "wcag2a",
+      "wcag2aa",
+      "wcag21aa",
+      "wcag22aa"
+    ],
+    "manual_review_rules": [
+      "aria-valid-attr-value",
+      "color-contrast"
+    ]
+  },
+  "test_sources": {
+    "webapp/playwright.config.ts": "58dc8c65ae90722cea86e64fc01f21f80d4fa38b7e73e6897a1a6489d596ed9f",
+    "webapp/visual-tests/journeys.spec.ts": "01b7450acdd4304e712eab50b7c6dd13768482ce808e11d6c42caae5f400568f",
+    "scripts/visual/fixture-server.mjs": "fc71f30f2b968226a07ca4674bbd66dda4400cd5e56447b8b47e36ba200d0db3"
+  },
+  "compiled_assets": {
+    "web/espace/index.html": "0e659091512006e3d0c1313e168fb9ac9f6a14a23290398f32c2903ac767dd1e",
+    "web/espace/assets/index-QgssBvD8.css": "0ad329bd6d4d2567cee27cd285db8a83496535f4c2e1509121fde11139ca486b",
+    "web/espace/assets/index-DoTpY56P.js": "3f5ddf6ee8cdcd834245ae01f2f3a0e1550990bbb82a3b9d1ccfa0530e2b3473",
+    "web/espace/assets/TeacherOffersPage-vh-t_kPv.css": "86d3d093fad979e1d185c8a93258f5f124d863fd13ca894c0b9f50bb68b66997",
+    "web/espace/assets/TeacherOffersPage-j3kVLN5A.js": "2b61ae0a82ebad669af847fba79f1f9a804edd7c2eed71f80a511a9445eb8b0e"
+  },
+  "limits": [
+    "Une recette Chromium locale, pas une certification WCAG ni un test Safari ou sur téléphone physique.",
+    "Les captures comportent des comptes, cours, adresses et montants fictifs.",
+    "La capture de l’opportunité utilise un enrichissement ciblé de la réponse de test, sans modifier la fixture native partagée.",
+    "Aucune réservation, aucun paiement, aucune acceptation d’offre et aucune suppression de compte ne sont envoyés.",
+    "Les captures sont des preuves inspectées et ne constituent pas des références pixel automatiquement approuvées."
+  ],
+  "screenshots": [
+    {
+      "file": "connexion-mobile-390.png",
+      "description": "Connexion avec vérification OTP, avant saisie du numéro.",
+      "source": "webapp/test-results/visual/journeys-parent-connexion-recherche-et-réservation-—-390px/connexion.png",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "image": {
+        "width": 390,
+        "height": 844
+      },
+      "sha256": "fd390d5c05aa25ba560513ab1cbd14393ffe2dddebf5822b9807e96c16aa40a8"
+    },
+    {
+      "file": "accueil-mobile-390.png",
+      "description": "Accueil parent avec prochain cours et raccourcis utiles.",
+      "source": "webapp/test-results/visual/journeys-parent-connexion-recherche-et-réservation-—-390px/accueil-parent.png",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "image": {
+        "width": 390,
+        "height": 1230
+      },
+      "sha256": "7e55ba12b9cb51fb19fc3a7ee5464773a6e6e7dfc66b782c71ad6fa4a9fc0a3e"
+    },
+    {
+      "file": "accueil-desktop-1440.png",
+      "description": "Accueil parent avec illustration intégrée sur grand écran.",
+      "source": "webapp/test-results/visual/journeys-parent-connexion-recherche-et-réservation-—-1440px/accueil-parent.png",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "image": {
+        "width": 1440,
+        "height": 960
+      },
+      "sha256": "e1618bb79c9cfd3caa8f7c57dd91653b30c14d370e54203e69ebf0ca48ab5098"
+    },
+    {
+      "file": "reservation-mobile-320.png",
+      "description": "Formulaire de réservation sur petit écran, sans envoi de demande.",
+      "source": "webapp/test-results/visual/journeys-parent-connexion-recherche-et-réservation-—-320px/reservation.png",
+      "viewport": {
+        "width": 320,
+        "height": 844
+      },
+      "image": {
+        "width": 320,
+        "height": 1165
+      },
+      "sha256": "4a2e62f135cfe337bd25bbd94efca0afe872b5b0ea62c64971cae04035568729"
+    },
+    {
+      "file": "reservation-texte-200-320.png",
+      "description": "Formulaire avec tailles de texte calculées doublées, sans zoom natif.",
+      "source": "webapp/test-results/visual/journeys-navigation-mobile-4174d--menu-Échap-et-texte-à-200-/reservation-texte-200.png",
+      "viewport": {
+        "width": 320,
+        "height": 740
+      },
+      "image": {
+        "width": 320,
+        "height": 2430
+      },
+      "sha256": "d67e15288acf9c6d8c497287a7dbe82c2c938863d445a9ae035b43f6cb313919"
+    },
+    {
+      "file": "cours-mobile-390.png",
+      "description": "Détail du cours et actions, sans déclencher de mutation.",
+      "source": "webapp/test-results/visual/journeys-parent-connexion-recherche-et-réservation-—-390px/detail-cours.png",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "image": {
+        "width": 390,
+        "height": 2642
+      },
+      "sha256": "816f1b41138bde3f760c3b80fc1e3ebac949d0f91179aae62b0320e9e5b96660"
+    },
+    {
+      "file": "revenus-mobile-390.png",
+      "description": "Relevé et tableau des reversements, défilement accessible au clavier.",
+      "source": "webapp/test-results/visual/journeys-professeur-accuei-47f6e-s-revenus-et-profil-—-390px/revenus-professeur.png",
+      "viewport": {
+        "width": 390,
+        "height": 960
+      },
+      "image": {
+        "width": 390,
+        "height": 1646
+      },
+      "sha256": "11f8ef21f22e44dad53012e4277a01fa912840338b091097a3f884ae4123b600"
+    },
+    {
+      "file": "offre-dialogue-mobile-320.png",
+      "description": "Dialogue d’une opportunité ajoutée uniquement par le test local, sans acceptation.",
+      "source": "webapp/test-results/visual/journeys-détail-d’une-oppo-645cf-ction-accessibles-sur-320px/detail-opportunite-320.png",
+      "viewport": {
+        "width": 320,
+        "height": 740
+      },
+      "image": {
+        "width": 320,
+        "height": 740
+      },
+      "sha256": "dffa9230a295daad5170e6061aa063cb93e81150e6f48504b9ef1ad43eb6cdab"
+    }
+  ]
+}

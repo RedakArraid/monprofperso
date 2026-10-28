@@ -50,7 +50,7 @@ async function openOwnDocument(needId: number, fileName: string) {
 }
 
 export function ChildrenPage() {
-  const { data, offline, reload } = useLive<Child[]>("/api/children", fallback.children as Child[]);
+  const { data, offline, loading, reload } = useLive<Child[]>("/api/children", fallback.children as Child[]);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -89,25 +89,25 @@ export function ChildrenPage() {
             }}
           >
             <div className="space-y-1.5">
-              <Label className="text-welcome">Prénom</Label>
-              <Input name="name" required />
+              <Label htmlFor="child-name" className="text-welcome">Prénom</Label>
+              <Input id="child-name" name="name" required />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-welcome">Niveau</Label>
-              <Input name="level" placeholder="3ème" required maxLength={40} />
+              <Label htmlFor="child-level" className="text-welcome">Niveau</Label>
+              <Input id="child-level" name="level" placeholder="3ème" required maxLength={40} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-welcome">Établissement</Label>
-              <Input name="school" />
+              <Label htmlFor="child-school" className="text-welcome">Établissement</Label>
+              <Input id="child-school" name="school" />
             </div>
-            {err ? <p className="text-sm text-destructive">{err}</p> : null}
+            {err ? <p role="alert" className="text-sm text-destructive">{err}</p> : null}
             <Button type="submit" className="w-full" disabled={busy || offline}>
               Ajouter
             </Button>
           </form>
         </ContentCard>
         <div>
-          {!data.length ? <Empty>Aucun élève n&apos;a été trouvé</Empty> : null}
+          {!data.length && !offline ? <Empty>{loading ? "Chargement des profils…" : "Aucun enfant enregistré pour le moment."}</Empty> : null}
           <PageGrid>
             {data.map((c) => (
               <ContentCard key={c.id}>
@@ -174,8 +174,8 @@ export function ExpressNeedPage() {
           >
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5 sm:col-span-2">
-                <Label className="text-welcome">Enfant</Label>
-                <Select name="childId" defaultValue="">
+                <Label htmlFor="need-childId" className="text-welcome">Enfant</Label>
+                <Select id="need-childId" name="childId" defaultValue="">
                   <option value="">
                     Pour moi / sans enfant associé
                   </option>
@@ -187,34 +187,34 @@ export function ExpressNeedPage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-welcome">Matière</Label>
-                <Input name="subject" required />
+                <Label htmlFor="need-subject" className="text-welcome">Matière</Label>
+                <Input id="need-subject" name="subject" required />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-welcome">Niveau</Label>
-                <Input name="level" required maxLength={40} />
+                <Label htmlFor="need-level" className="text-welcome">Niveau</Label>
+                <Input id="need-level" name="level" required maxLength={40} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-welcome">Format</Label>
-                <Select name="format" value={format} onChange={(e) => setFormat(e.target.value)}>
+                <Label htmlFor="need-format" className="text-welcome">Format</Label>
+                <Select id="need-format" name="format" value={format} onChange={(e) => setFormat(e.target.value)}>
                   <option value="home">À domicile</option>
                   {capabilities.onlineCourses ? <option value="online">En ligne (lien externe)</option> : null}
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-welcome">Lieu</Label>
-                <Input name="location" required={format === "home"} maxLength={200} placeholder="Commune / quartier" />
+                <Label htmlFor="need-location" className="text-welcome">Lieu</Label>
+                <Input id="need-location" name="location" required={format === "home"} maxLength={200} placeholder="Commune / quartier" />
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label className="text-welcome">Précisions</Label>
-                <Textarea name="description" maxLength={2000} />
+                <Label htmlFor="need-description" className="text-welcome">Précisions</Label>
+                <Textarea id="need-description" name="description" maxLength={2000} />
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label className="text-welcome">Document utile (bulletin, etc.) — optionnel</Label>
-                <input name="document" type="file" accept="image/*,application/pdf" className="text-sm" />
+                <Label htmlFor="need-document" className="text-welcome">Document utile (bulletin, etc.) — optionnel</Label>
+                <Input id="need-document" name="document" type="file" accept="image/*,application/pdf" />
               </div>
             </div>
-            {err ? <p className="text-sm text-destructive">{err}</p> : null}
+            {err ? <p role="alert" className="text-sm text-destructive">{err}</p> : null}
             <Button type="submit" className="mt-3 w-full" disabled={busy}>
               Envoyer
             </Button>
@@ -228,7 +228,7 @@ export function ExpressNeedPage() {
 export function MyNeedsPage() {
   const [busy, setBusy] = useState<number | null>(null);
   const [error, setError] = useState("");
-  const { data, offline, reload } = useLive<Need[]>("/api/needs", []);
+  const { data, offline, loading, reload } = useLive<Need[]>("/api/needs", []);
   const [msg, setMsg] = useState("");
 
   return (
@@ -238,10 +238,10 @@ export function MyNeedsPage() {
         <Button asChild>
           <Link to="/exprimer-besoin">Nouveau besoin</Link>
         </Button>
-        {msg ? <p className="text-sm font-semibold text-primary">{msg}</p> : null}
+        {msg ? <p role="status" className="text-sm font-semibold text-primary">{msg}</p> : null}
       </div>
       {error ? <p role="alert" className="mb-4 text-sm text-destructive">{error}</p> : null}
-      {!data.length ? <Empty>Aucune demande n&apos;a été trouvée</Empty> : null}
+      {!data.length && !offline ? <Empty>{loading ? "Chargement des demandes…" : "Aucune demande de cours pour le moment."}</Empty> : null}
       <PageGrid>
         {data.map((n) => (
           <ContentCard key={n.id} className="space-y-2">

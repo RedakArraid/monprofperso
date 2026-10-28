@@ -52,7 +52,8 @@ cd ios
 xcodegen generate
 xcodebuild -list -project MonProfPerso.xcodeproj
 xcodebuild test -project MonProfPerso.xcodeproj -scheme MonProfPerso \
-  -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO
+  -destination 'platform=iOS Simulator,name=iPhone 16' \
+  CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=-
 ```
 
 Adapter le simulateur à ceux installés. `ApiClientTests` contrôle l’encodage des filtres et du préfixe ivoirien, l’éligibilité au paiement, les liens HTTPS, les demandes de suppression en attente, les montants de versement et les conditions financières manquantes d’un cours historique. Linux permet seulement une vérification des sources ; il ne compile pas SwiftUI et n’exécute pas ces tests.
@@ -68,3 +69,52 @@ Configurer le compte Apple Developer et les certificats/profils de signature sur
 Variables optionnelles : `MPP_IOS_API_URL` (HTTPS), `MPP_IOS_VERSION_NAME` (par défaut `1.1.0`) et `MPP_IOS_BUILD_NUMBER` (par défaut `3`). Le numéro de build doit augmenter à chaque envoi. Le script exige une équipe valide, génère le projet, archive Release et exporte localement vers `ios/build/`. Il ne téléverse rien vers App Store Connect.
 
 La mise en diffusion nécessite encore les certificats et profils du propriétaire, les métadonnées et documents de confidentialité, les captures adaptées, les accès de revue et une validation des parcours sur appareils et préproduction. Une archive réussie ne prouve ni une validation App Review ni un paiement réel.
+
+
+## Recette visuelle instrumentée
+
+Le schéma Xcode `MonProfPerso-Visual` ajoute quatre parcours XCUITest aux tests
+unitaires. Il capture les vraies vues du simulateur : accueil illustré,
+connexion et OTP, parent, recherche, fiche, réservation, cours, compte,
+confidentialité, professeur, revenus, grandes polices, état vide et erreur réseau.
+
+Démarrer le serveur local depuis la racine dans un autre terminal :
+
+```sh
+MPP_VISUAL_FIXTURES=1 node scripts/visual/fixture-server.mjs
+```
+
+Puis, sur macOS, après avoir choisi un iPhone disponible avec
+`xcrun simctl list devices available` :
+
+```sh
+cd ios
+xcodegen generate
+xcodebuild test -project MonProfPerso.xcodeproj -scheme MonProfPerso-Visual \
+  -destination 'platform=iOS Simulator,name=iPhone 16' \
+  -resultBundlePath build/visual.xcresult -parallel-testing-enabled NO \
+  -test-timeouts-enabled YES -default-test-execution-time-allowance 300 \
+  -maximum-test-execution-time-allowance 300 \
+  CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=-
+bash scripts/export-visual-captures.sh build/visual.xcresult build/visual-captures
+```
+
+La signature locale ad hoc du simulateur (`CODE_SIGN_IDENTITY=-`) préserve
+l’exécution réelle du Keychain ; elle n’exige pas de certificat de publication.
+La [première CI visuelle du candidat `3539dc3`](https://github.com/RedakArraid/monprofperso/actions/runs/40745829826)
+a compilé l’application et réussi les 11 tests unitaires sur iPhone 17 Pro / iOS
+26.4.1. Ses quatre parcours UI se sont arrêtés après l’OTP : les captures montrent
+« La session n’a pas pu être enregistrée dans le trousseau » avec la signature
+désactivée. Ces captures attestent seulement les écrans atteints, pas les parcours
+connectés. Le correctif de signature et les ajustements visuels doivent être
+revérifiés sur leur nouvelle révision ; conserver le vrai Keychain dans les tests.
+
+Choisir un dossier `.xcresult` neuf à chaque exécution. La CI privilégie un
+iPhone SE installé ou tente d’en créer un si ce type est disponible. Sinon,
+elle utilise un iPhone installé et indique le modèle effectivement testé dans
+le journal. Elle conserve les pièces jointes et exporte des PNG nommés.
+La remise à zéro du trousseau pour ce parcours exige un build Debug, l’argument
+explicite de test et une API locale ; aucune session n’est injectée et aucun
+prestataire externe n’est contacté. Lire les captures produites avant validation.
+Cette recette ne remplace pas les essais VoiceOver, clavier, installation signée
+et retour des applications de paiement sur appareil physique.
