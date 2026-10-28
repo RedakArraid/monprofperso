@@ -5,8 +5,10 @@ import android.os.ParcelFileDescriptor
 import android.view.inputmethod.InputMethodManager
 import android.content.Context
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.dp
@@ -71,7 +73,7 @@ class VisualRegressionTest {
             click("Continuer")
             waitForText("Créer mon compte")
             assertSystemBarAppearance(darkIcons = true)
-            capture("03-signup")
+            capture("03-signup", expectedDarkSystemBars = true)
             back()
 
             login("0700000101")
@@ -290,39 +292,79 @@ class VisualRegressionTest {
         val tab = compose.onNode(hasText(label) and hasRole(Role.Tab))
         val node = tab.assertIsDisplayed().assertIsEnabled().assertHasClickAction()
             .assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp).fetchSemanticsNode()
-        assertTrue("L'onglet $label est rogné horizontalement", node.boundsInRoot.width >= node.size.width - 1f)
-        assertTrue("L'onglet $label est rogné verticalement", node.boundsInRoot.height >= node.size.height - 1f)
+        val viewport = navigationViewport()
+        assertTrue("L'onglet $label doit être entièrement dans le viewport", wholeNodeIsInside(node, viewport))
         val layouts = mutableListOf<TextLayoutResult>()
-        compose.onNodeWithText(label, useUnmergedTree = true)
-            .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
-        assertTrue("Le libellé $label doit rester entier sur une ligne",
-            layouts.isNotEmpty() && layouts.all { it.lineCount == 1 && !it.hasVisualOverflow })
+        val text = compose.onNodeWithText(label, useUnmergedTree = true)
+        text.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        val textNode = text.fetchSemanticsNode()
+        assertTrue("Le texte $label doit être entièrement dans l'onglet", wholeNodeIsInside(textNode, node.boundsInRoot))
+        assertTrue("Le libellé $label doit fournir sa disposition", layouts.isNotEmpty())
+        layouts.forEach { layout ->
+            val metrics = JSONObject().put("label", label)
+                .put("fontScale", compose.activity.resources.configuration.fontScale.toDouble())
+                .put("tabBounds", rectMetadata(node.boundsInRoot)).put("viewport", rectMetadata(viewport))
+                .put("textBounds", rectMetadata(textNode.boundsInRoot))
+                .put("lineCount", layout.lineCount).put("didOverflowWidth", layout.didOverflowWidth)
+                .put("didOverflowHeight", layout.didOverflowHeight)
+                .put("didExceedMaxLines", layout.multiParagraph.didExceedMaxLines)
+                .put("layoutWidth", layout.size.width).put("layoutHeight", layout.size.height)
+                .put("paragraphWidth", layout.multiParagraph.width.toDouble())
+                .put("paragraphHeight", layout.multiParagraph.height.toDouble())
+                .put("maxIntrinsicWidth", layout.multiParagraph.intrinsics.maxIntrinsicWidth.toDouble())
+                .put("constraintMaxWidth", layout.layoutInput.constraints.maxWidth)
+                .put("constraintMaxHeight", layout.layoutInput.constraints.maxHeight)
+                .put("lineEnd", if (layout.lineCount > 0) layout.getLineEnd(0, visibleEnd = true) else -1)
+                .put("ellipsized", layout.lineCount > 0 && layout.isLineEllipsized(0))
+            File(evidenceDirectory, "navigation-text-metrics.jsonl").appendText(metrics.toString() + "\n")
+            // Compose 1.7.2 reconstruit le MultiParagraph sémantique de Text(String) avec la
+            // contrainte brute infinie du rail : didOverflowWidth ne décrit alors pas les glyphes.
+            // La largeur intrinsèque complète, la taille réelle et la fin de ligne restent vérifiées.
+            assertTrue("Le libellé $label doit rester entier sur une ligne : $metrics",
+                layout.lineCount == 1 && !layout.didOverflowHeight && !layout.multiParagraph.didExceedMaxLines &&
+                    layout.multiParagraph.intrinsics.maxIntrinsicWidth <= layout.size.width &&
+                    layout.getLineEnd(0, visibleEnd = true) == label.length && !layout.isLineEllipsized(0))
+        }
         return tab
     }
+    private fun navigationViewport(): Rect = compose.onNodeWithTag("main-navigation").fetchSemanticsNode().boundsInRoot
+        .intersect(compose.onRoot().fetchSemanticsNode().boundsInRoot)
+    private fun wholeNodeIsInside(node: SemanticsNode, viewport: Rect): Boolean {
+        val bounds = node.boundsInRoot
+        return bounds.width > 0 && bounds.height > 0 && bounds.width >= node.size.width && bounds.height >= node.size.height &&
+            bounds.left >= viewport.left && bounds.top >= viewport.top &&
+            bounds.right <= viewport.right && bounds.bottom <= viewport.bottom
+    }
+    private fun rectMetadata(rect: Rect) = JSONObject().put("left", rect.left.toDouble()).put("top", rect.top.toDouble())
+        .put("right", rect.right.toDouble()).put("bottom", rect.bottom.toDouble())
     private fun wholeTabIsVisible(label: String): Boolean {
         val node = compose.onAllNodes(hasText(label) and hasRole(Role.Tab)).fetchSemanticsNodes().singleOrNull() ?: return false
-        return node.boundsInRoot.width > 0 && node.boundsInRoot.height > 0 &&
-            node.boundsInRoot.width >= node.size.width - 1f && node.boundsInRoot.height >= node.size.height - 1f
+        return wholeNodeIsInside(node, navigationViewport())
     }
-    private fun swipeNavigationTo(label: String, left: Boolean) {
-        repeat(5) {
-            if (wholeTabIsVisible(label)) return
+    private fun swipeNavigationTo(label: String, left: Boolean): Int {
+        var swipes = 0
+        while (!wholeTabIsVisible(label) && swipes < 5) {
             compose.onNodeWithTag("main-navigation").performTouchInput { if (left) swipeLeft() else swipeRight() }
             compose.waitForIdle()
+            swipes++
         }
+        File(evidenceDirectory, "navigation-gestures.jsonl").appendText(JSONObject().put("target", label)
+            .put("direction", if (left) "left" else "right").put("swipeCount", swipes)
+            .put("fullyVisibleAfterGesture", wholeTabIsVisible(label)).toString() + "\n")
         assertTrue("L'onglet $label doit être accessible par glissement", wholeTabIsVisible(label))
+        return swipes
     }
     private fun exerciseLargeTextNavigation(homeMarker: String, substring: Boolean = false) {
         assertTrue("La navigation connectée doit rester présente",
             compose.onAllNodes(hasRole(Role.Tab)).fetchSemanticsNodes().size >= 4)
         assertWholeNavigationTab("Accueil").assertIsSelected()
-        swipeNavigationTo("Compte", left = true)
+        assertTrue("Le parcours doit effectuer un vrai geste vers Compte", swipeNavigationTo("Compte", left = true) > 0)
         assertWholeNavigationTab("Compte").performClick()
         waitForText("Mon compte")
         compose.waitUntil(20_000) { wholeTabIsVisible("Compte") }
         assertWholeNavigationTab("Compte").assertIsSelected()
         compose.onAllNodes(hasRole(Role.Tab) and isSelected()).assertCountEquals(1)
-        swipeNavigationTo("Accueil", left = false)
+        assertTrue("Le parcours doit effectuer un vrai geste vers Accueil", swipeNavigationTo("Accueil", left = false) > 0)
         assertWholeNavigationTab("Accueil").performClick()
         waitForText(homeMarker, substring)
         compose.waitUntil(20_000) { wholeTabIsVisible("Accueil") }
@@ -380,9 +422,9 @@ class VisualRegressionTest {
             capturedWindowHashes.getValue(normal) != capturedWindowHashes.getValue(large))
     }
 
-    private fun capture(name: String, keyboardVisible: Boolean? = null) {
+    private fun capture(name: String, keyboardVisible: Boolean? = null, expectedDarkSystemBars: Boolean? = null) {
         compose.waitForIdle()
-        val frame = capturePresentedScreen(compose.activity, instrumentation)
+        val frame = capturePresentedScreen(compose.activity, instrumentation, expectedDarkSystemBars)
         val bitmap = frame.bitmap
         try {
             val configuration = frame.configuration
@@ -396,6 +438,13 @@ class VisualRegressionTest {
                 .put("comparedBounds", JSONObject().put("left", frame.comparedBounds.left).put("top", frame.comparedBounds.top)
                     .put("right", frame.comparedBounds.right).put("bottom", frame.comparedBounds.bottom))
                 .put("imeVisible", frame.imeVisible).put("windowBitmapSha256Argb8888", frame.windowContentSha256)
+            frame.systemBars?.let { bars ->
+                metadata.put("systemBars", JSONObject().put("expectedDarkIcons", bars.expectedDarkIcons)
+                    .put("minimumContrastRatio", 4.5).put("minimumContrastingGlyphPixels", 16)
+                    .put("requiredBackgroundFractionExclusive", 0.5)
+                    .put("statusClock", systemBarRegionMetadata(bars.statusClock))
+                    .put("navigationHandle", systemBarRegionMetadata(bars.navigationHandle)))
+            }
             val encoded = File(evidenceDirectory, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
             check(encoded) { "Échec d’encodage de la capture $name." }
             capturedWindowHashes[name] = frame.windowContentSha256
@@ -411,4 +460,12 @@ class VisualRegressionTest {
             bitmap.recycle()
         }
     }
+    private fun systemBarRegionMetadata(evidence: SystemBarRegionEvidence) = JSONObject()
+        .put("region", JSONObject().put("left", evidence.region.left).put("top", evidence.region.top)
+            .put("right", evidence.region.right).put("bottom", evidence.region.bottom))
+        .put("backgroundArgb", "%08x".format(evidence.backgroundArgb))
+        .put("uniformWindowBackground", evidence.uniformWindowBackground)
+        .put("matchingBackgroundPixels", evidence.matchingBackgroundPixels)
+        .put("contrastingGlyphPixels", evidence.contrastingGlyphPixels)
+        .put("totalPixels", evidence.totalPixels)
 }

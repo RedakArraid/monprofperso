@@ -1,0 +1,18 @@
+{
+  "started_utc": "2026-10-28T20:14:17.727533+00:00",
+  "git_head": "4601340fc7a3983d81d924a654deda4645c45149",
+  "tasks": [
+    ":app:compileDebugAndroidTestKotlin"
+  ],
+  "kotlin_incremental": false,
+  "compiler_execution_strategy": "in-process",
+  "files": {
+    "android/app/src/androidTest/java/ci/monprofperso/app/VisualRegressionTest.kt": "015d07bd6dddb0969a2451d617f37a7952d6b2b95ff2a28462b7573ff2a88460",
+    "android/app/src/androidTest/java/ci/monprofperso/app/PresentedScreenCapture.kt": "a88fb147bfe60eea88442e3bdf2eb98dedaf340ef8bccef92c06e2c70b6882b2"
+  },
+  "product_sources_unchanged_from_git_head": true,
+  "finished_utc": "2026-10-28T20:14:37.280863+00:00",
+  "duration_seconds": 19.548,
+  "exit_code": 0,
+  "sources_unchanged_during_build": true
+}

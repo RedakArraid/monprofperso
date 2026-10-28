@@ -1,11 +1,11 @@
 # Preuves visuelles iOS
 
 Recette du **28 octobre 2026**, pour le candidat
-[`2c1b4c0b981898a189b2cfd5d9eea4921f94f096`](https://github.com/RedakArraid/monprofperso/commit/2c1b4c0b981898a189b2cfd5d9eea4921f94f096).
-La [CI 40752999558](https://github.com/RedakArraid/monprofperso/actions/runs/40752999558)
+[`4601340fc7a3983d81d924a654deda4645c45149`](https://github.com/RedakArraid/monprofperso/commit/4601340fc7a3983d81d924a654deda4645c45149).
+Le [job iOS du run 40759860433](https://github.com/RedakArraid/monprofperso/actions/runs/40759860433/job/123068531063)
 a compilé l’application et réussi **11 tests unitaires et quatre parcours
 XCUITest, sans échec ni exception inattendue**. Les parcours UI ont duré
-179,686 secondes.
+252,423 secondes.
 
 Le simulateur effectivement utilisé est un **iPhone SE de troisième génération,
 iOS 26.4.1**, en portrait : 375 × 667 points, captures de 750 × 1334 pixels.
@@ -15,12 +15,22 @@ n’est injectée dans l’application.
 
 ## Résultat de l’inspection
 
-Les **25 PNG distincts** exportés ont été inspectés. Les accueils, la recherche,
+Les **28 captures PNG exportées, correspondant à 27 images distinctes**, ont
+toutes été inspectées. Les accueils, la recherche,
 la fiche professeur, la réservation, les cours et leurs détails, le compte,
 la confidentialité et les revenus restent lisibles dans cette configuration.
 Les textes indicatifs sont plus contrastés, le code de format `home` est présenté
 en français, et les états vide et indisponible sont distincts. Aucun nouveau
 défaut de mise en page bloquant n’a été identifié sur ces captures.
+
+Depuis **Compte → Ressources pédagogiques**, une réponse vide affiche un état
+vide, avec le filtre Cours sélectionné ; une réponse `503` affiche une erreur
+explicite et **Réessayer**. Les textes et l’action sont entièrement visibles.
+Les anciennes ressources de démonstration ne sont plus présentées. Le test
+vérifie également la sélection et la hauteur de 44 points du filtre Cours.
+Après Réessayer, le serveur local reste indisponible : les captures
+`22-unavailable-resources` et `23-retry-resources` sont identiques octet par octet.
+Ce seul doublon est compté comme une image distincte, sans retouche artificielle.
 
 Avec **Dynamic Type Accessibility XXXL**, les initiales et la pastille de
 notification restent des repères graphiques lisibles. Les noms et textes de
@@ -33,14 +43,14 @@ ne sont pas visibles simultanément. Un texte partiellement hors de la zone
 défilable n’est pas assimilé à un champ ou une action masqués.
 
 Les noms `failure` injustifiés de la précédente recette ont disparu : aucune
-des 25 pièces jointes de ce run ne porte ce préfixe. Les compteurs de réussite
+des 28 pièces jointes de ce run ne porte ce préfixe. Les compteurs de réussite
 ci-dessus proviennent du journal XCTest, indépendamment du nom des fichiers.
 
 ## Sélection conservée dans le dépôt
 
-Ces six PNG sont **identiques octet par octet aux pièces jointes XCTest** :
+Ces neuf PNG sont **identiques octet par octet aux pièces jointes XCTest** :
 aucune retouche, recompression, mise en scène ou capture de navigateur. Ils
-représentent au total 913 943 octets.
+représentent au total 1 183 679 octets.
 
 | Capture | État montré |
 | --- | --- |
@@ -50,15 +60,24 @@ représentent au total 913 943 octets.
 | [Réservation](reservation-iphone-se.png) | Formulaire avant envoi de la demande |
 | [Revenus](revenus-iphone-se.png) | Disponible, prévisionnel, dû, réservé et versé présentés séparément |
 | [OTP et grandes polices](otp-accessibilite-iphone-se.png) | Champ OTP visible avec le clavier logiciel ouvert |
+| [Ressources vides](ressources-vides-iphone-se.png) | Réponse vide, filtre Cours sélectionné et aucun exemple local |
+| [Ressources indisponibles](ressources-indisponibles-iphone-se.png) | Erreur de service avec action Réessayer |
+| [Ressources après réessai](ressources-reessai-iphone-se.png) | Indisponibilité persistante après l’action, identique à la capture précédente |
 
 Le [manifeste](manifest.json) conserve les empreintes SHA256, dimensions,
-horodatages, noms originaux des pièces jointes, inventaire des 25 captures,
+horodatages, noms originaux des pièces jointes, inventaire des 28 captures,
 résultats des tests et empreintes de 46 fichiers d’entrée de la recette.
 Le merge effectivement exécuté est
-`69aa615052f04ae72429d738dc21bfac4a081e6d`, dont l’arbre
-`57b978329e952eb01cea84453dca965c6cadf521` est celui du candidat.
+`b588991063075c916598bfa4572d896c27ea0505`, dont l’arbre
+`33c91b9b4300245381762bf040fba824c045964d` est celui du candidat.
 L’artefact GitHub complet inclut les autres PNG et le `.xcresult` ; sa rétention
 est de 14 jours. Cette sélection reste versionnée dans le dépôt.
+
+La [sélection antérieure de six preuves](https://github.com/RedakArraid/monprofperso/tree/6bd10c1686e7f9e793894aa8ce86648dd40b0964/docs/visual-evidence/ios)
+reste dans l’historique Git et demeure attribuée au candidat `2c1b4c0`, au run
+`40752999558` et à ses 25 images distinctes. Les neuf fichiers actuels proviennent
+tous du run `40759860433` du candidat `4601340` ; aucune ancienne image n’a été
+réattribuée.
 
 ## Portée et reproduction
 
@@ -68,7 +87,7 @@ de recette fictives. Aucun prestataire OTP ou de paiement externe n’est contac
 Les réservations, modifications de cours, versements et suppressions de compte
 ne sont pas exécutés par ces parcours visuels.
 
-Les commandes de reproduction et les neuf couples de couleurs mesurés sont
+Les commandes de reproduction et les mesures de contraste sont
 documentés dans le [README iOS](../../../ios/README.md#recette-visuelle-instrumentée).
 Cette preuve couvre la configuration et les parcours décrits. Elle ne constitue
 ni un audit complet d’accessibilité, ni une validation sur tous les iPhone et

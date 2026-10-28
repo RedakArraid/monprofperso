@@ -139,8 +139,9 @@ sur iPhone SE de troisième génération / iOS 26.4.1, en 179,686 secondes pour 
 parcours UI. Les **25 PNG distincts** ont été inspectés, y compris le clavier OTP
 et le défilement de la navigation en Accessibility XXXL. Aucun nouveau défaut
 de mise en page bloquant n’a été identifié sur ces captures. Les
-[six PNG originaux et leur manifeste](../docs/visual-evidence/ios/README.md)
-conservent la provenance exacte, les empreintes et la portée de cette validation.
+[six preuves alors conservées](https://github.com/RedakArraid/monprofperso/tree/6bd10c1686e7f9e793894aa8ce86648dd40b0964/docs/visual-evidence/ios)
+restent dans l’historique avec la provenance exacte, les empreintes et la portée
+de cette validation du candidat `2c1b4c0`.
 
 Choisir un dossier `.xcresult` neuf à chaque exécution. La CI privilégie un
 iPhone SE installé ou tente d’en créer un si ce type est disponible. Sinon,
@@ -163,16 +164,27 @@ Le badge Devoir utilise `#A94713` sur `#FBE9DA` : contraste sRGB de **4,939:1**,
 contre 2,586:1 avec l’orange décoratif précédent, pour son texte de 10,5 points.
 
 Le parcours des comptes de recette `0700000198` et `0700000199` ajoute trois
-captures prévues, sans création de ressource :
+captures obtenues, sans création de ressource :
 
 - `21-empty-resources` : réponse `200 []`, filtre Cours sélectionné et absence des anciens exemples.
 - `22-unavailable-resources` : réponse `503`, message d’erreur et réessai accessible.
 - `23-retry-resources` : après Réessayer, l’indisponibilité reste explicite et aucun exemple n’apparaît.
 
-**Cette nouvelle révision doit réussir sa propre CI iOS et ses trois nouvelles
-captures doivent être inspectées.** Les six preuves conservées du candidat
-`2c1b4c0` restent attribuées à leur révision d’origine ; elles ne valident pas ce
-correctif ultérieur.
+Le [job iOS du candidat `4601340`](https://github.com/RedakArraid/monprofperso/actions/runs/40759860433/job/123068531063)
+a compilé cette révision et réussi **11 tests unitaires et quatre parcours UI**,
+sans échec ni exception inattendue, sur iPhone SE de troisième génération / iOS
+26.4.1. Les parcours UI ont duré **252,423 secondes**. Les **28 captures exportées**
+ont toutes été inspectées : elles représentent **27 images distinctes**, les
+états erreur et réessai étant identiques puisque le service reste indisponible.
+Aucun nouveau défaut de mise en page bloquant n’a été observé. Les
+[neuf preuves originales et leur manifeste](../docs/visual-evidence/ios/README.md)
+proviennent exclusivement de ce nouveau run ; les six anciennes preuves `2c1b4c0`
+gardent leur attribution dans l’historique Git.
+
+Le texte et l’icône du badge Devoir utilisent maintenant `Ak.orangeText`
+(`#A94713`) sur `Ak.orangeSoft` (`#FBE9DA`) : contraste calculé **4,939:1**, contre
+2,586:1 auparavant. Cette mesure provient de la palette du code ; les captures
+de ressources vides et indisponibles ne contiennent pas de badge Devoir.
 
 ### Contrastes mesurés
 

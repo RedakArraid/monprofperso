@@ -239,3 +239,76 @@ de produit et de test sont restés identiques pendant le build ; leurs empreinte
 et le résultat sont conservés dans la [preuve de compilation](../docs/visual-evidence/android/final-native-polish-compilation.json).
 Ce résultat confirme la compilation du lot ; il ne remplace pas sa prochaine
 exécution instrumentée et l’inspection de ses captures.
+
+## Révision 4601340 : rendu du rail lisible, contrôle sémantique à corriger
+
+Le [job Android du run 40759860433](https://github.com/RedakArraid/monprofperso/actions/runs/40759860433/job/123068531109)
+contrôle la tête `4601340fc7a3983d81d924a654deda4645c45149` via le commit de
+fusion temporaire `b588991063075c916598bfa4572d896c27ea0505`. Leur arbre commun
+est `33c91b9b4300245381762bf040fba824c045964d`. Le build Debug et les tests JVM
+ont réussi. Le rapport XML horodaté du 28 octobre 2026 à 20:07:47 UTC indique
+un test instrumenté, un échec et aucune erreur ni étape ignorée, en 25,533 secondes.
+
+L’[artefact 12847928051](https://github.com/RedakArraid/monprofperso/actions/runs/40759860433/artifacts/12847928051)
+conserve neuf PNG distincts, leurs métadonnées et les rapports. Le ZIP de
+1 086 900 octets a le SHA-256 vérifié
+`e2f4a0e719766b165b0386b2048107bf08c12fbf6c293e85e762d032331c18b9`.
+Les neuf images ont été inspectées. Le rail affiche « Accueil » en entier sur
+une ligne à 200 %, mais l’assertion combinant `lineCount` et `hasVisualOverflow`
+s’arrête avant le premier glissement ; ce run ne valide donc pas les gestes,
+le reste du parcours ni les nouveaux états Ressources.
+
+Le diagnostic utilise les sources exactes de
+[Compose Foundation 1.7.2](https://dl.google.com/dl/android/maven2/androidx/compose/foundation/foundation-android/1.7.2/foundation-android-1.7.2-sources.jar)
+et [Compose UI Text 1.7.2](https://dl.google.com/dl/android/maven2/androidx/compose/ui/ui-text-android/1.7.2/ui-text-android-1.7.2-sources.jar).
+`ParagraphLayoutCache.slowCreateTextLayoutResultOrNull`, appelé pour la sémantique
+de `Text(String)`, reconstruit un `MultiParagraph` avec les contraintes brutes du
+rail, dont la largeur maximale est infinie. `MultiParagraph.width` prend cette
+largeur ; `didOverflowWidth` la compare à la taille réelle finie du texte. La
+mise en page effectivement dessinée utilise, elle, la largeur intrinsèque.
+
+Le contrôle révisé conserve une ligne, une hauteur suffisante, la largeur
+intrinsèque complète inférieure ou égale à la largeur réelle, une fin de ligne
+couvrant tout le libellé et l’absence d’ellipse. Aucune tolérance n’est ajoutée.
+Les trois métriques de débordement, dimensions et contraintes sont conservées
+dans `navigation-text-metrics.jsonl`. L’inclusion des cadres dans le viewport
+réel est aussi vérifiée : des bornes sémantiques hors écran peuvent conserver
+leur largeur entière. `navigation-gestures.jsonl` consigne les glissements ;
+un nombre strictement positif de vrais gestes est exigé vers « Compte » puis
+vers « Accueil », pour les deux rôles.
+
+Les icônes système sont correctes sur les captures de connexion et d’OTP, mais
+restent blanches sur la capture d’inscription alors que les flags de fenêtre
+sont déjà sombres. Ce décalage de présentation de SystemUI n’est pas couvert
+par la comparaison de la zone applicative avec PixelCopy. La nouvelle capture
+d’inscription attend une quiescence d’événements UI bornée, puis vérifie les pixels
+réellement affichés dans deux régions identifiables : l’horloge de la barre
+supérieure et le trait gestuel central de la barre inférieure, en portrait sans
+clavier. Dans chaque région, le fond PixelCopy doit être uniforme, plus de la
+moitié des pixels écran doivent correspondre exactement à ce fond et au moins
+16 pixels de glyphes sombres doivent atteindre un contraste de 4,5:1 avec lui.
+Les régions, seuils et mesures figurent dans le JSON de la capture.
+
+L’attente d’idle seule n’est pas une preuve du rendu de SystemUI. Une image
+conservant l’ancienne apparence déclenche une nouvelle tentative dans le budget
+global de 15 secondes. Le PNG reste l’écran entier original, sans retouche,
+et la comparaison exacte de la fenêtre est maintenue. Seuls les tests et ce
+rapport changent dans ce delta ; le code produit et la fixture restent identiques.
+
+Le garde de pixels a été vérifié en lecture seule sur les PNG originaux de ce
+run : l’inscription est rejetée avec zéro pixel sombre qualifié dans chaque
+région ; la connexion et l’OTP sans clavier sont acceptés avec 542 pixels
+qualifiés pour l’horloge et 1 708 pour le trait gestuel, sur des fonds majoritaires.
+Les fichiers image n’ont pas été modifiés. Le bitmap PixelCopy n’étant pas
+conservé dans les anciens artefacts, son uniformité sera contrôlée par le
+prochain passage instrumenté, sans lui attribuer rétrospectivement cette mesure.
+
+La seule tâche `:app:compileDebugAndroidTestKotlin` a réussi le 28 octobre 2026
+à 20:14 UTC en 19 secondes, sans compilation incrémentale et avec le compilateur
+dans le processus Gradle. Les deux fichiers de test sont restés identiques
+pendant le build ; le code produit est inchangé par rapport à `4601340`.
+Cette compilation et l’analyse des pixels précédents ne remplacent pas le
+prochain parcours complet et la revue de ses nouvelles captures.
+
+Preuves conservées : [compilation des deux fichiers de test](../docs/visual-evidence/android/evidence-guards-compilation.json)
+et [analyse des pixels des PNG originaux](../docs/visual-evidence/android/system-bar-pixel-analysis.json).

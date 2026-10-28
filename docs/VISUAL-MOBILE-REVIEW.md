@@ -39,22 +39,24 @@ Le [build Android local](visual-evidence/android/README.md) réussit en Debug,
 compile le Kotlin Release et les tests instrumentés, et exécute **15 tests JVM
 sans échec** sur les sources finales du premier commit natif.
 
-Le [run 40752999558 du commit `2c1b4c0`](https://github.com/RedakArraid/monprofperso/actions/runs/40752999558)
-réussit les quatre jobs API, web, Android et iOS. Le commit temporaire de fusion
-de la PR, `69aa615052f04ae72429d738dc21bfac4a081e6d`, possède exactement le même
-arbre que cette tête : `57b978329e952eb01cea84453dca965c6cadf521`. La CI confirme
+Les jobs API et web du [run 40759860433 du commit `4601340`](https://github.com/RedakArraid/monprofperso/actions/runs/40759860433)
+sont réussis. Le commit temporaire de fusion de la PR,
+`b588991063075c916598bfa4572d896c27ea0505`, possède exactement le même arbre que
+cette tête : `33c91b9b4300245381762bf040fba824c045964d`. La CI confirme
 les **165 tests API**, **11 tests d’exploitation**, l’isolation Docker, les
 **26 tests web existants**, les **12 parcours Chromium** et les **six parcours
 WebKit**, avec zéro violation sur leurs **77 contrôles axe**.
 
 Sur le **simulateur iPhone SE de troisième génération, iOS 26.4.1**, les
 **11 tests unitaires et quatre parcours d’interface passent**, ces derniers en
-179,686 secondes. Les 25 captures produites sont distinctes. Le parcours de
+252,423 secondes pour cette même révision. Les **28 captures produites** ont été
+inspectées et représentent **27 images distinctes** : l’erreur Ressources et son
+réessai donnent légitimement le même état visuel. Le parcours de
 grande taille de texte AX XXXL vérifie le champ OTP entièrement au-dessus du
 clavier avant de le toucher, puis utilise de vrais gestes horizontaux pour
 atteindre le dernier onglet et revenir à l’accueil. Le stockage de session
 utilise le vrai Keychain de l’application signée localement pour le simulateur.
-Les 25 images ont été inspectées ; six originaux et le manifeste de toutes les
+Neuf originaux, dont les trois états Ressources, et le manifeste de toutes les
 captures sont conservés dans le [dossier de preuves iOS](visual-evidence/ios/README.md).
 
 Sur **Android 36, téléphone de 360 dp**, le [passage `6bd10c1`](https://github.com/RedakArraid/monprofperso/actions/runs/40756599455/job/123057065911)
@@ -63,20 +65,30 @@ distinctes**, avec 23 métadonnées : la comparaison stricte de la fenêtre rend
 avec l’écran présenté a éliminé les anciennes frames du passage précédent.
 Les rendus à 100 % et 200 % sont différents, le clavier reste visible sur les
 captures prévues et le paysage n’a plus de bande noire. L’inspection de ces
-images révèle encore deux détails : le contraste des icônes système sur
-l’inscription et les mots coupés des onglets à 200 %. Leur correction sera
+images révèle encore trois détails : le contraste des icônes système sur
+l’inscription, les mots coupés des onglets à 200 % et les dates des cours en attente.
+Leur correction sera
 vérifiée sur la révision suivante avant de conserver les preuves définitives.
 Le [rapport Android par révision](../android/VISUAL-VALIDATION.md) détaille
 les captures rejetées, la synchronisation et les résultats de chaque passage.
+
+Le passage Android `4601340` compile et produit neuf images partielles. Le rail
+agrandi affiche désormais les libellés entiers, mais le parcours s’arrête sur
+une mesure sémantique inadaptée à la largeur non bornée du défilement dans
+Compose 1.7.2. Le contrôle est corrigé avec les dimensions intrinsèques réelles,
+la ligne complète et l’inclusion dans le viewport ; les gestes seront de nouveau
+exécutés. La capture de l’inscription vérifie aussi les pixels réellement rendus
+par SystemUI, car les flags de style pouvaient précéder leur présentation.
 
 La revue des écrans accessibles depuis le compte a aussi trouvé, sur les deux
 applications, trois ressources pédagogiques de démonstration utilisées à la
 place d’une réponse vide ou d’une erreur. Ce repli est supprimé ; les nouveaux
 parcours distinguent le vide, l’erreur et son réessai. Le contrat de fixture a
 été vérifié localement : liste vide pour le compte 0198, HTTP 503 pour le compte
-0199, après challenge et OTP. Ce delta de produit et ses nouveaux parcours
-nécessitent leur propre CI native ; le succès des captures antérieures ne leur
-est pas attribué.
+0199, après challenge et OTP. Le nouveau parcours iOS valide le filtre sélectionné,
+l’absence des exemples, l’erreur et le réessai. Le parcours Android doit encore
+être exécuté jusqu’à ces étapes après correction de son contrôle de navigation ;
+le succès des captures antérieures ne lui est pas attribué.
 
 Les premiers passages et leurs corrections restent traçables :
 
@@ -86,6 +98,7 @@ Les premiers passages et leurs corrections restent traçables :
 | [`7d926c0`](https://github.com/RedakArraid/monprofperso/actions/runs/40749309467) | Parcours Android et iOS réussis. Collecte Android après désinstallation en échec : remplacée par la collecte UTP avant désinstallation. Les captures iOS ont conduit aux derniers correctifs de contraste et de grandes polices. |
 | [`2c1b4c0`](https://github.com/RedakArraid/monprofperso/actions/runs/40752999558) | Quatre jobs réussis ; derniers parcours iOS et WebKit validés. Captures Android récupérées mais décalées : synchronisation de l’écran à vérifier. |
 | [`6bd10c1`](https://github.com/RedakArraid/monprofperso/actions/runs/40756599455) | Parcours Android et collecte réussis, 23 PNG distincts avec correspondance exacte à la fenêtre. L’inspection permet d’identifier les derniers détails de barre système et de navigation agrandie. |
+| [`4601340`](https://github.com/RedakArraid/monprofperso/actions/runs/40759860433) | iOS : 11 unitaires et quatre parcours UI réussis, dont les nouveaux états Ressources ; 28 captures inspectées. Android compile, mais s’arrête sur un faux positif de mesure du rail dans Compose 1.7.2 ; contrôle et synchronisation SystemUI corrigés, à revalider. |
 
 Ces résultats ne sont pas une certification d’accessibilité ni une validation
 sur tous les appareils. L’installation signée, VoiceOver/TalkBack, les claviers
