@@ -38,6 +38,7 @@ private struct NavigationBarContent<Content: View>: View {
         Group {
             if typeSize.isAccessibilitySize {
                 ScrollView(.horizontal, showsIndicators: false) { HStack(spacing: 4, content: content) }
+                    .accessibilityIdentifier("navigation.scroll")
             } else {
                 HStack(alignment: .top, spacing: 4, content: content)
             }

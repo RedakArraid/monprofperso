@@ -1,13 +1,13 @@
 {
   "scope": "Recette locale du rendu de l’espace connecté, données exclusivement fictives",
-  "base_commit": "3539dc3c74d9db160d52854bdf2e6723670c7828",
-  "revision_note": "Les captures vérifient le contenu compilé du worktree. Le commit de base seul ne désigne pas les modifications non encore commitées ; leurs empreintes de build et de recette sont conservées ci-dessous.",
+  "base_commit": "7d926c022d7475ed63f79213e50cd8b16aab77d0",
+  "revision_note": "Captures du build final du worktree après correction du contraste date/heure WebKit. Le commit de base précède ce changement ; les empreintes du CSS source et des fichiers compilés identifient le contenu réellement testé.",
   "browser": "Google Chrome for Testing 156.0.8078.73",
   "playwright": "1.64.1",
   "axe_core": "4.14.0",
   "test_statistics": {
-    "startTime": "2026-10-28T18:37:35.940Z",
-    "duration": 31224.782000000003,
+    "startTime": "2026-10-28T19:08:53.376Z",
+    "duration": 37220.623999999996,
     "expected": 12,
     "skipped": 0,
     "unexpected": 0,
@@ -33,11 +33,11 @@
     "scripts/visual/fixture-server.mjs": "fc71f30f2b968226a07ca4674bbd66dda4400cd5e56447b8b47e36ba200d0db3"
   },
   "compiled_assets": {
-    "web/espace/index.html": "0e659091512006e3d0c1313e168fb9ac9f6a14a23290398f32c2903ac767dd1e",
-    "web/espace/assets/index-QgssBvD8.css": "0ad329bd6d4d2567cee27cd285db8a83496535f4c2e1509121fde11139ca486b",
-    "web/espace/assets/index-DoTpY56P.js": "3f5ddf6ee8cdcd834245ae01f2f3a0e1550990bbb82a3b9d1ccfa0530e2b3473",
+    "web/espace/index.html": "5c4d5c47dbdd4cb92780c2486b05e7c7b32119841e80ef3112b575ddd3e87999",
     "web/espace/assets/TeacherOffersPage-vh-t_kPv.css": "86d3d093fad979e1d185c8a93258f5f124d863fd13ca894c0b9f50bb68b66997",
-    "web/espace/assets/TeacherOffersPage-j3kVLN5A.js": "2b61ae0a82ebad669af847fba79f1f9a804edd7c2eed71f80a511a9445eb8b0e"
+    "web/espace/assets/index-CxQsd12_.css": "4352b80f59c2b2e77862a556be02a088cda985b866441f1d59c343ae76d6d2d8",
+    "web/espace/assets/TeacherOffersPage-D4G-uTM0.js": "31591f069a32843400fa45e1e922de9a693f1cbadfe0b1af88e7ab960c6a182e",
+    "web/espace/assets/index-CKt8NFHB.js": "fff145d05c126923e5c64816cbd4aa0ae9e2486c314d7cae7b476524dadeadea"
   },
   "limits": [
     "Une recette Chromium locale, pas une certification WCAG ni un test Safari ou sur téléphone physique.",
@@ -159,5 +159,8 @@
       },
       "sha256": "dffa9230a295daad5170e6061aa063cb93e81150e6f48504b9ef1ad43eb6cdab"
     }
-  ]
+  ],
+  "source_changes": {
+    "webapp/src/index.css": "b942439c6edc9e205ccb32761e0a0aff6571a0a2dc1f6b7184485522902eaac8"
+  }
 }

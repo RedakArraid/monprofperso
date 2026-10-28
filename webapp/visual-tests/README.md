@@ -4,8 +4,11 @@ Depuis `webapp/`, après installation des dépendances :
 
 ```sh
 npm run build
-npx playwright install --with-deps chromium
+npx playwright install --with-deps chromium webkit
 npx playwright test
+PLAYWRIGHT_JSON_OUTPUT_FILE=test-results/webkit-summary.json \
+PLAYWRIGHT_HTML_OUTPUT_DIR=playwright-report-webkit \
+npm run test:visual:webkit -- --output=test-results/webkit --reporter=list,json,html
 ```
 
 Le fichier `playwright.config.ts` démarre le site compilé sur `127.0.0.1:8095` et
@@ -17,6 +20,12 @@ client. Elle ne transmet ni réservation, ni paiement, ni demande de suppression
 Pour un navigateur Chrome for Testing déjà installé, définir
 `MPP_CHROME_EXECUTABLE` avec le chemin absolu du binaire. En CI, utiliser le
 navigateur Chromium correspondant à la version verrouillée de Playwright.
+Laisser cette variable vide pour WebKit. La commande `test:visual:webkit`
+reprend six parcours ciblés à 320/390 px : parent, professeur, détail d’offre,
+menu et texte à 200 %, inscription. Elle vérifie notamment les formulaires
+et les dialogues natifs sur ce deuxième moteur ; ce n’est pas un test Safari
+sur un iPhone physique. La CI conserve séparément les résultats et les rapports
+des deux moteurs.
 
 ## Périmètre
 

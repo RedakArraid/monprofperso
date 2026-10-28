@@ -123,10 +123,15 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
-      - name: Installer le navigateur de recette
-        run: npx playwright install --with-deps chromium
+      - name: Installer les navigateurs de recette
+        run: npx playwright install --with-deps chromium webkit
       - name: Vérifier les parcours, les petits écrans et l’accessibilité
         run: npm run test:visual
+      - name: Vérifier les formulaires et dialogues mobiles avec WebKit
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/webkit-summary.json
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report-webkit
+        run: npm run test:visual:webkit -- --output=test-results/webkit --reporter=list,json,html
       - name: Conserver les preuves visuelles web
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -135,6 +140,7 @@ jobs:
           path: |
             webapp/test-results
             webapp/playwright-report
+            webapp/playwright-report-webkit
           retention-days: 14
           if-no-files-found: warn
       - name: Vérifier les scripts du site et de l’administration

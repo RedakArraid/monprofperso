@@ -25,9 +25,15 @@ la confidentialité, les données vides et les pannes API, ainsi que la reprise 
 test est ajoutée à une seule réponse locale par Playwright, en conservant la
 réservation directe ; ce cas est décrit dans la documentation de la suite.
 
-Les contrôles axe ne détectent aucune violation sur les pages vérifiées avec les
+Les 51 contrôles axe ne détectent aucune violation sur les pages vérifiées avec les
 règles A/AA sélectionnées. Les règles nécessitant une appréciation manuelle sont
 listées dans le manifeste. Ce résultat ne vaut pas certification d’accessibilité,
 validation Safari, test sur appareil physique ou preuve de déploiement.
+
+Une [recette complémentaire WebKit](../webkit/README.md) vérifie six parcours
+mobiles sur ce deuxième moteur. Les captures Chromium de ce dossier ont été
+actualisées après la correction du contraste des champs natifs date/heure ;
+la dernière recette passe en environ 37 secondes. Les résultats et captures
+des deux moteurs restent identifiés séparément.
 
 Reproduire la recette : voir [la documentation Playwright](../../../webapp/visual-tests/README.md).

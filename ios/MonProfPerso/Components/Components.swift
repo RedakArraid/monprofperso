@@ -54,10 +54,11 @@ struct NotificationBell: View {
             .overlay(alignment: .topTrailing) {
                 if count > 0 {
                     Text(count > 9 ? "9+" : "\(count)")
-                        .font(AkFont.bold(10)).foregroundColor(.white)
+                        .font(.custom("HankenGrotesk-Bold", fixedSize: 10)).foregroundColor(Ak.ink)
                         .padding(.horizontal, 4).frame(minWidth: 18, minHeight: 18)
                         .background(Ak.orange).clipShape(Capsule())
                         .offset(x: 5, y: -5)
+                        .accessibilityHidden(true)
                 }
             }
             .task { if let c = try? await ApiClient.shared.unreadCount() { count = c } }
@@ -222,7 +223,9 @@ struct InitialsAvatar: View {
 
     var body: some View {
         Text(initials)
-            .font(AkFont.schibstedExtra(fontSize)).foregroundColor(fg)
+            // Repère graphique : le nom complet adjacent conserve Dynamic Type.
+            .font(.custom("SchibstedGrotesk-ExtraBold", fixedSize: fontSize)).foregroundColor(fg)
+            .lineLimit(1).minimumScaleFactor(0.5)
             .frame(width: size, height: size)
             .background(bg)
             .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
@@ -312,7 +315,7 @@ struct PhoneField: View {
                 }
                 .padding(.horizontal, 9).padding(.vertical, 6)
                 .background(Ak.cardField).clipShape(RoundedRectangle(cornerRadius: 9))
-                TextField("07 00 00 00 00", text: $value)
+                TextField("Numéro de téléphone", text: $value, prompt: Text("07 00 00 00 00").foregroundColor(Ak.muted))
                     .keyboardType(.phonePad)
                     .textContentType(.telephoneNumber)
                     .accessibilityLabel("Numéro de téléphone, indicatif +225")

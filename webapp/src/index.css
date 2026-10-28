@@ -98,6 +98,11 @@ input[type="checkbox"], input[type="radio"] {
   accent-color: var(--primary);
 }
 
+/* WebKit otherwise dims the native date/time text below the form text contrast. */
+input[type="date"], input[type="time"] {
+  -webkit-text-fill-color: var(--foreground);
+}
+
 img { max-width: 100%; }
 fieldset { min-width: 0; }
 

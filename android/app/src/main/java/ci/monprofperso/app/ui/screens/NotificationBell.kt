@@ -4,7 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Notifications
@@ -18,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -36,20 +37,28 @@ import ci.monprofperso.app.ui.theme.Hanken
 fun NotificationBell(nav: NavActions, size: Int = 44) {
     var count by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) { count = runCatching { Api.service.unreadCount().count }.getOrDefault(0) }
+    val notificationLabel = when {
+        count == 1 -> "Notifications, 1 notification non lue"
+        count > 1 -> "Notifications, $count notifications non lues"
+        else -> "Notifications"
+    }
 
     Box {
-        IconSquare(Icons.Outlined.Notifications, bg = AkColors.White, tint = AkColors.InkSoft, size = size, contentDescription = "Notifications",
+        IconSquare(Icons.Outlined.Notifications, bg = AkColors.White, tint = AkColors.InkSoft, size = size, contentDescription = notificationLabel,
             onClick = { nav.go(Routes.Notifications) })
         if (count > 0) {
             Box(
                 Modifier.align(Alignment.TopEnd).offset(x = 4.dp, y = (-4).dp)
-                    .size(18.dp).clip(CircleShape).background(AkColors.Orange),
+                    .sizeIn(minWidth = 18.dp, minHeight = 18.dp)
+                    .clip(CircleShape).background(AkColors.Orange)
+                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                    .clearAndSetSemantics {},
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     if (count > 9) "9+" else "$count",
-                    fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 10.sp, color = AkColors.White,
-                    modifier = Modifier.padding(horizontal = 1.dp),
+                    fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 10.sp,
+                    lineHeight = 12.sp, color = AkColors.Ink, maxLines = 1,
                 )
             }
         }

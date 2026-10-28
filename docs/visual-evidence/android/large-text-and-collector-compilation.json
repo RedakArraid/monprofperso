@@ -1,0 +1,14 @@
+{
+  "started_utc": "2026-10-28T19:07:12.763443+00:00",
+  "source_sha256": {
+    "android/app/src/androidTest/java/ci/monprofperso/app/VisualRegressionTest.kt": "7a84712c04c7713e99e0f86b8205b31f4a08dc4ae5bd0befd2d7163573ab7762",
+    "android/app/src/main/java/ci/monprofperso/app/ui/screens/AuthScreens.kt": "a389de6b91655a0cc2267f17c36b833b22417775cec1ac22eca592b565952d08",
+    "android/scripts/run-visual-test.sh": "4de6e3b3f26a47d00071ecf90e8181a21ac85f25c6f4bf489a3d99af26c54e1f"
+  },
+  "tasks": [
+    ":app:compileDebugKotlin",
+    ":app:compileDebugAndroidTestKotlin"
+  ],
+  "exit_code": 0,
+  "finished_utc": "2026-10-28T19:07:37.190002+00:00"
+}

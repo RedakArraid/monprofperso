@@ -6,6 +6,7 @@
   "scripts": {
     "test": "node --test --test-isolation=none test/*.test.mjs",
     "test:visual": "playwright test",
+    "test:visual:webkit": "playwright test --browser=webkit --grep=\"320px|390px|navigation mobile\"",
     "test:visual:public": "node ../scripts/visual/public-review.cjs",
     "dev": "vite",
     "build": "tsc -b && vite build",

@@ -51,7 +51,7 @@ struct WelcomeScreen: View {
                     .clipShape(RoundedRectangle(cornerRadius: 13)).accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title).font(AkFont.bold(16)).foregroundColor(selected ? Ak.ink : .white)
-                    Text(sub).font(AkFont.regular(13)).foregroundColor(selected ? Ak.muted : Ak.onGreenSoft)
+                    Text(sub).font(AkFont.regular(13)).foregroundColor(selected ? Ak.muted : Ak.greenSoft)
                 }.fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
@@ -212,7 +212,7 @@ struct LoginScreen: View {
                     }
                     #endif
                 }.padding(.horizontal, 26).padding(.top, 30)
-            }
+            }.clipped()
             Button("Nouveau sur Mon Prof Perso ? Créer un compte") { router.go(.signup) }
                 .font(AkFont.bold(14)).foregroundColor(Ak.green).multilineTextAlignment(.center).frame(minHeight: 48).padding(.horizontal, 24).padding(.bottom, 8)
         }
@@ -257,7 +257,7 @@ struct OtpScreen: View {
                 Text("Entrez le code").font(AkFont.schibstedExtra(25)).foregroundColor(Ak.ink)
                 Text("Code envoyé par \(router.authOtpChannel == "email" ? "e-mail" : "WhatsApp") à \(router.authDestination). Valable \(router.otpTtlMinutes) minutes.")
                     .font(AkFont.regular(13.5)).foregroundColor(Ak.muted)
-                TextField("Code à 6 chiffres", text: $code)
+                TextField("Code à 6 chiffres", text: $code, prompt: Text("6 chiffres").foregroundColor(Ak.muted))
                     .keyboardType(.numberPad).textContentType(.oneTimeCode).focused($focused)
                     .accessibilityIdentifier("otp.code")
                     .toolbar { ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Terminé") { focused = false } } }
@@ -327,7 +327,7 @@ struct OtpScreen: View {
 private func authTextField(_ label: String, text: Binding<String>) -> some View {
     VStack(alignment: .leading, spacing: 6) {
         Text(label).font(AkFont.semibold(12)).foregroundColor(Ak.muted)
-        TextField(label, text: text).font(AkFont.regular(14.5)).foregroundColor(Ak.ink)
+        TextField(label, text: text, prompt: Text(label).foregroundColor(Ak.muted)).font(AkFont.regular(14.5)).foregroundColor(Ak.ink)
             .padding(14).background(.white).clipShape(RoundedRectangle(cornerRadius: 14))
             .overlay(RoundedRectangle(cornerRadius: 14).stroke(Ak.border, lineWidth: 1))
     }

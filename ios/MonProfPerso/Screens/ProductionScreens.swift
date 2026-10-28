@@ -44,7 +44,7 @@ private struct OperationField: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(label).font(AkFont.semibold(12)).foregroundColor(Ak.muted)
-            TextField(label, text: $value, axis: .vertical).font(AkFont.regular(16)).foregroundColor(Ak.ink)
+            TextField(label, text: $value, prompt: Text(label).foregroundColor(Ak.muted), axis: .vertical).font(AkFont.regular(16)).foregroundColor(Ak.ink)
                 .padding(13).frame(minHeight: 48).background(Ak.cardField).clipShape(RoundedRectangle(cornerRadius: 12))
                 .accessibilityLabel(label)
         }
@@ -644,7 +644,7 @@ struct ProductionSearchScreen: View {
                         Text("Cherchez une matière, un nom ou un quartier, puis découvrez les profils.").font(AkFont.regular(15)).foregroundColor(Ak.muted)
                         HStack(spacing: 10) {
                             Image(systemName: "magnifyingglass").foregroundColor(Ak.green).accessibilityHidden(true)
-                            TextField("Matière, professeur ou quartier", text: $query).font(AkFont.regular(16))
+                            TextField("Matière, professeur ou quartier", text: $query, prompt: Text("Matière, professeur ou quartier").foregroundColor(Ak.muted)).font(AkFont.regular(16))
                                 .autocorrectionDisabled().submitLabel(.search).accessibilityIdentifier("search.query")
                         }.padding(15).background(.white).clipShape(RoundedRectangle(cornerRadius: 15))
                             .overlay(RoundedRectangle(cornerRadius: 15).stroke(Ak.border, lineWidth: 1))
@@ -811,7 +811,7 @@ struct ProductionRequestsScreen: View {
             if let student = request.student { Text(student) }
             if let subject = request.subject { Text(subject) }
             if let slot = request.slot { Text(slot) }
-            if let format = request.format { Text(format) }
+            if let format = request.format { Text(format == "home" ? "À domicile" : format == "online" ? "En ligne" : format) }
             if let duration = request.duration { Text("Durée : \(duration)") }
             if let frequency = request.frequency { Text("Fréquence : \(frequency)") }
             Text("\(request.isOpportunity == true ? "Rémunération proposée" : "Prix du cours") : \(request.price.formattedFCFA) F CFA")

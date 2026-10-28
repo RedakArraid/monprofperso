@@ -21,6 +21,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.json.JSONObject
 import java.io.File
 import java.net.URI
 
@@ -29,7 +30,14 @@ import java.net.URI
 class VisualRegressionTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
-    private val evidenceDirectory get() = File(instrumentation.targetContext.getExternalFilesDir(null), "visual-proof").apply { mkdirs() }
+    private val evidenceDirectory get(): File {
+        val output = checkNotNull(InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")) {
+            "La recette exige la collecte Gradle additionalTestOutputDir."
+        }
+        return File(output, "visual-proof").apply {
+            check(isDirectory || mkdirs()) { "Impossible de créer le répertoire de captures UTP." }
+        }
+    }
 
     @Test
     fun accessiblePhoneFlowsAndVisualEvidence() {
@@ -37,13 +45,17 @@ class VisualRegressionTest {
         try {
             shell("wm size 720x1280")
             shell("wm density 320")
+            compose.waitUntil(20_000) {
+                val configuration = compose.activity.resources.configuration
+                configuration.densityDpi == 320 && configuration.screenWidthDp == 360
+            }
             shell("settings put secure show_ime_with_hard_keyboard 1")
             changeFontScale(1f)
             waitForText("Continuer")
             assertWholeButton("Continuer")
             capture("01-welcome-phone")
 
-            changeFontScale(1.6f)
+            changeFontScale(2f)
             waitForText("Continuer")
             assertWholeButton("Continuer")
             compose.onNodeWithText("Un professeur").performScrollTo().performClick().assertIsSelected()
@@ -57,7 +69,13 @@ class VisualRegressionTest {
 
             login("0700000101")
             waitForText("Bonjour,")
+            waitForText("Mariam Coulibaly")
             capture("06-parent-home")
+            changeFontScale(2f)
+            waitForText("Mariam Coulibaly")
+            assertWholeNavigationTabs()
+            capture("06a-parent-home-large-text")
+            changeFontScale(1f)
             tab("Recherche")
             waitForText("Consulter le profil")
             capture("07-search")
@@ -65,7 +83,7 @@ class VisualRegressionTest {
             waitForText("Réserver un cours")
             assertWholeButton("Réserver un cours")
             capture("08-teacher-profile")
-            changeFontScale(1.6f)
+            changeFontScale(2f)
             waitForText("Réserver un cours")
             assertWholeButton("Réserver un cours")
             compose.onNodeWithText("À propos").performScrollTo().assertIsDisplayed()
@@ -93,8 +111,13 @@ class VisualRegressionTest {
             logout()
 
             login("0700000102")
-            waitForText("Prochains cours")
+            waitForText("Demandes et offres disponibles", substring = true)
             capture("14-teacher-dashboard")
+            changeFontScale(2f)
+            waitForText("Demandes et offres disponibles", substring = true)
+            assertWholeNavigationTabs()
+            capture("14a-teacher-dashboard-large-text")
+            changeFontScale(1f)
             tab("Revenus")
             waitForText("Disponible pour une demande", substring = true)
             capture("15-teacher-finances")
@@ -116,7 +139,8 @@ class VisualRegressionTest {
             shell("wm size 1600x1000")
             shell("wm density 240")
             compose.waitUntil(20_000) {
-                compose.activity.resources.configuration.screenWidthDp > compose.activity.resources.configuration.screenHeightDp
+                val configuration = compose.activity.resources.configuration
+                configuration.densityDpi == 240 && configuration.screenWidthDp > configuration.screenHeightDp
             }
             waitForText("Continuer")
             assertWholeButton("Continuer")
@@ -208,6 +232,18 @@ class VisualRegressionTest {
         val button = compose.onNodeWithText(label).assertIsDisplayed().assertHeightIsAtLeast(48.dp).fetchSemanticsNode()
         assertTrue("Le bouton $label doit rester entièrement visible", button.boundsInRoot.height >= button.size.height - 1f)
     }
+    private fun assertWholeNavigationTabs() {
+        val tabs = compose.onAllNodes(hasRole(Role.Tab))
+        val nodes = tabs.fetchSemanticsNodes()
+        assertTrue("La navigation connectée doit rester présente", nodes.size >= 4)
+        nodes.indices.forEach { index ->
+            val node = tabs[index].assertIsDisplayed().assertIsEnabled().assertHasClickAction()
+                .assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp).fetchSemanticsNode()
+            assertTrue("Un onglet est rogné horizontalement", node.boundsInRoot.width >= node.size.width - 1f)
+            assertTrue("Un onglet est rogné verticalement", node.boundsInRoot.height >= node.size.height - 1f)
+        }
+        compose.onAllNodes(hasRole(Role.Tab) and isSelected()).assertCountEquals(1)
+    }
     private fun waitForKeyboard() {
         compose.waitUntil(20_000) {
             ViewCompat.getRootWindowInsets(compose.activity.window.decorView)?.isVisible(WindowInsetsCompat.Type.ime()) == true
@@ -231,8 +267,15 @@ class VisualRegressionTest {
     private fun capture(name: String) {
         compose.waitForIdle()
         val bitmap = checkNotNull(instrumentation.uiAutomation.takeScreenshot()) { "Capture indisponible" }
-        File(evidenceDirectory, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        val configuration = compose.activity.resources.configuration
+        val metadata = JSONObject().put("screen", name).put("apiLevel", android.os.Build.VERSION.SDK_INT)
+            .put("fontScale", configuration.fontScale.toDouble()).put("densityDpi", configuration.densityDpi)
+            .put("screenWidthDp", configuration.screenWidthDp).put("screenHeightDp", configuration.screenHeightDp)
+            .put("imageWidth", bitmap.width).put("imageHeight", bitmap.height).put("fixture", "local-only")
+        val encoded = File(evidenceDirectory, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         bitmap.recycle()
+        check(encoded) { "Échec d’encodage de la capture $name." }
+        File(evidenceDirectory, "$name.json").writeText(metadata.toString(2))
         File(evidenceDirectory, "$name.txt").writeText(compose.onRoot().printToString())
         File(evidenceDirectory, "README.txt").writeText(
             "Captures des vraies vues Android, API36 en émulation. Données et OTP de fixtures locales. " +

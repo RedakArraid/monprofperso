@@ -34,9 +34,9 @@ struct BookingScreen: View {
                     }.pickerStyle(.segmented)
                     if router.bkFormats.isEmpty { Text("Aucun format de cours disponible pour ce professeur dans la version actuelle.").foregroundColor(Ak.orange) }
                     if format == "home" {
-                        TextField("Adresse précise du cours", text: $router.bkLocation, axis: .vertical).textFieldStyle(.roundedBorder)
+                        TextField("Adresse précise du cours", text: $router.bkLocation, prompt: Text("Adresse précise du cours").foregroundColor(Ak.muted), axis: .vertical).textFieldStyle(.roundedBorder)
                     }
-                    TextField("Niveau de l’élève", text: $router.bkLevel).textFieldStyle(.roundedBorder)
+                    TextField("Niveau de l’élève", text: $router.bkLevel, prompt: Text("Niveau de l’élève").foregroundColor(Ak.muted)).textFieldStyle(.roundedBorder)
                     Text("\(router.bkSubject) · \(router.bkLevel)").font(AkFont.bold(14)).foregroundColor(Ak.ink)
                     Text("Choisir une date et une heure").font(AkFont.schibstedBold(14.5)).foregroundColor(Ak.ink)
                     DatePicker("Créneau souhaité", selection: $startAt, in: Date()...,

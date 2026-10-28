@@ -106,8 +106,33 @@ a compilé l’application et réussi les 11 tests unitaires sur iPhone 17 Pro /
 26.4.1. Ses quatre parcours UI se sont arrêtés après l’OTP : les captures montrent
 « La session n’a pas pu être enregistrée dans le trousseau » avec la signature
 désactivée. Ces captures attestent seulement les écrans atteints, pas les parcours
-connectés. Le correctif de signature et les ajustements visuels doivent être
-revérifiés sur leur nouvelle révision ; conserver le vrai Keychain dans les tests.
+connectés.
+
+La [CI du candidat `7d926c0`](https://github.com/RedakArraid/monprofperso/actions/runs/40749309467)
+a ensuite réussi les **11 tests unitaires et les quatre parcours XCUITest** sur
+**iPhone SE de troisième génération / iOS 26.4.1**, avec le vrai Keychain et une
+signature locale ad hoc. Les parcours UI ont duré 162,428 secondes. L’assertion
+de visibilité du champ OTP a réussi avec le clavier logiciel ouvert et la taille
+Dynamic Type `Accessibility XXXL`, avant tout tap ou défilement du test sur le
+champ. Les 27 PNG exportés ont été inspectés : ils correspondent à 22 images
+distinctes. Quatre pièces jointes portent à tort un nom `failure` car
+`hasSucceeded` était lu avant la clôture du test ; leurs pixels sont identiques
+aux captures de fin réussies. Le compteur d’échecs et d’exceptions
+`totalFailureCount` remplace maintenant cette condition. Les deux captures de
+détail de cours étaient aussi identiques ; la suivante défilera jusqu’au bouton
+du formulaire pour en montrer les champs, sans modifier les données.
+
+Cette inspection confirme le défilement de l’accueil hors de la barre système,
+les écrans connectés et la distinction entre vide et indisponibilité. Elle a
+également révélé des initiales tronquées dans l’avatar et une pastille de
+notification trop agrandie, un texte indicatif OTP tronqué, des textes indicatifs
+trop pâles, et le code `home` présenté dans une demande professeur. Le delta
+suivant corrige ces points, limite le dessin de la connexion à sa zone défilable
+et ajoute des gestes explicites dans le test de navigation agrandie jusqu’à
+Compte puis Accueil. Les noms et textes de contenu conservent Dynamic Type ;
+seuls les repères graphiques de l’avatar et de la pastille ont une taille fixe.
+Ces modifications et les couleurs ci-dessous nécessitent encore des captures
+sur leur propre révision.
 
 Choisir un dossier `.xcresult` neuf à chaque exécution. La CI privilégie un
 iPhone SE installé ou tente d’en créer un si ce type est disponible. Sinon,
@@ -118,3 +143,34 @@ explicite de test et une API locale ; aucune session n’est injectée et aucun
 prestataire externe n’est contacté. Lire les captures produites avant validation.
 Cette recette ne remplace pas les essais VoiceOver, clavier, installation signée
 et retour des applications de paiement sur appareil physique.
+
+### Contrastes mesurés
+
+La revue du 28 octobre 2026 a renforcé les couleurs de petit texte. Le vert
+`#0E5A43` et l’orange `#E8722A` de marque sont conservés. Les ratios ci-dessous
+utilisent la luminance relative sRGB et la formule `(Lclair + 0,05) / (Lsombre + 0,05)`
+du [critère WCAG 2.2 1.4.3](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html),
+avec un objectif de **4,5:1** pour ces textes. Les valeurs affichées sont arrondies
+à trois décimales ; la comparaison au seuil porte sur les valeurs non arrondies.
+
+| Texte | Fond | Avant | Après | Ratio avant → après |
+| --- | --- | --- | --- | --- |
+| Sous-titre d’un rôle non sélectionné | Blanc à 10 % sur `#0E5A43` | `#C6DCD2` | `#E2EFE9` | 4,416 → **5,383** |
+| Texte secondaire (`Ak.muted`) | Canvas `#F7F4EE` | `#67756D` | `#5B685F` | 4,406 → **5,328** |
+| Texte secondaire | Champ `#F2EFE8` | `#67756D` | `#5B685F` | 4,212 → **5,094** |
+| Texte secondaire | Blanc `#FFFFFF` | `#67756D` | `#5B685F` | 4,836 → **5,849** |
+| Texte secondaire | Crème `#ECE7DE` | `#67756D` | `#5B685F` | 3,927 → **4,750** |
+| Erreur (`Ak.danger`) | Canvas `#F7F4EE` | `#E0392B` | `#BF3326` | 3,994 → **5,147** |
+| Erreur | Blanc `#FFFFFF` | `#E0392B` | `#BF3326` | 4,385 → **5,650** |
+| Erreur | Crème `#ECE7DE` | `#E0392B` | `#BF3326` | 3,560 → **4,588** |
+| Nombre de notifications | Orange `#E8722A` | `#FFFFFF` | `#18241E` | 3,056 → **5,246** |
+
+La composition de la carte de rôle est calculée avant la luminance, sans arrondir
+ses canaux (R 38,1 ; V 106,5 ; B 85,8 sur 255). `Ak.onGreenSoft` reste utilisé
+directement sur le vert, où son ratio est de 5,686:1. Ces mesures portent sur les
+couples de couleurs du code ; elles ne constituent pas un audit d’accessibilité
+complet. Les textes indicatifs des champs communs utilisent désormais `Ak.muted`,
+soit 5,849:1 sur blanc et 5,094:1 sur le fond de champ. La pastille est masquée
+aux lecteurs d’écran, car le libellé du bouton annonce déjà le nombre réel de
+notifications non lues. Le candidat `7d926c0` précède ces ajustements : ses captures
+ne permettent pas de valider leur rendu après correction.

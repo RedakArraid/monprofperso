@@ -1,0 +1,56 @@
+{
+  "scope": "Six parcours mobiles sur Playwright WebKit, uniquement des données de fixtures locales",
+  "base_commit": "7d926c022d7475ed63f79213e50cd8b16aab77d0",
+  "revision_note": "Captures du build final du worktree après correction du contraste date/heure WebKit. Le commit de base précède ce changement ; les empreintes du CSS source et des fichiers compilés identifient le contenu réellement testé.",
+  "browser": "Playwright WebKit 27.2, build 2370, Linux",
+  "playwright": "1.64.1",
+  "axe_core": "4.14.0",
+  "test_statistics": {
+    "startTime": "2026-10-28T19:09:00.499Z",
+    "duration": 21970.449,
+    "expected": 6,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "automated_accessibility": {
+    "checkpoints": 26,
+    "violations": 0
+  },
+  "compiled_assets": {
+    "web/espace/index.html": "5c4d5c47dbdd4cb92780c2486b05e7c7b32119841e80ef3112b575ddd3e87999",
+    "web/espace/assets/TeacherOffersPage-vh-t_kPv.css": "86d3d093fad979e1d185c8a93258f5f124d863fd13ca894c0b9f50bb68b66997",
+    "web/espace/assets/index-CxQsd12_.css": "4352b80f59c2b2e77862a556be02a088cda985b866441f1d59c343ae76d6d2d8",
+    "web/espace/assets/TeacherOffersPage-D4G-uTM0.js": "31591f069a32843400fa45e1e922de9a693f1cbadfe0b1af88e7ab960c6a182e",
+    "web/espace/assets/index-CKt8NFHB.js": "fff145d05c126923e5c64816cbd4aa0ae9e2486c314d7cae7b476524dadeadea"
+  },
+  "source_changes": {
+    "webapp/src/index.css": "b942439c6edc9e205ccb32761e0a0aff6571a0a2dc1f6b7184485522902eaac8"
+  },
+  "test_sources": {
+    "webapp/playwright.config.ts": "58dc8c65ae90722cea86e64fc01f21f80d4fa38b7e73e6897a1a6489d596ed9f",
+    "webapp/visual-tests/journeys.spec.ts": "01b7450acdd4304e712eab50b7c6dd13768482ce808e11d6c42caae5f400568f",
+    "scripts/visual/fixture-server.mjs": "fc71f30f2b968226a07ca4674bbd66dda4400cd5e56447b8b47e36ba200d0db3"
+  },
+  "screenshots": [
+    {
+      "file": "reservation-mobile-320.png",
+      "source": "journeys-parent-connexion-recherche-et-réservation-—-320px-webkit/reservation.png",
+      "width": 320,
+      "height": 1175,
+      "sha256": "71053a8399523c1f2edebb85ebb6a3299447e2c4acc72f3a2e9e09590415b992"
+    },
+    {
+      "file": "reservation-texte-200-320.png",
+      "source": "journeys-navigation-mobile-4174d--menu-Échap-et-texte-à-200--webkit/reservation-texte-200.png",
+      "width": 320,
+      "height": 2446,
+      "sha256": "eb9451fa8abfc88fff227bec2ebfdde11836094b13670664c80acfe6cf60dfbc"
+    }
+  ],
+  "limits": [
+    "Contrôle du moteur WebKit sous Linux, pas Safari sur iPhone physique.",
+    "Les dates/heures natives sont inspectées manuellement en plus des contrôles axe ; leur texte était trop pâle avant la correction CSS.",
+    "Aucune réservation ni aucun paiement envoyé."
+  ]
+}

@@ -87,20 +87,18 @@ MPP_VISUAL_FIXTURES=1 node scripts/visual/fixture-server.mjs
 Puis, depuis `android/`, avec un émulateur Android API 36 démarré :
 
 ```sh
-./gradlew --no-daemon :app:connectedDebugAndroidTest \
-  -Pandroid.testInstrumentationRunnerArguments.class=ci.monprofperso.app.VisualRegressionTest
-adb pull /sdcard/Android/data/ci.monprofperso.app.dev/files/visual-proof ./visual-proof
+bash scripts/run-visual-test.sh
 ```
 
-Le serveur écoute sur le port 8099 de la machine hôte ; l’émulateur l’atteint via `10.0.2.2`. Les captures PNG et les arbres sémantiques sont produits sur l’appareil, puis récupérés avant l’arrêt de l’émulateur. Le scénario utilise des OTP de fixture et ne déclenche aucun message ni paiement prestataire.
+Le serveur écoute sur le port 8099 de la machine hôte ; l’émulateur l’atteint via `10.0.2.2`. Les captures PNG, leurs métadonnées d’écran et les arbres sémantiques sont produits dans le répertoire `additionalTestOutputDir` fourni par Gradle. UTP les rapatrie avant de désinstaller les APK, sous `app/build/outputs/connected_android_test_additional_output/debugAndroidTest/`. Le scénario utilise des OTP de fixture et ne déclenche aucun message ni paiement prestataire.
 
-En CI, `bash scripts/run-visual-test.sh` exécute le test et la récupération dans un seul shell. Le script tente aussi de récupérer la capture d’échec lorsqu’une assertion échoue, puis conserve le code de sortie du test. La destination est `$RUNNER_TEMP/mpp-android-captures` en CI et peut être remplacée par `MPP_ANDROID_CAPTURE_DIR`.
+Le script conserve ces sorties natives même lorsqu’une assertion échoue, puis préserve le code de sortie du test. L’absence de PNG fait échouer la collecte. Chaque exécution utilise un sous-dossier distinct de `$RUNNER_TEMP/mpp-android-captures` en CI ou `app/build/mpp-android-captures` en local ; la destination peut être remplacée par `MPP_ANDROID_CAPTURE_DIR`. Les sorties régénérables UTP de la variante Debug sont nettoyées avant le test pour éviter de réattribuer d’anciennes images à une nouvelle exécution.
 
-La recette couvre l’accueil illustré, l’inscription, la connexion et l’OTP avec clavier ouvert, le catalogue, le profil professeur, la réservation, les cours, les paramètres, les données personnelles, le tableau de bord professeur, les revenus, l’état vide et la panne réseau. Elle vérifie les boutons principaux sur un téléphone de 360 dp de large, le texte à 160 % sur l’accueil et le profil professeur, puis un accueil en paysage. Une erreur réseau doit rester un état d’erreur et ne pas être annoncée comme une liste vide.
+La recette couvre l’accueil illustré, l’inscription, la connexion et l’OTP avec clavier ouvert, le catalogue, le profil professeur, la réservation, les cours, les paramètres, les données personnelles, le tableau de bord professeur, les revenus, l’état vide et la panne réseau. Elle vérifie les boutons principaux sur un téléphone de 360 dp de large, le texte à 200 % sur l’accueil et le profil professeur, ainsi que la navigation des accueils parent et professeur à 200 %, puis un accueil en paysage. Une erreur réseau doit rester un état d’erreur et ne pas être annoncée comme une liste vide. Le rapport de validation distingue cette couverture prévue des exécutions et images réellement obtenues.
 
 La mise en page tient compte des barres système, des découpes latérales et du clavier. Les contenus longs défilent ; les sélecteurs de créneau et la navigation exposent leur sélection aux services d’accessibilité. L’illustration de tutorat est décorative et tous les libellés restent du texte natif. Le thème clair garde des icônes système lisibles quand le téléphone utilise le mode sombre.
 
-Le changement de taille du texte ou la rotation conserve la destination courante : la vérification initiale de session est mémorisée dans un `ViewModel` pendant la vie de l’activité et ses recréations. Un nouveau processus revérifie la session auprès de l’API. Le passage du profil professeur à 160 % de police dans la recette couvre cette régression de navigation.
+Le changement de taille du texte ou la rotation conserve la destination courante : la vérification initiale de session est mémorisée dans un `ViewModel` pendant la vie de l’activité et ses recréations. Un nouveau processus revérifie la session auprès de l’API. Le changement de police sur le profil professeur couvre cette régression de navigation.
 
 Lire les captures produites : un test réussi prouve le parcours et ses assertions, mais ne remplace pas leur inspection visuelle. Les émulateurs ne couvrent pas à eux seuls les claviers constructeurs, TalkBack, tous les formats d’appareils, le retour des applications de paiement ou les exigences de publication Google Play.
 

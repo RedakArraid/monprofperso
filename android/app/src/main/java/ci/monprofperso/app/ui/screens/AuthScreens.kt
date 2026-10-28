@@ -120,7 +120,7 @@ private fun Stat(value: String, label: String) {
 private fun RoleOption(icon: ImageVector, title: String, subtitle: String, selected: Boolean = false, onClick: () -> Unit = {}) {
     val bg = if (selected) AkColors.White else AkColors.White.copy(alpha = 0.12f)
     val titleColor = if (selected) AkColors.Ink else AkColors.White
-    val subColor = if (selected) AkColors.Muted else AkColors.OnGreenFaint
+    val subColor = if (selected) AkColors.Muted else AkColors.GreenSoft
     Row(
         Modifier
             .fillMaxWidth()

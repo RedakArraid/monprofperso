@@ -10,7 +10,8 @@ final class VisualJourneyTests: XCTestCase {
     }
 
     override func tearDownWithError() throws {
-        if let run = testRun, run.hasSucceeded == false { capture("failure-\(name)") }
+        // hasSucceeded n'est définitif qu'après la clôture du test.
+        if let run = testRun, run.totalFailureCount > 0 { capture("failure-\(name)") }
         app.terminate()
     }
 
@@ -43,6 +44,22 @@ final class VisualJourneyTests: XCTestCase {
     private func dismissKeyboard() {
         let done = app.buttons["Terminé"].firstMatch
         if done.exists && done.isHittable { done.tap() }
+    }
+
+    @discardableResult
+    private func revealNavigationItem(_ item: XCUIElement, swipingLeft: Bool) -> Int {
+        let navigation = app.scrollViews["navigation.scroll"]
+        XCTAssertTrue(navigation.waitForExistence(timeout: 10))
+        var swipes = 0
+        func fullyVisible() -> Bool {
+            item.exists && item.isHittable && navigation.frame.contains(item.frame)
+        }
+        while swipes < 8 && !fullyVisible() {
+            if swipingLeft { navigation.swipeLeft() } else { navigation.swipeRight() }
+            swipes += 1
+        }
+        XCTAssertTrue(fullyVisible(), "L’onglet doit être entièrement visible après les gestes de défilement, avant le tap XCTest.")
+        return swipes
     }
 
     private func assertOTPInputVisible(_ field: XCUIElement) {
@@ -111,7 +128,8 @@ final class VisualJourneyTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Cours planifié"].waitForExistence(timeout: 10))
         capture("09-course-detail")
         // Le formulaire vient après le récapitulatif dans une LazyVStack.
-        visible(app.staticTexts["Informations du rendez-vous"])
+        visible(app.buttons["Enregistrer"].firstMatch)
+        XCTAssertTrue(app.staticTexts["Informations du rendez-vous"].exists)
         capture("09-course-appointment")
         app.buttons["Retour"].firstMatch.tap()
         app.buttons["nav.profil"].tap()
@@ -151,6 +169,16 @@ final class VisualJourneyTests: XCTestCase {
         login("0700000101", capturePrefix: "17-accessibility", assertVisibleOtp: true)
         XCTAssertTrue(app.buttons["home.search"].waitForExistence(timeout: 15))
         capture("18-accessibility-home")
+        let account = app.buttons["nav.profil"]
+        XCTAssertGreaterThan(revealNavigationItem(account, swipingLeft: true), 0)
+        capture("18-accessibility-navigation-end")
+        account.tap()
+        XCTAssertTrue(app.staticTexts["Mon compte"].waitForExistence(timeout: 10))
+        capture("18-accessibility-account")
+        let home = app.buttons["nav.accueil"]
+        revealNavigationItem(home, swipingLeft: false)
+        home.tap()
+        XCTAssertTrue(app.buttons["home.search"].waitForExistence(timeout: 10))
     }
 
     func testEmptyAndUnavailableStatesAreDistinct() {
