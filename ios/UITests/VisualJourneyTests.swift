@@ -97,6 +97,21 @@ final class VisualJourneyTests: XCTestCase {
         verify.tap()
     }
 
+    private func openResourcesFromAccount() {
+        app.buttons["nav.profil"].tap()
+        let resources = app.buttons["Ressources pédagogiques"].firstMatch
+        XCTAssertTrue(resources.waitForExistence(timeout: 10))
+        visible(resources, scroll: app.scrollViews["account.scroll"])
+        resources.tap()
+        XCTAssertTrue(app.staticTexts["Ressources & supports"].waitForExistence(timeout: 10))
+    }
+
+    private func assertNoSampleResources() {
+        for title in ["Fiche, Théorème de Thalès", "Série d'exercices, Optique", "Devoir, Commentaire de texte"] {
+            XCTAssertFalse(app.staticTexts[title].exists, "Une réponse vide ou en erreur ne doit pas afficher une ressource de démonstration.")
+        }
+    }
+
     func testParentScreensAndNavigation() {
         launch()
         capture("01-welcome-top")
@@ -188,6 +203,18 @@ final class VisualJourneyTests: XCTestCase {
         app.buttons["nav.cours"].tap()
         XCTAssertTrue(app.staticTexts["Aucun cours pour le moment"].waitForExistence(timeout: 10))
         capture("19-empty-courses")
+        openResourcesFromAccount()
+        XCTAssertTrue(app.staticTexts["Aucune ressource disponible"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.staticTexts["Ressources indisponibles"].exists)
+        XCTAssertFalse(app.buttons["Réessayer"].exists)
+        assertNoSampleResources()
+        let coursesFilter = app.buttons["resources.type.course"]
+        XCTAssertGreaterThanOrEqual(coursesFilter.frame.height, 44)
+        coursesFilter.tap()
+        XCTAssertTrue(coursesFilter.isSelected)
+        XCTAssertTrue(app.staticTexts["Aucune ressource disponible"].waitForExistence(timeout: 10))
+        assertNoSampleResources()
+        capture("21-empty-resources")
         app.terminate()
         launch()
         login("0700000199")
@@ -196,5 +223,18 @@ final class VisualJourneyTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Vos cours sont indisponibles"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.staticTexts["Aucun cours pour le moment"].exists)
         capture("20-unavailable-courses")
+        openResourcesFromAccount()
+        XCTAssertTrue(app.staticTexts["Ressources indisponibles"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.staticTexts["Aucune ressource disponible"].exists)
+        assertNoSampleResources()
+        let retry = app.buttons["Réessayer"].firstMatch
+        visible(retry, scroll: app.scrollViews["resources.scroll"])
+        capture("22-unavailable-resources")
+        retry.tap()
+        XCTAssertTrue(app.staticTexts["Ressources indisponibles"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.staticTexts["Aucune ressource disponible"].exists)
+        XCTAssertTrue(retry.isHittable)
+        assertNoSampleResources()
+        capture("23-retry-resources")
     }
 }

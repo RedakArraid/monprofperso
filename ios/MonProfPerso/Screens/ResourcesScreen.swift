@@ -2,7 +2,7 @@ import SwiftUI
 
 /* ====================================================================== *
  * ÉCRAN UTILISATEUR, RESSOURCES & SUPPORTS (lecture seule)
- * Consomme /api/resources en live ; repli sur quelques exemples hors-ligne.
+ * Consomme uniquement les ressources reçues de /api/resources.
  * Filtrage par type et par programme scolaire (standard, français, autre).
  * ====================================================================== */
 private let resourceFilters: [(value: String?, label: String)] = [
@@ -35,13 +35,15 @@ private func matchesProgram(_ r: ResourceDTO, filter: String?) -> Bool {
 struct ResourcesScreen: View {
     @EnvironmentObject var router: Router
     @Environment(\.openURL) private var openURL
-    @State private var all: [ResourceDTO]? = nil
+    @State private var all: [ResourceDTO] = []
     @State private var typeFilter: String? = nil
     @State private var programFilter: String? = nil
-    @State private var offline = false
+    @State private var loading = true
+    @State private var loadError: String?
+    @State private var reloadCount = 0
 
     private var items: [ResourceDTO] {
-        (all ?? []).filter { r in
+        all.filter { r in
             (typeFilter == nil || r.type == typeFilter) && matchesProgram(r, filter: programFilter)
         }
     }
@@ -53,6 +55,7 @@ struct ResourcesScreen: View {
                 HStack(spacing: 8) {
                     ForEach(resourceFilters, id: \.label) { f in
                         filterChip(f.label, selected: typeFilter == f.value) { typeFilter = f.value }
+                            .accessibilityIdentifier("resources.type.\(f.value ?? "all")")
                     }
                 }.padding(.horizontal, 22)
             }.padding(.vertical, 4)
@@ -60,48 +63,67 @@ struct ResourcesScreen: View {
                 HStack(spacing: 8) {
                     ForEach(programFilters, id: \.label) { f in
                         filterChip(f.label, selected: programFilter == f.value) { programFilter = f.value }
+                            .accessibilityIdentifier("resources.program.\(f.value ?? "all")")
                     }
                 }.padding(.horizontal, 22)
             }.padding(.bottom, 4)
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    if all == nil {
-                        Text("Chargement…").font(AkFont.regular(13)).foregroundColor(Ak.faint)
+                    if loading {
+                        LoadingRow()
+                    } else if let loadError {
+                        ScreenState(icon: "wifi.slash", title: "Ressources indisponibles", message: loadError,
+                                    retry: { reloadCount += 1 })
                     } else if items.isEmpty {
-                        Text("Aucune ressource disponible pour ce filtre.").font(AkFont.regular(13)).foregroundColor(Ak.faint)
-                    }
-                    VStack(spacing: 10) {
-                        ForEach(items) { r in resourceCard(r) }
+                        ScreenState(icon: "doc.text", title: "Aucune ressource disponible",
+                                    message: typeFilter == nil && programFilter == nil
+                                        ? "Les ressources publiées apparaîtront ici."
+                                        : "Aucune ressource ne correspond aux filtres choisis. Essayez un autre filtre.")
+                    } else {
+                        VStack(spacing: 10) {
+                            ForEach(items) { r in resourceCard(r) }
+                        }
                     }
                     Spacer(minLength: 20)
                 }
                 .padding(.horizontal, 22).padding(.top, 8)
-            }
+            }.accessibilityIdentifier("resources.scroll")
         }
-        .task(id: "\(typeFilter ?? "")|\(programFilter ?? "")") { await load() }
+        .task(id: "\(typeFilter ?? "")|\(programFilter ?? "")|\(reloadCount)") { await load() }
     }
 
+    @MainActor
     private func load() async {
-        if let live = try? await ApiClient.shared.resources(type: typeFilter, program: programFilter) {
-            offline = false
-            all = live.isEmpty ? Fallback.resources : live
-        } else {
-            offline = true
-            all = Fallback.resources
+        loading = true
+        loadError = nil
+        all = []
+        do {
+            let live = try await ApiClient.shared.resources(type: typeFilter, program: programFilter)
+            // Un ancien filtre annulé ne doit pas remplacer le résultat de la nouvelle requête.
+            try Task.checkCancellation()
+            all = live
+            loading = false
+        } catch {
+            guard !Task.isCancelled else { return }
+            loadError = error.localizedDescription
+            loading = false
         }
     }
 
     private func filterChip(_ label: String, selected: Bool, action: @escaping () -> Void) -> some View {
-        Text(label).font(AkFont.bold(12.5)).foregroundColor(selected ? .white : Ak.inkSoft)
-            .padding(.horizontal, 14).padding(.vertical, 9)
-            .background(selected ? Ak.green : .white)
-            .clipShape(Capsule())
-            .overlay(Capsule().stroke(Ak.border, lineWidth: selected ? 0 : 1))
-            .contentShape(Rectangle()).onTapGesture(perform: action)
+        Button(action: action) {
+            Text(label).font(AkFont.bold(12.5)).foregroundColor(selected ? .white : Ak.inkSoft)
+                .padding(.horizontal, 14).padding(.vertical, 9).frame(minHeight: 44)
+                .background(selected ? Ak.green : .white)
+                .clipShape(Capsule())
+                .overlay(Capsule().stroke(Ak.border, lineWidth: selected ? 0 : 1))
+                .contentShape(Rectangle())
+        }.buttonStyle(.plain)
+            .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     private func resourceCard(_ r: ResourceDTO) -> some View {
-        let accent = r.type == "homework" ? Ak.orange : Ak.green
+        let accent = r.type == "homework" ? Ak.orangeText : Ak.green
         let soft = r.type == "homework" ? Ak.orangeSoft : Ak.greenSoft
         let prog = programLabel(r.program ?? "standard")
         let tags = [r.subject_slug, r.level].compactMap { $0 }.joined(separator: " · ")

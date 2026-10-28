@@ -152,6 +152,28 @@ prestataire externe n’est contacté. Lire les captures produites avant validat
 Cette recette ne remplace pas les essais VoiceOver, clavier, installation signée
 et retour des applications de paiement sur appareil physique.
 
+### Ressources : états réels
+
+L’écran accessible depuis **Compte → Ressources pédagogiques** remplaçait une
+liste API vide ou une erreur par des exemples locaux. Ce repli est supprimé en
+Debug comme en Release : chargement, résultat vide et erreur avec **Réessayer**
+sont distincts, et seules les ressources reçues de l’API sont affichées. Les
+filtres sont des boutons accessibles de 44 points minimum, avec sélection annoncée.
+Le badge Devoir utilise `#A94713` sur `#FBE9DA` : contraste sRGB de **4,939:1**,
+contre 2,586:1 avec l’orange décoratif précédent, pour son texte de 10,5 points.
+
+Le parcours des comptes de recette `0700000198` et `0700000199` ajoute trois
+captures prévues, sans création de ressource :
+
+- `21-empty-resources` : réponse `200 []`, filtre Cours sélectionné et absence des anciens exemples.
+- `22-unavailable-resources` : réponse `503`, message d’erreur et réessai accessible.
+- `23-retry-resources` : après Réessayer, l’indisponibilité reste explicite et aucun exemple n’apparaît.
+
+**Cette nouvelle révision doit réussir sa propre CI iOS et ses trois nouvelles
+captures doivent être inspectées.** Les six preuves conservées du candidat
+`2c1b4c0` restent attribuées à leur révision d’origine ; elles ne valident pas ce
+correctif ultérieur.
+
 ### Contrastes mesurés
 
 La revue du 28 octobre 2026 a renforcé les couleurs de petit texte. Le vert

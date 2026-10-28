@@ -5,11 +5,14 @@ import android.os.ParcelFileDescriptor
 import android.view.inputmethod.InputMethodManager
 import android.content.Context
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -54,17 +57,20 @@ class VisualRegressionTest {
             changeFontScale(1f)
             waitForText("Continuer")
             assertWholeButton("Continuer")
+            assertSystemBarAppearance(darkIcons = false)
             capture("01-welcome-phone")
 
             changeFontScale(2f)
             waitForText("Continuer")
             assertWholeButton("Continuer")
             compose.onNodeWithText("Un professeur").performScrollTo().performClick().assertIsSelected()
+            assertSystemBarAppearance(darkIcons = false)
             capture("02-welcome-large-text")
             compose.onNodeWithText("Un parent").performScrollTo().performClick().assertIsSelected()
             changeFontScale(1f)
             click("Continuer")
             waitForText("Créer mon compte")
+            assertSystemBarAppearance(darkIcons = true)
             capture("03-signup")
             back()
 
@@ -74,7 +80,8 @@ class VisualRegressionTest {
             capture("06-parent-home")
             changeFontScale(2f)
             waitForText("Mariam Coulibaly")
-            assertWholeNavigationTabs()
+            exerciseLargeTextNavigation("Bonjour,")
+            waitForText("Mariam Coulibaly")
             capture("06a-parent-home-large-text")
             assertDifferentWindowContent("06-parent-home", "06a-parent-home-large-text")
             changeFontScale(1f)
@@ -123,7 +130,8 @@ class VisualRegressionTest {
             changeFontScale(2f)
             waitForText("Demandes et offres disponibles", substring = true)
             waitForText("Détails et suivi")
-            assertWholeNavigationTabs()
+            exerciseLargeTextNavigation("Demandes et offres disponibles", substring = true)
+            waitForText("Détails et suivi")
             capture("14a-teacher-dashboard-large-text")
             assertDifferentWindowContent("14-teacher-dashboard", "14a-teacher-dashboard-large-text")
             changeFontScale(1f)
@@ -136,6 +144,16 @@ class VisualRegressionTest {
             tab("Cours")
             waitForText("Aucun cours dans cette rubrique")
             capture("16-empty-courses")
+            openResources()
+            waitForText("Aucune ressource disponible")
+            compose.onAllNodesWithText("Connexion indisponible").assertCountEquals(0)
+            resourceFilter("Type de ressource : Tout").assertIsSelected()
+            resourceFilter("Programme : Tout").assertIsSelected()
+            resourceFilter("Type de ressource : Cours").performClick().assertIsSelected()
+            resourceFilter("Programme : Standard").performClick().assertIsSelected()
+            waitForText("Aucune ressource disponible")
+            capture("16a-resources-empty")
+            back()
             logout()
 
             login("0700000199")
@@ -143,6 +161,15 @@ class VisualRegressionTest {
             waitForText("Connexion indisponible")
             compose.onAllNodesWithText("Aucun cours dans cette rubrique").assertCountEquals(0)
             capture("17-network-error")
+            openResources()
+            waitForText("Connexion indisponible")
+            compose.onAllNodesWithText("Aucune ressource disponible").assertCountEquals(0)
+            assertWholeButton("Réessayer")
+            click("Réessayer")
+            waitForText("Connexion indisponible")
+            compose.onAllNodesWithText("Aucune ressource disponible").assertCountEquals(0)
+            capture("17a-resources-error")
+            back()
             logout()
 
             shell("wm size 1600x1000")
@@ -153,6 +180,7 @@ class VisualRegressionTest {
             }
             waitForText("Continuer")
             assertWholeButton("Continuer")
+            assertSystemBarAppearance(darkIcons = false)
             capture("18-welcome-landscape")
         } catch (error: Throwable) {
             runCatching { capture("failure") }
@@ -187,6 +215,7 @@ class VisualRegressionTest {
             compose.onNodeWithText("Se connecter").performScrollTo().assertIsDisplayed()
             assertAboveKeyboard(compose.onNodeWithTag("auth-phone"))
             assertAboveKeyboard(compose.onNodeWithText("Se connecter"))
+            assertSystemBarAppearance(darkIcons = true)
             capture("04a-login-keyboard", keyboardVisible = true)
         }
         hideKeyboard()
@@ -199,6 +228,7 @@ class VisualRegressionTest {
             assertWholeButton("Vérifier")
             assertAboveKeyboard(compose.onNodeWithTag("auth-otp"))
             assertAboveKeyboard(compose.onNodeWithText("Vérifier"))
+            assertSystemBarAppearance(darkIcons = true)
             capture("05a-otp-keyboard", keyboardVisible = true)
         }
         hideKeyboard()
@@ -213,6 +243,17 @@ class VisualRegressionTest {
         click("Se déconnecter", scroll = true)
         waitForText("Continuer")
     }
+
+    private fun openResources() {
+        tab("Compte")
+        waitForText("Ressources pédagogiques")
+        click("Ressources pédagogiques", scroll = true)
+        waitForText("Ressources & supports")
+    }
+
+    private fun resourceFilter(label: String): SemanticsNodeInteraction =
+        compose.onNodeWithContentDescription(label).assert(hasRole(Role.Button)).assertHasClickAction()
+            .assertIsEnabled().assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp)
 
     private fun hasRole(role: Role) = SemanticsMatcher.expectValue(SemanticsProperties.Role, role)
     private fun tab(label: String) {
@@ -245,17 +286,60 @@ class VisualRegressionTest {
         val button = compose.onNodeWithText(label).assertIsDisplayed().assertHeightIsAtLeast(48.dp).fetchSemanticsNode()
         assertTrue("Le bouton $label doit rester entièrement visible", button.boundsInRoot.height >= button.size.height - 1f)
     }
-    private fun assertWholeNavigationTabs() {
-        val tabs = compose.onAllNodes(hasRole(Role.Tab))
-        val nodes = tabs.fetchSemanticsNodes()
-        assertTrue("La navigation connectée doit rester présente", nodes.size >= 4)
-        nodes.indices.forEach { index ->
-            val node = tabs[index].assertIsDisplayed().assertIsEnabled().assertHasClickAction()
-                .assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp).fetchSemanticsNode()
-            assertTrue("Un onglet est rogné horizontalement", node.boundsInRoot.width >= node.size.width - 1f)
-            assertTrue("Un onglet est rogné verticalement", node.boundsInRoot.height >= node.size.height - 1f)
+    private fun assertWholeNavigationTab(label: String): SemanticsNodeInteraction {
+        val tab = compose.onNode(hasText(label) and hasRole(Role.Tab))
+        val node = tab.assertIsDisplayed().assertIsEnabled().assertHasClickAction()
+            .assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp).fetchSemanticsNode()
+        assertTrue("L'onglet $label est rogné horizontalement", node.boundsInRoot.width >= node.size.width - 1f)
+        assertTrue("L'onglet $label est rogné verticalement", node.boundsInRoot.height >= node.size.height - 1f)
+        val layouts = mutableListOf<TextLayoutResult>()
+        compose.onNodeWithText(label, useUnmergedTree = true)
+            .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        assertTrue("Le libellé $label doit rester entier sur une ligne",
+            layouts.isNotEmpty() && layouts.all { it.lineCount == 1 && !it.hasVisualOverflow })
+        return tab
+    }
+    private fun wholeTabIsVisible(label: String): Boolean {
+        val node = compose.onAllNodes(hasText(label) and hasRole(Role.Tab)).fetchSemanticsNodes().singleOrNull() ?: return false
+        return node.boundsInRoot.width > 0 && node.boundsInRoot.height > 0 &&
+            node.boundsInRoot.width >= node.size.width - 1f && node.boundsInRoot.height >= node.size.height - 1f
+    }
+    private fun swipeNavigationTo(label: String, left: Boolean) {
+        repeat(5) {
+            if (wholeTabIsVisible(label)) return
+            compose.onNodeWithTag("main-navigation").performTouchInput { if (left) swipeLeft() else swipeRight() }
+            compose.waitForIdle()
         }
+        assertTrue("L'onglet $label doit être accessible par glissement", wholeTabIsVisible(label))
+    }
+    private fun exerciseLargeTextNavigation(homeMarker: String, substring: Boolean = false) {
+        assertTrue("La navigation connectée doit rester présente",
+            compose.onAllNodes(hasRole(Role.Tab)).fetchSemanticsNodes().size >= 4)
+        assertWholeNavigationTab("Accueil").assertIsSelected()
+        swipeNavigationTo("Compte", left = true)
+        assertWholeNavigationTab("Compte").performClick()
+        waitForText("Mon compte")
+        compose.waitUntil(20_000) { wholeTabIsVisible("Compte") }
+        assertWholeNavigationTab("Compte").assertIsSelected()
         compose.onAllNodes(hasRole(Role.Tab) and isSelected()).assertCountEquals(1)
+        swipeNavigationTo("Accueil", left = false)
+        assertWholeNavigationTab("Accueil").performClick()
+        waitForText(homeMarker, substring)
+        compose.waitUntil(20_000) { wholeTabIsVisible("Accueil") }
+        assertWholeNavigationTab("Accueil").assertIsSelected()
+        compose.onAllNodes(hasRole(Role.Tab) and isSelected()).assertCountEquals(1)
+    }
+    private fun assertSystemBarAppearance(darkIcons: Boolean) {
+        compose.waitUntil(20_000) {
+            val activity = compose.activity
+            var matches = false
+            instrumentation.runOnMainSync {
+                val controller = WindowCompat.getInsetsController(activity.window, activity.window.decorView)
+                matches = controller.isAppearanceLightStatusBars == darkIcons &&
+                    controller.isAppearanceLightNavigationBars == darkIcons
+            }
+            matches
+        }
     }
     private fun waitForKeyboard() {
         compose.waitUntil(20_000) {

@@ -153,3 +153,89 @@ utilisent le temps restant au budget global ; les bitmaps sont aussi libérés
 si la vérification du clavier ou l’encodage échoue. Aucun code produit ni contrat API
 n’a changé dans ce delta. Sa validation native et la revue des nouvelles images
 restent à effectuer avant de qualifier les preuves finales.
+
+## Correction ciblée des ressources pédagogiques
+
+La revue de `ResourcesScreen.kt`, accessible depuis le compte, a trouvé trois
+ressources d’exemple injectées à la fois après une réponse vide et après une
+erreur de l’API. Ce repli est supprimé. L’écran distingue maintenant chargement,
+liste vide et erreur avec réessai ; un changement de filtre relit le même contrat
+`GET /api/resources`, et une annulation de coroutine n’est pas traitée comme une
+panne. Seules les ressources reçues du serveur peuvent produire des cartes.
+
+Les filtres ont une cible minimale de 48 dp, un rôle de bouton, une sélection
+explicite et un nom distinguant le type de ressource du programme. Les tags des
+cartes passent à la ligne au besoin, le libellé orange utilise le ton contrasté,
+et l’écran respecte la zone de navigation système en bas.
+
+Deux étapes instrumentées supplémentaires ouvrent cet écran depuis le compte :
+`16a-resources-empty` vérifie le vide et les filtres du compte 0198 ;
+`17a-resources-error` vérifie l’erreur 503 et son réessai pour le compte 0199.
+Elles n’effectuent aucune écriture métier. La fixture de ce dernier compte doit
+renvoyer 503 pour `/api/resources`, y compris avec ses filtres ; les comptes
+normaux et 0198 renvoient une liste vide. Le parcours prévoit désormais 25 PNG.
+
+Le 28 octobre 2026 à 19:48 UTC, les tâches `:app:compileDebugKotlin` et
+`:app:compileDebugAndroidTestKotlin` de ce delta ont réussi en 19 secondes.
+Ce correctif et ces deux étapes ne font pas partie du candidat `6bd10c1` ;
+son résultat de recette ne doit pas leur être attribué.
+
+## Révision 6bd10c1 : capture synchronisée réussie et revue des 23 rendus
+
+Le [job Android du run 40756599455](https://github.com/RedakArraid/monprofperso/actions/runs/40756599455/job/123057065911)
+contrôle la tête `6bd10c1686e7f9e793894aa8ce86648dd40b0964`, via le commit de
+fusion temporaire `b9eea812424bb77a2798c2b5b4b75d1daf43ec53`. Les deux arbres
+correspondent à `f96959636d859ec12e036b0721d64bd2670220b4`.
+
+Le XML horodaté du 28 octobre 2026 à 19:47:58 UTC indique **un test réussi,
+zéro échec, erreur ou test ignoré, en 78,572 secondes**. Le job entier a réussi,
+y compris compilation, tests JVM et collecte. L’[artefact 12845558786](https://github.com/RedakArraid/monprofperso/actions/runs/40756599455/artifacts/12845558786)
+contient 23 PNG distincts et leurs JSON ; le SHA-256 vérifié du ZIP est
+`a7d8a2525e942fb0753e922118b76dd83b49384e3b4f6ff8b613f8dde9c95ec3`.
+
+Tous les PNG ont été inspectés. Les métadonnées confirment la comparaison exacte
+avec PixelCopy, quatre captures à l’échelle 2.0, les états de clavier ouvert et
+fermé, et le paysage de 1600 × 1000 px. Les rendus à 100 % et 200 % des accueils
+ont des empreintes de fenêtre différentes. L’inscription est désormais réellement
+capturée, les listes attendent leurs données et le paysage n’a plus de bande noire.
+Le profil agrandi, ses actions et le formulaire OTP avec clavier sont lisibles.
+
+La revue a également trouvé trois défauts concrets : des icônes système blanches
+sur le fond crème de l’inscription/connexion, des mots d’onglets coupés à 200 %,
+et les petites dates orange insuffisamment contrastées des cours en attente.
+Ces images restent conservées avec leur provenance ; elles ne sont pas présentées
+comme le rendu final des corrections suivantes ni du correctif Ressources.
+
+## Delta après la revue 6bd10c1
+
+Le style système est appliqué au `ON_RESUME` du propriétaire de destination par
+`LifecycleResumeEffect`. Une destination sortante ne restaure plus son ancien
+style. Cela évite la concurrence des `SideEffect` de deux écrans pendant la
+transition du NavHost. La documentation de [Navigation 2](https://developer.android.com/reference/androidx/navigation/NavController#getVisibleEntries())
+distingue l’entrée entrante `STARTED` pendant la transition puis `RESUMED` à son
+terme ; la [documentation Lifecycle](https://developer.android.com/topic/libraries/architecture/lifecycle)
+décrit l’effet employé. Les icônes attendues sont vérifiées dans le scénario,
+et leur rendu sera à relire sur les nouvelles captures.
+
+À une échelle de police supérieure à 1.0, les onglets disposent de leur largeur
+de contenu et défilent horizontalement, avec des libellés entiers sur une ligne.
+Leur taille de texte reste agrandie par Android ; la barre normale conserve ses
+colonnes pondérées. L’onglet sélectionné est rendu visible après sa mise en page.
+Le parcours utilise de vrais glissements jusqu’à « Compte », le sélectionne,
+puis revient à « Accueil » pour le parent et le professeur. Il vérifie la cible
+de 48 dp, le cadre entier, l’absence de débordement du texte et la sélection
+unique, sans `performScrollTo` pour la navigation.
+
+Les deux textes de `DateTile` passent de `Orange` à `OrangeStrong` sur
+`OrangeSoft` : leur contraste calculé passe de 2,59:1 à 4,88:1. Cette correction
+de couleur ne change pas les statuts de cours. Le lot conserve le correctif
+Ressources et prévoit 25 captures ; sa recette native reste à effectuer.
+
+La compilation finale de `compileDebugKotlin` et `compileDebugAndroidTestKotlin`
+a réussi le 28 octobre 2026 à 19:58 UTC en 48 secondes, sans compilation Kotlin
+incrémentale et avec le compilateur dans le processus Gradle. Cette reprise suit
+un arrêt du daemon Kotlin lors de l’essai incrémental précédent. Les cinq fichiers
+de produit et de test sont restés identiques pendant le build ; leurs empreintes
+et le résultat sont conservés dans la [preuve de compilation](../docs/visual-evidence/android/final-native-polish-compilation.json).
+Ce résultat confirme la compilation du lot ; il ne remplace pas sa prochaine
+exécution instrumentée et l’inspection de ses captures.

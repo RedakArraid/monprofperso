@@ -57,14 +57,26 @@ utilise le vrai Keychain de l’application signée localement pour le simulateu
 Les 25 images ont été inspectées ; six originaux et le manifeste de toutes les
 captures sont conservés dans le [dossier de preuves iOS](visual-evidence/ios/README.md).
 
-Sur **Android 36, téléphone de 360 dp**, le parcours instrumenté passe en
-60,119 secondes et la collecte UTP récupère 23 captures avec leurs métadonnées.
-Leur inspection révèle toutefois des frames anciennes : l’écran précédent
-apparaît encore dans certains PNG, malgré des assertions d’interface réussies.
-Ce lot ne valide donc pas le rendu final à 200 % ni en paysage. Le prochain
-passage doit contrôler la correspondance exacte entre la fenêtre rendue et
-l’écran présenté avant d’accepter une capture. Son résultat sera consigné dans
-le [rapport Android par révision](../android/VISUAL-VALIDATION.md).
+Sur **Android 36, téléphone de 360 dp**, le [passage `6bd10c1`](https://github.com/RedakArraid/monprofperso/actions/runs/40756599455/job/123057065911)
+réussit le parcours instrumenté en **78,572 secondes**. Les **23 captures sont
+distinctes**, avec 23 métadonnées : la comparaison stricte de la fenêtre rendue
+avec l’écran présenté a éliminé les anciennes frames du passage précédent.
+Les rendus à 100 % et 200 % sont différents, le clavier reste visible sur les
+captures prévues et le paysage n’a plus de bande noire. L’inspection de ces
+images révèle encore deux détails : le contraste des icônes système sur
+l’inscription et les mots coupés des onglets à 200 %. Leur correction sera
+vérifiée sur la révision suivante avant de conserver les preuves définitives.
+Le [rapport Android par révision](../android/VISUAL-VALIDATION.md) détaille
+les captures rejetées, la synchronisation et les résultats de chaque passage.
+
+La revue des écrans accessibles depuis le compte a aussi trouvé, sur les deux
+applications, trois ressources pédagogiques de démonstration utilisées à la
+place d’une réponse vide ou d’une erreur. Ce repli est supprimé ; les nouveaux
+parcours distinguent le vide, l’erreur et son réessai. Le contrat de fixture a
+été vérifié localement : liste vide pour le compte 0198, HTTP 503 pour le compte
+0199, après challenge et OTP. Ce delta de produit et ses nouveaux parcours
+nécessitent leur propre CI native ; le succès des captures antérieures ne leur
+est pas attribué.
 
 Les premiers passages et leurs corrections restent traçables :
 
@@ -73,6 +85,7 @@ Les premiers passages et leurs corrections restent traçables :
 | [`3539dc3`](https://github.com/RedakArraid/monprofperso/actions/runs/40745829826) | Android : navigation après OTP hors du thread principal, corrigée dans `NavActions`. iOS : vrai Keychain indisponible dans l’application non signée ; signature locale du simulateur ajoutée. |
 | [`7d926c0`](https://github.com/RedakArraid/monprofperso/actions/runs/40749309467) | Parcours Android et iOS réussis. Collecte Android après désinstallation en échec : remplacée par la collecte UTP avant désinstallation. Les captures iOS ont conduit aux derniers correctifs de contraste et de grandes polices. |
 | [`2c1b4c0`](https://github.com/RedakArraid/monprofperso/actions/runs/40752999558) | Quatre jobs réussis ; derniers parcours iOS et WebKit validés. Captures Android récupérées mais décalées : synchronisation de l’écran à vérifier. |
+| [`6bd10c1`](https://github.com/RedakArraid/monprofperso/actions/runs/40756599455) | Parcours Android et collecte réussis, 23 PNG distincts avec correspondance exacte à la fenêtre. L’inspection permet d’identifier les derniers détails de barre système et de navigation agrandie. |
 
 Ces résultats ne sont pas une certification d’accessibilité ni une validation
 sur tous les appareils. L’installation signée, VoiceOver/TalkBack, les claviers
@@ -137,9 +150,15 @@ suivi séparément dans [PRODUCTION-OPERATIONS.md](PRODUCTION-OPERATIONS.md).
   français des formats de cours. Les initiales décoratives et les pastilles
   de notification restent lisibles avec de grandes polices. Le nom complet
   conserve son agrandissement et le bouton annonce le nombre de notifications.
-- Navigation iOS agrandie défilable avec une vérification par gestes jusqu’au
-  dernier onglet, puis retour à l’accueil ; contenu de connexion limité à sa
-  zone défilable.
+- Navigations agrandies défilables avec des libellés entiers et une vérification
+  par gestes jusqu’au dernier onglet, puis retour à l’accueil ; taille de texte
+  non plafonnée. Le contenu de connexion iOS reste dans sa zone défilable.
+- Style des icônes système Android appliqué par la destination effectivement
+  active après transition ; dates des cours en attente avec un orange plus
+  contrasté sur leur fond clair.
+- Ressources pédagogiques issues uniquement de l’API, sans exemples ajoutés en
+  cas de vide ou de panne ; états explicites, réessai et filtres accessibles
+  annonçant leur sélection.
 - Apparence claire cohérente sur les écrans conçus avec la palette claire ; il
   n’est pas annoncé de thème sombre complet non implémenté.
 

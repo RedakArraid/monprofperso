@@ -150,8 +150,8 @@ fun PillTab(label: String, selected: Boolean, onClick: () -> Unit = {}) {
 private fun DateTile(day: String, num: String, green: Boolean) {
     Column(Modifier.widthIn(min = 56.dp, max = 90.dp).heightIn(min = 56.dp).clip(RoundedCornerShape(14.dp)).background(if (green) AkColors.GreenSoft else AkColors.OrangeSoft).padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Text(day, fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 10.sp, color = if (green) AkColors.Green else AkColors.Orange)
-        Text(num, fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = if (green) AkColors.Green else AkColors.Orange)
+        Text(day, fontFamily = Hanken, fontWeight = FontWeight.SemiBold, fontSize = 10.sp, color = if (green) AkColors.Green else AkColors.OrangeStrong)
+        Text(num, fontFamily = Schibsted, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = if (green) AkColors.Green else AkColors.OrangeStrong)
     }
 }
 

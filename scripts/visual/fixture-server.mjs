@@ -122,7 +122,7 @@ const server = http.createServer(async (req, res) => {
       challenges.delete(data.challengeId); return send(challenge(found));
     }
     if (path === '/api/me') return user ? send(user) : send({ error: 'unauthorized' }, 401);
-    if (user?.scenario === 'error' && ['/api/teachers', '/api/courses', '/api/progress', '/api/notifications'].includes(path)) {
+    if (user?.scenario === 'error' && ['/api/teachers', '/api/courses', '/api/progress', '/api/notifications', '/api/resources'].includes(path)) {
       return send({ error: 'visual_service_unavailable', message: 'Le service est momentanément indisponible. Réessayez dans un instant.' }, 503);
     }
     if (path === '/api/subjects') return send(subjects);
