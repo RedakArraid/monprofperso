@@ -359,3 +359,34 @@ conserve le résultat exact de cette vérification locale.
 
 Preuves conservées : [compilation des deux fichiers de test](../docs/visual-evidence/android/evidence-guards-compilation.json)
 et [analyse des pixels des PNG originaux](../docs/visual-evidence/android/system-bar-pixel-analysis.json).
+
+
+## Révision a035f18 : recette finale réussie et inspectée
+
+Le [job Android 123085728504](https://github.com/RedakArraid/monprofperso/actions/runs/40764741671/job/123085728504)
+valide la tête **a035f18971973179d22167d8cce84bcd2a443ea7**, par la fusion
+**56308d02ad68ba4e7681cd07895fee3f559083d6**, d’arbre **1aaaeef61cf57019621d93074d28196ef3735e0b**.
+
+Le build, les tests JVM et le parcours instrumenté ont réussi. Le XML indique
+**1 test, 0 échec, 0 erreur et 0 ignoré**, suite **55,524 s**, scénario **48,58 s**.
+La collecte conserve **25 PNG distincts**, leurs 25 JSON et les deux journaux
+de navigation. Les 25 images ont toutes été inspectées en résolution originale :
+aucun nouveau défaut de mise en page bloquant n’a été observé.
+
+Les dix mesures confirment des libellés entiers à 200 %. Quatre vrais gestes
+permettent d’atteindre Compte et de revenir à Accueil pour les deux rôles.
+Le garde SystemUI valide l’horloge et la poignée sombres. Le bouton Réessayer
+satisfait le minimum explicite de 48 dp ; son activation laisse un état
+d’indisponibilité explicite lorsque la fixture retourne toujours 503.
+Le vide, le clavier de connexion/OTP et le paysage ont également été inspectés.
+
+Les [neuf PNG originaux et leur manifeste](../docs/visual-evidence/android/README.md)
+sont conservés à partir de l’artefact **12850431280**, ZIP de **2677628 octets**,
+SHA256 **70dca29e4e85d0133fac19259d05cb9049f6ca877f4b23f65e5edf80e50518ae**. L’archivage a été repris depuis GitHub après la panne du
+workspace local, sans changer les captures ni leur provenance de validation.
+Les compilations historiques ci-dessus gardent leurs révisions d’origine ;
+cette archive ne réattribue pas le décompte initial de 15 tests JVM.
+
+Les limites restent celles de l’émulateur API 36 et des fixtures locales :
+appareils physiques, TalkBack, distribution signée et prestataires réels
+demandent leur propre recette.
