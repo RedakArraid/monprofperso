@@ -310,5 +310,52 @@ pendant le build ; le code produit est inchangé par rapport à `4601340`.
 Cette compilation et l’analyse des pixels précédents ne remplacent pas le
 prochain parcours complet et la revue de ses nouvelles captures.
 
+## Révision 7c21d3a : navigation et SystemUI confirmés, bouton de réessai à agrandir
+
+Le [job Android du run 40763300709](https://github.com/RedakArraid/monprofperso/actions/runs/40763300709/job/123080653142)
+contrôle la tête `7c21d3a021f360233b3dd6e4ef2a2913d86555a2`, via la fusion
+temporaire `2ed3c13bd714e8ca0dcc648b52765661b7efcd59`. Les deux commits ont
+l’arbre `342325e729c11160b2afdf32ce90797a8ebed320`. Build et tests JVM ont réussi.
+Le XML du 28 octobre 2026 à 20:32:01 UTC indique un test instrumenté, un échec,
+aucune erreur ni étape ignorée, en 56,612 secondes. L’échec porte sur la boîte
+sémantique de « Réessayer » des ressources : 40 dp au lieu du minimum de 48 dp.
+
+La collecte a réussi. L’[artefact 12849836575](https://github.com/RedakArraid/monprofperso/actions/runs/40763300709/artifacts/12849836575)
+contient 24 PNG distincts, dont la capture d’échec sur la bannière de réessai,
+leurs JSON et les deux journaux de navigation. Le ZIP de 2 396 817 octets a le
+SHA-256 vérifié `a604f6701d8cb1e44ee7499be357ee73e1f32bf2e9c907824f053a08d871d95b`.
+Le réessai lui-même et la dernière capture paysage ne sont pas atteints.
+
+Les dix dispositions de libellés sont complètes sur une ligne, sans ellipse ni
+débordement de hauteur. Pour le premier « Accueil », la largeur réelle et
+intrinsèque est de 160 px, la hauteur de 64 px ; la largeur du `MultiParagraph`
+sémantique est de 2 147 483 648 px avec une contrainte maximale de 2 147 483 647.
+Cela confirme à l’exécution le diagnostic de `didOverflowWidth`. Les journaux
+attestent quatre glissements réels réussis : un vers « Compte », un retour
+vers « Accueil », pour le parent puis le professeur. Les rendus à 200 % montrent
+des libellés entiers sur le rail horizontal.
+
+La capture d’inscription montre l’horloge et la poignée de navigation sombres.
+Le JSON confirme 192 pixels d’horloge et 1 708 pixels de poignée au contraste
+requis, sur des fonds PixelCopy uniformes ; respectivement 8 767/9 216 et
+15 556/17 280 pixels écran correspondent exactement à ces fonds. Le garde de
+capture reste inchangé.
+
+`OfflineBanner` donne maintenant à son `TextButton` « Réessayer » une boîte
+minimale explicite de 48 × 48 dp par `sizeIn`, qui peut grandir avec le texte.
+Le contrôle de 48 dp est conservé. Cette modification rend la géométrie visible
+et sémantique explicite, sans dépendre de l’éventuelle extension tactile implicite
+de Material. Aucun autre composant, contrat API ou fichier de test ne change.
+
+La compilation Kotlin Debug a réussi le 28 octobre 2026 à 20:34 UTC, en
+39 secondes. La tâche `compileDebugAndroidTestKotlin` a été demandée dans la
+même commande et déclarée à jour : ses deux fichiers restent strictement
+identiques à ceux de `7c21d3a`. La compilation non incrémentale a utilisé le
+compilateur dans le processus Gradle, sans modification des trois sources
+enregistrées pendant le build. Le nouveau minimum du bouton et la fin du
+parcours restent à confirmer dans la prochaine recette native.
+La [preuve de compilation et ses trois empreintes](../docs/visual-evidence/android/retry-target-compilation.json)
+conserve le résultat exact de cette vérification locale.
+
 Preuves conservées : [compilation des deux fichiers de test](../docs/visual-evidence/android/evidence-guards-compilation.json)
 et [analyse des pixels des PNG originaux](../docs/visual-evidence/android/system-bar-pixel-analysis.json).

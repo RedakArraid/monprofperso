@@ -76,9 +76,17 @@ Le passage Android `4601340` compile et produit neuf images partielles. Le rail
 agrandi affiche désormais les libellés entiers, mais le parcours s’arrête sur
 une mesure sémantique inadaptée à la largeur non bornée du défilement dans
 Compose 1.7.2. Le contrôle est corrigé avec les dimensions intrinsèques réelles,
-la ligne complète et l’inclusion dans le viewport ; les gestes seront de nouveau
-exécutés. La capture de l’inscription vérifie aussi les pixels réellement rendus
+la ligne complète et l’inclusion dans le viewport. La capture de l’inscription
+vérifie aussi les pixels réellement rendus
 par SystemUI, car les flags de style pouvaient précéder leur présentation.
+
+Le [passage `7c21d3a`](https://github.com/RedakArraid/monprofperso/actions/runs/40763300709/job/123080653142)
+valide ces contrôles : dix mesures de libellés entiers, quatre vrais gestes
+horizontaux entre Accueil et Compte pour les deux rôles, ainsi que l’horloge et
+la poignée système sombres sur l’inscription. Les 24 images partielles sont
+distinctes. Le scénario atteint les ressources, puis s’arrête sur la boîte
+de 40 dp du bouton Réessayer : ce composant partagé reçoit un minimum explicite
+de 48 dp, sans réduire l’assertion. Un nouveau passage complet reste nécessaire.
 
 La revue des écrans accessibles depuis le compte a aussi trouvé, sur les deux
 applications, trois ressources pédagogiques de démonstration utilisées à la
@@ -86,9 +94,9 @@ place d’une réponse vide ou d’une erreur. Ce repli est supprimé ; les nouv
 parcours distinguent le vide, l’erreur et son réessai. Le contrat de fixture a
 été vérifié localement : liste vide pour le compte 0198, HTTP 503 pour le compte
 0199, après challenge et OTP. Le nouveau parcours iOS valide le filtre sélectionné,
-l’absence des exemples, l’erreur et le réessai. Le parcours Android doit encore
-être exécuté jusqu’à ces étapes après correction de son contrôle de navigation ;
-le succès des captures antérieures ne lui est pas attribué.
+l’absence des exemples, l’erreur et le réessai. Le passage Android `7c21d3a`
+atteint les états vide et erreur sans exemples ; son réessai et la fin du parcours
+doivent encore être exécutés après correction de la taille de ce bouton.
 
 Les premiers passages et leurs corrections restent traçables :
 
@@ -99,6 +107,7 @@ Les premiers passages et leurs corrections restent traçables :
 | [`2c1b4c0`](https://github.com/RedakArraid/monprofperso/actions/runs/40752999558) | Quatre jobs réussis ; derniers parcours iOS et WebKit validés. Captures Android récupérées mais décalées : synchronisation de l’écran à vérifier. |
 | [`6bd10c1`](https://github.com/RedakArraid/monprofperso/actions/runs/40756599455) | Parcours Android et collecte réussis, 23 PNG distincts avec correspondance exacte à la fenêtre. L’inspection permet d’identifier les derniers détails de barre système et de navigation agrandie. |
 | [`4601340`](https://github.com/RedakArraid/monprofperso/actions/runs/40759860433) | iOS : 11 unitaires et quatre parcours UI réussis, dont les nouveaux états Ressources ; 28 captures inspectées. Android compile, mais s’arrête sur un faux positif de mesure du rail dans Compose 1.7.2 ; contrôle et synchronisation SystemUI corrigés, à revalider. |
+| [`7c21d3a`](https://github.com/RedakArraid/monprofperso/actions/runs/40763300709) | Android : navigation à 200 %, gestes réels et pixels SystemUI validés ; 24 captures partielles. Le parcours atteint les ressources et révèle un bouton Réessayer de 40 dp, porté explicitement à 48 dp avant une nouvelle exécution complète. |
 
 Ces résultats ne sont pas une certification d’accessibilité ni une validation
 sur tous les appareils. L’installation signée, VoiceOver/TalkBack, les claviers
@@ -226,8 +235,8 @@ npm run test:visual:webkit -- --output=test-results/webkit --reporter=list,json,
 Playwright démarre automatiquement le serveur local de fixtures et le site sur
 les ports 8099 et 8095. Un marqueur explicite est exigé sur `/health`, et les appels
 API distants sont refusés par la recette. Les données de recette ne font pas
-partie de l’API déployée. Les 12 scénarios utilisent une connexion HTTP 202 puis la
-saisie d’un code ; ils ne mettent pas directement un JWT dans le navigateur.
+partie de l’API déployée. Les parcours connectés utilisent une connexion HTTP 202
+puis la saisie d’un code ; ils ne mettent pas directement un JWT dans le navigateur.
 
 Le cas de détail d’offre fournit une opportunité synthétique uniquement au test
 concerné, car la fixture commune fournit d’abord une réservation directe. Cette

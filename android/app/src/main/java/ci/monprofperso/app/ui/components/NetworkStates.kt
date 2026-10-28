@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -49,7 +50,7 @@ fun OfflineBanner(onRetry: () -> Unit, modifier: Modifier = Modifier) {
             "Connexion indisponible", fontFamily = Hanken, fontWeight = FontWeight.SemiBold,
             fontSize = 12.sp, color = Color(0xFF8A5B33), modifier = Modifier.weight(1f),
         )
-        TextButton(onClick = onRetry) {
+        TextButton(onClick = onRetry, modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)) {
             Text("Réessayer", fontFamily = Hanken, fontWeight = FontWeight.Bold, fontSize = 14.sp,
                 color = AkColors.OrangeStrong)
         }
